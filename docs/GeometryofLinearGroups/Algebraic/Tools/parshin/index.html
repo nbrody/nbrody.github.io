@@ -43,7 +43,7 @@
     <div id="tab-group" class="tab-content active">
       <div>
         <h2 class="panel-title">Matrix Generators</h2>
-        <p class="panel-subtitle">Elements of SL₂(ℤ[t]): 2×2 matrices whose entries are polynomials in t, of determinant 1. Click a generator under the picture to watch it act on the tree of planes; ⌘/Ctrl-click for its inverse.</p>
+        <p class="panel-subtitle">Elements of PGL₂(ℚ(t)): 2×2 matrices whose entries are rational functions of t, such as 1/t or t/(t−1), with nonzero determinant. Click a generator under the picture to watch it act on the tree of planes; ⌘/Ctrl-click for its inverse.</p>
       </div>
 
       <div class="control-group">
@@ -149,7 +149,12 @@
         <h3 class="info-title">Frames and the action</h3>
         <p>A vertex is named by its path of cusps $w_1, \dots, w_n$ from $v_0$, and its plane is drawn in the frame $g_v = T_{w_1} \cdots T_{w_n}$ with $T_w = \begin{pmatrix} \pi & w \\ 0 & 1 \end{pmatrix}$, $T_\infty = \begin{pmatrix} 0 & -1 \\ \pi & 0 \end{pmatrix}$: the cusp $\infty$ of every plane points back to its parent.</p>
         <p>An element $\gamma$ sends $v$ to $\gamma v$, and $g_{\gamma v}^{-1}\gamma\, g_v$ is, up to a power of $\pi$, in $\mathrm{SL}_2(\mathbb{Q}[[\pi]])$; its reduction mod $\pi$ is the Möbius map $X(v) \to X(\gamma v)$. The animation moves every plane to its image while turning its contents by that map. All of it is computed exactly.</p>
-        <p>$\gamma$ translates an axis of the tree by $2\max(0, \deg \operatorname{tr}\gamma)$; otherwise it fixes a vertex and turns the tree about it.</p>
+        <p>$\gamma$ translates an axis of the tree by $\max(0, v(\det\gamma) - 2v(\operatorname{tr}\gamma))$, which is $2\max(0, \deg \operatorname{tr}\gamma)$ in $\mathrm{SL}_2$; otherwise it fixes a vertex, or swaps the ends of an edge when $v(\det\gamma)$ is odd.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">All of PGL₂(ℚ(t))</h3>
+        <p>The whole of $\mathrm{PGL}_2(\mathbb{Q}((\pi)))$ acts, so every matrix over $\mathbb{Q}(t)$ does: entries are expanded in powers of $\pi = 1/t$, and since scaling changes nothing, each generator is cleared of denominators first. The local maps then lie in $\mathrm{PGL}_2(\mathbb{Q})$, which acts on $\mathbb{H}$ by isometries; those of negative determinant reverse orientation, and the animation turns such a plane over about its diameter through $\infty$ — in three dimensions a reflection is a half-turn.</p>
+        <p>An element whose determinant has odd valuation, like $\operatorname{diag}(t, 1)$, swaps the two colour classes of the tree; the planes change colour as they move.</p>
       </div>
       <div class="info-section">
         <h3 class="info-title">Using it</h3>

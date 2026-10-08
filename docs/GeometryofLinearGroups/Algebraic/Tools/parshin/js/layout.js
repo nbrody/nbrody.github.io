@@ -34,18 +34,28 @@ export function halfCusp(P, Q) {
 
 export const scaleOf = (F) => (F.half ? 1 : F.R);
 
-// The point of the cusp (P : Q) on plane F and the outward unit normal there.
+// The point of the cusp (P : Q) on plane F, the outward unit normal there, and how far the point
+// sits above the plane's height. A plane in mid-flip (F.flip = θ, turned about its diameter
+// through ∞, or the half-plane about x = 0) lifts its cusps out of the horizontal.
 export function attach(F, P, Q) {
-    if (F.half) return halfCusp(P, Q);
-    const s = P * P + Q * Q, a = 2 * P * Q / s, b = (P * P - Q * Q) / s;
-    const nx = a * F.uy + b * F.ux, ny = -a * F.ux + b * F.uy;
-    return [F.cx + F.R * nx, F.cy + F.R * ny, nx, ny];
+    const th = F.flip || 0;
+    if (F.half) {
+        const [x, y, nx, ny] = halfCusp(P, Q);
+        if (!th) return [x, y, nx, ny, 0];
+        const hx = nx * Math.cos(th), l = Math.hypot(hx, ny) || 1;
+        return [x * Math.cos(th), y, hx / l, ny / l, x * Math.sin(th)];
+    }
+    const s = P * P + Q * Q, a = 2 * P * Q / s, b = (P * P - Q * Q) / s, ca = Math.cos(th) * a;
+    const nx = ca * F.uy + b * F.ux, ny = -ca * F.ux + b * F.uy;
+    let l = Math.hypot(nx, ny), mx = nx, my = ny;
+    if (l < 1e-6) { const sg = b < 0 ? -1 : 1; mx = sg * F.ux; my = sg * F.uy; l = 1; }
+    return [F.cx + F.R * nx, F.cy + F.R * ny, mx / l, my / l, th ? F.R * Math.sin(th) * a : 0];
 }
 
-// The child of F at cusp (P : Q) with radius r, at height z.
-export function childFrame(F, P, Q, r, z) {
-    const [x, y, nx, ny] = attach(F, P, Q);
-    return { cx: x + nx * r, cy: y + ny * r, R: r, ux: -nx, uy: -ny, z, base: false };
+// The child of F at cusp (P : Q) with radius r, hanging by an edge of signed height gap.
+export function childFrame(F, P, Q, r, gap) {
+    const [x, y, nx, ny, lift] = attach(F, P, Q);
+    return { cx: x + nx * r, cy: y + ny * r, R: r, ux: -nx, uy: -ny, z: F.z + lift + gap, base: false };
 }
 
 // The standard child at the cusp p/q, in units of the parent's scale: its radius σ and edge ℓ.
@@ -64,7 +74,7 @@ export function rootFrame(st) {
 // The standard child frame, and the gap of its edge.
 export function standardFrame(F, p, q, st) {
     const { sigma, ell } = standardChild(F, p, q, st), sc = scaleOf(F), gap = edgeGap(ell, sc, st);
-    return { F: childFrame(F, p, q, sigma * sc, F.z + gap), gap };
+    return { F: childFrame(F, p, q, sigma * sc, gap), gap };
 }
 
 // The frame of the vertex with these labels (BigInt cusps), walking down from the root.

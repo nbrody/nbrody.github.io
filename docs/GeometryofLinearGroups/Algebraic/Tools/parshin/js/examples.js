@@ -26,6 +26,21 @@ export const EXAMPLES = [
         note: 'The entry t² has valuation −2, so this fixes the plane two steps out toward ∞ and moves v₀ a distance 4.',
     },
     {
+        name: 'ℚ[t, 1/t]: trivial on v₀, a translation on its neighbours',
+        gens: [['1', '\\frac{1}{t}', '0', '1'], ['t', '0', '0', '\\frac{1}{t}']],
+        note: 'g₁ = (1 π; 0 1) fixes v₀ and acts trivially on its plane, but turns the plane at every finite cusp by z ↦ z + 1. g₂ = diag(t, 1/t) translates the axis from 0 to ∞ by 2.',
+    },
+    {
+        name: 'PGL₂: a reflection, an inversion, a shift by one',
+        gens: [['-1', '0', '0', '1'], ['0', '1', 't', '0'], ['t', '0', '0', '1']],
+        note: 'g₁ fixes every plane of the axis and turns the whole tree over (z ↦ −z̄ on each plane). g₂ has determinant −t, of odd valuation: it swaps v₀ with the plane at 0, flipping both. g₃ = diag(t, 1) translates by 1, so every plane changes colour.',
+    },
+    {
+        name: 'Rational functions of t',
+        gens: [['1', '\\frac{t}{t-1}', '0', '1'], ['1', '0', '\\frac{1}{1+t}', '1']],
+        note: 't/(t−1) = 1 + π + π² + …: g₁ fixes v₀ and acts there as z ↦ z + 1, with the tail of the series acting deeper down. 1/(1+t) = π − π² + … has positive valuation, so g₂ fixes v₀ and its plane pointwise.',
+    },
+    {
         name: 'A unipotent with quadratic entries',
         gens: [['1+2t', '4', '-t^2', '1-2t']],
         note: 'Trace 2: a unipotent element, fixing the end −2/t of the tree.',

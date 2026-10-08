@@ -13,9 +13,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { farey, diskSet, baseDiskSet } from './farey.js';
-import { L, fromPoly, mmul, adj, det, IDENTITY, isScalar, lTex, toPoly, polyTex } from './laurent.js';
-import { parsePoly } from './polyParse.js';
-import { frameOf, vertexOf, localMap, classify, keyOf, cuspKey, isPrefix, toFloat, fmul, finv, mobiusPath } from './treeAction.js';
+import { fromPoly, mmul, adj, det, IDENTITY, isScalar, lTex, normalizePGL } from './laurent.js';
+import { parseRat } from './polyParse.js';
+import { polyMatrix } from './poly.js';
+import { frameOf, vertexOf, localMap, classify, keyOf, cuspKey, isPrefix, toFloat, fmul, finv, fdet, fnorm, RHO, mobiusPath } from './treeAction.js';
 import { HALF, childFrame, standardChild, edgeGap, rootFrame, frameAt, lerpFrame, scaleOf } from './layout.js';
 import * as UI from './panel.js';
 import { EXAMPLES } from './examples.js';
@@ -129,18 +130,21 @@ class Segs {
 }
 
 // ---------- drawing a disk plane: local (a, b) ↦ c + R(a·r + b·u), r = (u_y, −u_x) ----------
-const wx = (F, a, b) => F.cx + F.R * (a * F.uy + b * F.ux);
-const wy = (F, a, b) => F.cy + F.R * (-a * F.ux + b * F.uy);
+// In mid-flip the disk is turned by F.flip about its diameter through ∞: a·r becomes a·(cos θ·r + sin θ·up).
+function tw(F, a, b) {
+    const th = F.flip;
+    const c = th ? Math.cos(th) * a : a;
+    return [F.cx + F.R * (c * F.uy + b * F.ux), th ? F.z + F.R * Math.sin(th) * a : F.z, -(F.cy + F.R * (-c * F.ux + b * F.uy))];
+}
 const Bv = (P_, Q_) => { const s = P_ * P_ + Q_ * Q_; return [2 * P_ * Q_ / s, (P_ * P_ - Q_ * Q_) / s]; };
 const vec = (C, p, q) => (C ? [C[0] * p + C[1] * q, C[2] * p + C[3] * q] : [p, q]);
 
 function polyLocal(L_, F, k, f, col) {
-    let [a, b] = f(0), x0 = wx(F, a, b), y0 = wy(F, a, b);
+    let p0 = tw(F, ...f(0));
     for (let i = 1; i <= k; i++) {
-        [a, b] = f(i);
-        const x1 = wx(F, a, b), y1 = wy(F, a, b);
-        L_.seg(x0, F.z, -y0, x1, F.z, -y1, col);
-        x0 = x1; y0 = y1;
+        const p1 = tw(F, ...f(i));
+        L_.seg(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], col);
+        p0 = p1;
     }
 }
 function circleLocal(L_, F, ca, cb, r, rs, col) {
@@ -163,8 +167,8 @@ function geodesicLocal(L_, F, [ax, ay], [cx, cy], rs, col) {
 }
 
 function drawDisk(L_, rec, rs) {
-    const F = rec.F, k = rec.dep % 2, C = rec.C;
-    circleLocal(L_, F, 0, 0, 1, rs, P.str[k]);
+    const F = rec.F, C = rec.C;
+    circleLocal(L_, F, 0, 0, 1, rs, mixRGBA(P.str, rec));
     if (!(rs > DETAIL_PX && (st.far || st.hor))) return;
     const Nc = rs > 140 ? st.N : rs > 50 ? Math.min(st.N, 4) : Math.min(st.N, 2);
     // carried contents can bring the cusps near ∞ into view, so use the set closed under S
@@ -177,15 +181,20 @@ function drawDisk(L_, rec, rs) {
             const [P_, Q_] = vec(C, p, q), D = 2 / (1 + P_ * P_ + Q_ * Q_);
             if (D / 2 * rs < 0.8) continue;
             const [ba, bb] = Bv(P_, Q_);
-            circleLocal(L_, F, ba * (1 - D / 2), bb * (1 - D / 2), D / 2, D / 2 * rs, P.horo[k]);
+            circleLocal(L_, F, ba * (1 - D / 2), bb * (1 - D / 2), D / 2, D / 2 * rs, mixRGBA(P.horo, rec));
         }
     }
 }
 
 // ---------- drawing the base half-plane (points of ℍ are plane coordinates) ----------
+// mid-flip, the half-plane is turned by halfFlip about the line x = 0
+let halfFlip = 0;
 function fseg(L_, x1, y1, x2, y2, col) {
     const a1 = fade(x1, y1), a2 = fade(x2, y2);
-    if (a1 > 0 || a2 > 0) L_.seg(x1, 0, -y1, x2, 0, -y2, col, a1, a2);
+    if (!(a1 > 0 || a2 > 0)) return;
+    if (!halfFlip) { L_.seg(x1, 0, -y1, x2, 0, -y2, col, a1, a2); return; }
+    const c = Math.cos(halfFlip), s = Math.sin(halfFlip);
+    L_.seg(x1 * c, x1 * s, -y1, x2 * c, x2 * s, -y2, col, a1, a2);
 }
 function halfArc(L_, x0, y0, r, t0, t1, col) {
     const rs = pxRadius(x0, 0, y0, r);
@@ -224,6 +233,8 @@ function halfHorocycle(L_, [P_, Q_], col) {
 }
 function drawHalf(L_, rec) {
     const { X } = HALF, C = rec.C;
+    halfFlip = rec.F.flip || 0;
+    halfMesh.rotation.z = halfFlip;
     for (let i = 0; i < 60; i++) fseg(L_, -X + 2 * X * i / 60, 0, -X + 2 * X * (i + 1) / 60, 0, P.axis);
     if (!C) {
         const R0 = farey(-X, X, st.N);
@@ -242,6 +253,20 @@ function drawHalf(L_, rec) {
     if (st.hor) for (const [p, q] of set.v) halfHorocycle(L_, vec(C, p, q), P.horo[0]);
 }
 
+// Planes are coloured by the parity of their distance from v₀. An element whose determinant has
+// odd valuation swaps the two classes, and the animation cross-fades: rec.mix = [k0, k1, e].
+const mixC = new THREE.Color();
+function mixColor(list, rec) {
+    if (!rec.mix) return list[rec.dep % 2];
+    const [k0, k1, e] = rec.mix;
+    return mixC.copy(list[k0]).lerp(list[k1], e);
+}
+function mixRGBA(list, rec) {
+    if (!rec.mix) return list[rec.dep % 2];
+    const [k0, k1, e] = rec.mix, A = list[k0], B = list[k1];
+    return A.map((x, i) => x + (B[i] - x) * e);
+}
+
 // ---------- the current element and the decorations it carries ----------
 let gens = [];
 let g = IDENTITY, gInv = IDENTITY, gIsId = true, word = [];
@@ -251,7 +276,7 @@ function decorOf(labels, key) {
     let d = decor.get(key);
     if (!d) {
         const { labels: src, h } = localMap(gInv, labels);
-        d = { C: finv(toFloat(h)), src };
+        d = { C: fnorm(finv(toFloat(h))), src };
         decor.set(key, d);
     }
     return d.C;
@@ -293,7 +318,7 @@ function visit(F, gap, labels, parent, dep) {
             const { sigma, ell } = standardChild(F, p, q, st), r = sigma * R;
             if (r * pxk / near < MIN_PX) break;                      // the cusps come largest first
             const gp = edgeGap(ell, R, st);
-            visit(childFrame(F, p, q, r, F.z + gp), gp, [...labels, [BigInt(p), BigInt(q)]], idx, dep + 1);
+            visit(childFrame(F, p, q, r, gp), gp, [...labels, [BigInt(p), BigInt(q)]], idx, dep + 1);
         }
     }
     return true;
@@ -322,8 +347,11 @@ function build() {
 }
 
 // Draw a list of planes: fills as instances, everything else as one set of line segments.
+const axis = new THREE.Vector3(), S3 = new THREE.Vector3();
 function drawRecs(list) {
     let nHi = 0, nLo = 0;
+    halfFlip = 0;
+    halfMesh.rotation.z = 0;
     const L_ = new Segs();
     for (const rec of list) {
         const F = rec.F;
@@ -334,9 +362,10 @@ function drawRecs(list) {
         const hi = rs > 60;
         if ((hi ? nHi : nLo) >= MAXP) continue;
         const m = hi ? diskHi : diskLo, i = hi ? nHi++ : nLo++;
-        M4.makeScale(F.R, 1, F.R).setPosition(F.cx, F.z, -F.cy);
+        if (F.flip) M4.makeRotationAxis(axis.set(F.ux, 0, -F.uy), -F.flip).scale(S3.set(F.R, 1, F.R)).setPosition(F.cx, F.z, -F.cy);
+        else M4.makeScale(F.R, 1, F.R).setPosition(F.cx, F.z, -F.cy);
         m.setMatrixAt(i, M4);
-        m.setColorAt(i, P.fill[rec.dep % 2]);
+        m.setColorAt(i, mixColor(P.fill, rec));
         rec.mesh = m; rec.inst = i;
         drawDisk(L_, rec, rs);
         if (rec.gap) {
@@ -393,9 +422,13 @@ function startNext() {
     const fc = new Map();
     for (const it of items.values()) {
         const { labels: lu, h } = localMap(job.M, it.labels);
-        it.H = mobiusPath(toFloat(h));
+        // an orientation-reversing local map is the flip ρ: z ↦ −z̄ after ρh, which turns the plane over
+        const hf = toFloat(h);
+        it.flip = fdet(hf) < 0;
+        it.H = mobiusPath(it.flip ? fmul(RHO, hf) : hf);
         it.d = decorOf(it.labels, it.key);
         it.dep = it.labels.length;
+        it.dep1 = lu.length;
         const a = frameAt(it.labels, st, fc), b = frameAt(lu, st, fc);
         Object.assign(it, { F0: a.F, F1: b.F, gap0: a.gap, gap1: b.gap });
         it.spine = isPrefix(it.labels, spine);
@@ -425,11 +458,13 @@ function animFrame(s) {
             const V = [Hp[0] * it.w[0] + Hp[1] * it.w[1], Hp[2] * it.w[0] + Hp[3] * it.w[1]];
             const sc = scaleOf(Pf), sig = Math.exp(Math.log(it.sig0) + (Math.log(it.sig1) - Math.log(it.sig0)) * e);
             gap = edgeGap(it.ell0 + (it.ell1 - it.ell0) * e, sc, st);
-            F = childFrame(Pf, V[0], V[1], sig * sc, Pf.z + gap);
+            F = childFrame(Pf, V[0], V[1], sig * sc, gap);
         }
+        if (it.flip) F = { ...F, flip: Math.PI * e };
         it.Hs = it.H(e);
         frames.set(it.key, F);
-        out.push({ F, gap, labels: it.labels, key: it.key, dep: it.dep, C: it.d ? fmul(it.Hs, it.d) : it.Hs });
+        const mix = it.dep % 2 !== it.dep1 % 2 ? [it.dep % 2, it.dep1 % 2, e] : null;
+        out.push({ F, gap, labels: it.labels, key: it.key, dep: it.dep, mix, C: it.d ? fmul(it.Hs, it.d) : it.Hs });
     }
     recs = out;
     drawRecs(out);
@@ -441,8 +476,8 @@ function stepAnim(now) {
     animFrame(s);
     if (s < 1) return;
     const { job } = anim;
-    g = mmul(job.M, g);
-    gInv = mmul(gInv, job.Minv);
+    g = normalizePGL(mmul(job.M, g));
+    gInv = normalizePGL(mmul(gInv, job.Minv));
     gIsId = isScalar(g);
     const [i, e] = job.letter;
     if (word.length && word[0][0] === i && word[0][1] === -e) word.shift(); else word.unshift(job.letter);
@@ -465,20 +500,21 @@ function resetElement() {
 }
 
 // ---------- generators ----------
+// Entries are rational functions of t. In PGL₂ a matrix can be scaled, so each generator is
+// cleared of denominators and common factors; the engine then works with polynomials in t.
 const ENTRY = ['(1,1)', '(1,2)', '(2,1)', '(2,2)'];
-const plainPoly = (a) => polyTex(a).replace(/\^\{(\d+)\}/g, '^$1').replace(/\\tfrac\{(\d+)\}\{(\d+)\}/g, '$1/$2');
 function readGenerators() {
     return UI.readMatrices().map((entries, gi) => {
-        const M = entries.map((src, e) => {
-            try { return fromPoly(parsePoly(src)); } catch (err) {
+        const rats = entries.map((src, e) => {
+            try { return parseRat(src); } catch (err) {
                 throw Object.assign(new Error(`g${gi + 1}, entry ${ENTRY[e]}: ${err.message}.`), { where: { gen: gi, entry: e } });
             }
         });
-        const D = det(M);
-        if (!D.sub(L.ONE).isZero()) {
-            throw Object.assign(new Error(`g${gi + 1} has determinant ${plainPoly(toPoly(D) || [])}; elements of SL₂ need determinant 1.`), { where: { gen: gi } });
-        }
-        return { M, Minv: adj(M), info: classify(M) };
+        if (rats.every((r) => !r.num.length)) throw Object.assign(new Error(`g${gi + 1} is the zero matrix.`), { where: { gen: gi } });
+        const M = polyMatrix(rats).map(fromPoly);
+        if (det(M).isZero()) throw Object.assign(new Error(`g${gi + 1} has determinant 0, so it is not in PGL₂.`), { where: { gen: gi } });
+        const at0 = localMap(M, []).h;
+        return { M, Minv: adj(M), info: classify(M), flips: at0[0].mul(at0[3]).sub(at0[1].mul(at0[2])).sign() < 0 };
     });
 }
 function refreshGenerators() {
@@ -503,11 +539,12 @@ const gName = (i, e = 1) => `g<sub>${i + 1}</sub>${e < 0 ? '<sup>−1</sup>' : '
 function showGenSummary() {
     const el = $('gen-summary');
     if (!gens.length) { el.innerHTML = '<span class="label-hint">No generators.</span>'; return; }
-    el.innerHTML = gens.map(({ info }, i) => {
+    el.innerHTML = gens.map(({ info, flips }, i) => {
         const d = info.moved.length;
         let s;
-        if (info.ell) s = `<span class="kind">hyperbolic</span>: translates an axis by ${info.ell}, and moves v₀ a distance ${d}`;
-        else if (!d) s = '<span class="kind">fixes v₀</span>, acting on its plane by SL₂(ℤ)';
+        if (info.kind === 'hyperbolic') s = `<span class="kind">hyperbolic</span>: translates an axis by ${info.ell}, and moves v₀ a distance ${d}`;
+        else if (info.kind === 'inversion') s = `<span class="kind">inversion</span>: swaps the two ends of the edge from ${pathName(info.edge[0])} to ${pathName(info.edge[1])}`;
+        else if (!d) s = `<span class="kind">fixes v₀</span>, ${flips ? 'reflecting its plane' : 'turning its plane'} by an element of PGL₂(ℚ)`;
         else s = `<span class="kind">elliptic</span>: turns the tree about ${pathName(info.fixed)}, moving v₀ a distance ${d}`;
         return `<div><b>${gName(i)}</b> ${s}</div>`;
     }).join('');
