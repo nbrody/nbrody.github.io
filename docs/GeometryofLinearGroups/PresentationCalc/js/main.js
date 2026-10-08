@@ -107,17 +107,19 @@ function setStep(name, status, head, detail = '') {
     renderSteps();
 }
 
-/** Read the inputs exactly: { pstate, exactCtx, read } or { pstate, error } (or { blank } before anything is typed). */
+/**
+ * Read the inputs exactly: { pstate, exactCtx, read } or { pstate, error }.
+ * Before any entry is typed ({ blank }), only the field's definitions are read,
+ * so the field line and the root pickers work from the start.
+ */
 function readInputs() {
     const pstate = input.getState();
-    if (input.isBlank()) { input.markErrors(null); return { pstate, blank: true, error: 'Enter the generators.' }; }
-    const bad = input.entryErrors();
-    if (bad.length) { input.markErrors(null, true); return { pstate, error: `${bad[0].src}: ${bad[0].error}` }; }
+    const blank = input.isBlank();
     try {
-        const { exactCtx, read } = buildGroup(pstate);
+        const { exactCtx, read } = buildGroup(blank ? { ...pstate, mats: [], anti: [] } : pstate);
         input.markErrors(null);
         input.showRoots(read.roots);
-        return { pstate, exactCtx, read };
+        return blank ? { pstate, exactCtx, read, blank, error: 'Enter the generators.' } : { pstate, exactCtx, read };
     } catch (e) {
         input.markErrors(e.where || null);
         return { pstate, error: e.message };
@@ -962,17 +964,16 @@ function wireSarithButtons() {
 
 // ───────────────────────── live field information ─────────────────────────
 
-/** Beside ℚ( … ): what is wrong, or quietly the degree of the field the entries generate. */
+/** The line under the matrices: the field the entries generate ("over ℚ(w)"), or what is wrong. */
 function showFieldStatus(r) {
     const el = $('field-status');
-    if (r.blank) { el.innerHTML = ''; return; }
-    if (r.error) { el.innerHTML = `<span class="err">${esc(r.error)}</span>`; return; }
+    if (r.error && !r.blank) { el.innerHTML = `<span class="err">${esc(r.error)}</span>`; return; }
     if (!r.exactCtx) {
         el.innerHTML = `<span class="err">${esc(`not exact${r.read && r.read.reason ? `: ${r.read.reason}` : ''}`)}</span>`;
         return;
     }
     const K = r.exactCtx.field;
-    el.innerHTML = K.deg > 1 ? esc(`degree ${K.deg}`) : '';
+    el.innerHTML = `over ${tex(K.deg === 1 ? '\\mathbb{Q}' : K.tex())}`;
 }
 
 let editTimer = null;

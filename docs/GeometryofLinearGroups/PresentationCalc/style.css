@@ -74,16 +74,14 @@ input.cell, input.dname, input.dsrc { font: inherit; padding: 4px 8px; border: 1
 
 /* the field the entries live over */
 .field { margin-top: 22px; }
-.field-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 4px; color: var(--muted); font-size: 1.05rem; }
-#field-open .katex, #field-close .katex { font-size: 1.12em; }
-.mq-editable-field.fgen { display: inline-block; min-width: 3.2em; min-height: 32px; padding: 3px 8px; font-size: 1.02rem; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line); border-radius: 6px; }
-.field-status { margin-left: 10px; font-family: var(--sans); font-size: 0.8rem; color: var(--faint); }
-.field-status .err { font-size: 0.84rem; }
+.field-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.field-status { color: var(--muted); font-size: 1.05rem; margin-right: 4px; }
+.field-status .err { font-size: 0.86rem; }
 .die { font-size: 1rem; padding: 0 2px 0 6px; filter: grayscale(0.35); opacity: 0.75; }
 .die:hover { opacity: 1; filter: none; }
 .def { margin-top: 10px; }
-.def-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 6px 10px; align-items: center; max-width: 480px; }
-.def-row .dname { color: var(--ink); min-width: 1.4em; text-align: right; }
+.def-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) 30px; gap: 6px 10px; align-items: center; max-width: 520px; }
+.mq-editable-field.dname { min-width: 2.4em; text-align: center; }
 .def-row .op { font-family: var(--sans); font-size: 0.82rem; color: var(--faint); }
 .def-picker { margin: 6px 0 0; max-width: 260px; }
 .def-picker[hidden] { display: none; }

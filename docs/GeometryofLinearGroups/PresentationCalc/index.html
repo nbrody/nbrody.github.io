@@ -27,9 +27,10 @@
     <button class="quiet add-mat" id="add-mat" title="Add a matrix" aria-label="Add a matrix">+</button>
 
     <div class="field">
-        <div class="field-line" title="Symbols (w), named numbers (a = √2) or numbers (i, √2, ζ₅), separated by commas. A symbol is a root of a polynomial, chosen below.">
-            <span id="field-open"></span><span id="fgen"></span><span id="field-close"></span>
+        <div class="field-line">
             <span class="field-status" id="field-status"></span>
+            <button class="quiet" id="add-root" title="A root of a polynomial, picked by clicking it in the complex plane">+ root</button>
+            <button class="quiet" id="add-value" title="A named number: √2, i, ζ₅, cos(π/5), (1+√5)/2, …">+ number</button>
         </div>
         <div id="defs"></div>
     </div>
