@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree of hyperbolic planes for SL₂(ℤ[t])</title>
+<!-- Libraries: poincare's vendored copies -->
+<link rel="stylesheet" href="../../../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.css">
+<script src="../../../Geometric/Tools/Kleinian/vendor/jquery/jquery-3.7.1.min.js"></script>
+<script src="../../../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.min.js"></script>
+<script>
+    window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }, options: { ignoreHtmlClass: 'tex2jax_ignore' } };
+    // dark is the default, as in poincare; a saved choice or a light system theme overrides it
+    (function () {
+        let t = null;
+        try { t = localStorage.getItem('parshin-theme'); } catch (e) { /* storage blocked */ }
+        if (t === 'light' || (!t && matchMedia('(prefers-color-scheme: light)').matches)) document.documentElement.classList.add('light');
+    })();
+</script>
+<script src="../../../Geometric/Tools/Kleinian/vendor/mathjax/tex-mml-chtml.js" defer></script>
+<script type="importmap">{ "imports": {
+  "three": "../../../Geometric/Tools/Kleinian/vendor/three/three.module.js",
+  "three/addons/": "../../../Geometric/Tools/Kleinian/vendor/three/addons/"
+} }</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="viz-container"><canvas id="cv" aria-label="Tree of hyperbolic planes"></canvas></div>
+
+<div id="hover-chip" class="hover-chip" role="status" aria-live="polite"></div>
+
+<div id="control-panel">
+  <div class="tab-navigation">
+    <button class="tab-btn active" data-tab="group">Group</button>
+    <button class="tab-btn" data-tab="view">View</button>
+    <button class="tab-btn" data-tab="info">Info</button>
+    <button id="refresh-btn" class="collapse-btn" title="Read the generators again" aria-label="Read the generators again"><span class="collapse-icon">⟳</span></button>
+    <button id="collapse-btn" class="collapse-btn" title="Collapse panel (H)"><span class="collapse-icon">×</span></button>
+  </div>
+
+  <div class="panel-content">
+    <!-- Group -->
+    <div id="tab-group" class="tab-content active">
+      <div>
+        <h2 class="panel-title">Matrix Generators</h2>
+        <p class="panel-subtitle">Elements of SL₂(ℤ[t]): 2×2 matrices whose entries are polynomials in t, of determinant 1. Click a generator under the picture to watch it act on the tree of planes; ⌘/Ctrl-click for its inverse.</p>
+      </div>
+
+      <div class="control-group">
+        <div id="matrixInputs"></div>
+        <button id="addMatrixBtn" class="btn btn-add">+ Add Matrix</button>
+      </div>
+      <p id="matrix-error-message" class="error-message"></p>
+
+      <div class="control-group">
+        <div class="control-row">
+          <label for="example-select" class="control-label">Examples</label>
+          <select id="example-select" class="select-input"></select>
+        </div>
+        <p id="example-note" class="label-hint example-note"></p>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">On the tree</label>
+        <div id="gen-summary" class="gen-summary"></div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-row">
+          <label class="control-label">Current element</label>
+          <button id="reset-element" class="btn btn-add-alt btn-inline" title="Go back to the identity">Reset to e</button>
+        </div>
+        <div id="current-word" class="current-word"></div>
+        <div id="current-matrix" class="element-matrix"></div>
+        <p class="label-hint">Each plane shows its own Farey tessellation carried along by the current element, so the picture is that element applied to the tree.</p>
+      </div>
+    </div>
+
+    <!-- View -->
+    <div id="tab-view" class="tab-content">
+      <div><h2 class="panel-title">View Options</h2></div>
+
+      <div class="control-group">
+        <div class="cayley-selector">
+          <span class="cayley-label">Base</span>
+          <div class="cayley-options" id="seg-base">
+            <button class="cayley-opt" data-value="half">Half-plane</button>
+            <button class="cayley-opt" data-value="disk">Disk</button>
+          </div>
+        </div>
+        <div class="cayley-selector">
+          <span class="cayley-label">Camera</span>
+          <div class="cayley-options" id="seg-proj">
+            <button class="cayley-opt" data-value="persp">Perspective</button>
+            <button class="cayley-opt" data-value="ortho">Orthographic</button>
+          </div>
+        </div>
+        <div class="cayley-selector">
+          <span class="cayley-label">Edges</span>
+          <div class="cayley-options" id="seg-edges">
+            <button class="cayley-opt" data-value="q" title="The edge to the plane at p/q has length 1/q (times the parent's radius on a disk)">Length 1/q</button>
+            <button class="cayley-opt" data-value="levels" title="Every edge has the same length: planes sit at their distance from v₀">Levels</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="slider-row"><label for="dep" class="cayley-label">Depth</label><input id="dep" class="opacity-slider" type="range" min="1" max="5" step="1" value="3"><output id="depO"></output></div>
+        <div class="slider-row"><label for="den" class="cayley-label">Max q</label><input id="den" class="opacity-slider" type="range" min="2" max="12" step="1" value="6"><output id="denO"></output></div>
+        <div class="slider-row"><label for="lam" class="cayley-label">Child scale</label><input id="lam" class="opacity-slider" type="range" min="0.3" max="1" step="0.05" value="0.6"><output id="lamO"></output></div>
+        <div class="slider-row"><label for="hgt" class="cayley-label">Edge length</label><input id="hgt" class="opacity-slider" type="range" min="-2" max="2" step="0.05" value="-1"><output id="hgtO"></output></div>
+        <div class="slider-row"><label for="dur" class="cayley-label">Animation</label><input id="dur" class="opacity-slider" type="range" min="0.4" max="4" step="0.1" value="1.6"><output id="durO"></output></div>
+        <p class="label-hint">Negative edge lengths hang each plane below its parent; 0 flattens the tree into one picture.</p>
+      </div>
+
+      <div class="control-group">
+        <button id="toggle-farey" class="toggle-btn">Farey geodesics</button>
+        <button id="toggle-horo" class="toggle-btn">Horoballs</button>
+        <div class="button-pair">
+          <button id="top-view" class="toggle-btn">Top view</button>
+          <button id="reset-view" class="toggle-btn">Reset view</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-row">
+          <span class="control-label">Theme</span>
+          <div class="theme-options" role="group" aria-label="Background theme">
+            <button class="theme-opt" data-theme="dark">Dark</button>
+            <button class="theme-opt" data-theme="light">Light</button>
+          </div>
+        </div>
+        <button id="save-png" class="btn btn-add-alt">⬇ Save PNG</button>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div id="tab-info" class="tab-content">
+      <div>
+        <h2 class="panel-title">The Tree of Planes</h2>
+        <p class="panel-subtitle">SL₂(ℤ[t]) acting on the Bruhat–Tits tree of ℚ((1/t)), with a hyperbolic plane at every vertex.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">The picture</h3>
+        <p>Put $\pi = 1/t$, so $\mathbb{Z}[t] \subset K = \mathbb{Q}((\pi))$, whose valuation ring $\mathbb{Q}[[\pi]]$ has residue field $\mathbb{Q}$. The link of each vertex of the tree of $\mathrm{SL}_2(K)$ is $\mathbb{P}^1(\mathbb{Q})$, the rational cusps of a hyperbolic plane, so every vertex $v$ gets a plane $X(v)$ and every cusp of $X(v)$ carries the plane of a neighbour.</p>
+        <p>The base vertex $v_0$ is the lattice $\mathbb{Q}[[\pi]]^2$; its stabilizer is $\mathrm{SL}_2(\mathbb{Z})$, acting on $X(v_0)$ as usual. The plane at $p/q$ hangs off the cusp $p/q$ as its reflected Ford circle, joined by an edge of length $1/q$.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">Frames and the action</h3>
+        <p>A vertex is named by its path of cusps $w_1, \dots, w_n$ from $v_0$, and its plane is drawn in the frame $g_v = T_{w_1} \cdots T_{w_n}$ with $T_w = \begin{pmatrix} \pi & w \\ 0 & 1 \end{pmatrix}$, $T_\infty = \begin{pmatrix} 0 & -1 \\ \pi & 0 \end{pmatrix}$: the cusp $\infty$ of every plane points back to its parent.</p>
+        <p>An element $\gamma$ sends $v$ to $\gamma v$, and $g_{\gamma v}^{-1}\gamma\, g_v$ is, up to a power of $\pi$, in $\mathrm{SL}_2(\mathbb{Q}[[\pi]])$; its reduction mod $\pi$ is the Möbius map $X(v) \to X(\gamma v)$. The animation moves every plane to its image while turning its contents by that map. All of it is computed exactly.</p>
+        <p>$\gamma$ translates an axis of the tree by $2\max(0, \deg \operatorname{tr}\gamma)$; otherwise it fixes a vertex and turns the tree about it.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">Using it</h3>
+        <p>Drag to orbit, right-drag to pan, scroll to zoom; click a plane to fly to it, and hover one to see its path from $v_0$. H hides the panel.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="isometry-controls"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
