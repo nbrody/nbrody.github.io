@@ -487,3 +487,9 @@ html.light #isometry-controls .isometry-btn { border-color: var(--hairline-stron
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition-duration: 0.01ms !important; }
 }
+
+/* parts that only apply over one kind of field */
+.field-k-only { display: none; }
+html.field-k .field-k-only { display: block; }
+html.field-k #spec-group { opacity: 0.45; }
+.cayley-opt:disabled, .toggle-btn:disabled { opacity: 0.4; cursor: not-allowed; }

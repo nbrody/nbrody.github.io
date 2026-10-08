@@ -2,13 +2,20 @@
 import { Q, gcd } from './rational.js';
 
 export const trim = (a) => { let n = a.length; while (n && a[n - 1].isZero()) n--; return n === a.length ? a : a.slice(0, n); };
-export const padd = (a, b) => trim(Array.from({ length: Math.max(a.length, b.length) }, (_, i) => (a[i] || Q.ZERO).add(b[i] || Q.ZERO)));
+// The zero of the coefficient field, read off a coefficient (these work over ℚ, ℚ(i) and ℚ(ω)).
+const zeroLike = (x) => x.sub(x);
+export function padd(a, b) {
+    if (!a.length) return b;
+    if (!b.length) return a;
+    const Z = zeroLike(a[0]);
+    return trim(Array.from({ length: Math.max(a.length, b.length) }, (_, i) => (a[i] || Z).add(b[i] || Z)));
+}
 export const pneg = (a) => a.map((x) => x.neg());
 export const psub = (a, b) => padd(a, pneg(b));
 export const pscale = (a, q) => trim(a.map((x) => x.mul(q)));
 export function pmul(a, b) {
     if (!a.length || !b.length) return [];
-    const c = new Array(a.length + b.length - 1).fill(Q.ZERO);
+    const c = new Array(a.length + b.length - 1).fill(zeroLike(a[0]));
     for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) c[i + j] = c[i + j].add(a[i].mul(b[j]));
     return trim(c);
 }
@@ -20,7 +27,7 @@ export function pdivmod(a, b) {
     if (!b.length) throw new Error('division by zero');
     const r = trim(a).slice(), db = b.length - 1, lb = b[db];
     if (r.length - 1 < db) return [[], r];
-    const q = new Array(r.length - db).fill(Q.ZERO);
+    const q = new Array(r.length - db).fill(zeroLike(lb));
     for (let k = r.length - 1 - db; k >= 0; k--) {
         const c = r[k + db].div(lb);
         q[k] = c;
@@ -55,4 +62,18 @@ export function polyMatrix(rats) {
     let L = [Q.ONE];
     for (const r of rats) if (r.num.length) L = plcm(L, r.den);
     return primitive(rats.map((r) => (r.num.length ? pmul(r.num, pdivmod(L, r.den)[0]) : [])));
+}
+
+// Over ℚ(i) or ℚ(ω): the same point of PGL₂, normalized instead so that the first nonzero entry
+// is monic (there is no integer content to clear).
+export function polyMatrixField(rats, one) {
+    let Lc = [one];
+    for (const r of rats) if (r.num.length) Lc = plcm(Lc, r.den);
+    let P = rats.map((r) => (r.num.length ? pmul(r.num, pdivmod(Lc, r.den)[0]) : []));
+    let G = null;
+    for (const q of P) if (q.length) G = G ? pgcd(G, q) : monic(q);
+    P = P.map((q) => (q.length ? pdivmod(q, G)[0] : q));
+    const lead = P.find((q) => q.length);
+    const s = lead[lead.length - 1].inv();
+    return P.map((q) => pscale(q, s));
 }

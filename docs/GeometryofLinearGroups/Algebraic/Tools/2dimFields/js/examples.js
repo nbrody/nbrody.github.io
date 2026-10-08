@@ -45,4 +45,36 @@ export const EXAMPLES = [
         gens: [['1+2t', '4', '-t^2', '1-2t']],
         note: 'Trace 2: a unipotent element, fixing the end −2/t of the tree.',
     },
+    // ---------- over ℚ(i) ----------
+    {
+        field: 'i',
+        name: 'Picard group and a translation by t',
+        gens: [['0', '-1', '1', '0'], ['1', '1', '0', '1'], ['1', 'i', '0', '1'], ['1', 't', '0', '1']],
+        note: 'g₁, g₂, g₃ generate PSL₂(ℤ[i]), the Picard group: they fix v₀ and act on its ball. g₄ fixes the ball at ∞ and turns the tree about it.',
+    },
+    {
+        field: 'i',
+        name: 'Gaussian translations in t',
+        gens: [['1', 't', '0', '1'], ['1', 'it', '0', '1'], ['i', '0', '0', '1']],
+        note: 'Translations by t and by it both fix the ball at ∞. g₃ = diag(i, 1) turns every ball on the axis from 0 to ∞ by a quarter turn.',
+    },
+    {
+        field: 'i',
+        name: 'A loxodromic element',
+        gens: [['t+i', '1', '-1', '0']],
+        note: 'Its trace t + i has degree 1, so it translates an axis of the tree by 2, screwing the balls along it.',
+    },
+    // ---------- over ℚ(ω) ----------
+    {
+        field: 'omega',
+        name: 'Eisenstein group and a translation by t',
+        gens: [['0', '-1', '1', '0'], ['1', '1', '0', '1'], ['1', '\\omega', '0', '1'], ['1', 't', '0', '1']],
+        note: 'g₁, g₂, g₃ generate PSL₂(ℤ[ω]), fixing v₀ and acting on its ball. g₄ fixes the ball at ∞ and turns the tree about it.',
+    },
+    {
+        field: 'omega',
+        name: 'Eisenstein translations in t',
+        gens: [['1', 't', '0', '1'], ['1', '\\omega t', '0', '1'], ['1+\\omega', '0', '0', '1']],
+        note: 'Translations by t and by ωt fix the ball at ∞. g₃ = diag(1 + ω, 1) turns the balls on the axis from 0 to ∞ by a sixth of a turn.',
+    },
 ];

@@ -23,6 +23,9 @@ import { primitive } from './poly.js';
 import { specMat, qmul, qdet, latticeKey } from './specialize.js';
 import * as UI from './panel.js';
 import { EXAMPLES } from './examples.js';
+import { FIELDS, cusps as kCusps, circles as kCircles, cuspName as kCuspName, planeThrough } from './fieldK.js';
+import { makeKEngine } from './kengine.js';
+import { cpath, cmul, cinv, capply, sphereOf } from './cmobius.js';
 
 const $ = (id) => document.getElementById(id);
 const cv = $('cv');
@@ -32,14 +35,21 @@ const MIN_PX = 0.6;       // planes smaller than this (projected radius) are dro
 const DETAIL_PX = 18;     // Farey geodesics and horocycles only on planes at least this big
 const ORTHO_DIST = 60;
 
-const st = { dep: 4, N: 8, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true, hor: false, ortho: false, dur: 1.6 };
+const st = { dep: 4, N: 8, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true, hor: false, ortho: false, dur: 1.6, field: 'Q' };
+{   // ?field=i or ?field=omega opens the tree of balls over ℚ(i) or ℚ(ω)
+    const f = new URLSearchParams(location.search).get('field');
+    if (f && FIELDS[f]) st.field = f;
+}
+const KF = () => FIELDS[st.field];
 
 // ---------- palette ----------
 const PAL = {
     dark: { bg: '#0b0d16', fill: ['#26215C', '#04342C'], str: ['#AFA9EC', '#5DCAA5'], horo: ['#7F77DD', '#1D9E75'],
-        line: ['#ffffff', 0.2], edge: ['#ffffff', 0.32], axis: ['#ffffff', 0.55], hi: '#F0997B', hiFill: '#712B13' },
+        line: ['#ffffff', 0.2], edge: ['#ffffff', 0.32], axis: ['#ffffff', 0.55], hi: '#F0997B', hiFill: '#712B13',
+        ball: ['#4E46B8', '#1B7F62'], ballLine: ['#ffffff', 0.42], hiBall: '#C8613C' },
     light: { bg: '#f3f5fb', fill: ['#E6E4FD', '#DAF2E8'], str: ['#534AB7', '#0F6E56'], horo: ['#AFA9EC', '#5DCAA5'],
-        line: ['#000000', 0.17], edge: ['#000000', 0.28], axis: ['#000000', 0.45], hi: '#D85A30', hiFill: '#FAECE7' },
+        line: ['#000000', 0.17], edge: ['#000000', 0.28], axis: ['#000000', 0.45], hi: '#D85A30', hiFill: '#FAECE7',
+        ball: ['#B9B2F4', '#97D9C1'], ballLine: ['#231d5c', 0.4], hiBall: '#F2A98C' },
 };
 const rgba = (hex, a = 1) => { const c = new THREE.Color(hex); return [c.r, c.g, c.b, a]; };
 const isLight = () => document.documentElement.classList.contains('light');
@@ -53,6 +63,7 @@ function setPalette() {
         str: p.str.map((h) => rgba(h)),
         horo: p.horo.map((h) => rgba(h, 0.9)),
         line: rgba(...p.line), edge: rgba(...p.edge), axis: rgba(...p.axis), hi: rgba(p.hi),
+        ball: p.ball.map((h) => new THREE.Color(h)), ballLine: rgba(...p.ballLine), hiBall: new THREE.Color(p.hiBall),
     };
     renderer.setClearColor(P.bg);
     paintHalf();
@@ -86,6 +97,23 @@ for (const m of [diskHi, diskLo]) {
     m.frustumCulled = false;
     scene.add(m);
 }
+
+// Over ℚ(i) and ℚ(ω) every vertex carries hyperbolic 3-space, drawn as a lit ball.
+const BALLS = 20000;
+const ballMat = new THREE.MeshLambertMaterial();
+const ballHi = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 5), ballMat, BALLS);
+const ballLo = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 2), ballMat, BALLS);
+for (const m of [ballHi, ballLo]) {
+    m.setColorAt(0, new THREE.Color());
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    m.count = 0;
+    m.frustumCulled = false;
+    scene.add(m);
+}
+scene.add(new THREE.HemisphereLight(0xffffff, 0x6b6a80, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(3, 5, 4);
+scene.add(sun);
 
 // Translucent disks for planes landing on the base when t is specialized (a per-instance opacity).
 const GHOSTS = 8000;
@@ -453,6 +481,8 @@ function visit(F, gap, labels, parent, dep) {
 
 function build() {
     if (anim) return;
+    if (st.field !== 'Q') { buildBalls(); return; }
+    ballHi.count = ballLo.count = 0;
     if (spec.items) {                       // specialized: draw the collapse instead of the tree
         if (spec.run || spec.act) return;
         if (spec.sig !== settingsSig()) refreshItems();
@@ -530,6 +560,217 @@ function drawRecs(list) {
     dirty = true;
 }
 
+// ---------- the tree of balls over K = ℚ(i), ℚ(ω) (fieldK.js) ----------
+// A ball frame { ball, c, R, u, e1, e2 }: the point w ∈ ℂ ∪ ∞ of its sphere at infinity sits at
+// c + R(2 Re w·e1 + 2 Im w·e2 + (|w|² − 1)·u)/(|w|² + 1), so u points at ∞, toward the parent.
+// The child at the cusp p/q is the reflected Ford sphere there, of diameter λ·2/(1 + |p|² + |q|²)
+// times the parent's radius, hanging out by an edge of length 1/|q| (√(Ford size) on the base).
+const v3 = { add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], sc: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
+    dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]] };
+const norm3 = (a) => v3.sc(a, 1 / Math.hypot(...a));
+const ballDir = (F, d) => v3.add(v3.add(v3.sc(F.e1, d[0]), v3.sc(F.e2, d[1])), v3.sc(F.u, d[2]));
+const baseBall = () => ({ ball: true, c: [0, 0, 0], R: 1, u: [0, 1, 0], e1: [1, 0, 0], e2: [0, 0, -1] });
+function childBallDir(F, dir, r, edge) {
+    const n = ballDir(F, dir), at = v3.add(F.c, v3.sc(n, F.R)), u = v3.sc(n, -1);
+    let e1 = v3.add(F.e1, v3.sc(u, -v3.dot(F.e1, u)));
+    if (Math.hypot(...e1) < 1e-6) e1 = v3.add(F.e2, v3.sc(u, -v3.dot(F.e2, u)));
+    e1 = norm3(e1);
+    return { ball: true, c: v3.add(at, v3.sc(n, edge + r)), R: r, u, e1, e2: v3.cross(u, e1) };
+}
+const childBall = (F, cusp, r, edge) => childBallDir(F, cusp.dir, r, edge);
+const ballPx = (F) => (st.ortho ? F.R * pxk : F.R * pxk / Math.max(1e-9, Math.hypot(F.c[0] - camPos.x, F.c[1] - camPos.y, F.c[2] - camPos.z)));
+const bsphere = new THREE.Sphere();
+// the child's radius and edge, in units of the parent's radius (the base ball uses √(Ford size))
+const ballChild = (c, base) => ({ sigma: st.lam * c.D / 2, ell: base ? Math.sqrt(c.D) : 1 / c.absq });
+const ballGap = (ell, R) => Math.abs(st.h) * (st.edges === 'levels' ? 1 : ell * R);
+
+// The exact engine over K (kengine.js), one per field; the labels of a ball rec, read off its cusps.
+const KENG = {};
+const kE = () => (KENG[st.field] ||= makeKEngine(st.field));
+const labelsOf = (rec) => rec.labels || (rec.labels = rec.cusps.map((c) => (c.label ||= kE().labelOfCusp(c))));
+// The ball at u carries the picture of the ball at g⁻¹u, moved by the local map (as decorOf for planes).
+function decorOfK(labels, key) {
+    if (gIsId) return null;
+    let d = decor.get(key);
+    if (!d) {
+        const { labels: src, h } = kE().tree.localMap(gInv, labels);
+        d = { C: cinv(kE().toComplex(h)), src };
+        decor.set(key, d);
+    }
+    return d.C;
+}
+
+function visitBall(K, F, gap, cusps, parent, dep) {
+    const rs = ballPx(F);
+    if (dep > 0 && rs < MIN_PX) return false;
+    const left = st.dep - dep, ext = F.R * (left > 0 ? 1 + 2.2 * (Math.abs(st.h) + st.lam) : 1);
+    if (!frustum.intersectsSphere(bsphere.set(new THREE.Vector3(...F.c), ext))) return false;
+    if (recs.length >= BALLS) { truncated = true; return false; }
+    const idx = recs.length, rec = { F, gap, cusps, parent, dep, rs, key: 'k:' + cusps.map((c) => c.key).join(' ') };
+    if (!gIsId && rs > MIN_PX * 4) rec.C = decorOfK(labelsOf(rec), rec.key);
+    recs.push(rec);
+    if (left > 0) {
+        const near = st.ortho ? 1 : Math.max(1e-9, Math.hypot(F.c[0] - camPos.x, F.c[1] - camPos.y, F.c[2] - camPos.z) - ext);
+        for (const c of kCusps(K, st.N, dep === 0)) {
+            const { sigma, ell } = ballChild(c, dep === 0), r = sigma * F.R;
+            if (r * pxk / near < MIN_PX) break;                      // the cusps come largest first
+            const edge = ballGap(ell, F.R);
+            visitBall(K, childBall(F, c, r, edge), edge, [...cusps, c], idx, dep + 1);
+        }
+    }
+    return true;
+}
+
+function buildBalls() {
+    const t0 = performance.now();
+    setupCull();
+    recs = []; truncated = false;
+    visitBall(KF(), baseBall(), 0, [], -1, 0);
+    drawBallRecs(recs);
+    hoverIdx = -2;
+    lastBuild = performance.now();
+    buildCost = lastBuild - t0;
+    if (lastPointer) hover(lastPointer.x, lastPointer.y);
+    else setHover(-1);
+}
+
+// Balls as lit instances, their edges, and on the big ones the circles, carried by rec.C.
+function drawBallRecs(list) {
+    const K = KF(), L_ = new Segs(), S = new THREE.Matrix4();
+    diskHi.count = diskLo.count = ghosts.count = 0;
+    halfMesh.visible = false;
+    for (const k of morphMeshes) k.visible = false;
+    let nHi = 0, nLo = 0;
+    for (const rec of list) {
+        const F = rec.F, rs = rec.rs ?? ballPx(F);
+        rec.mesh = null;
+        if (rs < MIN_PX) continue;
+        const hi = rs > 40, m = hi ? ballHi : ballLo, i = hi ? nHi++ : nLo++;
+        if (i >= BALLS) continue;
+        m.setMatrixAt(i, S.makeScale(F.R, F.R, F.R).setPosition(F.c[0], F.c[1], F.c[2]));
+        m.setColorAt(i, mixColor(P.ball, rec));
+        rec.mesh = m; rec.inst = i;
+        if (rec.gap) {                                               // fainter for small balls, or the edges read as fur
+            const top = v3.add(F.c, v3.sc(F.u, F.R)), at = v3.add(top, v3.sc(F.u, rec.gap)), a = Math.min(1, rs / 8);
+            L_.seg(top[0], top[1], top[2], at[0], at[1], at[2], P.edge, a, a);
+        }
+        if (st.far && rs > DETAIL_PX) drawBallCircles(L_, K, F, rs, rec.C);
+    }
+    for (const [m, n] of [[ballHi, nHi], [ballLo, nLo]]) {
+        m.count = Math.min(n, BALLS);
+        m.instanceMatrix.needsUpdate = true;
+        m.instanceColor.needsUpdate = true;
+    }
+    lines.geometry.dispose();
+    lines.geometry = L_.geometry();
+    dirty = true;
+}
+
+// The circles g(ℝ̂) through neighbouring cusps, drawn just outside the sphere (the far side is
+// hidden by it), carried by the Möbius map C when the ball shows a moved picture.
+function drawBallCircles(L_, K, F, rs, C) {
+    const Hc = Math.min(6, rs > 140 ? st.N : rs > 50 ? 4 : 2), R = F.R * 1.004;
+    for (const ci of kCircles(K, Hc)) {
+        let { n, d, r } = ci;
+        if (C) {
+            const pl = planeThrough(...ci.pts.map((p) => sphereOf(capply(C, p))));
+            if (!pl) continue;
+            ({ n, d, r } = pl);
+        }
+        const rc = rs * r;
+        if (rc < 1.5) { if (C) continue; break; }                    // (unmoved, they come largest first)
+        const a = norm3(v3.cross(n, Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0])), b = v3.cross(n, a);
+        const k = Math.min(180, Math.max(16, Math.ceil(rc * 0.7)));
+        let p0 = null;
+        for (let j = 0; j <= k; j++) {
+            const t = 2 * Math.PI * j / k, ct = Math.cos(t) * r, stt = Math.sin(t) * r;
+            const l = [n[0] * d + a[0] * ct + b[0] * stt, n[1] * d + a[1] * ct + b[1] * stt, n[2] * d + a[2] * ct + b[2] * stt];
+            const p = v3.add(F.c, v3.sc(ballDir(F, l), R));
+            if (p0) L_.seg(p0[0], p0[1], p0[2], p[0], p[1], p[2], P.ballLine);
+            p0 = p;
+        }
+    }
+}
+
+// The layout frame of the ball with these labels (elements of K), walking out from the base.
+function ballFrameAt(labels, cache) {
+    if (!labels.length) return { F: baseBall(), gap: 0 };
+    const key = kE().tree.keyOf(labels);
+    if (cache.has(key)) return cache.get(key);
+    const { F: parent } = ballFrameAt(labels.slice(0, -1), cache);
+    const c = kE().cuspOfLabel(labels[labels.length - 1]), { sigma, ell } = ballChild(c, labels.length === 1);
+    const gap = ballGap(ell, parent.R), out = { F: childBall(parent, c, sigma * parent.R, gap), gap };
+    cache.set(key, out);
+    return out;
+}
+// Interpolate two ball frames: centre and radius linearly, the orientation by slerp.
+const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), mb = new THREE.Matrix4();
+const quatOf = (F, q) => q.setFromRotationMatrix(mb.makeBasis(new THREE.Vector3(...F.e1), new THREE.Vector3(...F.e2), new THREE.Vector3(...F.u)));
+function lerpBall(A, B, s) {
+    quatOf(A, qa); quatOf(B, qb);
+    qa.slerp(qb, s);
+    const X = new THREE.Vector3(1, 0, 0).applyQuaternion(qa), Y = new THREE.Vector3(0, 1, 0).applyQuaternion(qa), Z = new THREE.Vector3(0, 0, 1).applyQuaternion(qa);
+    return { ball: true, c: A.c.map((x, i) => x + (B.c[i] - x) * s), R: A.R + (B.R - A.R) * s, e1: X.toArray(), e2: Y.toArray(), u: Z.toArray() };
+}
+const cuspVec = (K, c) => [K.toC(c.p), K.toC(c.q)];
+
+// γ acting on the tree of balls: the balls on screen and those landing on them; children ride
+// their parent's sphere at H_s(w) while the parent turns by its local map, as for planes; the
+// balls on [γ⁻¹v₀, v₀] change parent and fly. PGL₂(K) preserves orientation, so nothing flips.
+function startNextBall(job) {
+    clearTimeout(buildTimer);
+    build();
+    setHover(-1);
+    const E = kE(), T = E.tree, K = KF(), items = new Map();
+    const add = (labels) => { const key = T.keyOf(labels); if (!items.has(key)) items.set(key, { labels, key }); };
+    // only balls of a pixel or more move (exact arithmetic over K is the cost); the specks return at the end
+    const shown = recs.filter((r) => r.dep === 0 || r.rs >= 1.5);
+    for (const r of shown) add(labelsOf(r));
+    for (const r of shown) add(T.vertexOf(mmul(job.Minv, T.frameOf(labelsOf(r)))));
+    const spine = T.vertexOf(job.Minv), fc = new Map();
+    for (const it of items.values()) {
+        const { labels: lu, h } = T.localMap(job.M, it.labels);
+        it.H = cpath(E.toComplex(h));
+        it.d = decorOfK(it.labels, 'k*' + it.key);
+        it.dep = it.labels.length;
+        it.dep1 = lu.length;
+        const a = ballFrameAt(it.labels, fc), b = ballFrameAt(lu, fc);
+        Object.assign(it, { F0: a.F, F1: b.F, gap0: a.gap, gap1: b.gap });
+        it.spine = T.isPrefix(it.labels, spine);
+        if (it.spine) continue;
+        it.parentKey = T.keyOf(it.labels.slice(0, -1));
+        const c0 = E.cuspOfLabel(it.labels[it.labels.length - 1]), c1 = E.cuspOfLabel(lu[lu.length - 1]);
+        const s0 = ballChild(c0, it.labels.length === 1), s1 = ballChild(c1, lu.length === 1);
+        Object.assign(it, { w: cuspVec(K, c0), sig0: s0.sigma, sig1: s1.sigma, ell0: s0.ell, ell1: s1.ell });
+    }
+    const order = [...items.values()].sort((a, b) => a.dep - b.dep);
+    for (const it of order) if (!it.spine && !items.has(it.parentKey)) it.spine = true;
+    anim = { job, order, items, ball: true, t0: performance.now(), dur: st.dur * 1000 };
+}
+
+function animFrameBall(s) {
+    const e = ease(s), frames = new Map(), out = [];
+    setupCull();
+    for (const it of anim.order) {
+        let F, gap;
+        if (it.spine) {
+            F = lerpBall(it.F0, it.F1, e);
+            gap = it.gap0 + (it.gap1 - it.gap0) * e;
+        } else {
+            const Pf = frames.get(it.parentKey), Hp = anim.items.get(it.parentKey).Hs;
+            const sig = Math.exp(Math.log(it.sig0) + (Math.log(it.sig1) - Math.log(it.sig0)) * e);
+            gap = ballGap(it.ell0 + (it.ell1 - it.ell0) * e, Pf.R);
+            F = childBallDir(Pf, sphereOf(capply(Hp, it.w)), sig * Pf.R, gap);
+        }
+        it.Hs = it.H(e);
+        frames.set(it.key, F);
+        const mix = it.dep % 2 !== it.dep1 % 2 ? [it.dep % 2, it.dep1 % 2, e] : null;
+        out.push({ F, gap, dep: it.dep, mix, C: it.d ? cmul(it.Hs, it.d) : it.Hs });
+    }
+    recs = out;
+    drawBallRecs(out);
+}
+
 // Rebuild after the camera settles, or during the move when builds are cheap.
 let buildTimer = 0;
 function scheduleBuild() {
@@ -539,6 +780,9 @@ function scheduleBuild() {
 }
 
 // ---------- the action ----------
+// The exact engine of the field in use: ℚ (laurent.js, treeAction.js) or ℚ(i), ℚ(ω) (kengine.js).
+const QENG = { IDENTITY, normalizePGL, lTex, tree: { frameOf, vertexOf, localMap, classify, keyOf, isPrefix } };
+const eng = () => (st.field === 'Q' ? QENG : kE());
 let anim = null;
 const queue = [];
 const ease = (s) => (s < 0.5 ? 2 * s * s : 1 - Math.pow(-2 * s + 2, 2) / 2);
@@ -557,6 +801,7 @@ function applyGenerator(i, inverse) {
 function startNext() {
     const job = queue.shift();
     if (!job) return;
+    if (st.field !== 'Q') { startNextBall(job); return; }
     clearTimeout(buildTimer);
     build();
     setHover(-1);
@@ -623,7 +868,7 @@ function animFrame(s) {
 function stepAnim(now) {
     if (!anim) return;
     const s = reduceMotion() ? 1 : Math.min(1, (now - anim.t0) / anim.dur);
-    animFrame(s);
+    if (anim.ball) animFrameBall(s); else animFrame(s);
     if (s < 1) return;
     commitJob(anim.job);
     anim = null;
@@ -634,8 +879,8 @@ function stepAnim(now) {
 
 // The current element becomes γ·g.
 function commitJob(job) {
-    g = normalizePGL(mmul(job.M, g));
-    gInv = normalizePGL(mmul(gInv, job.Minv));
+    g = eng().normalizePGL(mmul(job.M, g));
+    gInv = eng().normalizePGL(mmul(gInv, job.Minv));
     gIsId = isScalar(g);
     const [i, e] = job.letter;
     if (word.length && word[0][0] === i && word[0][1] === -e) word.shift(); else word.unshift(job.letter);
@@ -645,7 +890,7 @@ function commitJob(job) {
 function resetElement() {
     queue.length = 0;
     anim = null;
-    g = gInv = IDENTITY;
+    g = gInv = eng().IDENTITY;
     gIsId = true;
     word = [];
     decor.clear();
@@ -846,13 +1091,19 @@ function stepSpec(now) {
 // cleared of denominators and common factors; the engine then works with polynomials in t.
 const ENTRY = ['(1,1)', '(1,2)', '(2,1)', '(2,2)'];
 function readGenerators() {
+    const E = st.field === 'Q' ? null : kE();
     return UI.readMatrices().map((entries, gi) => {
         const rats = entries.map((src, e) => {
-            try { return parseRat(src); } catch (err) {
+            try { return E ? E.parse(src) : parseRat(src); } catch (err) {
                 throw Object.assign(new Error(`g${gi + 1}, entry ${ENTRY[e]}: ${err.message}.`), { where: { gen: gi, entry: e } });
             }
         });
         if (rats.every((r) => !r.num.length)) throw Object.assign(new Error(`g${gi + 1} is the zero matrix.`), { where: { gen: gi } });
+        if (E) {                            // over K: PGL₂(K(t)), orientation-preserving on every ball
+            const M = E.matrixOf(rats);
+            if (det(M).isZero()) throw Object.assign(new Error(`g${gi + 1} has determinant 0, so it is not in PGL₂.`), { where: { gen: gi } });
+            return { M, Minv: adj(M), info: E.tree.classify(M), flips: false };
+        }
         const M = polyMatrix(rats).map(fromPoly);
         if (det(M).isZero()) throw Object.assign(new Error(`g${gi + 1} has determinant 0, so it is not in PGL₂.`), { where: { gen: gi } });
         const at0 = localMap(M, []).h;
@@ -877,7 +1128,7 @@ let editTimer = 0;
 UI.onMatrixEdit(() => { clearTimeout(editTimer); editTimer = setTimeout(refreshGenerators, 350); });
 
 const cuspName = (c) => cuspKey(c).replace('-', '−');
-const pathName = (labels) => ['v₀', ...labels.map(cuspName)].join(' → ');
+const pathName = (labels) => ['v₀', ...labels.map(st.field === 'Q' ? cuspName : kE().name)].join(' → ');
 const gName = (i, e = 1) => `g<sub>${i + 1}</sub>${e < 0 ? '<sup>−1</sup>' : ''}`;
 function showGenSummary() {
     const el = $('gen-summary');
@@ -887,7 +1138,8 @@ function showGenSummary() {
         let s;
         if (info.kind === 'hyperbolic') s = `<span class="kind">hyperbolic</span>: translates an axis by ${info.ell}, and moves v₀ a distance ${d}`;
         else if (info.kind === 'inversion') s = `<span class="kind">inversion</span>: swaps the two ends of the edge from ${pathName(info.edge[0])} to ${pathName(info.edge[1])}`;
-        else if (!d) s = `<span class="kind">fixes v₀</span>, ${flips ? 'reflecting its plane' : 'turning its plane'} by an element of PGL₂(ℚ)`;
+        else if (!d) s = st.field === 'Q' ? `<span class="kind">fixes v₀</span>, ${flips ? 'reflecting its plane' : 'turning its plane'} by an element of PGL₂(ℚ)`
+            : `<span class="kind">fixes v₀</span>, moving its ball by an element of PGL₂(${KF().name})`;
         else s = `<span class="kind">elliptic</span>: turns the tree about ${pathName(info.fixed)}, moving v₀ a distance ${d}`;
         return `<div><b>${gName(i)}</b> ${s}</div>`;
     }).join('');
@@ -895,7 +1147,8 @@ function showGenSummary() {
 function showElement() {
     $('current-word').innerHTML = word.length ? word.map(([i, e]) => gName(i, e)).join(' ') : 'e';
     const el = $('current-matrix');
-    el.innerHTML = `\\[\\begin{pmatrix} ${lTex(g[0])} & ${lTex(g[1])} \\\\ ${lTex(g[2])} & ${lTex(g[3])} \\end{pmatrix}\\]`;
+    const tex = eng().lTex;
+    el.innerHTML = `\\[\\begin{pmatrix} ${tex(g[0])} & ${tex(g[1])} \\\\ ${tex(g[2])} & ${tex(g[3])} \\end{pmatrix}\\]`;
     UI.typeset([el]);
     showSpecList();
 }
@@ -908,6 +1161,7 @@ function qMatTex(Mq) {
 }
 function showSpecList() {
     const el = $('spec-list'), a = aName();
+    if (st.field !== 'Q') { el.innerHTML = ''; return; }
     const rows = gens.map((G, i) => {
         const Ma = specMat(G.M, spec.a);
         return qdet(Ma).isZero() ? `<div><b>${gName(i)}</b>(${a}) is singular, so it does not act once t = ${a}</div>`
@@ -923,7 +1177,7 @@ function syncSpecUI() {
     $('spec-sO').textContent = spec.s <= 0 ? 't = ∞' : spec.s >= 1 ? `t = ${aName()}` : '→';
     $('spec-go').textContent = collapsed ? 'Expand back to the tree' : `Collapse to t = ${aName()}`;
     document.querySelectorAll('#isometry-controls .isometry-btn').forEach((b, i) => {
-        const G = gens[i], singular = G && qdet(specMat(G.M, spec.a)).isZero();
+        const G = gens[i], singular = st.field === 'Q' && G && qdet(specMat(G.M, spec.a)).isZero();
         b.disabled = !!spec.items && (!collapsed || singular);
         b.title = !spec.items ? 'Apply this generator (⌘/Ctrl-click for its inverse)'
             : !collapsed ? 'Finish collapsing or expanding first'
@@ -961,8 +1215,16 @@ $('spec-s').addEventListener('input', (ev) => {
 });
 $('spec-go').onclick = () => startSpecRun(spec.items && spec.s >= 1 ? 0 : 1);
 
+// The examples for the field in use: those over ℚ (they make sense over every field) and its own.
+const examplesHere = () => EXAMPLES.filter((ex) => !ex.field || ex.field === st.field);
+function fillExamples() {
+    const sel = $('example-select');
+    sel.innerHTML = '';
+    examplesHere().forEach((ex, i) => sel.add(new Option(ex.name, String(i))));
+}
 function loadExample(i) {
-    const ex = EXAMPLES[i];
+    const ex = examplesHere()[i];
+    $('example-select').value = String(i);
     UI.setMatrices(ex.gens);
     $('example-note').textContent = ex.note || '';
     refreshGenerators();
@@ -977,6 +1239,17 @@ function pick(X, Y) {
     ndc.set(X / cv.clientWidth * 2 - 1, 1 - Y / cv.clientHeight * 2);
     ray.setFromCamera(ndc, camera);
     const o = ray.ray.origin, d = ray.ray.direction;
+    if (st.field !== 'Q') {                 // the nearest ball the ray enters
+        let best = -1, bt = Infinity;
+        for (let i = 0; i < recs.length; i++) {
+            const F = recs[i].F, w = [o.x - F.c[0], o.y - F.c[1], o.z - F.c[2]];
+            const bq = w[0] * d.x + w[1] * d.y + w[2] * d.z, cq = v3.dot(w, w) - F.R * F.R, disc = bq * bq - cq;
+            if (disc < 0) continue;
+            const t = -bq - Math.sqrt(disc);
+            if (t > 0 && t < bt) { best = i; bt = t; }
+        }
+        return best;
+    }
     if (Math.abs(d.y) < 1e-12) return -1;
     let best = -1, bt = Infinity;
     for (let i = 0; i < recs.length; i++) {
@@ -997,7 +1270,12 @@ const pathOf = (i) => { const out = []; for (; i >= 0; i = recs[i].parent) out.u
 // path comes in (∞, or the basepoint of the base) to the cusp where it leaves.
 function drawPath(i) {
     const L_ = new Segs(256);
-    if (i >= 0 && !anim) {
+    if (i >= 0 && st.field !== 'Q') {       // balls: the edges back to the base
+        for (const r of pathOf(i).slice(1)) {
+            const F = r.F, top = v3.add(F.c, v3.sc(F.u, F.R)), at = v3.add(top, v3.sc(F.u, r.gap));
+            L_.seg(top[0], top[1], top[2], at[0], at[1], at[2], P.hi);
+        }
+    } else if (i >= 0 && !anim) {
         const path = pathOf(i), last = path[path.length - 1];
         if (!last.F.half) circleLocal(L_, last.F, 0, 0, 1, 200, P.hi);
         for (let j = 1; j < path.length; j++) {
@@ -1018,10 +1296,11 @@ function drawPath(i) {
 function setHover(i) {
     if (i === hoverIdx) return;
     const old = recs[hoverIdx];
-    if (old && old.mesh) { old.mesh.setColorAt(old.inst, P.fill[old.dep % 2]); old.mesh.instanceColor.needsUpdate = true; }
+    const ballMode = st.field !== 'Q';
+    if (old && old.mesh) { old.mesh.setColorAt(old.inst, (ballMode ? P.ball : P.fill)[old.dep % 2]); old.mesh.instanceColor.needsUpdate = true; }
     hoverIdx = i;
     const rec = recs[i];
-    if (rec && rec.mesh) { rec.mesh.setColorAt(rec.inst, P.hiFill); rec.mesh.instanceColor.needsUpdate = true; }
+    if (rec && rec.mesh) { rec.mesh.setColorAt(rec.inst, ballMode ? P.hiBall : P.hiFill); rec.mesh.instanceColor.needsUpdate = true; }
     drawPath(i);
     showInfo();
     dirty = true;
@@ -1033,6 +1312,15 @@ function showInfo() {
     const rec = recs[hoverIdx];
     if (!rec || anim) { chip.textContent = ''; return; }
     const n = recs.length + (truncated ? '+' : '');
+    if (st.field !== 'Q') {
+        const K = KF();
+        const d = decor.get(rec.key);
+        const carried = d && kE().tree.keyOf(d.src) !== kE().tree.keyOf(labelsOf(rec)) ? ` · carries the ball of ${pathName(d.src)} under the current element` : '';
+        chip.innerHTML = (rec.cusps.length
+            ? `<b>${['v₀', ...rec.cusps.map((c) => kCuspName(K, c))].join(' → ')}</b> · distance ${rec.dep} from v₀`
+            : `<b>Base ball</b>: hyperbolic 3-space, its sphere at infinity carrying ℙ¹(${K.name})`) + carried + ` · ${n} balls drawn`;
+        return;
+    }
     const d = decor.get(rec.key);
     const carried = d && keyOf(d.src) !== rec.key ? ` · carries the plane of ${pathName(d.src)} under the current element` : '';
     chip.innerHTML = (rec.labels.length ? `<b>${pathName(rec.labels)}</b> · distance ${rec.dep} from v₀`
@@ -1072,11 +1360,12 @@ function stepFly(now) {
 // Frame a rough bounding box of the tree from the front, a little above.
 function defaultView() {
     const zext = st.h * (st.edges === 'levels' ? st.dep : 1.7);
-    const E = 1 + 1.2 * st.lam;
+    const E = 1 + 1.2 * st.lam, B = 1 + 0.55 * (Math.abs(st.h) + st.lam);
     const [x0, x1, y0, y1] = st.base === 'disk' ? [-E, E, -E, E] : [-2.4, 2.4, -1 - 0.5 * st.lam, 1.8];
-    const lo = new THREE.Vector3(x0, Math.min(0, zext), -y1), hi = new THREE.Vector3(x1, Math.max(0, zext), -y0);
+    let lo = new THREE.Vector3(x0, Math.min(0, zext), -y1), hi = new THREE.Vector3(x1, Math.max(0, zext), -y0);
+    if (st.field !== 'Q') { lo = new THREE.Vector3(-B, -B, -B); hi = new THREE.Vector3(B, B, B); }
     const target = lo.clone().add(hi).multiplyScalar(0.5);
-    const dir = new THREE.Vector3(0, Math.cos(1.0), Math.sin(1.0));
+    const dir = st.field !== 'Q' ? new THREE.Vector3(0.35, Math.cos(1.1), Math.sin(1.1)).normalize() : new THREE.Vector3(0, Math.cos(1.0), Math.sin(1.0));
     // smallest distance at which every corner is inside the free part of the view, with a margin
     const W = Math.max(1, cv.clientWidth - panelSpace), H = Math.max(1, cv.clientHeight);
     const ty = 0.86 * fovTan(), tx = 0.9 * fovTan() * W / H, cam = new THREE.PerspectiveCamera(), v = new THREE.Vector3();
@@ -1102,6 +1391,7 @@ function resetView(animate = true) {
 }
 function flyToPlane(i) {
     const F = recs[i].F;
+    if (F.ball) { flyTo(new THREE.Vector3(...F.c), viewDir(), F.R * 1.8); return; }
     if (F.half) flyTo(new THREE.Vector3(0, 0, -0.8), viewDir(), 1.8);
     else flyTo(new THREE.Vector3(F.cx, F.z, -F.cy), viewDir(), F.R / 0.6);
 }
@@ -1157,6 +1447,31 @@ cv.addEventListener('pointerup', (e) => {
 });
 
 UI.setupPanel({ onLayout: (w) => { panelSpace = w; applyViewOffset(); dirty = true; } });
+// ℚ draws planes and the group acting on them; ℚ(i), ℚ(ω) draw the tree of balls (the action is ℚ-only so far)
+function setField(f) {
+    if (spec.items) { spec.items = null; spec.run = spec.act = null; spec.s = 0; }
+    anim = null;
+    queue.length = 0;
+    st.field = f;
+    const k = f !== 'Q';
+    document.documentElement.classList.toggle('field-k', k);
+    $('denL').textContent = k ? 'Max height' : 'Max q';
+    $('toggle-farey').textContent = k ? 'Circles through neighbours' : 'Farey geodesics';
+    for (const id of ['toggle-horo', 'spec-go', 'spec-s', 'spec-a']) $(id).disabled = k;
+    document.querySelectorAll('#seg-base button').forEach((b) => { b.disabled = k; });
+    decor.clear();
+    fillExamples();
+    const own = examplesHere().findIndex((ex) => ex.field === f);
+    loadExample(own >= 0 ? own : 0);                // re-reads the generators over the new field and resets g
+    syncSpecUI();
+    const url = new URL(location.href);
+    if (k) url.searchParams.set('field', f); else url.searchParams.delete('field');
+    history.replaceState(null, '', url);
+    build();
+    resetView(false);
+}
+const segField = UI.segmented('seg-field', setField);
+segField.set(st.field);
 const segBase = UI.segmented('seg-base', (v) => { st.base = v; build(); resetView(); });
 const segProj = UI.segmented('seg-proj', (v) => setProjection(v === 'ortho'));
 const segEdges = UI.segmented('seg-edges', (v) => { st.edges = v; build(); resetView(); });
@@ -1175,7 +1490,7 @@ $('reset-view').onclick = () => resetView();
 $('save-png').onclick = () => {
     render();
     const a = document.createElement('a');
-    a.download = 'tree-of-hyperbolic-planes.png';
+    a.download = st.field === 'Q' ? 'tree-of-hyperbolic-planes.png' : `tree-of-balls-${st.field}.png`;
     a.href = cv.toDataURL('image/png');
     a.click();
 };
@@ -1184,14 +1499,14 @@ $('refresh-btn').onclick = () => { refreshGenerators(); build(); };
 $('reset-element').onclick = resetElement;
 
 const exSel = $('example-select');
-EXAMPLES.forEach((ex, i) => exSel.add(new Option(ex.name, String(i))));
+fillExamples();
 exSel.onchange = () => loadExample(+exSel.value);
 
 const themeBtns = [...document.querySelectorAll('.theme-opt')];
 const syncTheme = () => themeBtns.forEach((b) => b.classList.toggle('active', (b.dataset.theme === 'light') === isLight()));
 themeBtns.forEach((b) => b.addEventListener('click', () => {
     document.documentElement.classList.toggle('light', b.dataset.theme === 'light');
-    try { localStorage.setItem('parshin-theme', b.dataset.theme); } catch (e) { /* storage blocked */ }
+    try { localStorage.setItem('twoDimFields-theme', b.dataset.theme); } catch (e) { /* storage blocked */ }
     syncTheme();
     setPalette();
     build();
@@ -1227,10 +1542,11 @@ setPalette();
 resize();
 resetView(false);
 loadExample(0);
+if (st.field !== 'Q') setField(st.field);
 requestAnimationFrame(frameLoop);
 
 // For headless checks (rAF may not run in a hidden pane).
-window.__parshin = {
+window.__twoDim = {
     st, build, render, get camera() { return camera; }, controls, get recs() { return recs; }, get anim() { return anim; },
     setHover, flyToPlane, resetView, stepFly, stepAnim, applyGenerator, setProjection, get g() { return g; },
     spec, startSpecRun, stepSpec, drawCollapse,
