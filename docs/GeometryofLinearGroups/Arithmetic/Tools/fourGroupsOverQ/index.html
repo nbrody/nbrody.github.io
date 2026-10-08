@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Four Groups over ℚ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&family=Spectral:ital,wght@0,500;0,600;1,500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<style>
+/* Layout: one wide comparison sheet. Rows are viewpoints, columns pair split/anisotropic forms,
+   two optional torus columns toggle in; a places strip below turns the S-arithmetic row into a live calculator. */
+:root {
+  --paper: #f4f5f1;
+  --sheet: #fbfbf8;
+  --ink: #181b1f;
+  --ink-soft: #565c63;
+  --rule: #d8dbd2;
+  --rule-strong: #b9bdb2;
+  --split: #2c5b8c;
+  --split-wash: #e6edf5;
+  --aniso: #8a3a5f;
+  --aniso-wash: #f3e7ec;
+  --indef: #2f7068;
+  --indef-wash: #e2efed;
+  --hl: #eef0e6;
+  --ok: #2f6e46;
+  --ok-wash: #e3efe6;
+  --warn: #8a5a12;
+  --warn-wash: #f5ebd9;
+  --f-display: "Spectral", "Iowan Old Style", Georgia, serif;
+  --f-body: "STIX Two Text", "STIX Two", "Times New Roman", serif;
+  --f-ui: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111316; --sheet: #171a1e; --ink: #e5e6e1; --ink-soft: #9ba1a8;
+    --rule: #2b3036; --rule-strong: #3d434b;
+    --split: #86aedb; --split-wash: #1a2532; --aniso: #d993b4; --aniso-wash: #2c1c24;
+    --indef: #7cc4b8; --indef-wash: #172a27;
+    --hl: #20242a; --ok: #8fcaa3; --ok-wash: #1a2a20; --warn: #e0b46a; --warn-wash: #2c2416;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111316; --sheet: #171a1e; --ink: #e5e6e1; --ink-soft: #9ba1a8;
+  --rule: #2b3036; --rule-strong: #3d434b;
+  --split: #86aedb; --split-wash: #1a2532; --aniso: #d993b4; --aniso-wash: #2c1c24;
+  --indef: #7cc4b8; --indef-wash: #172a27;
+  --hl: #20242a; --ok: #8fcaa3; --ok-wash: #1a2a20; --warn: #e0b46a; --warn-wash: #2c2416;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.45;
+}
+math { font-family: "STIX Two Math", "Cambria Math", math; font-size: 1.04em; }
+.wrap { max-width: 1440px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 72px; display: grid; gap: 44px; }
+@media (max-width: 600px) { .wrap { padding-inline: 16px; padding-block: 24px 48px; gap: 32px; } }
+
+header.top { display: grid; gap: 14px; max-width: 72ch; }
+.eyebrow { font-family: var(--f-ui); font-size: 12.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-soft); }
+h1 { font-family: var(--f-display); font-weight: 600; font-size: clamp(30px, 4.4vw, 46px); line-height: 1.08; margin: 0; text-wrap: balance; }
+.lede { font-size: 18px; margin: 0; color: var(--ink); }
+.lede-sub { margin: 0; color: var(--ink-soft); }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: 26px; margin: 0; text-wrap: balance; }
+.sec-head { display: grid; gap: 6px; max-width: 72ch; }
+.sec-head p { margin: 0; color: var(--ink-soft); }
+
+/* key + optional columns */
+.key { display: flex; flex-wrap: wrap; gap: 10px 22px; font-family: var(--f-ui); font-size: 14px; color: var(--ink-soft); }
+.key span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid; }
+.sw.split { background: var(--split-wash); border-color: var(--split); }
+.sw.aniso { background: var(--aniso-wash); border-color: var(--aniso); }
+.sw.indef { background: var(--indef-wash); border-color: var(--indef); }
+.grid-sec { display: grid; gap: 12px; }
+.optbar { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; font-family: var(--f-ui); font-size: 14px; color: var(--ink-soft); }
+.opt-btn {
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--sheet); cursor: pointer;
+  border: 1px dashed var(--rule-strong); border-radius: 6px; padding: 5px 12px; display: inline-flex; gap: 8px; align-items: center;
+}
+.opt-btn:hover { border-color: var(--ink-soft); }
+.opt-btn .mark { font-weight: 600; width: 1em; text-align: center; }
+.opt-btn[aria-pressed="true"] { border-style: solid; border-color: currentColor; }
+.opt-btn.aniso[aria-pressed="true"] { color: var(--aniso); background: var(--aniso-wash); }
+.opt-btn.indef[aria-pressed="true"] { color: var(--indef); background: var(--indef-wash); }
+.opt-btn:focus-visible, .place-btn:focus-visible, .chip:focus-visible { outline: 2px solid var(--split); outline-offset: 2px; }
+
+/* grid */
+.scroller { overflow-x: auto; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--sheet); }
+table.grid { border-collapse: separate; border-spacing: 0; width: 100%; }
+.grid th, .grid td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--rule); }
+.grid td { font-size: 15px; }
+.grid td + td, .grid th + th { border-left: 1px solid var(--rule); }
+.grid .rowlab {
+  position: sticky; left: 0; z-index: 2; background: var(--sheet);
+  width: 170px; min-width: 150px; font-family: var(--f-ui); font-weight: 500; font-size: 14px; color: var(--ink);
+  border-right: 1px solid var(--rule-strong);
+}
+.grid .rowlab small { display: block; font-weight: 400; color: var(--ink-soft); font-size: 12.5px; margin-top: 2px; }
+.grid thead th { background: var(--sheet); }
+.grid thead tr.family th { font-family: var(--f-ui); font-weight: 500; font-size: 12.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-soft); padding-block: 10px 6px; border-bottom: 1px solid var(--rule); }
+.grid thead tr.family th.fam { text-align: center; }
+.grid thead tr.cols th { padding-block: 12px 14px; border-bottom: 2px solid var(--rule-strong); }
+.colname { font-family: var(--f-display); font-size: 24px; font-weight: 600; line-height: 1.1; display: block; }
+.colname.long { font-size: 19px; }
+.colmeta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-family: var(--f-ui); font-size: 12.5px; }
+.pill { border-radius: 999px; padding: 1px 8px; border: 1px solid; white-space: nowrap; }
+.pill.split { color: var(--split); border-color: var(--split); background: var(--split-wash); }
+.pill.aniso { color: var(--aniso); border-color: var(--aniso); background: var(--aniso-wash); }
+.pill.indef { color: var(--indef); border-color: var(--indef); background: var(--indef-wash); }
+.pill.plain { color: var(--ink-soft); border-color: var(--rule-strong); }
+.pill.opt { color: var(--ink-soft); border-style: dashed; border-color: var(--rule-strong); }
+th.split-col { box-shadow: inset 0 3px 0 var(--split); }
+th.aniso-col { box-shadow: inset 0 3px 0 var(--aniso); }
+th.indef-col { box-shadow: inset 0 3px 0 var(--indef); }
+.grid tr.section th {
+  font-family: var(--f-display); font-style: italic; font-weight: 500; font-size: 18px;
+  padding-block: 18px 8px; background: var(--sheet); border-bottom: 1px solid var(--rule-strong);
+}
+.grid tr.section th span { position: sticky; left: 14px; }
+.grid tbody tr:last-child td, .grid tbody tr:last-child th { border-bottom: 0; }
+.grid td.hl, .grid th.hl { background: var(--hl); }
+.grid .rowlab.hl { background: var(--hl); }
+.grid td .note { color: var(--ink-soft); font-size: 13.5px; }
+.grid td p { margin: 0; }
+.grid td p + p { margin-top: 6px; }
+
+/* places strip */
+.places { display: grid; gap: 18px; }
+.strip-scroll { overflow-x: auto; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--sheet); }
+table.strip { border-collapse: collapse; min-width: 760px; width: 100%; font-family: var(--f-ui); font-variant-numeric: tabular-nums; }
+.strip th, .strip td { padding: 8px 4px; text-align: center; border-bottom: 1px solid var(--rule); }
+.strip tr:last-child td, .strip tr:last-child th { border-bottom: 0; }
+.strip th.glab { text-align: left; padding-inline: 14px 10px; font-weight: 500; white-space: nowrap; position: sticky; left: 0; background: var(--sheet); z-index: 1; min-width: 112px; }
+.strip thead th { font-weight: 500; font-size: 14px; color: var(--ink-soft); }
+.place-btn {
+  font: inherit; font-size: 14px; color: var(--ink); background: transparent; cursor: pointer;
+  border: 1px solid var(--rule-strong); border-radius: 5px; min-width: 34px; padding: 3px 6px;
+}
+.place-btn:hover { border-color: var(--ink-soft); }
+.place-btn[aria-pressed="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.place-fixed { display: inline-block; min-width: 34px; padding: 3px 6px; border-radius: 5px; background: var(--ink); color: var(--sheet); font-size: 14px; }
+.strip td.ins { background: var(--hl); }
+.dot { display: inline-block; width: 13px; height: 13px; border-radius: 50%; vertical-align: middle; }
+.dot.nc { background: currentColor; }
+.dot.c { border: 1.8px solid currentColor; background: transparent; }
+tr.g-split td { color: var(--split); }
+tr.g-aniso td { color: var(--aniso); }
+tr.g-indef td { color: var(--indef); }
+.strip-key { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--f-ui); font-size: 14px; color: var(--ink-soft); align-items: center; }
+.strip-key .dot { color: var(--ink-soft); margin-right: 6px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-family: var(--f-ui); font-size: 14px; color: var(--ink-soft); }
+.chip { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 999px; padding: 3px 11px; cursor: pointer; }
+.chip:hover { border-color: var(--ink-soft); }
+.s-readout { font-size: 18px; color: var(--ink); }
+
+.results { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .results { grid-template-columns: minmax(0, 1fr); } }
+.res { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.res.split { border-top: 3px solid var(--split); }
+.res.aniso { border-top: 3px solid var(--aniso); }
+.res.indef { border-top: 3px solid var(--indef); }
+.res-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.res-name { font-family: var(--f-display); font-weight: 600; font-size: 18px; min-width: 0; overflow-wrap: anywhere; }
+.badge { font-family: var(--f-ui); font-size: 12.5px; border-radius: 4px; padding: 1px 7px; white-space: nowrap; }
+.badge.fin { color: var(--warn); background: var(--warn-wash); }
+.badge.inf { color: var(--ok); background: var(--ok-wash); }
+.res-val { font-size: 17px; overflow-x: auto; }
+.res-why { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+
+/* notes */
+.notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+.notes > .sec-head { grid-column: 1 / -1; }
+.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.card.wide { grid-column: 1 / -1; }
+.card h3 { font-family: var(--f-display); font-weight: 600; font-size: 19px; margin: 0; }
+.card p { margin: 0; max-width: 72ch; }
+.disp { overflow-x: auto; padding-block: 4px; }
+.disp math[display="block"] { margin: 0; }
+.twin { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 860px) { .twin { grid-template-columns: minmax(0, 1fr); } }
+.twin > div { display: grid; gap: 6px; min-width: 0; align-content: start; }
+.twin h4 { margin: 0; font-family: var(--f-ui); font-weight: 500; font-size: 13px; letter-spacing: .07em; text-transform: uppercase; }
+.twin h4.split { color: var(--split); }
+.twin h4.aniso { color: var(--aniso); }
+.twin h4.indef { color: var(--indef); }
+.small { font-size: 14.5px; color: var(--ink-soft); }
+footer { font-family: var(--f-ui); font-size: 13px; color: var(--ink-soft); }
+@media (prefers-reduced-motion: no-preference) { .grid td, .grid th, .strip td { transition: background-color .12s ease; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Projective units · quadratic forms · places</div>
+    <h1>Four Groups over ℚ</h1>
+    <p class="lede" data-tex>Each group is $A^\times/\mathbb{Q}^\times$ for an algebra $A$ over $\mathbb{Q}$. The four main columns come in pairs: a split form and an anisotropic form of the same group over $\overline{\mathbb{Q}}$.</p>
+    <p class="lede-sub" data-tex>The tori $\mathbb{Q}^\times \subset \mathrm{PGL}_2(\mathbb{Q})$ and $\mathrm{SO}_2(\mathbb{Q}) \subset \mathrm{SO}_3(\mathbb{Q})$ sit inside the bigger groups as the diagonal torus and the rotations about an axis, matching $\mathbb{Q}\times\mathbb{Q} \subset M_2(\mathbb{Q})$ and $\mathbb{Q}(i) \subset \mathbb{H}$. Two optional torus columns add a second imaginary quadratic field, $\mathbb{Q}(\sqrt{-3})$, and a real one, $\mathbb{Q}(\sqrt2)$.</p>
+  </header>
+
+  <section class="grid-sec" aria-labelledby="grid-h">
+    <h2 id="grid-h" hidden>Comparison grid</h2>
+    <div class="key">
+      <span><i class="sw split"></i>split over ℚ (isotropic, ℚ-rank 1)</span>
+      <span><i class="sw aniso"></i>anisotropic over ℚ, compact over ℝ</span>
+      <span id="key-indef" hidden><i class="sw indef"></i>anisotropic over ℚ, noncompact over ℝ</span>
+      <span>Hover a cell to follow its row and column.</span>
+    </div>
+    <div class="optbar">
+      <span>Optional columns:</span>
+      <button type="button" class="opt-btn aniso" id="opt-eis" data-col="eis" aria-pressed="false"><span class="mark">+</span>SO(x²+xy+y²) · Eisenstein</button>
+      <button type="button" class="opt-btn indef" id="opt-pell" data-col="pell" aria-pressed="false"><span class="mark">+</span>SO(x²−2y²) · Pell</button>
+    </div>
+    <div class="scroller">
+      <table class="grid" id="grid"></table>
+    </div>
+  </section>
+
+  <section class="places" aria-labelledby="places-h">
+    <div class="sec-head">
+      <h2 id="places-h">Where each group is compact</h2>
+      <p data-tex>A filled dot means $G(\mathbb{Q}_v)$ is noncompact ($\mathbb{Q}_v$-rank 1). A ring means it is compact. Click primes to add them to $S$; the cards compute $G(\mathbb{Z}[1/N])$ for $N$ the product of the primes in $S$.</p>
+    </div>
+    <div class="strip-key">
+      <span><i class="dot nc"></i>noncompact</span>
+      <span><i class="dot c"></i>compact</span>
+      <span class="small" data-tex>For the semisimple pair, $G(\mathbb{Z}_S)$ is infinite exactly when some $v\in S$ is filled. For the tori, $\operatorname{rank} G(\mathbb{Z}_S) = \#\{\text{filled } v\in S\} - \operatorname{rank}_{\mathbb{Q}} G$.</span>
+    </div>
+    <div class="strip-scroll"><table class="strip" id="strip"></table></div>
+    <div class="controls">
+      <span class="s-readout" id="s-readout"></span>
+      <span>Try:</span>
+      <button class="chip" type="button" id="ex-3" data-s="3">S ∋ 3</button>
+      <button class="chip" type="button" id="ex-5" data-s="5">S ∋ 5</button>
+      <button class="chip" type="button" id="ex-7" data-s="7">S ∋ 7</button>
+      <button class="chip" type="button" id="ex-2" data-s="2">S ∋ 2</button>
+      <button class="chip" type="button" id="ex-15" data-s="3,5">S ∋ 3, 5</button>
+      <button class="chip" type="button" id="ex-none" data-s="">S = {∞}</button>
+    </div>
+    <div class="results" id="results"></div>
+  </section>
+
+  <section class="notes" aria-labelledby="notes-h">
+    <div class="sec-head">
+      <h2 id="notes-h">Notes</h2>
+    </div>
+
+    <div class="card wide">
+      <h3>The two Euler–Rodrigues formulas</h3>
+      <p data-tex>Both are the action of $A^\times$ on the trace-zero part of $A$ by conjugation, written in coordinates. Entries are quadratic in the four coordinates and the denominator is the norm.</p>
+      <div class="twin">
+        <div>
+          <h4 class="split" data-tex>Split: $g=\begin{pmatrix}a&b\\c&d\end{pmatrix}\in \mathrm{GL}_2(\mathbb{Q})$</h4>
+          <div class="disp" data-tex-display>\mathrm{Ad}(g) = \frac{1}{ad-bc}\begin{pmatrix} ad+bc & -ac & bd\\ -2ab & a^2 & -b^2\\ 2cd & -c^2 & d^2\end{pmatrix}</div>
+          <p class="small" data-tex>Basis $H=\left(\begin{smallmatrix}1&0\\0&-1\end{smallmatrix}\right)$, $E=\left(\begin{smallmatrix}0&1\\0&0\end{smallmatrix}\right)$, $F=\left(\begin{smallmatrix}0&0\\1&0\end{smallmatrix}\right)$, preserving $-\det(xH+yE+zF) = x^2+yz$. Setting $b=c=0$ gives $\operatorname{diag}(1,\,a/d,\,d/a)$: the $\mathbb{Q}^\times$ column.</p>
+        </div>
+        <div>
+          <h4 class="aniso" data-tex>Anisotropic: $q=a+bi+cj+dk\in \mathbb{H}(\mathbb{Q})^\times$</h4>
+          <div class="disp" data-tex-display>R_q = \frac{1}{N(q)}\begin{pmatrix} a^2+b^2-c^2-d^2 & 2(bc-ad) & 2(bd+ac)\\ 2(bc+ad) & a^2-b^2+c^2-d^2 & 2(cd-ab)\\ 2(bd-ac) & 2(cd+ab) & a^2-b^2-c^2+d^2\end{pmatrix}</div>
+          <p class="small" data-tex>Acting on pure quaternions $xi+yj+zk$, preserving $x^2+y^2+z^2$. Setting $c=d=0$ gives the rotation about the $x$-axis by $(a+bi)^2/(a^2+b^2)$: the $\mathrm{SO}_2(\mathbb{Q})$ column.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Denominators come from the norm</h3>
+      <p data-tex>For a primitive integral element $g$ of $A$, the reduced denominator of its image in $G(\mathbb{Q})$ is $|N(g)|$ with the primes where $A$ ramifies removed: 2 for $\mathbb{Q}(i)$, $\mathbb{Q}(\sqrt2)$ and $\mathbb{H}$, 3 for $\mathbb{Q}(\sqrt{-3})$, none for the split algebras. So the element over a ramified prime ($1+i$, $\sqrt{-3}$, $\sqrt2$) gives an integral matrix. That is why $G(\mathbb{Z})$ is bigger than the image of the ring units in those columns.</p>
+      <p class="small">Checked by exhaustive computation: every primitive input with entries in [−6, 6] for the 4-variable formulas, and in [−30, 30] for the quadratic fields.</p>
+    </div>
+
+    <div class="card">
+      <h3>Hilbert 90, uniformly</h3>
+      <div class="disp" data-tex-display>1 \to \mathbb{Q}^\times \to A^\times \to G(\mathbb{Q}) \to H^1(\mathbb{Q},\mathbb{G}_m)=0</div>
+      <p data-tex>So $G(\mathbb{Q}) = A^\times/\mathbb{Q}^\times$ in every column, not just $G(\overline{\mathbb{Q}})$. The norm-one group $A^1$ is the spin group. Its image is the kernel of the spinor norm $\theta = N \bmod \mathbb{Q}^{\times 2}$, and the cokernel is $N(A^\times)/\mathbb{Q}^{\times2}$.</p>
+    </div>
+
+    <div class="card">
+      <h3>Lines and trees</h3>
+      <p data-tex>Primitive integral elements of norm $p^k$, up to units, are the vertices at distance $k$ from a base vertex. In the quaternion columns, at a prime where $G$ is noncompact, there are $(p+1)p^{k-1}$ of them: the $(p+1)$-regular tree. In the torus columns there are 2, the two ends of a line. That line is an apartment of the tree, and the torus is its stabilizer.</p>
+    </div>
+
+    <div class="card">
+      <h3>The optional tori</h3>
+      <p data-tex>$\mathrm{SO}(x^2+xy+y^2)$ is the hexagonal version of $\mathrm{SO}_2$. Its rational points give integer triangles with a $120^\circ$ angle, such as 3-5-7. The torsion is $\mathbb{Z}/6$ and the split primes are $p\equiv1 \bmod 3$.</p>
+      <p data-tex>$\mathrm{SO}(x^2-2y^2)$ is anisotropic over $\mathbb{Q}$ but noncompact over $\mathbb{R}$. So $G(\mathbb{Z})=\pm(3+2\sqrt2)^{\mathbb{Z}}$ is infinite with compact quotient: Pell's equation, i.e. Dirichlet's unit theorem. In the quaternion family the same position is held by $B^\times/\mathbb{Q}^\times$ for an indefinite division algebra, such as $B=(-1,3)_{\mathbb{Q}}$ of discriminant 6, whose unit groups are cocompact Fuchsian groups.</p>
+    </div>
+
+    <div class="card">
+      <h3 data-tex>Pythagorean triples in the $\mathbb{Q}^\times$ column</h3>
+      <p data-tex>In the model $a^2-b^2=1$, the point for $t=m/n$ is $a=\frac{m^2+n^2}{2mn}$, $b=\frac{m^2-n^2}{2mn}$. This is the same triple $(m^2+n^2,\ m^2-n^2,\ 2mn)$ as for $\mathrm{SO}_2$, with $2mn$ as the denominator instead of $m^2+n^2$.</p>
+    </div>
+  </section>
+
+  <footer data-tex>Columns: $\mathbb{Q}^\times = \mathrm{SO}(xy)(\mathbb{Q})$, $\mathrm{SO}_2(\mathbb{Q}) = \mathrm{SO}(x^2+y^2)(\mathbb{Q})$, $\mathrm{PGL}_2(\mathbb{Q}) = \mathrm{SO}(x^2+yz)(\mathbb{Q})$, $\mathrm{SO}_3(\mathbb{Q}) = \mathrm{SO}(x^2+y^2+z^2)(\mathbb{Q})$. Math is typeset by KaTeX as MathML.</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var R = String.raw;
+
+  // ---------- KaTeX → MathML, with Unicode letters for MathML Core (Chrome ignores mathvariant) ----------
+  var DS = { C: "ℂ", H: "ℍ", N: "ℕ", P: "ℙ", Q: "ℚ", R: "ℝ", Z: "ℤ" };
+  function dsChar(ch) {
+    if (DS[ch]) return DS[ch];
+    var c = ch.charCodeAt(0);
+    if (c >= 65 && c <= 90) return String.fromCodePoint(0x1D538 + c - 65);
+    if (c >= 97 && c <= 122) return String.fromCodePoint(0x1D552 + c - 97);
+    return ch;
+  }
+  function fixMathML(html) {
+    return html.replace(/<mi mathvariant="double-struck">([A-Za-z])<\/mi>/g, function (_, ch) {
+      return "<mi>" + dsChar(ch) + "</mi>";
+    });
+  }
+  function tex(s, display) {
+    if (!window.katex) return "<code>" + s.replace(/</g, "&lt;") + "</code>";
+    return fixMathML(katex.renderToString(s, { output: "mathml", displayMode: !!display, throwOnError: false, strict: "ignore" }));
+  }
+  function unesc(s) { return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"); }
+  // Render a string with $...$ inline math; other text passes through as HTML.
+  function rich(s) {
+    var out = "", parts = s.split("$");
+    for (var i = 0; i < parts.length; i++) out += (i % 2) ? tex(unesc(parts[i]), false) : parts[i];
+    return out;
+  }
+  function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+  function load(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } }
+
+  // ---------- columns: order is [gm, so2, eis, pell, pgl, so3]; eis and pell are optional ----------
+  var COLS = [
+    { id: "gm",   fam: "tori", kind: "split", tag: "split torus", name: R`$\mathbb{Q}^\times$`, alg: R`$A=\mathbb{Q}\times\mathbb{Q}$` },
+    { id: "so2",  fam: "tori", kind: "aniso", tag: "anisotropic torus", name: R`$\mathrm{SO}_2(\mathbb{Q})$`, alg: R`$A=\mathbb{Q}(i)$` },
+    { id: "eis",  fam: "tori", kind: "aniso", tag: "anisotropic torus", opt: "Eisenstein", long: true, name: R`$\mathrm{SO}(x^2+xy+y^2)(\mathbb{Q})$`, alg: R`$A=\mathbb{Q}(\sqrt{-3})$` },
+    { id: "pell", fam: "tori", kind: "indef", tag: "anisotropic, split over ℝ", opt: "Pell", long: true, name: R`$\mathrm{SO}(x^2-2y^2)(\mathbb{Q})$`, alg: R`$A=\mathbb{Q}(\sqrt2)$` },
+    { id: "pgl",  fam: "pgl",  kind: "split", tag: "split form", name: R`$\mathrm{PGL}_2(\mathbb{Q})$`, alg: R`$A=M_2(\mathbb{Q})$` },
+    { id: "so3",  fam: "pgl",  kind: "aniso", tag: "anisotropic form", name: R`$\mathrm{SO}_3(\mathbb{Q})$`, alg: R`$A=\mathbb{H}(\mathbb{Q})$` }
+  ];
+
+  var SECTIONS = [
+    { title: "Models", rows: [
+      { lab: "Quadratic form", cells: [
+        R`$xy$ on $\mathbb{Q}^2$ (equivalently $x^2-y^2$), the hyperbolic plane`,
+        R`$x^2+y^2$`,
+        R`$x^2+xy+y^2 = N(x+y\rho)$ with $\rho=e^{\pi i/3}$: the hexagonal norm`,
+        R`$x^2-2y^2 = N(x+y\sqrt2)$: anisotropic over $\mathbb{Q}$, indefinite over $\mathbb{R}$`,
+        R`$x^2+yz = -\det$ on trace-zero $2\times2$ matrices (equivalently $x^2+y^2-z^2$)`,
+        R`$x^2+y^2+z^2 = N$ on pure quaternions`
+      ]},
+      { lab: "Matrix group", cells: [
+        R`$\begin{pmatrix}t&0\\0&t^{-1}\end{pmatrix}$, or $\begin{pmatrix}a&b\\b&a\end{pmatrix}$ with $a^2-b^2=1$`,
+        R`$\begin{pmatrix}a&-b\\b&a\end{pmatrix}$ with $a^2+b^2=1$`,
+        R`$\begin{pmatrix}a&-b\\b&a+b\end{pmatrix}$ with $a^2+ab+b^2=1$`,
+        R`$\begin{pmatrix}a&2b\\b&a\end{pmatrix}$ with $a^2-2b^2=1$`,
+        R`$\mathrm{GL}_2(\mathbb{Q})/\mathbb{Q}^\times$, or $\mathrm{SO}(x^2+y^2-z^2)(\mathbb{Q})$ as $3\times3$ matrices`,
+        R`$A\in M_3(\mathbb{Q})$ with $A^{\top}A=I$ and $\det A=1$`
+      ]},
+      { lab: "Algebra A", cells: [
+        R`$\mathbb{Q}\times\mathbb{Q}=\mathbb{Q}[j]/(j^2-1)$`,
+        R`$\mathbb{Q}(i)$`,
+        R`$\mathbb{Q}(\sqrt{-3})=\mathbb{Q}(\rho)$`,
+        R`$\mathbb{Q}(\sqrt2)$`,
+        R`$M_2(\mathbb{Q})\cong(1,1)_{\mathbb{Q}}$`,
+        R`$\mathbb{H}(\mathbb{Q})=(-1,-1)_{\mathbb{Q}}$`
+      ]},
+      { lab: "Conjugation and norm", cells: [
+        R`$\overline{(u,v)}=(v,u)$, $\ N=uv$`,
+        R`$\overline{m+ni}=m-ni$, $\ N=m^2+n^2$`,
+        R`$\overline{x+y\rho}=x+y\bar\rho$, $\ N=x^2+xy+y^2$`,
+        R`$\overline{x+y\sqrt2}=x-y\sqrt2$, $\ N=x^2-2y^2$`,
+        R`$\bar g=\operatorname{adj} g$, $\ N=\det$`,
+        R`$\bar q=a-bi-cj-dk$, $\ N=a^2+b^2+c^2+d^2$`
+      ]},
+      { lab: "A× → G(ℚ)", sub: "surjective, kernel ℚ×", cells: [
+        R`$(u,v)\mapsto u/v$`,
+        R`$w\mapsto w/\bar w$`,
+        R`$w\mapsto w/\bar w$`,
+        R`$w\mapsto w/\bar w$`,
+        R`$g\mapsto (X\mapsto gXg^{-1})$ on trace-zero $X$`,
+        R`$q\mapsto (v\mapsto qvq^{-1})$ on pure $v$`
+      ]}
+    ]},
+    { title: "Spin and the norm", rows: [
+      { lab: "Spin group A¹", sub: "norm-one units", cells: [
+        R`$\{(t,t^{-1})\}\cong\mathbb{Q}^\times$`,
+        R`$\mathbb{Q}(i)^1$, the circle again`,
+        R`$\mathbb{Q}(\rho)^1$, the circle again`,
+        R`$\mathbb{Q}(\sqrt2)^1$, the hyperbola again`,
+        R`$\mathrm{SL}_2(\mathbb{Q})$`,
+        R`$\mathbb{H}^1$, rational unit quaternions`
+      ]},
+      { lab: "A¹ → G(ℚ)", sub: "kernel ±1", cells: [
+        R`$t\mapsto t^2$`,
+        R`$z\mapsto z^2$`,
+        R`$z\mapsto z^2$`,
+        R`$z\mapsto z^2$`,
+        R`$\mathrm{SL}_2(\mathbb{Q})\to\mathrm{PGL}_2(\mathbb{Q})$`,
+        R`$q\mapsto (v\mapsto qvq^{-1})$`
+      ]},
+      { lab: "Cokernel", sub: "spinor norm θ = N mod squares", cells: [
+        R`$\mathbb{Q}^\times/\mathbb{Q}^{\times2}$`,
+        R`$\langle 2,\ p\equiv 1\ (4)\rangle\subset\mathbb{Q}_{>0}/\mathbb{Q}^{\times2}$ <span class="note">(sums of two squares)</span>`,
+        R`$\langle 3,\ p\equiv 1\ (3)\rangle\subset\mathbb{Q}_{>0}/\mathbb{Q}^{\times2}$ <span class="note">(values of $x^2+xy+y^2$)</span>`,
+        R`$\langle -1,\ 2,\ p\equiv \pm1\ (8)\rangle\subset\mathbb{Q}^\times/\mathbb{Q}^{\times2}$ <span class="note">($-1=N(1+\sqrt2)$)</span>`,
+        R`$\mathbb{Q}^\times/\mathbb{Q}^{\times2}$ via $\det$`,
+        R`$\mathbb{Q}_{>0}/\mathbb{Q}^{\times2}$ <span class="note">(every positive rational is a sum of four squares)</span>`
+      ]}
+    ]},
+    { title: "Rational points", rows: [
+      { lab: "Parametrization", cells: [
+        R`$t=m/n$`,
+        R`$\dfrac{(m+ni)^2}{m^2+n^2}$`,
+        R`$\dfrac{(m+n\rho)^2}{m^2+mn+n^2}$`,
+        R`$\dfrac{(m+n\sqrt2)^2}{m^2-2n^2}$`,
+        R`$\mathrm{Ad}(g)$: quadratic in $a,b,c,d$, over $ad-bc$ <span class="note">(Notes)</span>`,
+        R`Euler–Rodrigues $R_q$: quadratic in $a,b,c,d$, over $N(q)$ <span class="note">(Notes)</span>`
+      ]},
+      { lab: "Denominator", sub: "of a primitive integral input", cells: [
+        R`$|mn|$`,
+        R`$N(w)$ with the factor of 2 removed`,
+        R`$N(w)$ with the factor of 3 removed`,
+        R`$|N(w)|$ with the factor of 2 removed`,
+        R`$|\det g|$`,
+        R`$N(q)$ with the factors of 2 removed`
+      ]},
+      { lab: "Example", cells: [
+        R`$t=\tfrac23\ \mapsto\ \operatorname{diag}(\tfrac23,\tfrac32)$, denominator $6$`,
+        R`$w=3+i$, $N=10\ \mapsto\ \tfrac{4+3i}{5}$`,
+        R`$w=4+\rho$, $N=21\ \mapsto\ \tfrac{5+3\rho}{7}$: the 3-5-7 triangle with a $120^\circ$ angle`,
+        R`<p>$w=3+\sqrt2$, $N=7\ \mapsto\ \tfrac{11+6\sqrt2}{7}$</p><p>$w=1+\sqrt2$, $N=-1\ \mapsto\ -(3+2\sqrt2)$, integral</p>`,
+        R`$\begin{pmatrix}1&1\\1&-1\end{pmatrix}\mapsto\tfrac12\begin{pmatrix}0&1&1\\2&-1&1\\2&1&-1\end{pmatrix}$, the 2 survives`,
+        R`$q=3+i+j+k$, $N=12\ \mapsto\ \tfrac13\begin{pmatrix}2&-1&2\\2&2&-1\\-1&2&2\end{pmatrix}$, $60^\circ$ about $(1,1,1)$`
+      ]}
+    ]},
+    { title: "Arithmetic", rows: [
+      { lab: "Primes", sub: "elements of prime norm, up to units", cells: [
+        R`$(p,1)$ and $(1,p)$ for every $p$: two neighbours on a line`,
+        R`$\pi_p,\ \bar\pi_p$ for $p\equiv1\ (4)$: two neighbours on a line`,
+        R`$\pi_p,\ \bar\pi_p$ for $p\equiv1\ (3)$: two neighbours on a line`,
+        R`$\pi_p,\ \bar\pi_p$ for $p\equiv\pm1\ (8)$: two neighbours on a line`,
+        R`$p+1$ matrices of determinant $p$ in Hermite form, for every $p$: the neighbours in a tree`,
+        R`$p+1$ quaternions of norm $p$, for every odd $p$: the neighbours in a tree`
+      ]},
+      { lab: "Factorization", cells: [
+        R`unique in $\mathbb{Z}$`,
+        R`unique in $\mathbb{Z}[i]$`,
+        R`unique in $\mathbb{Z}[\rho]$, the Eisenstein integers`,
+        R`unique in $\mathbb{Z}[\sqrt2]$`,
+        R`unique in $M_2(\mathbb{Z})$ for each ordering of the primes of $\det g$, up to unit migration`,
+        R`unique in the Hurwitz order for each ordering of the primes of $N(q)$, up to unit migration (Conway–Smith)`
+      ]},
+      { lab: "Structure of G(ℚ)", cells: [
+        R`$\{\pm1\}\times\bigoplus_{p}\mathbb{Z}$`,
+        R`$\mathbb{Z}/4\times\bigoplus_{p\equiv1\,(4)}\mathbb{Z}$, generated by $i$ and $\pi_p/\bar\pi_p$`,
+        R`$\mathbb{Z}/6\times\bigoplus_{p\equiv1\,(3)}\mathbb{Z}$, generated by $\rho$ and $\pi_p/\bar\pi_p$`,
+        R`<p>$\mathbb{Z}/2\times\mathbb{Z}\times\bigoplus_{p\equiv\pm1\,(8)}\mathbb{Z}$.</p><p>Generated by $-1$ (from $\sqrt2$), $3+2\sqrt2$ (from the unit $1+\sqrt2$) and $\pi_p/\bar\pi_p$.</p>`,
+        R`<p>$\mathrm{PSL}_2(\mathbb{Q})$ is simple, with quotient $\mathbb{Q}^\times/\mathbb{Q}^{\times2}$.</p><p>Contains $F_2=\left\langle\left(\begin{smallmatrix}1&2\\0&1\end{smallmatrix}\right),\left(\begin{smallmatrix}1&0\\2&1\end{smallmatrix}\right)\right\rangle$ (Sanov).</p>`,
+        R`<p>The image of $\mathbb{H}^1$ is not simple: it is dense in the profinite group $\mathrm{SO}_3(\mathbb{Q}_2)$ and inherits its finite quotients.</p><p>Contains $F_2$: rotations by $\arccos\tfrac35$ about two perpendicular axes (Świerczkowski).</p>`
+      ]},
+      { lab: "Torsion", cells: [
+        R`$\pm1$`,
+        R`$\mathbb{Z}/4$, rotation by $90^\circ$`,
+        R`$\mathbb{Z}/6$, rotation by $60^\circ$`,
+        R`$\pm1$`,
+        R`orders $1,2,3,4,6$. Finite subgroups lie in a compact $\mathrm{O}(2)\subset\mathrm{PGL}_2(\mathbb{R})$, so they are cyclic or dihedral; maximal $D_4,\ D_6$`,
+        R`orders $1,2,3,4,6$ (trace $1+2\cos\theta\in\mathbb{Q}$); maximal finite subgroups $S_4,\ D_6$`
+      ]},
+      { lab: "G(ℤ)", cells: [
+        R`$\{\pm1\}$`,
+        R`$\mathbb{Z}/4=\langle i\rangle$`,
+        R`$\mathbb{Z}/6=\langle\rho\rangle$, the rotations of the hexagonal lattice`,
+        R`$\pm(3+2\sqrt2)^{\mathbb{Z}}\cong\mathbb{Z}/2\times\mathbb{Z}$, the solutions of Pell's equation. Infinite, with compact quotient`,
+        R`$\mathrm{PGL}_2(\mathbb{Z})\cong D_2 *_{\mathbb{Z}/2} D_3$, infinite: a non-uniform lattice in $\mathrm{PGL}_2(\mathbb{R})$`,
+        R`$S_4$, the rotations of the cube`
+      ]},
+      { lab: "G(ℤ) from units", sub: "image of the order's units", cells: [
+        R`$(\mathbb{Z}\times\mathbb{Z})^\times/\pm1$: all of $G(\mathbb{Z})$`,
+        R`$\mathbb{Z}[i]^\times$ gives only $\pm1$; the rotation $i$ needs $1+i$`,
+        R`$\mathbb{Z}[\rho]^\times=\mu_6$ gives only $\mu_3$; the rotation $-1$ needs $\sqrt{-3}$`,
+        R`$\mathbb{Z}[\sqrt2]^\times$ gives $\langle-(3+2\sqrt2)\rangle$; $-1$ needs $\sqrt2$`,
+        R`$\mathrm{GL}_2(\mathbb{Z})/\pm1$: all of $G(\mathbb{Z})$`,
+        R`Hurwitz units ($2T$, order 24) give only $A_4$; $S_4$ needs $1+i$`
+      ]}
+    ]},
+    { title: "Local and S-arithmetic", rows: [
+      { lab: "G(ℝ)", cells: [
+        R`$\mathbb{R}^\times$, noncompact`,
+        R`$S^1$, compact`,
+        R`$S^1$, compact`,
+        R`$\mathbb{R}^\times$, noncompact`,
+        R`$\mathrm{PGL}_2(\mathbb{R})$, isometries of the hyperbolic plane; noncompact`,
+        R`$\mathrm{SO}_3(\mathbb{R})$, compact`
+      ]},
+      { lab: "G(ℚₚ)", cells: [
+        R`$\mathbb{Q}_p^\times$ for every $p$, acting on a line`,
+        R`$\mathbb{Q}_p^\times$ if $p\equiv1\ (4)$; compact if $p=2$ or $p\equiv3\ (4)$`,
+        R`$\mathbb{Q}_p^\times$ if $p\equiv1\ (3)$; compact if $p=3$ or $p\equiv2\ (3)$`,
+        R`$\mathbb{Q}_p^\times$ if $p\equiv\pm1\ (8)$; compact if $p=2$ or $p\equiv\pm3\ (8)$`,
+        R`$\mathrm{PGL}_2(\mathbb{Q}_p)$ for every $p$, acting on the $(p+1)$-regular tree`,
+        R`$\mathrm{PGL}_2(\mathbb{Q}_p)$ for odd $p$; compact for $p=2$, where $\mathbb{H}$ ramifies`
+      ]},
+      { lab: "G(ℤ[1/p])", cells: [
+        R`$\{\pm1\}\times\mathbb{Z}$`,
+        R`$\mathbb{Z}/4\times\mathbb{Z}$ if $p\equiv1\ (4)$, else $\mathbb{Z}/4$`,
+        R`$\mathbb{Z}/6\times\mathbb{Z}$ if $p\equiv1\ (3)$, else $\mathbb{Z}/6$`,
+        R`$\mathbb{Z}/2\times\mathbb{Z}^2$ if $p\equiv\pm1\ (8)$, else $\mathbb{Z}/2\times\mathbb{Z}$`,
+        R`non-uniform lattice in $\mathrm{PGL}_2(\mathbb{R})\times\mathrm{PGL}_2(\mathbb{Q}_p)$; vertex-transitive on the tree, stabilizer $\mathrm{PGL}_2(\mathbb{Z})$`,
+        R`$S_4$ if $p=2$; otherwise a cocompact lattice in $\mathrm{PGL}_2(\mathbb{Q}_p)$, vertex-transitive on the tree with stabilizer $S_4$, virtually free`
+      ]},
+      { lab: "ℚ-rank", cells: [
+        R`$1$: isotropic`,
+        R`$0$: anisotropic`,
+        R`$0$: anisotropic`,
+        R`$0$: anisotropic over $\mathbb{Q}$ but isotropic over $\mathbb{R}$, so $G(\mathbb{Z})$ is infinite with compact quotient`,
+        R`$1$: isotropic, so $\mathrm{PGL}_2(\mathbb{Z})$ has a cusp`,
+        R`$0$: anisotropic, so every $\mathrm{SO}_3(\mathbb{Z}[1/N])$ is cocompact`
+      ]}
+    ]}
+  ];
+
+  // ---------- optional columns ----------
+  var shown = new Set();
+  var savedOpt = load("fourgroups.opt");
+  if (Array.isArray(savedOpt)) savedOpt.forEach(function (id) { if (id === "eis" || id === "pell") shown.add(id); });
+  function visibleIdx() {
+    var out = [];
+    COLS.forEach(function (c, i) { if (!c.opt || shown.has(c.id)) out.push(i); });
+    return out;
+  }
+
+  // ---------- build grid ----------
+  var gridEl = document.getElementById("grid");
+  function buildGrid() {
+    var vis = visibleIdx();
+    var nTori = vis.filter(function (i) { return COLS[i].fam === "tori"; }).length;
+    gridEl.style.minWidth = (170 + 215 * vis.length) + "px";
+    var h = '<thead><tr class="family"><th class="rowlab"></th>' +
+      '<th class="fam" colspan="' + nTori + '">Rank-one tori · A quadratic étale</th>' +
+      '<th class="fam" colspan="2">Forms of PGL₂ · A quaternion</th></tr><tr class="cols"><th class="rowlab">Group</th>';
+    vis.forEach(function (i) {
+      var c = COLS[i];
+      h += '<th class="' + c.kind + '-col" data-col="' + c.id + '"><span class="colname' + (c.long ? " long" : "") + '">' + rich(c.name) + '</span>' +
+        '<span class="colmeta"><span class="pill ' + c.kind + '">' + c.tag + '</span><span class="pill plain">' + rich(c.alg) + '</span>' +
+        (c.opt ? '<span class="pill opt">optional · ' + c.opt + '</span>' : "") + '</span></th>';
+    });
+    h += "</tr></thead><tbody>";
+    SECTIONS.forEach(function (sec) {
+      h += '<tr class="section"><th colspan="' + (vis.length + 1) + '"><span>' + sec.title + "</span></th></tr>";
+      sec.rows.forEach(function (row) {
+        h += '<tr><th class="rowlab" scope="row">' + row.lab + (row.sub ? "<small>" + row.sub + "</small>" : "") + "</th>";
+        vis.forEach(function (i) { h += '<td data-col="' + COLS[i].id + '">' + rich(row.cells[i]) + "</td>"; });
+        h += "</tr>";
+      });
+    });
+    gridEl.innerHTML = h + "</tbody>";
+  }
+  // crosshair highlight
+  (function () {
+    var last = [];
+    function clear() { last.forEach(function (el) { el.classList.remove("hl"); }); last = []; }
+    gridEl.addEventListener("mouseover", function (e) {
+      var cell = e.target.closest("td[data-col], thead th[data-col]");
+      clear();
+      if (!cell) return;
+      var col = cell.getAttribute("data-col");
+      gridEl.querySelectorAll('[data-col="' + col + '"]').forEach(function (el) { el.classList.add("hl"); last.push(el); });
+      var tr = cell.parentElement;
+      if (tr.parentElement.tagName === "TBODY") {
+        tr.querySelectorAll("td, th").forEach(function (el) { el.classList.add("hl"); last.push(el); });
+      }
+    });
+    gridEl.addEventListener("mouseleave", clear);
+  })();
+
+  // ---------- places strip ----------
+  var PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43];
+  function sub(n) { return String(n).replace(/[0-9]/g, function (d) { return "₀₁₂₃₄₅₆₇₈₉"[d]; }); }
+  function Qp(v) { return v === "inf" ? "ℝ" : "ℚ" + sub(v); }
+  var GROUPS = {
+    gm:   { name: "ℚ×", nc: function () { return true; },
+            local: function (v) { return v === "inf" ? "ℝ×" : Qp(v) + "×"; } },
+    so2:  { name: "SO₂(ℚ)", nc: function (v) { return v !== "inf" && v % 4 === 1; },
+            local: function (v) {
+              if (v === "inf") return "S¹ (compact)";
+              if (v === 2) return "norm-one group of ℚ₂(i), ramified (compact)";
+              return v % 4 === 1 ? Qp(v) + "× (i ∈ " + Qp(v) + ")" : "norm-one group of the unramified " + Qp(v) + "(i) (compact)";
+            } },
+    eis:  { name: "SO(x²+xy+y²)", nc: function (v) { return v !== "inf" && v % 3 === 1; },
+            local: function (v) {
+              if (v === "inf") return "S¹ (compact)";
+              if (v === 3) return "norm-one group of ℚ₃(√−3), ramified (compact)";
+              return v % 3 === 1 ? Qp(v) + "× (√−3 ∈ " + Qp(v) + ")" : "norm-one group of the unramified " + Qp(v) + "(√−3) (compact)";
+            } },
+    pell: { name: "SO(x²−2y²)", nc: function (v) { return v === "inf" || v % 8 === 1 || v % 8 === 7; },
+            local: function (v) {
+              if (v === "inf") return "ℝ× (x² − 2y² is indefinite)";
+              if (v === 2) return "norm-one group of ℚ₂(√2), ramified (compact)";
+              return (v % 8 === 1 || v % 8 === 7) ? Qp(v) + "× (√2 ∈ " + Qp(v) + ")" : "norm-one group of the unramified " + Qp(v) + "(√2) (compact)";
+            } },
+    pgl:  { name: "PGL₂(ℚ)", nc: function () { return true; },
+            local: function (v) { return v === "inf" ? "PGL₂(ℝ)" : "PGL₂(" + Qp(v) + "), on the " + (v + 1) + "-regular tree"; } },
+    so3:  { name: "SO₃(ℚ)", nc: function (v) { return v !== "inf" && v !== 2; },
+            local: function (v) {
+              if (v === "inf") return "SO₃(ℝ) (compact)";
+              if (v === 2) return "ℍ(ℚ₂)×/ℚ₂× (compact, ℍ ramified)";
+              return "PGL₂(" + Qp(v) + "), on the " + (v + 1) + "-regular tree";
+            } }
+  };
+
+  var S = new Set([3]);
+  var savedS = load("fourgroups.S");
+  if (Array.isArray(savedS)) S = new Set(savedS.filter(function (p) { return PRIMES.indexOf(p) >= 0; }));
+
+  var stripEl = document.getElementById("strip");
+  function buildStrip() {
+    var h = '<thead><tr><th class="glab">place v</th><th><span class="place-fixed" title="∞ is always in S">∞</span></th>';
+    PRIMES.forEach(function (p) {
+      h += '<th><button type="button" class="place-btn" id="pb-' + p + '" data-p="' + p + '" aria-pressed="false" aria-label="Toggle prime ' + p + ' in S">' + p + "</button></th>";
+    });
+    h += "</tr></thead><tbody>";
+    visibleIdx().forEach(function (i) {
+      var c = COLS[i], g = GROUPS[c.id];
+      h += '<tr class="g-' + c.kind + '"><th class="glab" scope="row">' + g.name + "</th>";
+      ["inf"].concat(PRIMES).forEach(function (v) {
+        var nc = g.nc(v);
+        var tip = g.name + " over " + Qp(v) + ": " + g.local(v);
+        h += '<td data-v="' + v + '" title="' + tip + '"><i class="dot ' + (nc ? "nc" : "c") + '" aria-label="' + (nc ? "noncompact" : "compact") + '"></i></td>';
+      });
+      h += "</tr>";
+    });
+    stripEl.innerHTML = h + "</tbody>";
+  }
+  stripEl.addEventListener("click", function (e) {
+    var b = e.target.closest(".place-btn");
+    if (!b) return;
+    var p = +b.getAttribute("data-p");
+    if (S.has(p)) S.delete(p); else S.add(p);
+    update();
+  });
+  document.querySelectorAll(".chip[data-s]").forEach(function (c) {
+    c.addEventListener("click", function () {
+      var v = c.getAttribute("data-s");
+      S = new Set(v ? v.split(",").map(Number) : []);
+      update();
+    });
+  });
+
+  function treeWord(ps) { return ps.length === 1 ? "the " + (ps[0] + 1) + "-regular tree" : "a product of " + ps.length + " trees (valences " + ps.map(function (p) { return p + 1; }).join(", ") + ")"; }
+  function listP(ps) { return ps.join(", "); }
+
+  function compute() {
+    var ps = Array.from(S).sort(function (a, b) { return a - b; });
+    var N = ps.reduce(function (a, b) { return a * b; }, 1);
+    var Nt = N === 1 ? R`\mathbb{Z}` : R`\mathbb{Z}[1/` + N + "]";
+    var ring = N === 1 ? "ℤ" : "ℤ[1/" + N + "]";
+    var k = ps.length;
+    var odd = ps.filter(function (p) { return p !== 2; });
+    var res = {};
+
+    res.gm = { label: ring + "×", fin: k === 0,
+      val: k === 0 ? R`\{\pm1\}` : R`\{\pm1\}\times\mathbb{Z}^{` + k + "}",
+      why: "Rank = " + (1 + k) + " filled places in S − ℚ-rank 1 = " + k + "." + (k ? " Generated by −1 and the primes " + listP(ps) + "." : " Only the units ±1.") };
+
+    var r2 = ps.filter(function (p) { return p % 4 === 1; });
+    res.so2 = { label: "SO₂(" + ring + ")", fin: r2.length === 0,
+      val: r2.length === 0 ? R`\mathbb{Z}/4` : R`\mathbb{Z}/4\times\mathbb{Z}^{` + r2.length + "}",
+      why: r2.length === 0
+        ? (k === 0 ? "Only the rotations by multiples of 90°." : "No prime in S is ≡ 1 mod 4, so no prime in S splits in ℚ(i). SO₂ is compact at each of them and nothing new appears" + (S.has(3) ? ": x² + y² ≡ 0 mod 3 forces 3 | x, y." : "."))
+        : "Generated by i and π/π̄ for p = " + listP(r2) + " (5 gives (3+4i)/5)." };
+
+    var r3 = ps.filter(function (p) { return p % 3 === 1; });
+    res.eis = { label: "SO(x²+xy+y²)(" + ring + ")", fin: r3.length === 0,
+      val: r3.length === 0 ? R`\mathbb{Z}/6` : R`\mathbb{Z}/6\times\mathbb{Z}^{` + r3.length + "}",
+      why: r3.length === 0
+        ? (k === 0 ? "Only the six rotations of the hexagonal lattice." : "No prime in S is ≡ 1 mod 3, so the torus is compact at each of them and nothing new appears.")
+        : "Generated by ρ and π/π̄ for p = " + listP(r3) + " (7 gives (3+5ρ)/7, the 3-5-7 triangle)." };
+
+    var r8 = ps.filter(function (p) { return p % 8 === 1 || p % 8 === 7; });
+    res.pell = { label: "SO(x²−2y²)(" + ring + ")", fin: false,
+      val: R`\mathbb{Z}/2\times\mathbb{Z}^{` + (1 + r8.length) + "}",
+      why: "Rank = " + (1 + r8.length) + " filled places in S (∞ is filled) − ℚ-rank 0. Generated by −1, 3+2√2" +
+        (r8.length ? " and π/π̄ for p = " + listP(r8) : "") + ". Infinite even for S = {∞}: Pell's equation." };
+
+    if (k === 0) res.pgl = { val: R`\mathrm{PGL}_2(\mathbb{Z})`, why: "Non-uniform lattice in PGL₂(ℝ). It is infinite because PGL₂(ℝ) is noncompact; it is non-uniform because PGL₂ is isotropic over ℚ." };
+    else res.pgl = { val: R`\mathrm{PGL}_2(` + Nt + ")", why: "Non-uniform lattice in PGL₂(ℝ) × " + ps.map(function (p) { return "PGL₂(" + Qp(p) + ")"; }).join(" × ") + ", acting on " + treeWord(ps) + "." };
+    res.pgl.fin = false; res.pgl.label = "PGL₂(" + ring + ")";
+
+    if (odd.length === 0) res.so3 = { fin: true, val: R`S_4`, why: (S.has(2) ? "SO₃(ℤ[1/2]) = SO₃(ℤ): x²+y²+z² ≡ 0 mod 4 forces x, y, z even, because ℍ is ramified at 2. " : "") + "Compact at every place of S, so finite: the rotations of the cube." };
+    else if (odd.length === 1) res.so3 = { fin: false, val: R`\mathrm{SO}_3(` + Nt + ")", why: "Cocompact lattice in PGL₂(" + Qp(odd[0]) + "), vertex-transitive on the " + (odd[0] + 1) + "-regular tree with vertex stabilizer S₄. Virtually free." };
+    else res.so3 = { fin: false, val: R`\mathrm{SO}_3(` + Nt + ")", why: "Cocompact irreducible lattice in " + odd.map(function (p) { return "PGL₂(" + Qp(p) + ")"; }).join(" × ") + ", acting on " + treeWord(odd) + "." };
+    res.so3.label = "SO₃(" + ring + ")";
+    return { ps: ps, N: N, res: res };
+  }
+
+  function update() {
+    store("fourgroups.S", Array.from(S));
+    PRIMES.forEach(function (p) {
+      var b = document.getElementById("pb-" + p);
+      if (b) b.setAttribute("aria-pressed", S.has(p) ? "true" : "false");
+    });
+    stripEl.querySelectorAll("td[data-v]").forEach(function (td) {
+      var v = td.getAttribute("data-v");
+      td.classList.toggle("ins", v === "inf" || S.has(+v));
+    });
+    var out = compute();
+    document.getElementById("s-readout").innerHTML = rich("$S=\\{\\infty" + out.ps.map(function (p) { return "," + p; }).join("") + "\\}$, $\\ N=" + out.N + "$");
+    document.getElementById("results").innerHTML = visibleIdx().map(function (i) {
+      var c = COLS[i], o = out.res[c.id];
+      return '<div class="res ' + c.kind + '"><div class="res-head"><span class="res-name">' + o.label + "</span>" +
+        '<span class="badge ' + (o.fin ? "fin" : "inf") + '">' + (o.fin ? "finite" : "infinite") + "</span></div>" +
+        '<div class="res-val">' + tex(o.val, false) + "</div><p class=\"res-why\">" + o.why + "</p></div>";
+    }).join("");
+  }
+
+  function syncOptButtons() {
+    document.querySelectorAll(".opt-btn").forEach(function (b) {
+      var on = shown.has(b.getAttribute("data-col"));
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.querySelector(".mark").textContent = on ? "✓" : "+";
+    });
+    document.getElementById("key-indef").hidden = !shown.has("pell");
+  }
+  document.querySelectorAll(".opt-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var id = b.getAttribute("data-col");
+      if (shown.has(id)) shown.delete(id); else shown.add(id);
+      store("fourgroups.opt", Array.from(shown));
+      renderAll();
+    });
+  });
+
+  function renderStatic() {
+    document.querySelectorAll("[data-tex]").forEach(function (el) { el.innerHTML = rich(el.innerHTML); });
+    document.querySelectorAll("[data-tex-display]").forEach(function (el) { el.innerHTML = tex(el.textContent.trim(), true); });
+  }
+  function renderAll() { syncOptButtons(); buildGrid(); buildStrip(); update(); }
+
+  function start() { renderStatic(); renderAll(); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+})();
+</script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>

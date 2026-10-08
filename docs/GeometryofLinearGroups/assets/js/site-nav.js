@@ -54,6 +54,7 @@
       { t: 'Group Structure: a²+xb²=1',             u: 'Arithmetic/Tools/orthogonalGroups/group-structure.html' },
       { t: 'Integer Matrices',                      u: 'Arithmetic/Tools/integralElements/index.html' },
       { t: 'Finite Groups',                         u: 'Arithmetic/Tools/finite.html' },
+      { t: 'Four Groups over ℚ',                    u: 'Arithmetic/Tools/fourGroupsOverQ/index.html' },
     ]},
     { section: 'Geometric · Kleinian', icon: '𝕏', items: [
       { t: 'Geometric — Overview',          u: 'Geometric/index.html' },
