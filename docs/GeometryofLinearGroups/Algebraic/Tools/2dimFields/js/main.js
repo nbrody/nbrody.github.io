@@ -37,7 +37,7 @@ const MIN_PX = 0.6;       // planes smaller than this (projected radius) are dro
 const DETAIL_PX = 18;     // Farey geodesics and horocycles only on planes at least this big
 const ORTHO_DIST = 60;
 
-const st = { dep: 4, N: 8, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true, hor: false, ortho: false, dur: 1.6, field: 'Q',
+const st = { dep: 4, N: 8, lam: 1, h: -1, edges: 'q', base: 'half', far: true, hor: false, ortho: false, dur: 1.6, field: 'Q',
     palette: 'iris', rule: 'type', carry: false };
 try {       // the colouring is remembered between visits
     const c = JSON.parse(localStorage.getItem('twoDimFields-colour') || '{}');
@@ -661,12 +661,38 @@ function decorOfK(labels, key) {
     return d.C;
 }
 
-function visitBall(K, F, gap, cusps, parent, dep) {
-    const rs = ballPx(F);
-    if (dep > 0 && rs < MIN_PX) return false;
+// The balls are taken largest on screen first, so when the budget runs out it is the smallest
+// specks that are left out, not whole branches of the tree. A binary heap holds, for each ball
+// taken, its next child not yet taken (its cusps come largest first), keyed by an upper bound of
+// that child's size on screen; a child's frame is only made when it is taken.
+function heapPush(h, it) {
+    h.push(it);
+    for (let i = h.length - 1; i > 0;) {
+        const p = (i - 1) >> 1;
+        if (h[p].rs >= h[i].rs) break;
+        [h[p], h[i]] = [h[i], h[p]]; i = p;
+    }
+}
+function heapPop(h) {
+    const top = h[0], last = h.pop();
+    if (h.length) {
+        h[0] = last;
+        for (let i = 0; ;) {
+            const l = 2 * i + 1, r = l + 1;
+            let m = i;
+            if (l < h.length && h[l].rs > h[m].rs) m = l;
+            if (r < h.length && h[r].rs > h[m].rs) m = r;
+            if (m === i) break;
+            [h[m], h[i]] = [h[i], h[m]]; i = m;
+        }
+    }
+    return top;
+}
+
+// Take the ball F if it can be seen; it then offers its first child.
+function addBall(K, F, gap, cusps, parent, dep, rs, heap) {
     const left = st.dep - dep, ext = F.R * (left > 0 ? 1 + 2.2 * (Math.abs(st.h) + st.lam) : 1);
-    if (!frustum.intersectsSphere(bsphere.set(new THREE.Vector3(...F.c), ext))) return false;
-    if (recs.length >= BALLS) { truncated = true; return false; }
+    if (!frustum.intersectsSphere(bsphere.set(new THREE.Vector3(...F.c), ext))) return;
     const idx = recs.length, rec = { F, gap, cusps, parent, dep, rs, key: 'k:' + cusps.map((c) => c.key).join(' ') };
     if (!gIsId && rs > MIN_PX * 4) rec.C = decorOfK(labelsOf(rec), rec.key);
     // its shade; a speck too small to carry a picture takes its parent's when the source matters
@@ -674,23 +700,32 @@ function visitBall(K, F, gap, cusps, parent, dep) {
     else if (rec.C) rec.tc = shadeOf(cusps, cuspsOfK(decor.get(rec.key).src), LK);
     else rec.tc = parent >= 0 ? recs[parent].tc : shadeOf(cusps, cusps, LK);
     recs.push(rec);
-    if (left > 0) {
-        const near = st.ortho ? 1 : Math.max(1e-9, Math.hypot(F.c[0] - camPos.x, F.c[1] - camPos.y, F.c[2] - camPos.z) - ext);
-        for (const c of kCusps(K, st.N, dep === 0)) {
-            const { sigma, ell } = ballChild(c, dep === 0), r = sigma * F.R;
-            if (r * pxk / near < MIN_PX) break;                      // the cusps come largest first
-            const edge = ballGap(ell, F.R);
-            visitBall(K, childBall(F, c, r, edge), edge, [...cusps, c], idx, dep + 1);
-        }
-    }
-    return true;
+    if (left <= 0) return;
+    rec.kids = kCusps(K, st.N, dep === 0);
+    rec.near = st.ortho ? 1 : Math.max(1e-9, Math.hypot(F.c[0] - camPos.x, F.c[1] - camPos.y, F.c[2] - camPos.z) - ext);
+    offerChild(heap, idx, 0);
+}
+function offerChild(heap, p, j) {
+    const P = recs[p], c = P.kids[j];
+    if (!c) return;
+    const est = ballChild(c, P.dep === 0).sigma * P.F.R * pxk / P.near;
+    if (est >= MIN_PX) heapPush(heap, { p, j, rs: est });       // (the rest are smaller still)
 }
 
 function buildBalls() {
     const t0 = performance.now();
     setupCull();
     recs = []; truncated = false;
-    visitBall(KF(), baseBall(), 0, [], -1, 0);
+    const K = KF(), base = baseBall(), heap = [];
+    addBall(K, base, 0, [], -1, 0, ballPx(base), heap);
+    while (heap.length) {
+        if (recs.length >= BALLS) { truncated = true; break; }
+        const { p, j } = heapPop(heap), P = recs[p], c = P.kids[j];
+        offerChild(heap, p, j + 1);
+        const { sigma, ell } = ballChild(c, P.dep === 0), edge = ballGap(ell, P.F.R);
+        const F = childBall(P.F, c, sigma * P.F.R, edge), rs = ballPx(F);
+        if (rs >= MIN_PX) addBall(K, F, edge, [...P.cusps, c], p, P.dep + 1, rs, heap);
+    }
     drawBallRecs(recs);
     hoverIdx = -2;
     lastBuild = performance.now();
@@ -1427,8 +1462,8 @@ function stepFly(now) {
 
 // Frame a rough bounding box of the tree from the front, a little above.
 function defaultView() {
-    const zext = st.edges === 'zero' ? 0 : st.h * (st.edges === 'levels' ? st.dep : 1.7);
-    const E = 1 + 1.2 * st.lam, B = 1 + 0.55 * (Math.abs(st.h) + st.lam);
+    const zext = st.edges === 'zero' ? 0 : st.h * (st.edges === 'levels' ? st.dep : 1.1 + st.lam);   // the chain below sinks about 1 + λ
+    const E = 1 + 1.2 * st.lam, B = 1 + 0.8 * (Math.abs(st.h) + st.lam);
     // on the half-plane, take in the plane at ∞ beyond the top of the strip, and the ray climbing from it
     const half = st.base !== 'disk', [x0, x1, y0, y1] = half ? [-2.4, 2.4, -1 - 0.5 * st.lam, 2 * HALF.RHO + 1] : [-E, E, -E, E];
     let lo = new THREE.Vector3(x0, Math.min(0, zext), -y1), hi = new THREE.Vector3(x1, Math.max(0, zext, half ? -zext : 0), -y0);
@@ -1536,8 +1571,8 @@ function setField(f) {
     const url = new URL(location.href);
     if (k) url.searchParams.set('field', f); else url.searchParams.delete('field');
     history.replaceState(null, '', url);
+    resetView(false);                   // the camera first: the build only keeps what it can see
     build();
-    resetView(false);
 }
 const segField = UI.segmented('seg-field', setField);
 segField.set(st.field);
@@ -1627,7 +1662,7 @@ syncColour();
 // tutorial.js names each step by a state, which this sets up from scratch: the field, the
 // default settings, an example, the current element, t = a and the collapse, and a camera.
 // A step's effect then plays as the buttons would, or (stepping back) is applied at once.
-const TUT_DEFAULTS = { dep: 4, N: 8, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true, hor: false };
+const TUT_DEFAULTS = { dep: 4, N: 8, lam: 1, h: -1, edges: 'q', base: 'half', far: true, hor: false };
 const idle = () => !anim && !queue.length && !spec.run && !spec.act && !specQueue.length;
 const until = (ok) => new Promise((res) => { const t = setInterval(() => { if (ok()) { clearInterval(t); res(); } }, 50); });
 const jobOf = (i, inv) => { const G = gens[i]; return inv ? { M: G.Minv, Minv: G.M, letter: [i, -1] } : { M: G.M, Minv: G.Minv, letter: [i, 1] }; };
