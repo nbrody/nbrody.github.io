@@ -302,12 +302,12 @@ a:hover {
   color: var(--primary-color);
 }
 
-/* ----- Live iframe previews on tool / nav cards ----- */
+/* ----- Preview stills on tool / nav cards (assets/js/tool-previews.js) ----- */
 .tool-card[data-preview],
 .nav-card[data-preview] {
   display: flex;
   flex-direction: column;
-  padding-top: 0;
+  padding: 0 0 8px;           /* the still runs edge to edge; the text keeps its own 25px */
   overflow: hidden;
 }
 
@@ -339,70 +339,27 @@ a:hover {
   user-select: none;
 }
 
-.tp-static {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 10px;
-  pointer-events: none;
-  transition: opacity .25s;
-}
-.tp-hint {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 11px;
-  letter-spacing: .04em;
-  color: rgba(44,62,80,0.55);
-  background: rgba(255,255,255,0.65);
-  padding: 3px 9px;
-  border-radius: 999px;
-  backdrop-filter: blur(2px);
-}
-
-.tool-preview iframe,
-.nav-preview iframe {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1280px;
-  height: 800px;
-  border: 0;
-  transform: scale(0.265);
-  transform-origin: 0 0;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Captured snapshot — sits on top of the iframe so the swap is seamless. */
+/* The still, rendered ahead of time (assets/previews), fades in once it has loaded. */
 .tp-snapshot {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top left;
+  object-position: center top;
   pointer-events: none;
   display: block;
-  z-index: 2;
   opacity: 0;
-  transition: opacity .25s ease;
+  transition: opacity .3s ease;
 }
 .tp-captured .tp-snapshot { opacity: 1; }
-.tp-captured .tp-static { opacity: 0; }
 
 /* Larger cards (nav cards on Home) */
 .nav-card[data-preview] .nav-preview { aspect-ratio: 16 / 9; }
-.nav-card[data-preview] .nav-preview iframe { transform: scale(0.30); }
 
 .tool-card[data-preview]:hover .tool-preview,
 .nav-card[data-preview]:hover .nav-preview {
   filter: brightness(1.04) saturate(1.05);
-}
-
-/* Touch devices — no hover, so don't show the hover hint */
-@media (hover: none) {
-  .tp-hint { display: none; }
 }
 
 /* Reserve a little space top-left for the global nav hamburger so it doesn't
@@ -424,10 +381,4 @@ main > h2 {
 /* "Coming soon" cards keep an empty preview frame for visual consistency */
 .tool-card.coming-soon .tool-preview {
   background: repeating-linear-gradient(45deg, #f4f6f8, #f4f6f8 10px, #ebeff3 10px, #ebeff3 20px);
-}
-
-/* Mobile tweaks for previews */
-@media (max-width: 768px) {
-  .tool-preview iframe,
-  .nav-preview iframe { transform: scale(0.22); }
 }
