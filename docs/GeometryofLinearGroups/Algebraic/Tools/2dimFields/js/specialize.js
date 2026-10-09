@@ -47,8 +47,13 @@ export function latticeKey(M) {
     for (const x of M) L = L / gcd(L, x.d) * x.d;
     const [A, B, C, D] = M.map((x) => x.n * (L / x.d));
     const [G, s, t] = egcd(C, D);                  // (C, D)·U = (0, G) for a unimodular U
-    let x = (A * D - B * C) / G, y = A * s + B * t;
+    // A singular matrix (a pole, or a zero of the determinant) is not in PGL₂, so it names no
+    // lattice. Callers must tolerate null: dividing by G or reducing mod x would throw.
+    if (G === 0n) return null;
+    let x = (A * D - B * C) / G;
+    if (x === 0n) return null;
     if (x < 0n) x = -x;
+    let y = A * s + B * t;
     y = ((y % x) + x) % x;
     const k = gcd(gcd(x, y), G);
     return `${x / k},${y / k},${G / k}`;
