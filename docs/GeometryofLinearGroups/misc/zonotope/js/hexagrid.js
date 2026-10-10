@@ -534,26 +534,55 @@
         const norm = p => [(p[0] - cx) / R, (p[1] - cy) / R];
         return { chords: lines.map(([A, B]) => chordThrough(norm(A), norm(B))), center: [cx, cy], R };
     }
+    // How spread out the crossings of a valid arrangement are. Null when a pair misses
+    // the disk or a crossing sits on the boundary (the picture would clip).
+    function crossingSpread(chords) {
+        if (!chords || chords.some(c => c == null)) return null;
+        const arr = arrangement(chords, -Math.PI / 2 - 0.3);
+        if (!arr.valid) return null;
+        const xs = Object.values(arr.X);
+        let minD = Infinity, maxR = 0;
+        for (const p of xs) maxR = Math.max(maxR, Math.hypot(p[0], p[1]));
+        if (maxR > 0.86) return null;
+        for (let i = 0; i < xs.length; i++) for (let j = i + 1; j < xs.length; j++) {
+            minD = Math.min(minD, Math.hypot(xs[i][0] - xs[j][0], xs[i][1] - xs[j][1]));
+        }
+        return { minD: xs.length < 2 ? 1 : minD };
+    }
     function randomChords(n, rng) {
         rng = rng || Math.random;
-        for (let tries = 0; tries < 2000; tries++) {
+        const MIN_SEP = 0.05;
+        let best = null, bestD = -1;
+        const offer = (chords) => {
+            const st = crossingSpread(chords);
+            if (!st) return false;
+            if (st.minD > bestD) { bestD = st.minD; best = chords; }
+            return st.minD >= MIN_SEP;
+        };
+        // Lines through a small disk: crossings stay near the middle when every pair meets.
+        for (let tries = 0; tries < 400; tries++) {
             const lines = [];
             for (let k = 0; k < n; k++) {
                 const r = 0.45 * Math.sqrt(rng()), t = TAU * rng(), phi = Math.PI * rng();
                 const p = [r * Math.cos(t), r * Math.sin(t)];
                 lines.push([p, [p[0] + Math.cos(phi), p[1] + Math.sin(phi)]]);
             }
-            const chords = lines.map(([p, q]) => chordThrough(p, q));
-            const arr = arrangement(chords, -Math.PI / 2 - 0.3);
-            if (!arr.valid) continue;
-            let ok = true;
-            for (const k in arr.X) if (Math.hypot(...arr.X[k]) > 0.86) ok = false;
-            // keep crossings from piling up on one another
-            const xs = Object.values(arr.X);
-            for (let i = 0; i < xs.length && ok; i++) for (let j = i + 1; j < xs.length; j++) if (Math.hypot(xs[i][0] - xs[j][0], xs[i][1] - xs[j][1]) < 0.05) { ok = false; break; }
-            if (ok) return chords;
+            if (offer(lines.map(([p, q]) => chordThrough(p, q)))) return best;
         }
-        return null;
+        // Fallback that cannot miss combinatorially: 2n endpoints around the circle, each
+        // joined to the one opposite it, so every pair of chords crosses inside the disk.
+        // The slider goes up to n = 8, where the first model almost never clears the
+        // separation bar; without a fallback it returns null and the figure throws.
+        for (let tries = 0; tries < 80; tries++) {
+            const gaps = Array.from({ length: 2 * n }, () => 0.25 + rng());
+            const sum = gaps.reduce((a, b) => a + b, 0);
+            let a = TAU * rng(), ang = [];
+            for (const g of gaps) { ang.push(a); a += g / sum * TAU; }
+            const chords = [];
+            for (let i = 0; i < n; i++) chords.push([ang[i], ang[i + n]]);
+            if (offer(chords)) return best;
+        }
+        return best;
     }
 
     const HG = {
