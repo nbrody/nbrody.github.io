@@ -127,6 +127,11 @@ test('certificates at ∞: Galois conjugates', () => {
     const sh = archCertificate(read({ mats: [['1', '1', '0', '1'], ['1', '0', '\\frac{i}{2}', '1']] }), { maxLen: 2 });
     assert.equal(sh.kind, 'shimizu');
     assert.ok(Math.abs(sh.value - 0.25) < 1e-12);
+    // tr = i/10^6, det = 1, so t = tr²/det = −10^{-12} lies in (−10^{-9}, 0).
+    // The trace is not real, so g is loxodromic and ⟨g⟩ is discrete. It must not
+    // be certified as an elliptic of infinite order.
+    const lox = archCertificate(read({ mats: [['\\frac{i}{1000000}', '-1', '1', '0']] }));
+    assert.equal(lox.nondiscrete, false);
 });
 
 test('finite places: bounded everywhere for PSL₂(ℤ), and infinite', () => {
