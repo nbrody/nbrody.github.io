@@ -37,7 +37,6 @@ const OVERRIDES = {
     'Arithmetic/Tools/orthogonal.html': { skip: 'fails to load: mathjs@14.0.1 ESM build 404s on jsDelivr' },
     'misc/projectorFeedback/index.html': { skip: 'fails to load: feedback.js is missing' },
     'GroupLibrary/Groups/SL2Z.html': { skip: 'empty file' },
-    'Geometric/Tools/Kleinian/julia.html': { skip: 'its default polynomial (… + 0.3i) does not parse, so it opens black' },
     'Geometric/Tools/Kleinian/knotfolio/index.html': { skip: 'a blank canvas to draw on' },
     'Geometric/Tools/Kleinian/coxeter.html': { skip: 'a blank graph to draw on' },
     'Geometric/Tools/Kleinian/4dExplorer/index.html': { skip: 'renders black headless' },

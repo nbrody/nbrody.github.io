@@ -21,6 +21,7 @@ archived pages' relative links mostly still resolve.
 | `maskit2.html` | `Tools/Kleinian/maskit2.html` | `Kleinian/maskit.html`, as its "Orbit density" mode. Despite its "(Riley Slice)" title, this page drew the Maskit group ⟨z + 1, (μz − i)/(−iz)⟩: the density of random-word orbits. |
 | `pleatingRays/` | `Tools/Kleinian/pleatingRays/` | `Kleinian/riley-slice` (a strict superset: same rays, extensions and dots, plus Ford regions) |
 | `maskit1.html` | `Tools/Kleinian/maskit1.html` | `Kleinian/riley-slice` (a per-pixel Riley-slice plot, despite the name) |
+| `julia.html` | `Tools/Kleinian/julia.html` | `Kleinian/mandelbrot.html`, as its "Custom polynomial f(z)" mode (also opened by `mandelbrot.html?poly=…`). This page's parser read a binary + or − after a factor as an implicit product, so z² − 1 came out as −z² and its default polynomial drew nothing. The port fixes that, and uses an escape radius that is valid for every polynomial instead of always 2. |
 | `apollodense.html` | `Tools/Kleinian/apollodense.html` | `Kleinian/apollonian.html` (a WebGPU port of the plain gasket; its shader no longer compiles) |
 | `knots/` | `Tools/Kleinian/knots/` | KnotFolio (a smaller, independent knot-drawing canvas) |
 | `knotfolio.html` | `Tools/Kleinian/knotfolio.html` | Not a page: a plain-text to-do note about KnotFolio |

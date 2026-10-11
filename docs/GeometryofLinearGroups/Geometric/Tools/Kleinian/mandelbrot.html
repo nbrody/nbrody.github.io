@@ -148,7 +148,22 @@
   <div id="status">Left Click: Set Julia Parameter | Drag: Pan | Wheel: Zoom</div>
 
   <div id="ui-overlay">
-    <button class="back-btn" onclick="window.location.href='../index.html'">← Back</button>
+    <button class="back-btn" onclick="window.location.href='../../index.html'">← Back</button>
+
+    <div class="control-group">
+      <label>Fractal</label>
+      <select id="fractalMode">
+        <option value="mandel">Mandelbrot &amp; Julia (z² + c)</option>
+        <option value="poly">Custom polynomial f(z)</option>
+      </select>
+    </div>
+
+    <div class="control-group" id="polyGroup" style="display:none">
+      <label>f(z) =</label>
+      <input type="text" id="polyInput" spellcheck="false" value="(z-1)*(z+1)*(z+0.3i) + 0.2"
+        style="width:100%; box-sizing:border-box;" title="Polynomial in z: + − * ^ ( ), numbers, i; products may be implicit, as in 2z or (z+1)(z−1)">
+      <div id="polyMsg" style="font-size:11px; margin-top:4px; color:#8892b0;"></div>
+    </div>
 
     <div class="control-group">
       <label>Iteration Limit: <span id="iter-val">300</span></label>
@@ -327,15 +342,124 @@
       return [re, im];
     }
 
+    // --- Custom polynomials (from the retired julia.html) ---
+    // f(z) is iterated from each pixel z; the picture is its escape time. A polynomial
+    // a_n zⁿ + … with n ≥ 2 sends |z| > R = max(2, 2(1 + Σ_{k<n} |a_k|)/|a_n|) to infinity,
+    // so that is the escape radius.
+    function parsePolynomial(src) {
+      // coefficient arrays [[re, im], …], index k ↔ z^k
+      const trim = (a) => { let k = a.length - 1; while (k > 0 && a[k][0] === 0 && a[k][1] === 0) k--; return a.slice(0, k + 1); };
+      const add = (a, b, sg = 1) => trim(Array.from({ length: Math.max(a.length, b.length) }, (_, i) => {
+        const x = a[i] || [0, 0], y = b[i] || [0, 0];
+        return [x[0] + sg * y[0], x[1] + sg * y[1]];
+      }));
+      const mul = (a, b) => {
+        const out = Array.from({ length: a.length + b.length - 1 }, () => [0, 0]);
+        a.forEach((x, i) => b.forEach((y, j) => {
+          out[i + j][0] += x[0] * y[0] - x[1] * y[1];
+          out[i + j][1] += x[0] * y[1] + x[1] * y[0];
+        }));
+        return trim(out);
+      };
+      const s = src.replace(/\s+/g, '').replace(/\u2212/g, '-');
+      let p = 0;
+      const peek = () => s[p] || '', eat = (c) => (s[p] === c ? (p++, true) : false);
+      const digit = (c) => c >= '0' && c <= '9';
+      const err = (m) => new Error(`Parse error at ${p}: ${m}`);
+      // a new factor may follow without '*' (2z, (z+1)(z−1)) — but not a sign: that is + or −
+      const startsImplicit = (c) => c === 'z' || c === 'i' || c === '(' || digit(c) || c === '.';
+      function number() {
+        let t = '';
+        while (digit(peek())) t += s[p++];
+        if (eat('.')) { t += '.'; while (digit(peek())) t += s[p++]; }
+        if (t === '' || t === '.') throw err('number expected');
+        if (peek() === 'e' || peek() === 'E') {
+          t += s[p++]; if (peek() === '+' || peek() === '-') t += s[p++];
+          if (!digit(peek())) throw err('invalid exponent');
+          while (digit(peek())) t += s[p++];
+        }
+        return parseFloat(t);
+      }
+      function primary() {
+        if (eat('(')) { const e = expr(); if (!eat(')')) throw err("missing ')'"); return e; }
+        if (eat('z')) return [[0, 0], [1, 0]];
+        if (eat('i')) return [[0, 1]];
+        const n = number();
+        return eat('i') ? [[0, n]] : [[n, 0]];
+      }
+      function factor() {
+        let sign = 1;
+        for (;;) { if (eat('+')) continue; if (eat('-')) { sign = -sign; continue; } break; }
+        let b = primary();
+        if (eat('^')) {
+          let t = ''; while (digit(peek())) t += s[p++];
+          if (t === '') throw err('a non-negative integer exponent expected');
+          let n = parseInt(t, 10), r = [[1, 0]];
+          for (let base = b; n > 0; n >>= 1, base = mul(base, base)) if (n & 1) r = mul(r, base);
+          b = r;
+        }
+        return sign < 0 ? b.map(([x, y]) => [-x, -y]) : b;
+      }
+      function term() {
+        let t = factor();
+        for (;;) {
+          if (eat('*')) { t = mul(t, factor()); continue; }
+          if (startsImplicit(peek())) { t = mul(t, factor()); continue; }
+          return t;
+        }
+      }
+      function expr() {
+        let e = term();
+        for (;;) {
+          if (eat('+')) e = add(e, term());
+          else if (eat('-')) e = add(e, term(), -1);
+          else return e;
+        }
+      }
+      const out = expr();
+      if (p < s.length) throw new Error(`Unexpected '${peek()}' at ${p}`);
+      return out;
+    }
+    function escapeRadius(coeffs) {
+      const n = coeffs.length - 1;
+      if (n < 2) return 2;
+      let sum = 0;
+      for (let k = 0; k < n; k++) sum += Math.hypot(coeffs[k][0], coeffs[k][1]);
+      return Math.max(2, 2 * (1 + sum) / Math.hypot(coeffs[n][0], coeffs[n][1]));
+    }
+
     // --- Rendering Engine ---
     function drawFractal(ctx, canvas, scale, params) {
       const W = canvas.width, H = canvas.height;
       const img = ctx.createImageData(W, H);
       const data = img.data;
 
-      const { xmin, xmax, ymin, ymax, maxIter, colorFn, julia } = params;
+      const { xmin, xmax, ymin, ymax, maxIter, colorFn, julia, poly } = params;
       const dx = (xmax - xmin) / W;
       const dy = (ymax - ymin) / H;
+      if (poly) {
+        const n = poly.length - 1, ar = poly.map(c => c[0]), ai = poly.map(c => c[1]);
+        const R = escapeRadius(poly), R2 = R * R;
+        for (let y = 0; y < H; y++) {
+          const zi0 = ymin + y * dy;
+          for (let x = 0; x < W; x++) {
+            let zr = xmin + x * dx, zi = zi0, i = 0, m2 = zr * zr + zi * zi;
+            while (m2 <= R2 && i < maxIter) {
+              let wr = ar[n], wi = ai[n];                 // Horner
+              for (let k = n - 1; k >= 0; k--) {
+                const tr = wr * zr - wi * zi + ar[k];
+                wi = wr * zi + wi * zr + ai[k]; wr = tr;
+              }
+              zr = wr; zi = wi; m2 = zr * zr + zi * zi; i++;
+            }
+            const [r, g, b] = colorFn(i, maxIter, Math.max(m2, 16));
+            const idx = (y * W + x) * 4;
+            data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+        return;
+      }
 
       for (let y = 0; y < H; y++) {
         const ci = ymin + y * dy;
@@ -399,8 +523,10 @@
           ...bounds,
           maxIter: activeIter,
           colorFn: colorScheme[config.colorMode],
-          julia: null
+          julia: null,
+          poly: config.mode === 'poly' ? config.poly : null
         });
+        if (config.mode === 'poly') { needsUpdate = false; requestAnimationFrame(draw); return; }
 
         // Draw Julia indicator dot
         const [sx, sy] = worldToScreen(juliaC.re, juliaC.im);
@@ -462,10 +588,42 @@
       needsUpdate = true;
     };
 
+    // custom polynomial mode
+    const polyInput = document.getElementById('polyInput'), polyMsg = document.getElementById('polyMsg');
+    function compilePoly() {
+      try {
+        config.poly = parsePolynomial(polyInput.value);
+        const n = config.poly.length - 1;
+        polyMsg.style.color = '#8892b0';
+        polyMsg.textContent = n < 2 ? `degree ${n}: nothing to iterate (degree ≥ 2 is interesting)`
+          : `degree ${n}, escape radius ${escapeRadius(config.poly).toPrecision(3)}`;
+      } catch (e) {
+        polyMsg.style.color = '#ff8a8a';
+        polyMsg.textContent = e.message;
+      }
+      needsUpdate = true;
+    }
+    function setMode(mode) {
+      config.mode = mode;
+      document.getElementById('fractalMode').value = mode;
+      document.getElementById('polyGroup').style.display = mode === 'poly' ? '' : 'none';
+      document.getElementById('juliaWindow').style.display = mode === 'poly' ? 'none' : '';
+      document.getElementById('status').innerText = mode === 'poly'
+        ? 'Escape time of f | Drag: Pan | Wheel: Zoom'
+        : 'Left Click: Set Julia Parameter | Drag: Pan | Wheel: Zoom';
+      bounds = mode === 'poly' ? { xmin: -2, xmax: 2, ymin: -1.5, ymax: 1.5 } : { xmin: -2.1, xmax: 0.9, ymin: -1.2, ymax: 1.2 };
+      fixAspectRatio();
+      if (mode === 'poly') compilePoly();
+      needsUpdate = true; needsJuliaUpdate = true;
+    }
+    document.getElementById('fractalMode').onchange = (e) => setMode(e.target.value);
+    polyInput.addEventListener('keydown', e => { if (e.key === 'Enter') compilePoly(); });
+    polyInput.addEventListener('change', compilePoly);
+
     mC.addEventListener('mousemove', e => {
       const [re, im] = screenToWorld(e.clientX, e.clientY);
       coordDisp.innerText = `z = ${re.toFixed(4)} + ${im.toFixed(4)}i`;
-      if (config.liveJulia) {
+      if (config.liveJulia && config.mode !== 'poly') {
         juliaC = { re, im };
         needsJuliaUpdate = true;
         needsUpdate = true; // Updates the dot
@@ -473,7 +631,7 @@
     });
 
     mC.addEventListener('mousedown', e => {
-      if (e.button === 0) { // Left click sets but also allows dragging
+      if (e.button === 0 && config.mode !== 'poly') { // Left click sets but also allows dragging
         const [re, im] = screenToWorld(e.clientX, e.clientY);
         juliaC = { re, im };
         needsJuliaUpdate = true;
@@ -508,6 +666,10 @@
 
     window.onresize = () => { fixAspectRatio(); needsUpdate = true; };
 
+    const urlPoly = new URLSearchParams(location.search).get('poly');
+    if (urlPoly) polyInput.value = urlPoly;
+    config.mode = 'mandel';
+    if (urlPoly) setMode('poly');
     fixAspectRatio();
     draw();
   </script>

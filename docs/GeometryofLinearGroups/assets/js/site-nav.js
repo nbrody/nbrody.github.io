@@ -84,7 +84,6 @@
       { t: 'Quadratic Form Reflections',    u: 'Geometric/Tools/Kleinian/quadraticForms.html' },
       { t: 'O[1,1,1,−Φ] Reflection Toolkit',u: 'Geometric/Tools/Kleinian/orthogonalPhi.html' },
       { t: 'Mandelbrot & Julia Explorer',   u: 'Geometric/Tools/Kleinian/mandelbrot.html' },
-      { t: 'Julia (escape time)',           u: 'Geometric/Tools/Kleinian/julia.html' },
       { t: 'Maskit Group Limit Sets',                        u: 'Geometric/Tools/Kleinian/maskit.html' },
     ]},
     { section: 'Geometric · Euclidean', icon: '∥', items: [
