@@ -104,8 +104,8 @@
     ]},
     { section: 'Geometric · Other', icon: '☆', items: [
       { t: 'PGL₃(ℚₚ) Building Viewer',     u: 'Geometric/SL3.html' },
-      { t: 'Theta-Graph Product',          u: 'Geometric/thetaProduct.html' },
       { t: 'ℤ² ∗ ℤ in SL₃(ℤ[1/2])',        u: 'Geometric/Tools/freeProduct/index.html' },
+      { t: 'Laplace Eigenmodes on Cayley Graphs', u: 'Geometric/Tools/cayleyLaplacian/index.html' },
     ]},
     { section: 'Group Library', icon: 'Γ', items: [
       { t: 'Group Library',         u: 'GroupLibrary/index.html' },
