@@ -28,6 +28,11 @@
  *     translations, and those join the span. Two loxodromics with exactly one
  *     common fixed point enter through their commutator, parabolic there.
  *
+ *  2′. Commuting loxodromics. Two that commute share an axis and translate
+ *     along it by ℓ, ℓ′; a discrete group needs ℓ/ℓ′ ∈ ℚ. With tr²/det
+ *     rational this is decided exactly — multipliers that are rational, or
+ *     norm-1 elements of real quadratic fields (see axisTest).
+ *
  *  3. Jørgensen's inequality. If ⟨A, B⟩ is discrete and non-elementary then
  *     |tr²A − 4| + |tr[A,B] − 2| ≥ 1. If tr[A,B] ≠ 2 (no common fixed point)
  *     and tr A, tr B ≠ 0 (neither swaps two points), ⟨A, B⟩ is non-elementary
@@ -678,6 +683,182 @@ function cuspTest(pool, commuting, X) {
     return null;
 }
 
+// ---------------- 2′. commuting loxodromics ----------------
+
+/* Two loxodromics that commute share their axis. In the frame where it runs
+   from 0 to ∞ they are z ↦ λz and z ↦ λ′z and translate along it by
+   ℓ = log|λ| and ℓ′ = log|λ′|; a discrete group translates the axis by the
+   multiples of one length, so ℓ/ℓ′ must be rational. λ is a root of
+   x² − (t − 2)x + 1 with t = tr²/det, and when t is rational (outside [0, 4])
+   it is real and decided exactly:
+     – λ, λ′ rational: ℓ/ℓ′ ∈ ℚ iff |λ|, |λ′| are multiplicatively dependent,
+       i.e. their exponent vectors over a gcd-free basis are proportional;
+     – otherwise λ lies in ℚ(√Δ), Δ = t(t − 4), with norm λλ̄ = 1. A relation
+       λᵐ = ±λ′ⁿ with one side rational would make the other equal to its
+       conjugate, so |λ| = 1: a rational λ is independent of an irrational
+       λ′, and so are irrational ones from different fields (ΔΔ′ not a
+       square). In one field, an algebraic integer λ (t − 2 ∈ ℤ) is a unit,
+       and a unit is independent of a non-integer (whose powers are never
+       integral); two units are dependent (rank 1), and two non-integers are
+       left undecided.
+   With ℓ/ℓ′ irrational the translations mℓ + nℓ′ come arbitrarily close to 0. */
+
+const babs = (x) => (x < 0n ? -x : x);
+const bgcd = (a, b) => { a = babs(a); b = babs(b); while (b) [a, b] = [b, a % b]; return a; };
+function bsqrt(n) {                                 // ⌊√n⌋ for n ≥ 0
+    if (n < 2n) return n;
+    let x = BigInt(Math.floor(Math.sqrt(Number(n))));
+    while (x * x > n) x--;
+    while ((x + 1n) * (x + 1n) <= n) x++;
+    return x;
+}
+/** √r for a rational square r ≥ 0, or null. */
+function fracSqrt(r) {
+    if (r.p < 0n) return null;
+    const a = bsqrt(r.p), b = bsqrt(r.q);
+    return a * a === r.p && b * b === r.q ? new Frac(a, b) : null;
+}
+/** Pairwise coprime b > 1 such that every x is a product of their powers (no factoring). */
+function gcdFreeBasis(xs) {
+    let B = [...new Set(xs.filter(x => x > 1n))];
+    for (let changed = true; changed;) {
+        changed = false;
+        search: for (let i = 0; i < B.length; i++) {
+            for (let j = i + 1; j < B.length; j++) {
+                const g = bgcd(B[i], B[j]);
+                if (g === 1n) continue;
+                const rest = [B[i] / g, B[j] / g, g].filter(x => x > 1n);
+                B = [...new Set(B.filter((_, k) => k !== i && k !== j).concat(rest))];
+                changed = true;
+                break search;
+            }
+        }
+    }
+    return B.sort((a, b) => (a < b ? -1 : 1));
+}
+const valuation = (n, p) => { let k = 0; for (n = babs(n); n % p === 0n; n /= p) k++; return k; };
+
+/** The real multiplier data of a loxodromic with rational t = tr²/det ∉ [0, 4]. */
+function realMultiplier(tFrac) {
+    const two = new Frac(2n), four = new Frac(4n);
+    const s = tFrac.sub(two);                       // λ + 1/λ
+    const disc = tFrac.mul(tFrac.sub(four));        // Δ = t(t − 4) = s² − 4
+    const root = fracSqrt(disc);
+    const lambda = root ? s.add(root).div(two) : null;
+    return { s, disc, lambda, integral: s.q === 1n };
+}
+
+function axisLines(A, B, reason, lens) {
+    const a = wordText(A.word), b = wordText(B.word), ap = paren(A.word), bp = paren(B.word);
+    // a short near-relation, from the continued fraction of ℓ/ℓ′
+    let witness = '';
+    const conv = (() => {
+        let x = lens[0] / lens[1], h0 = 0, h1 = 1, k0 = 1, k1 = 0, best = null;
+        for (let i = 0; i < 12; i++) {
+            const q = Math.floor(x);
+            [h0, h1] = [h1, q * h1 + h0];
+            [k0, k1] = [k1, q * k1 + k0];
+            if (k1 > 60 || Math.abs(h1) > 60) break;
+            best = { m: k1, n: -h1, d: Math.abs(k1 * lens[0] - h1 * lens[1]) };
+            const f = x - q;
+            if (f < 1e-12) break;
+            x = 1 / f;
+        }
+        return best;
+    })();
+    if (conv && conv.m > 1 && conv.d > 0) {
+        witness = ` (for example ${ap}${conv.m === 1 ? '' : supPoly(`^${conv.m}`)}·${bp}${supPoly(`^${conv.n}`)} moves along the axis by only ≈ ${+conv.d.toPrecision(4)})`;
+    }
+    return [
+        `${a} and ${b} are loxodromic and commute (exact: [${a}, ${b}] = 1), so they share an axis; in the frame where it runs from 0 to ∞ they are z ↦ λz and z ↦ λ′z, translating along it by ℓ = log|λ| and ℓ′ = log|λ′|.`,
+        reason,
+        `So ℓ/ℓ′ is irrational: the products ${ap}ᵐ·${bp}ⁿ translate along the axis by mℓ + nℓ′, which come arbitrarily close to 0${witness}. Non-trivial elements accumulate at the identity: the group is not discrete.`,
+    ];
+}
+
+function exactAxis(A, B, X) {
+    const EA = X.of(A), EB = X.of(B);
+    if (!EA || !EB) return null;
+    if (!EA.mul(EB).mul(EA.adj()).mul(EB.adj()).isProjectiveIdentity()) return null;
+    const tA = X.tsq(EA), tB = X.tsq(EB);
+    if (!X.isRational(tA) || !X.isRational(tB)) return null;
+    const rat = (x) => (typeof x.rational === 'function' ? x.rational() : (x.c[0] || new Frac(0n)));
+    const fa = rat(tA), fb = rat(tB);
+    const outside = (f) => f.p < 0n || f.p > 4n * f.q;           // t < 0 or t > 4: loxodromic
+    if (!outside(fa) || !outside(fb)) return null;
+    const ma = realMultiplier(fa), mb = realMultiplier(fb);
+    const lam = (m) => (m.lambda ? `λ = ${m.lambda}` : `λ = (${m.s} ± √(${m.disc}))/2`);
+    let reason = null;
+    if (ma.lambda && mb.lambda) {
+        const absF = (f) => new Frac(babs(f.p), f.q);
+        const la = absF(ma.lambda), lb = absF(mb.lambda);
+        const basis = gcdFreeBasis([la.p, la.q, lb.p, lb.q]);
+        const vec = (f) => basis.map(p => valuation(f.p, p) - valuation(f.q, p));
+        const va = vec(la), vb = vec(lb);
+        let independent = false;
+        for (let i = 0; i < basis.length && !independent; i++) {
+            for (let j = i + 1; j < basis.length; j++) if (va[i] * vb[j] !== va[j] * vb[i]) { independent = true; break; }
+        }
+        if (!independent) return null;
+        const show = (v) => `(${v.join(', ')})`;
+        reason = `λ ${eq(String(ma.lambda))} and λ′ ${eq(String(mb.lambda))} are rational (tr²/det = ${fa} and ${fb}, exact), and |λ|, |λ′| are multiplicatively independent: over the coprime factors ${basis.join(', ')} their exponent vectors ${show(va)} and ${show(vb)} are not proportional (exact).`;
+    } else if (ma.lambda || mb.lambda) {
+        const [r, q] = ma.lambda ? [ma, mb] : [mb, ma];
+        reason = `${lam(r).replace('λ', ma.lambda ? 'λ' : 'λ′')} is rational and ${ma.lambda ? 'λ′' : 'λ'} = (${q.s} ± √(${q.disc}))/2 is not (exact). A relation λᵐ = ±λ′ⁿ would make that power rational, hence equal to its conjugate — the inverse power, as the norm is 1 — and force |λ′| = 1, impossible for a loxodromic.`;
+    } else {
+        const same = fracSqrt(ma.disc.mul(mb.disc)) !== null;
+        if (!same) {
+            reason = `λ = (${ma.s} ± √(${ma.disc}))/2 and λ′ = (${mb.s} ± √(${mb.disc}))/2 lie in different real quadratic fields (the product of the discriminants is not a square, exact). A relation λᵐ = ±λ′ⁿ would put that power in both fields, so in ℚ, and make it equal to its conjugate, the inverse power: |λ| = 1, impossible for a loxodromic.`;
+        } else if (ma.integral !== mb.integral) {
+            const [u, n] = ma.integral ? ['λ', 'λ′'] : ['λ′', 'λ'];
+            reason = `λ and λ′ lie in the same real quadratic field ℚ(√(${ma.disc})) with norm 1; ${u} is an algebraic integer (λ + 1/λ = ${ma.integral ? ma.s : mb.s} ∈ ℤ), so a unit, and ${n} is not (${n} + 1/${n} = ${ma.integral ? mb.s : ma.s} ∉ ℤ, exact). No power of ${n} is integral, so no power of it is a power of ${u}.`;
+        } else return null;
+    }
+    const lens = [Math.log(Math.abs(numLambda(A))), Math.log(Math.abs(numLambda(B)))];
+    return {
+        kind: 'axis', exact: true, words: [A.word, B.word],
+        headline: `${wordText(A.word)} and ${wordText(B.word)} share an axis and translate along it by lengths with an irrational ratio`,
+        lines: axisLines(A, B, reason, lens),
+        points: fixedPoints(A.M).map(ballPoint),
+    };
+}
+
+/** |λ| from the floating-point matrix: λ + 1/λ = t − 2. */
+function numLambda(el) {
+    const s = el.t.sub(TWO);
+    const r = Complex.sqrt(s.mul(s).sub(FOUR));
+    const l1 = s.add(r).div(2), l2 = s.sub(r).div(2);
+    return Math.max(cabs(l1), cabs(l2));
+}
+
+function axisTest(commuting, X) {
+    for (const [A, B] of commuting) {
+        if (A.type !== 'lox' || B.type !== 'lox') continue;
+        if (X) {
+            if (X.over()) return null;
+            const r = exactAxis(A, B, X);
+            if (r) return r;
+            continue;
+        }
+        // floating point: both fixed points shared, translation lengths with an irrational-looking ratio
+        const C = A.M.mul(B.M).mul(A.M.inv()).mul(B.M.inv());
+        if (distFromIdentityPSL(C.normalized()) > 1e-9) continue;
+        const la = Math.log(numLambda(A)), lb = Math.log(numLambda(B));
+        if (!(Math.abs(la) > 1e-9 && Math.abs(lb) > 1e-9) || nearRational(la / lb, 1000)) continue;
+        return {
+            kind: 'axis', exact: false, words: [A.word, B.word],
+            headline: `${wordText(A.word)} and ${wordText(B.word)} appear to share an axis and translate along it by lengths with an irrational ratio`,
+            lines: [
+                `${wordText(A.word)} and ${wordText(B.word)} are loxodromic and commute (numerically), translating along their common axis by ℓ ≈ ${+la.toPrecision(10)} and ℓ′ ≈ ${+lb.toPrecision(10)}.`,
+                `ℓ/ℓ′ ≈ ${+(la / lb).toPrecision(12)} is not within 10⁻⁹ of a fraction with denominator ≤ 1000, so the translations mℓ + nℓ′ would come arbitrarily close to 0.`,
+                'The entries are floating point, so this is numerical evidence, not a proof.',
+            ],
+            points: fixedPoints(A.M).map(ballPoint),
+        };
+    }
+    return null;
+}
+
 // ---------------- 3. Jørgensen / Shimizu ----------------
 
 function jorgensenText(A, B, J, k2, parabolic) {
@@ -935,7 +1116,7 @@ function fordShimizuTest(pool, gens, X, deadline) {
  *           budgetMs; allowConj: the field may adjoin complex conjugates
  *           (it is modified — pass a copy)
  *
- * Returns { found: true, exact, kind: 'elliptic' | 'cusp' | 'shimizu' |
+ * Returns { found: true, exact, kind: 'elliptic' | 'cusp' | 'axis' | 'shimizu' |
  * 'jorgensen', headline, lines, text, words, points (ball coordinates of the
  * relevant fixed points, in the gens' frame), angle (elliptic), value (|c|²
  * for Shimizu, the sum for Jørgensen), checked } or { found: false, checked }.
@@ -949,7 +1130,7 @@ export function findNondiscreteness(gens, exactCtx = null, opts = {}) {
     const X = exactCtx && exactCtx.field && exactCtx.gens && exactCtx.gens.length === gens.length
         ? new Exact(exactCtx, { allowConj, deadline, maxEvals }) : null;
     const { jcands, commuting } = pairPass(pool, deadline);
-    const r = ellipticTest(pool, X) || cuspTest(pool, commuting, X) || jorgensenTest(jcands, X)
+    const r = ellipticTest(pool, X) || cuspTest(pool, commuting, X) || axisTest(commuting, X) || jorgensenTest(jcands, X)
         || (fordSearch ? fordShimizuTest(pool, G, X, deadline) : null);
     const base = { checked: pool.length, exactUsed: !!X, ms: Date.now() - t0 };
     if (!r) return { found: false, ...base, timedOut: Date.now() > deadline || !!(X && X.evals >= X.maxEvals) };

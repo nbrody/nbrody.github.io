@@ -30,7 +30,6 @@ const click = (sel) => `document.querySelector(${JSON.stringify(sel)})?.click()`
 const clickText = (t) => `[...document.querySelectorAll('button')].find((b) => b.textContent.includes(${JSON.stringify(t)}))?.click()`;
 const OVERRIDES = {
     'Arithmetic/Tools/pseudomodular/index.html': { js: click('#compute-btn'), after: 4000 },
-    'Geometric/Tools/Kleinian/fuchsianDiscreteness/index.html': { js: `${click('#check-btn')}; setTimeout(() => ${clickText('Poincaré disk')}, 2500)`, after: 5000 },
     'Geometric/Tools/discretenessAlgorithm/index.html': { js: click('#decide-btn'), after: 9000 },
     'Algebraic/Tools/2dimFields/index.html': { js: "document.documentElement.classList.contains('light') && document.getElementById('theme-btn').click()", after: 1200 },
     // nothing to show: broken, empty, blank until drawn on, or never finishing a picture headless

@@ -11,6 +11,8 @@ archived pages' relative links mostly still resolve.
 | Archived | Was at | Superseded by / why |
 |---|---|---|
 | `poincare2/` | `Tools/Kleinian/poincare2/` | `Kleinian/poincare` (an older fork; its one unique feature, the Tie-Dye fold shading, moved into poincare on 2026-10-11) |
+| `fuchsian/` | `Tools/Kleinian/fuchsian/` | `Kleinian/poincare`, whose planar view draws a Fuchsian group's domain and tiling in the disk or upper half-plane. Not carried over: the tile colouring modes (word hash, distance, first or last letter, parity), the von Dyck (p, q, r) preset builder, and raw-covector input (`?vectors=`, `?faces=`), which nothing sent. |
+| `fuchsianDiscreteness/` | `Tools/Kleinian/fuchsianDiscreteness/` | `Kleinian/poincare`. On 2026-10-11 poincare gained the two decisions it was missing: commuting loxodromics whose translation lengths have an irrational ratio (`axisTest` in `assets/js/hyperbolic/nondiscrete.js`), and classical proofs of discreteness where the domain leaves a cusp unresolved, such as Γ(2) (`assets/js/hyperbolic/classical.js`). All 17 of this tool's examples are decided the same way in `poincare/tests/fuchsian.test.mjs`. Its "the Cayley graph closed, so the group is finite" verdict is unsound: it drops words at the length cap and calls three non-discrete groups finite. It was not ported. |
 | `dirichlet/` | `Tools/Kleinian/dirichlet/` | `Kleinian/poincare` (all of its presets are there, with exact certificates) |
 | `limitsets.html` | `Tools/Kleinian/limitsets.html` | `Kleinian/poincare` (same presets; isometric circles in the cusp/Ford view) |
 | `fuchstest.html` | `Tools/Kleinian/fuchstest.html` | October 2025 prototype of the H² Dirichlet viewer |
