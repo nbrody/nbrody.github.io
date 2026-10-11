@@ -29,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-10-11a';
+            const APP_VERSION = '2026-10-11b';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -333,6 +333,8 @@
                             title="How many reductions a point may use before it counts as being in the limit set. More depth resolves finer structure and costs more.">
                     </div>
                     <button id="toggle-mirror" class="toggle-btn">Mirror</button>
+                    <button id="toggle-tiedye" class="toggle-btn"
+                        title="Fold every point of the view back into the domain by reflecting it in the walls, so the domain's mirror images fill the ball like a kaleidoscope. A picture, not the group: the reflections are in the walls, not in the face pairings.">Tie-Dye</button>
                     <button id="toggle-dust" class="toggle-btn"
                         title="Scatter a random dust of points, uniform with respect to hyperbolic volume.">Dust</button>
                     <button id="toggle-orbit" class="toggle-btn"

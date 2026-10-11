@@ -10,6 +10,7 @@ archived pages' relative links mostly still resolve.
 
 | Archived | Was at | Superseded by / why |
 |---|---|---|
+| `poincare2/` | `Tools/Kleinian/poincare2/` | `Kleinian/poincare` (an older fork; its one unique feature, the Tie-Dye fold shading, moved into poincare on 2026-10-11) |
 | `dirichlet/` | `Tools/Kleinian/dirichlet/` | `Kleinian/poincare` (all of its presets are there, with exact certificates) |
 | `limitsets.html` | `Tools/Kleinian/limitsets.html` | `Kleinian/poincare` (same presets; isometric circles in the cusp/Ford view) |
 | `fuchstest.html` | `Tools/Kleinian/fuchstest.html` | October 2025 prototype of the H² Dirichlet viewer |

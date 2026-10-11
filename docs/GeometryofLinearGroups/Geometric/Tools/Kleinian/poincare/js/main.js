@@ -73,7 +73,7 @@ function makeTessMaterial(fragmentShader) {
 }
 const honeycombMaterial = makeTessMaterial(honeycombFragmentShader);
 const manifoldMaterial = makeTessMaterial(manifoldFragmentShader);
-const render = { honeycomb: false, manifold: false };
+const render = { honeycomb: false, manifold: false, tieDye: false };
 
 // The plane picture (planar.js): a group in PGL₂(ℝ) is drawn as its tiling of
 // the hyperbolic plane over ℝ, by default. A new group resets the choice.
@@ -122,13 +122,26 @@ function syncMaterial() {
 
 function setMirrorMode(on) {
     if (on && planar.on) setPlanar(false);
+    if (on && render.tieDye) setTieDye(false);
     mirrorMode = on;
     updateToggleBtn(document.getElementById('toggle-mirror'), on);
     syncMaterial();
 }
 
+/** Tie-Dye is a uniform of the domain shader; Mirror and Honeycomb replace
+    that shader, so they exclude it. */
+function setTieDye(on) {
+    if (on && planar.on) setPlanar(false);
+    if (on && mirrorMode) setMirrorMode(false);
+    if (on && render.honeycomb) setHoneycomb(false);
+    render.tieDye = on;
+    material.uniforms.u_tieDye.value = on;
+    updateToggleBtn(document.getElementById('toggle-tiedye'), on);
+}
+
 function setHoneycomb(on) {
     if (on && planar.on) setPlanar(false);
+    if (on && render.tieDye) setTieDye(false);
     render.honeycomb = on;
     updateToggleBtn(document.getElementById('toggle-honeycomb'), on);
     if (on && view.model !== 'ball') setViewModel('ball');
@@ -782,6 +795,7 @@ function initUI() {
 
     bindToggle('toggle-planar', () => setPlanar(!planar.on));
     bindToggle('toggle-mirror', () => setMirrorMode(!mirrorMode));
+    bindToggle('toggle-tiedye', () => setTieDye(!render.tieDye));
     bindToggle('toggle-honeycomb', () => setHoneycomb(!render.honeycomb));
     bindToggle('toggle-manifold', () => setManifold(!render.manifold));
     bindToggle('view-uhs', () => setViewModel(view.model === 'uhs' ? 'ball' : 'uhs'));
@@ -1027,6 +1041,7 @@ window.PoincareAPI = {
         updateDual();
     },
     setMirror(on) { if (on !== mirrorMode) setMirrorMode(on); },
+    setTieDye(on) { if (on !== render.tieDye) setTieDye(on); },
     setTheme,
     getTheme: () => view.theme,
     setOrbit(on) {

@@ -90,7 +90,6 @@
       { t: 'Maskit',                        u: 'Geometric/Tools/Kleinian/maskit.html' },
       { t: 'Maskit (alt 2)',                u: 'Geometric/Tools/Kleinian/maskit2.html' },
       { t: 'Pleating Coordinates',          u: 'Geometric/Tools/Kleinian/pleating.html' },
-      { t: 'Poincaré Polyhedron 2',         u: 'Geometric/Tools/Kleinian/poincare2/index.html' },
     ]},
     { section: 'Geometric · Euclidean', icon: '∥', items: [
       { t: 'Discrete Subgroups of Isom(ℝ²)', u: 'Geometric/Tools/Euclidean/2deuc/index.html' },

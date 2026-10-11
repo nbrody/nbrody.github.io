@@ -2056,8 +2056,8 @@ exportBtn.addEventListener("click", () => {
   // ?rileyz=re,im (symmetric z with rho = z^2).
   const num = v => String(Number(v.toPrecision(12)));
   const url = plane === "sqrt"
-    ? `../poincare2/?rileyz=${num(sel.zx)},${num(sel.zy)}`
-    : `../poincare2/?riley=${num(sel.x)},${num(sel.y)}`;
+    ? `../poincare/?rileyz=${num(sel.zx)},${num(sel.zy)}`
+    : `../poincare/?riley=${num(sel.x)},${num(sel.y)}`;
   window.open(url, "_blank");
 });
 copyBtn.addEventListener("click", () => {
