@@ -56,6 +56,7 @@
       { t: 'Integer Matrices',                      u: 'Arithmetic/Tools/integralElements/index.html' },
       { t: 'Finite Groups',                         u: 'Arithmetic/Tools/finite.html' },
       { t: 'Four Groups over ℚ',                    u: 'Arithmetic/Tools/fourGroupsOverQ/index.html' },
+      { t: 'Continued Fractions',                   u: 'Arithmetic/Tools/continuedFractions.html' },
     ]},
     { section: 'Geometric · Kleinian', icon: '𝕏', items: [
       { t: 'Geometric — Overview',          u: 'Geometric/index.html' },
@@ -99,7 +100,6 @@
       { t: 'Quaternion Calculator (Claude)',   u: 'Geometric/Tools/padicGroups/quaternionCalculatorClaude/index.html' },
       { t: 'Quaternion Calculator (Legacy)',   u: 'Geometric/Tools/padicGroups/quaternionCalculatorLegacy/index.html' },
       { t: 'Integer Quaternion Factorizer',    u: 'Geometric/Tools/padicGroups/quaternions.html' },
-      { t: 'Continued Fractions',              u: 'Geometric/Tools/padicGroups/continuedFractions.html' },
       { t: 'Factor Complex Visualizer',        u: 'Geometric/Tools/padicGroups/factorComplex/index.html' },
     ]},
     { section: 'Geometric · Other', icon: '☆', items: [
