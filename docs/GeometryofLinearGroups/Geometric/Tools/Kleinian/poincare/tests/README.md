@@ -23,5 +23,11 @@ Uses the existing sibling `vendor/three` files; no dependency installation is re
   constants and entries (field degrees, root rows, π-multiples, the floating-point fallback and
   its reason, error locations), complex conjugation (found inside the field or adjoined),
   serialization across the worker boundary, and that every preset reads exactly.
+- `nondiscrete.test.mjs` — certificates of non-discreteness (`js/nondiscrete.js`, run by `runCompute`
+  whenever Poincaré's conditions fail): an elliptic of infinite order; cusp groups that are not
+  discrete (two parabolics with a real irrational translation ratio, translations of ℚ-rank 3, a
+  loxodromic or a forbidden rotation fixing the cusp, two loxodromics with one common fixed point);
+  Jørgensen and Shimizu. Each exactly and in floating point (evidence only), no false positive on
+  any preset, and the report's status `nondiscrete` with the proof first in the certificate.
 - `planar.test.mjs` — the plane picture: which presets lie in PGL₂(ℝ) (up to scalars, mirrors
   included), and that slicing the 3D domain by the plane over ℝ gives one polygon edge per face.

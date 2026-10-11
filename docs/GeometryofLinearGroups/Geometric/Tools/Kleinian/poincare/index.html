@@ -29,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-10-05f';
+            const APP_VERSION = '2026-10-10d';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -42,7 +42,7 @@
                 'insideView', 'limitSet', 'polyhedron', 'presentation', 'invariants',
                 'app', 'domain', 'scene', 'overlays', 'isoAxis', 'inspector', 'panels',
                 'invariantsPanel', 'horoballs', 'tessellation', 'permalink', 'domainService',
-                'compute', 'format', 'tower', 'expr', 'planar'];
+                'compute', 'format', 'tower', 'expr', 'planar', 'nondiscrete'];
             for (const m of mods) {
                 im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             }

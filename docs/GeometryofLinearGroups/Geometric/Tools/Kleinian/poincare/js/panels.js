@@ -61,6 +61,15 @@ export function bannerForReport(rep, faces, exactNote) {
         setBanner('warning', `Full Dirichlet domain — copies of a fundamental domain (symmetric view; Poincaré check disabled).`);
         return;
     }
+    const nd = rep.nondiscrete;
+    if (nd && nd.exact) {
+        setBanner('failed', `✗ Not discrete: ${nd.headline}. The proof is at the top of the certificate.`);
+        return;
+    }
+    if (nd) {
+        setBanner('failed', `✗ Discreteness NOT verified, and numerically ${nd.headline}: probably not discrete (floating-point entries, so evidence rather than proof).`);
+        return;
+    }
     const mem = rep.membership || [];
     const memFail = mem.some(m => m.ok === false);
     if (rep.status === 'verified') {

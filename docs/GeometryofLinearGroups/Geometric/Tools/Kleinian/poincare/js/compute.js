@@ -1,5 +1,6 @@
 /**
- * The computation behind the page: canonical domain → Poincaré certificate →
+ * The computation behind the page: canonical domain → Poincaré certificate
+ * (and, when it fails, a search for a proof of non-discreteness) →
  * invariants (and, on request, the Ford domain of a cusp). Plain data in,
  * plain data out, so the same code runs in the Web Worker (domainWorker.js)
  * or, where workers are unavailable, on the main thread.
@@ -20,6 +21,7 @@ import {
     presentationInInputGenerators, tidyRelators
 } from './presentation.js';
 import { lengthSpectrum, invariantTraceField, horoballPacking, domainVolume } from './invariants.js';
+import { findNondiscreteness } from './nondiscrete.js';
 
 // ---------------- plain-data conversions ----------------
 
@@ -74,8 +76,51 @@ function serializeReport(rep) {
                 translations: (c.shape.translations || []).map(cx)
             } : null
         })),
-        structure: rep.structure || null
+        structure: rep.structure || null,
+        nondiscrete: rep.nondiscrete || null
     };
+}
+
+// ---------------- non-discreteness ----------------
+
+/** Words the domain search met that are worth testing: stabilizer, walls, nearest orbit points. */
+function searchWords(D) {
+    const words = [];
+    for (const h of D.stabilizer.elements || []) if (h.word && h.word.length) words.push(h.word);
+    for (const w of D.walls) if (w.word) words.push(w.word);
+    for (const o of (D.orbit || []).slice(0, 200)) words.push(o.word);
+    return words;
+}
+
+/**
+ * The Poincaré certificate failed: look for a proof that the group is not
+ * discrete (nondiscrete.js). An exact one makes the status 'nondiscrete';
+ * numerical evidence (floating-point entries) only adds a warning. The
+ * finding goes first in the certificate log.
+ */
+function attachNondiscreteness(rep, gens, exactData, D) {
+    let nd;
+    try {
+        // A fresh copy of the field: the search may adjoin complex conjugates.
+        const ctx = !exactData ? null
+            : exactData.kind === 'tower' ? deserializeTowerContext(exactData) : deserializeExactContext(exactData);
+        nd = findNondiscreteness(gens, ctx, { words: searchWords(D), allowConj: true });
+    } catch (e) {
+        return;
+    }
+    if (!nd.found) return;
+    rep.nondiscrete = { exact: nd.exact, kind: nd.kind, headline: nd.headline, lines: nd.lines, words: nd.words };
+    const kind = nd.exact ? 'fail' : 'warn';
+    // Fixed points on the sphere at infinity, lit up by clicking a line ({x,y,z}, like the certifier's refs).
+    const ref = nd.points && nd.points.length ? { points: nd.points.map(([x, y, z]) => ({ x, y, z })) } : null;
+    const head = nd.exact ? '— NOT discrete: an exact certificate —' : '— Probably NOT discrete (numerical evidence) —';
+    rep.entries = [
+        { kind: 'head', text: head },
+        ...nd.lines.map(text => (ref ? { kind, text, ref } : { kind, text })),
+        ...(rep.entries || [])
+    ];
+    rep.log = rep.entries.map(e => e.text);
+    if (nd.exact) rep.status = 'nondiscrete';
 }
 
 // ---------------- invariants ----------------
@@ -85,8 +130,12 @@ function computeInvariants(D, rep, k, exactCtx) {
     try {
         out.volume = D.poly.finiteVolume ? polyhedronVolume(D.poly) : null;
     } catch (e) { out.volume = null; }
-    out.torsion = [...new Set((rep.edgeCycles || []).filter(c => c.ok && c.m > 1).map(c => c.m))].sort((a, b) => a - b);
     const P = rep.presentation;
+    const orders = (rep.edgeCycles || []).filter(c => c.ok && c.m > 1).map(c => c.m);
+    // A face paired with itself is swapped by an involution (s² = 1): an
+    // order-2 rotation, or a reflection, whose axis need not lie on an edge.
+    if (P && P.generators.some(g => g.walls[0] === g.walls[1])) orders.push(2);
+    out.torsion = [...new Set(orders)].sort((a, b) => a - b);
     if (P) {
         const pres = { n: P.generators.length, relators: P.relatorsEnc };
         const ab = abelianization(pres);
@@ -232,6 +281,7 @@ export function runCompute(input) {
             poly: D.poly, center: D.conePoint,
             generators: gens.map((m, i) => ({ matrix: m, word: [i + 1] }))
         });
+        if (rep.status !== 'verified') attachNondiscreteness(rep, gens, input.exact, D);
     }
     const t2 = Date.now();
     const inv = rep.status === 'full' ? { finiteVolume: false } : computeInvariants(D, rep, gens.length, exactCtx);

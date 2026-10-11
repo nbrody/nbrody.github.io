@@ -6,18 +6,47 @@ const root = (poly, re = 0, im = 0, name = 'w') => ({ name, poly, near: { re, im
 
 const RILEY = 'Riley slice — pleating-ray cusps';
 
+// Jørgensen, "Compact 3-manifolds of constant negative curvature fibering
+// over the circle", Ann. of Math. 106 (1977), §5–6. For n ≥ 2:
+// 2ψ = 1 + √(17 − 8cos(π/n)), λ = e^{iπ/2n}, 2ρ = √(ψ+2) + √(ψ−2),
+// 2x√(ψ−2) = √(3−ψ) + i√(ψ+1), and G* = ⟨T, X⟩ with
+//   T = diag(ρ, ρ⁻¹),   X = (−λx  −(1+x²); 1  λ⁻¹x).
+// With Y = TX⁻¹T⁻¹X: TXT⁻¹ = XY⁻¹, T⁻¹YT = YX, and [X, Y] = diag(−λ², −λ⁻²)
+// has order n — a torus with one cone point of order n, bundled over the
+// circle (monodromy (X, YX) ↦ (XY⁻¹, Y); as n → ∞, the figure-eight knot).
+// Exact form: in PGL₂, T = diag(t, 1) with t = ρ², so t + 1/t = ψ and
+// t⁴ − t³ + (2cos(π/n) − 2)t² − t + 1 = 0; with m = λ² = e^{iπ/n} and
+// u = λx = (t/2)·((m+1)/(t²−1) + (m−1)/(t−1)²), X = (−u  −1−u²/m; 1  u/m).
+// The entries lie in ℚ(t, m) (the paper's own radicals would make the reader
+// allow for degree 64), and ℚ(t) is the invariant trace field. All of this
+// was checked exactly in Sage against the paper's formulas.
+const jorgensen = (n, tPoly, tNear, mPoly, mNear, desc, extra = {}) => ({
+    name: `Jorgensen fibered (n=${n})`,
+    cat: 'Knots, links & bundles',
+    desc,
+    consts: [
+        root(tPoly, tNear, 0, 't'),
+        root(mPoly, mNear[0], mNear[1], 'm'),
+        ['u', '\\frac{t}{2}(\\frac{m+1}{t^2-1}+\\frac{m-1}{(t-1)^2})']
+    ],
+    mats: [['t', '0', '0', '1'],
+    ['-u', '-1-\\frac{u^2}{m}', '1', '\\frac{u}{m}']],
+    ...extra
+});
+
 export const exampleLibrary = [
-    {
-        // Five-digit decimals of a finite-covolume group. Such a group is
-        // locally rigid: nearby representations are (generically) not
-        // discrete, so certification is EXPECTED to fail — the example shows
-        // what an approximate input looks like, not a certified domain.
-        name: 'Jorgensen fibered (n=2)',
-        cat: 'Knots, links & bundles',
-        desc: 'Once-punctured-torus bundle, entries rounded to 5 digits — rounding breaks discreteness, so certification fails (as it should)',
-        mats: [['2.85011', '0', '0', '0.35086'],
-        ['0.31415 - 0.78426i', '-0.50725 - 0.51641i', '1', '0.78426 + 0.31415i']]
-    },
+    // Jørgensen's fibered orbifolds (see `jorgensen` above). n = 2 and 3 are
+    // arithmetic (kΓ = ℚ(t) of degree 4 with one complex place, integral
+    // traces, ramified at both real places); n = 4 is not (kΓ of degree 8
+    // with two complex places). The volumes rise toward the figure-eight
+    // knot's 2.0299 as n grows.
+    jorgensen(2, 't^4-t^3-2t^2-t+1', 2.0810189966, 'm^2+1', [0, 1],
+        'Jørgensen’s compact orbifold fibering over the circle (torus with a cone point of order 2) — arithmetic, exact over Q(t, i), degree 8'),
+    jorgensen(3, 't^4-t^3-t^2-t+1', 1.7220838057, 'm^2-m+1', [0.5, 0.8660254038],
+        'Jørgensen’s fibered orbifold with a cone point of order 3 — arithmetic, exact over Q(t, e^{iπ/3}), degree 8'),
+    jorgensen(4, 't^8-2t^7-3t^6+2t^5+6t^4+2t^3-3t^2-2t+1', 1.5306711587, 'm^4+1', [0.7071067812, 0.7071067812],
+        'Jørgensen’s fibered orbifold with a cone point of order 4 — not arithmetic, exact over Q(t, e^{iπ/4}), degree 16',
+        { depth: 10 }),
     {
         name: 'Apollonian Gasket',
         cat: 'Fractal limit sets',

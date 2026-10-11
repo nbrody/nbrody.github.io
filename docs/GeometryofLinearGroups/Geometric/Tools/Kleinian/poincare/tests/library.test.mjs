@@ -35,6 +35,10 @@ function compute(mats, { exactCtx = null, depth = 8, ford = null } = {}) {
 // Volumes are SnapPy's (or Humbert's formula for the Bianchi groups); the
 // Dirichlet-domain quadrature is good to ~1e-7 relative.
 const EXPECT = {
+    // Jørgensen's groups: compact; n = 2, 3 arithmetic, n = 4 not (two complex places).
+    'Jorgensen fibered (n=2)': { faces: 25, vol: 1.3934022782, h1: 'ℤ', tf: 'x^4 − 7x^3 + 21x^2 − 20x + 4', arith: true, torsion: [2] },
+    'Jorgensen fibered (n=3)': { faces: 26, vol: 1.7302583958, h1: 'ℤ', tf: 'x^4 − 5x^3 + 14x^2 − 8x + 1', arith: true, torsion: [3] },
+    'Jorgensen fibered (n=4)': { faces: 26, vol: 1.8574619899, h1: 'ℤ', tf: 'x^8 − 14x^7 + 87x^6 − 306x^5 + 637x^4 − 708x^3 + 332x^2 − 64x + 4', arith: false, torsion: [4] },
     'Apollonian Gasket': { faces: 11, h1: 'ℤ ⊕ ℤ/2' },
     'quasiSchottky': { faces: 4, h1: 'ℤ²' },
     'Modular group': { faces: 5, h1: 'ℤ/6' },
@@ -76,8 +80,8 @@ const EXPECT = {
     'Right-angled dodecahedron (12 mirrors)': { faces: 12, vol: 4.3062076007, h1: Array(12).fill('ℤ/2').join(' ⊕ ') },
 };
 // Presets that must NOT verify: a geometrically infinite fiber group (its
-// Dirichlet domain has infinitely many faces) and an unidentified example.
-const MUST_FAIL = ['Figure eight fiber', 'Jorgensen fibered (n=2)'];
+// Dirichlet domain has infinitely many faces).
+const MUST_FAIL = ['Figure eight fiber'];
 
 test('every library preset is covered by this suite', () => {
     const names = exampleLibrary.map(e => e.name);
@@ -106,6 +110,7 @@ for (const ex of exampleLibrary) {
         if (want.cusps != null) assert.equal(out.report.cusps.length, want.cusps);
         if (want.tf) assert.equal(inv.traceField.minpoly, want.tf);
         if (want.arith != null) assert.equal(inv.traceField.arithmetic, want.arith);
+        if (want.torsion) assert.deepEqual(inv.torsion, want.torsion);
     });
 }
 

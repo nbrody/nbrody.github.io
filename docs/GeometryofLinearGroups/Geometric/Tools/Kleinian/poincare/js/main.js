@@ -293,7 +293,7 @@ function showReportBanner() {
     const exactCtx = getExactContext();
     const exactNote = app.report && app.report.exactUsed && exactCtx
         ? ` Relations exact over ${exactCtx.field.describe()}; geometry numerical.` : '';
-    if (app.home && app.home.stabilizer.capped) {
+    if (app.home && app.home.stabilizer.capped && !(app.report && app.report.nondiscrete)) {
         setBanner('failed', '✗ Basepoint stabilizer did not close into a finite group — the group is likely NOT discrete.');
     } else {
         bannerForReport(app.report, faces, exactNote);

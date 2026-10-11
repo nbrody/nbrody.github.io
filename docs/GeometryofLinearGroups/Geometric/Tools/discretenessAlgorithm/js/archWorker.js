@@ -2,7 +2,9 @@
  * Worker for one place at ∞: poincare's own pipeline on the group read for
  * that embedding — buildGroup (matrixInput.js) then runCompute (compute.js),
  * exactly what poincare's domain worker runs — after a quick search for an
- * exact certificate of non-discreteness (certificates.js).
+ * exact certificate of non-discreteness (certificates.js). runCompute makes
+ * the same search, with the words its domain met, whenever Poincaré's
+ * conditions fail; an exact certificate from it counts too.
  *
  * In:  { id, state, maxFaces, maxDepth }   (state: poincare's input state)
  * Out: { id, phase: 'cert', cert } then { id, phase: 'done', cert, summary }, or { id, error }.
@@ -76,6 +78,12 @@ self.onmessage = (ev) => {
             s.bp = bp;
             if (!first) first = s;
             if (s.status === 'verified') { found = s; break; }
+            const nd = res.report && res.report.nondiscrete;
+            if (nd && nd.exact) {
+                if (!(cert && cert.nondiscrete)) cert = { nondiscrete: true, kind: nd.kind, word: nd.words[0], words: nd.words, text: nd.lines.join(' ') };
+                found = s;
+                break;
+            }
         }
         const summary = found || first;
         summary.tries = tries;

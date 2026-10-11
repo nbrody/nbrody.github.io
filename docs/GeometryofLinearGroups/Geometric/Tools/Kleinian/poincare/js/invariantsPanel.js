@@ -45,7 +45,10 @@ export function renderInvariants(onApplyWord) {
         return;
     }
     const certified = rep.status === 'verified';
-    const caveat = certified ? '' : '<div class="inv-caveat">The certificate did not fully pass — treat these values as provisional.</div>';
+    const caveat = certified ? ''
+        : rep.status === 'nondiscrete'
+            ? '<div class="inv-caveat">The group is not discrete (see the certificate): these values describe the domain found, not a quotient.</div>'
+            : '<div class="inv-caveat">The certificate did not fully pass — treat these values as provisional.</div>';
     let html = caveat;
 
     // ---- summary ----
