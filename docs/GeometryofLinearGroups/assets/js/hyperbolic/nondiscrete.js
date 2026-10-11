@@ -36,6 +36,18 @@
  *     parabolic this is Shimizu's lemma: |c| ≥ 1 for B = (a b; c d) in the
  *     frame where A = (1 1; 0 1).
  *
+ *  4. Shimizu at a cusp, found by a Ford-domain search. Short words rarely
+ *     violate Shimizu's lemma near the boundary of a deformation space (for
+ *     ⟨(1 ∛4·ω; 0 1), (1 0; 1 1)⟩ the shortest violation found has 137
+ *     letters). In the frame where a parabolic P is z ↦ z + 1, an element
+ *     g = (a b; c d) not fixing ∞ has the isometric circle |cz + d| = 1 of
+ *     radius 1/|c|, and Shimizu's lemma bounds every radius by 1 in a
+ *     discrete group. The faces of the Ford domain at P's cusp are closed
+ *     under products f·Pᵏ·g (k = 0, ±1, ±2), keeping the visible circles
+ *     (power cells, as in riley-slice/fordCore.js); for a discrete group the
+ *     faces settle, for a non-discrete one the products reach a circle of
+ *     radius > 1, and that element goes through test 3, exactly.
+ *
  * The search is floating point; with an exact context { field, gens } every
  * candidate is re-checked over the number field K. Identities, parabolicity,
  * finite orders, common fixed points, ℚ-ranks and the multiplier's order are
@@ -346,6 +358,9 @@ class Exact {
         try { el.E = this.wordMat(el.word); } catch (e) { el.E = null; }
         return el.E;
     }
+    /** The value at the chosen embedding: in high precision when the field offers it (an element
+        reached by a long word has huge coordinates, and a double evaluation cancels). */
+    num(x) { return typeof x.embedHP === 'function' ? x.embedHP(256) : x.embed(); }
     tr(E) { return E.a.add(E.d); }
     /** tr²/det — the projective invariant. */
     tsq(E) { const t = this.tr(E); return t.mul(t).div(E.det()); }
@@ -364,7 +379,7 @@ class Exact {
         if (K.hasConj()) {
             try { return { real: x.conj().equals(x), exact: true }; } catch (e) { /* numerically below */ }
         }
-        const v = x.embed();
+        const v = this.num(x);
         return { real: Math.abs(v.im) <= 1e-10 * Math.max(1, Math.hypot(v.re, v.im)), exact: false };
     }
     /** N = 2E/tr E − 1 of a parabolic. */
@@ -394,7 +409,7 @@ class Exact {
     }
     show(x) {
         if (this.isRational(x)) return typeof x.rational === 'function' ? x.rational().toString() : (x.c[0] || new Frac(0n)).toString();
-        return `≈ ${fmtNum(x.embed())}`;
+        return `≈ ${fmtNum(this.num(x))}`;
     }
     minpolyText(x) {
         try { return supPoly(polyString(minimalPolynomial(x))); } catch (e) { return null; }
@@ -414,7 +429,7 @@ function ellipticTest(pool, X) {
             if (!E || E.isProjectiveIdentity()) continue;
             const t = X.tsq(E);
             if (t.equals(X.four)) continue;
-            const tv = t.embed();
+            const tv = X.num(t);
             if (!(tv.re > MARGIN && tv.re < 4 - MARGIN)) {
                 // t = 0 is a half-turn; anything else out of [0, 4) is not elliptic
                 if (!t.isZero()) continue;
@@ -505,7 +520,7 @@ function exactCusp(c, pool, X) {
         if (m4.equals(X.one) || m4.mul(m2).equals(X.one)) { mults.push({ word: g.word, mu }); continue; }
         let order = null;
         for (const m of X.orders) if (mu.pow(m).equals(X.one)) { order = m; break; }
-        const { headline, lines } = multiplierLines(base.word, g.word, X.show(mu), mu.embed(),
+        const { headline, lines } = multiplierLines(base.word, g.word, X.show(mu), X.num(mu),
             order ? `a root of unity of order ${order}` : 'not a root of unity');
         return {
             kind: 'cusp', exact: true, words: [base.word, g.word], headline,
@@ -702,17 +717,205 @@ function jorgensenTest(jcands, X) {
         const EA = X.of(A), EB = X.of(B);
         if (!EA || !EB) continue;
         const trA = X.tr(EA), trB = X.tr(EB);
-        if (trA.isZero() || trB.isZero()) continue;
+        const tA = X.tsq(EA);
+        // Shimizu's lemma (A parabolic) needs only c ≠ 0, i.e. tr[A, B] ≠ 2; Jørgensen's inequality
+        // also needs ⟨A, B⟩ non-elementary, which the nonzero traces give
+        if (!tA.equals(X.four) && (trA.isZero() || trB.isZero())) continue;
         const C = EA.mul(EB).mul(EA.adj()).mul(EB.adj());
         const kappa = X.tr(C).div(EA.det().mul(EB.det()));
         if (kappa.equals(X.two)) continue;
-        const tA = X.tsq(EA);
-        const kv = kappa.embed(), tv = tA.embed();
+        const kv = X.num(kappa), tv = X.num(tA);
         const k2 = Math.hypot(kv.re - 2, kv.im), J = Math.hypot(tv.re - 4, tv.im) + k2;
         if (J >= 1 - MARGIN) continue;
         const parabolic = tA.equals(X.four);
         const r = jorgensenText(A, B, J, k2, parabolic);
-        return { ...r, exact: true, value: parabolic ? k2 : J, words: [A.word, B.word], lines: [...r.lines, 'tr[A, B] ≠ 2 and the traces ≠ 0 are exact; the sum is compared with 1 in floating point.'], points: fixedPoints(A.M).map(ballPoint) };
+        const how = parabolic ? 'Parabolicity and tr[A, B] ≠ 2 are exact' : 'tr[A, B] ≠ 2 and the traces ≠ 0 are exact';
+        const prec = typeof kappa.embedHP === 'function' ? ' (the value evaluated with 256 bits)' : '';
+        return { ...r, exact: true, value: parabolic ? k2 : J, words: [A.word, B.word], lines: [...r.lines, `${how}; the sum is compared with 1 in floating point${prec}.`], points: fixedPoints(A.M).map(ballPoint) };
+    }
+    return null;
+}
+
+// ---------------- 4. Shimizu at a cusp, by a Ford-domain search ----------------
+
+/* Exact visibility of isometric circles {x ∈ [0, 1), y, r} modulo z ↦ z + 1 (riley-slice/fordCore.js):
+   circle i is a face iff r_i² − |p − c_i|² ≥ r_j² − |p − c_j|² somewhere on its disk, for every other
+   circle j and translate. The differences are affine in p, so the region is a polygon (a power cell)
+   cut by half-planes. */
+const VREL = 1e-9;
+function clipPoly(poly, u, v, w) {                 // keep u x + v y ≥ w
+    const out = [], n = poly.length;
+    for (let i = 0; i < n; i++) {
+        const P = poly[i], Q = poly[(i + 1) % n];
+        const fp = u * P[0] + v * P[1] - w, fq = u * Q[0] + v * Q[1] - w;
+        if (fp >= 0) out.push(P);
+        if ((fp >= 0) !== (fq >= 0)) { const t = fp / (fp - fq); out.push([P[0] + t * (Q[0] - P[0]), P[1] + t * (Q[1] - P[1])]); }
+    }
+    return out;
+}
+function maxPower(poly, c) {                       // max of r² − |p − c|² over the polygon
+    const n = poly.length;
+    if (n < 3) return -Infinity;
+    let inside = true, d2 = Infinity;
+    for (let i = 0; i < n; i++) {
+        const P = poly[i], Q = poly[(i + 1) % n];
+        const ex = Q[0] - P[0], ey = Q[1] - P[1];
+        if (ex * (c.y - P[1]) - ey * (c.x - P[0]) < 0) inside = false;
+        const L2 = ex * ex + ey * ey;
+        let t = L2 > 0 ? ((c.x - P[0]) * ex + (c.y - P[1]) * ey) / L2 : 0;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const dx = P[0] + t * ex - c.x, dy = P[1] + t * ey - c.y;
+        d2 = Math.min(d2, dx * dx + dy * dy);
+    }
+    return inside ? c.r * c.r : c.r * c.r - d2;
+}
+/** The faces among circles: those inside one bigger circle go first, then the power cells. */
+function visibleCircles(items) {
+    const order = items.map((_, i) => i).filter(i => items[i].r > 0 && isFinite(items[i].r)).sort((a, b) => items[b].r - items[a].r);
+    const kept = [];
+    for (const i of order) {
+        const c = items[i];
+        let inside = false;
+        for (const k of kept) {
+            const d = items[k];
+            if (d.r - c.r <= VREL * c.r) break;
+            let dx = Math.abs(c.x - d.x); if (dx > 0.5) dx = 1 - dx;
+            if (Math.hypot(dx, c.y - d.y) <= d.r - c.r + VREL * c.r) { inside = true; break; }
+        }
+        if (!inside) kept.push(i);
+    }
+    const C = kept.map(i => items[i]), out = [];
+    for (let i = 0; i < C.length; i++) {
+        const ci = C[i], ki = ci.r * ci.r - ci.x * ci.x - ci.y * ci.y;
+        let poly = [[ci.x - ci.r, ci.y - ci.r], [ci.x + ci.r, ci.y - ci.r], [ci.x + ci.r, ci.y + ci.r], [ci.x - ci.r, ci.y + ci.r]];
+        let dead = false;
+        for (let j = 0; j < C.length && !dead; j++) {
+            const cj = C[j], rs = ci.r + cj.r, dy = cj.y - ci.y;
+            if (Math.abs(dy) >= rs) continue;
+            for (let k = Math.ceil(ci.x - cj.x - rs); k <= Math.floor(ci.x - cj.x + rs); k++) {
+                if (j === i && k === 0) continue;
+                const xj = cj.x + k, d = Math.hypot(xj - ci.x, dy);
+                if (d >= rs) continue;
+                if (d <= cj.r - ci.r + VREL * ci.r) {
+                    if (Math.abs(cj.r - ci.r) > VREL * ci.r || j < i) { dead = true; break; }
+                    continue;
+                }
+                if (d <= ci.r - cj.r) continue;
+                const kj = cj.r * cj.r - xj * xj - cj.y * cj.y;
+                poly = clipPoly(poly, 2 * (ci.x - xj), 2 * (ci.y - cj.y), kj - ki);
+                if (poly.length < 3) { dead = true; break; }
+            }
+        }
+        if (!dead && maxPower(poly, ci) > VREL * ci.r * ci.r) out.push(ci);
+    }
+    return out;
+}
+
+/**
+ * A Ford-domain search at the cusp of the parabolic pool element P: the element with the largest
+ * isometric circle beyond radius 1 (in the frame P = z ↦ z + 1), as a pool element, or null when
+ * the faces settle (or the budget runs out) first.
+ */
+function fordShimizu(P, gens, pool, deadline, { maxFaces = 150, maxRounds = 40, maxLen = 600 } = {}) {
+    const fix = parabolicFix(P.M);
+    const one = new Complex(1), zero = new Complex(0);
+    let K = fix === null ? Matrix2x2.identity() : new Matrix2x2(zero, new Complex(-1), one, fix.mul(new Complex(-1)));
+    const Pk = K.mul(P.M).mul(K.inv()).normalized();
+    if (cabs(Pk.c) > 1e-9 * (cabs(Pk.a) + cabs(Pk.b))) return null;
+    const tau = Pk.b.div(Pk.a), st = Complex.sqrt(tau);
+    K = new Matrix2x2(one.div(st), zero, zero, st).mul(K);           // ξ ↦ ∞, then z ↦ z/τ: P = z + 1
+    const Ki = K.inv();
+    const T = (k) => new Matrix2x2(one, new Complex(k), zero, one);
+    const make = (F, word) => {
+        const c2 = F.c.normSq(), s2 = F.a.normSq() + F.b.normSq() + F.d.normSq();
+        if (!(c2 > 1e-20 * (1 + s2))) return null;                   // fixes ∞
+        const ctr = F.d.div(F.c);
+        const x = -ctr.re;
+        return { F, word, x: x - Math.floor(x), y: -ctr.im, r: 1 / Math.sqrt(c2) };
+    };
+    const keyOf = (it) => `${Math.round(it.x * 1e7)},${Math.round(it.y * 1e7)},${Math.round(it.r * 1e7)}`;
+    // seeds: the generators and the pool's words, in the frame
+    const seeds = [];
+    gens.forEach((g, i) => { seeds.push(make(K.mul(g).mul(Ki).normalized(), [i + 1])); seeds.push(make(K.mul(g.inv()).mul(Ki).normalized(), [-(i + 1)])); });
+    for (const el of pool.slice(0, 200)) seeds.push(make(K.mul(el.M).mul(Ki).normalized(), el.word));
+    let faces = visibleCircles(seeds.filter(Boolean));
+    const pw = (k) => (k > 0 ? Array(k).fill(P.word).flat() : Array(-k).fill(invertWord(P.word)).flat());
+    const found = (it) => element(Ki.mul(it.F).mul(K), it.word);
+    let best = faces.find(f => f.r > 1 + 1e-6);
+    if (best) return found(best);
+    for (let round = 0; round < maxRounds && Date.now() < deadline; round++) {
+        const have = new Set(faces.map(keyOf));
+        const cand = faces.slice();
+        for (const f of faces) for (const g of faces) for (const k of [0, 1, -1, 2, -2]) {
+            if (f.word.length + g.word.length + Math.abs(k) * P.word.length > maxLen) continue;
+            const it = make(f.F.mul(T(k)).mul(g.F).normalized(), null);
+            if (!it) continue;
+            const key = keyOf(it);
+            if (have.has(key)) continue;
+            have.add(key);
+            it.word = reduceWord([...f.word, ...pw(k), ...g.word]);
+            if (!it.word.length) continue;
+            if (it.r > 1 + 1e-6 && (!best || it.r > best.r)) best = it;
+            cand.push(it);
+        }
+        if (best) return found(best);
+        const next = visibleCircles(cand);
+        const same = next.length === faces.length && next.every(f => have.has(keyOf(f)) && faces.some(g => keyOf(g) === keyOf(f)));
+        faces = next;
+        if (same || faces.length > maxFaces) return null;
+    }
+    return null;
+}
+
+/**
+ * |tr[P, g] − 2| for words P, g in the (floating-point) generators, recomputed with 200-bit fixed
+ * point from the doubles: a long word's double product can cancel c to nothing and fake a large
+ * isometric circle. The generators are taken as exact binary numbers (to 2⁻²⁰⁰), so only the
+ * input's own rounding remains.
+ */
+function shimizuValueHP(gens, pWord, gWord) {
+    const BITS = 200n, S = 2 ** 200;
+    const big = (x) => BigInt(Math.round(x * S));                     // exact but for entries below 2⁻²⁰⁰
+    const cxv = (z) => ({ re: big(z.re), im: big(z.im) });
+    const mulc = (a, b) => ({ re: (a.re * b.re - a.im * b.im) >> BITS, im: (a.re * b.im + a.im * b.re) >> BITS });
+    const addc = (a, b) => ({ re: a.re + b.re, im: a.im + b.im });
+    const neg = (a) => ({ re: -a.re, im: -a.im });
+    const mat = (g) => [cxv(g.a), cxv(g.b), cxv(g.c), cxv(g.d)];
+    const mm = (A, B) => [addc(mulc(A[0], B[0]), mulc(A[1], B[2])), addc(mulc(A[0], B[1]), mulc(A[1], B[3])), addc(mulc(A[2], B[0]), mulc(A[3], B[2])), addc(mulc(A[2], B[1]), mulc(A[3], B[3]))];
+    const adj = (A) => [A[3], neg(A[1]), neg(A[2]), A[0]];                // the inverse (det 1)
+    const L = gens.map((g) => mat(g.normalized()));
+    const one = { re: 1n << BITS, im: 0n }, zero = { re: 0n, im: 0n };
+    const word = (w) => w.reduce((M, l) => mm(M, l > 0 ? L[l - 1] : adj(L[-l - 1])), [one, zero, zero, one]);
+    const A = word(pWord), B = word(gWord);
+    const C = mm(mm(mm(A, B), adj(A)), adj(B));
+    const t = addc(C[0], C[3]);
+    const re = Number(t.re - 2n * one.re) / S, im = Number(t.im) / S;
+    return Math.hypot(re, im);
+}
+
+/** Test 4: at the cusps of the shortest parabolics, a Ford-domain search for a Shimizu violation, checked by test 3. */
+function fordShimizuTest(pool, gens, X, deadline) {
+    const pars = pool.filter(e => e.type === 'par'), cusps = [];
+    for (const p of pars) {
+        const fix = parabolicFix(p.M);
+        if (cusps.some(c => chordal(c.fix, fix) < CUSP_TOL)) continue;
+        cusps.push({ fix, P: p });
+        if (cusps.length >= 3) break;
+    }
+    for (const { P } of cusps) {
+        if (Date.now() > deadline || (X && X.over())) return null;
+        const g = fordShimizu(P, gens, pool, deadline);
+        if (!g) continue;
+        // without an exact field, the double products of a long word are not to be trusted: recheck
+        if (!X) {
+            const v = shimizuValueHP(gens, P.word, g.word);
+            if (!(v < 1 - 1e-6) || v < 1e-12) continue;
+        }
+        const r = jorgensenTest([[P, g]], X);
+        if (!r) continue;
+        const lines = r.lines.slice();
+        lines.splice(1, 0, `${wordText(g.word)} (${g.word.length} letters) was found by closing the faces of the Ford domain at the cusp of ${wordText(P.word)} under products f·${paren(P.word)}ᵏ·g: its isometric circle has radius ${+(1 / Math.sqrt(r.value)).toPrecision(6)} > 1 in the frame where ${wordText(P.word)} = z ↦ z + 1.`);
+        return { ...r, lines, search: 'ford' };
     }
     return null;
 }
@@ -728,6 +931,7 @@ function jorgensenTest(jcands, X) {
  *           another frame: every test is conjugation-invariant), or null
  * opts      words: extra words to test (e.g. the domain search's face
  *           pairings and stabilizer); maxLen, cap: the breadth-first search;
+ *           fordSearch: test 4, the Ford-domain search at cusps (default on);
  *           budgetMs; allowConj: the field may adjoin complex conjugates
  *           (it is modified — pass a copy)
  *
@@ -737,7 +941,7 @@ function jorgensenTest(jcands, X) {
  * for Shimizu, the sum for Jørgensen), checked } or { found: false, checked }.
  */
 export function findNondiscreteness(gens, exactCtx = null, opts = {}) {
-    const { words = [], maxLen = 12, cap = 600, budgetMs = 2500, maxEvals = 8000, allowConj = false } = opts;
+    const { words = [], maxLen = 12, cap = 600, budgetMs = 2500, maxEvals = 8000, allowConj = false, fordSearch = true } = opts;
     const t0 = Date.now(), deadline = t0 + budgetMs;
     if (!gens.length) return { found: false, checked: 0 };
     const G = gens.map(g => g.normalized());
@@ -745,7 +949,8 @@ export function findNondiscreteness(gens, exactCtx = null, opts = {}) {
     const X = exactCtx && exactCtx.field && exactCtx.gens && exactCtx.gens.length === gens.length
         ? new Exact(exactCtx, { allowConj, deadline, maxEvals }) : null;
     const { jcands, commuting } = pairPass(pool, deadline);
-    const r = ellipticTest(pool, X) || cuspTest(pool, commuting, X) || jorgensenTest(jcands, X);
+    const r = ellipticTest(pool, X) || cuspTest(pool, commuting, X) || jorgensenTest(jcands, X)
+        || (fordSearch ? fordShimizuTest(pool, G, X, deadline) : null);
     const base = { checked: pool.length, exactUsed: !!X, ms: Date.now() - t0 };
     if (!r) return { found: false, ...base, timedOut: Date.now() > deadline || !!(X && X.evals >= X.maxEvals) };
     return { found: true, ...r, text: r.lines.join(' '), ...base };

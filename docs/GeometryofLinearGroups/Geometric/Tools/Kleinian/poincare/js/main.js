@@ -529,6 +529,11 @@ function setTheme(mode) {
     onSceneMoved();
     document.getElementById('theme-dark')?.classList.toggle('active', mode === 'dark');
     document.getElementById('theme-light')?.classList.toggle('active', mode === 'light');
+    const themeBtn = document.getElementById('theme-btn');
+    if (themeBtn) {
+        themeBtn.title = mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+        themeBtn.setAttribute('aria-label', themeBtn.title);
+    }
 }
 
 // ---------------- the plane picture ----------------
@@ -836,6 +841,7 @@ function initUI() {
     }
 
     document.querySelectorAll('.theme-opt').forEach(btn => btn.addEventListener('click', () => setTheme(btn.dataset.theme)));
+    document.getElementById('theme-btn')?.addEventListener('click', () => setTheme(view.theme === 'light' ? 'dark' : 'light'));
 
     // Stored elements
     const wordInput = document.getElementById('word-input');

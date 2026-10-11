@@ -94,6 +94,23 @@ test('Jørgensen and Shimizu, when no short elliptic is available', () => {
     assert.ok(Math.abs(s.exact.value - 0.25) < 1e-12);
 });
 
+test('Shimizu at a cusp by a Ford-domain search: ⟨(1 ∛4·ω; 0 1), (1 0; 1 1)⟩, just outside the Riley slice', () => {
+    // ρ = ∛4·ω has |ρ| ≈ 1.587, under 1% inside the complement of the Riley slice along arg ρ = 2π/3;
+    // no word of length ≤ 16 breaks Shimizu's lemma, but closing the Ford domain's faces at a cusp
+    // reaches one (about 90 letters), and the 256-bit evaluation makes it exact
+    const { exact, float } = witness([['1', '4^{1/3}\\omega', '0', '1'], ['1', '0', '1', '1']]);
+    assert.equal(exact.found && exact.exact, true);
+    assert.equal(exact.kind, 'shimizu');
+    assert.ok(exact.value < 1);
+    assert.match(exact.text, /Ford domain/);
+    assert.equal(float.found, true);
+    assert.equal(float.kind, 'shimizu');
+    // inside the slice (ρ = 2·∛4·ω, the Keen–Series normalization) nothing is found
+    const inside = witness([['1', '2\\cdot 4^{1/3}\\omega', '0', '1'], ['1', '0', '1', '1']]);
+    assert.equal(inside.exact.found, false);
+    assert.equal(inside.float.found, false);
+});
+
 test('no false positive on any preset (all discrete), exact or floating point', () => {
     for (const ex of exampleLibrary) {
         const consts = [...(ex.name === 'Hecke group' ? [['n', '5']] : []), ...(ex.consts || [])];

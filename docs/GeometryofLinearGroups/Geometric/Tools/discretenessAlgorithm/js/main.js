@@ -21,7 +21,7 @@ import { fieldModel, poincareStateFor } from './field.js';
 import { CURATED, allExamples } from './examples.js';
 import { ToolFrames } from './frames.js';
 
-const VERSION = '2026-10-05a';          // busts the workers' module caches
+const VERSION = '2026-10-11a';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const MAX_PRIMES = 12;
 
