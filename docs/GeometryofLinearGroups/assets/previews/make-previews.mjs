@@ -40,7 +40,6 @@ const OVERRIDES = {
     'Geometric/Tools/Kleinian/julia.html': { skip: 'its default polynomial (… + 0.3i) does not parse, so it opens black' },
     'Geometric/Tools/Kleinian/knotfolio/index.html': { skip: 'a blank canvas to draw on' },
     'Geometric/Tools/Kleinian/coxeter.html': { skip: 'a blank graph to draw on' },
-    'Geometric/Tools/Kleinian/maskit2.html': { skip: 'its worker does not finish headless' },
     'Geometric/Tools/Kleinian/4dExplorer/index.html': { skip: 'renders black headless' },
     'misc/rileySlice3D/index.html': { skip: 'renders only its axes headless' },
     // the controls are as telling as the picture

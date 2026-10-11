@@ -61,7 +61,6 @@
       { t: 'Geometric — Overview',          u: 'Geometric/index.html' },
       { t: 'Hyperbolic Polyhedron Viewer',  u: 'Geometric/Tools/Kleinian/poincare/index.html' },
       { t: 'Riley Slice Explorer',          u: 'Geometric/Tools/Kleinian/riley/index.html' },
-      { t: 'Riley Slice (alt)',             u: 'Geometric/Tools/Kleinian/rileySlice/index.html' },
       { t: 'Riley Slice — Ford Regions',    u: 'Geometric/Tools/Kleinian/riley-slice/index.html' },
       { t: 'Riley Half-Spaces (ℍ³)',        u: 'Geometric/Tools/Kleinian/rileyHalfspaces/index.html' },
       { t: 'Schottky Group Visualizer',     u: 'Geometric/Tools/Kleinian/schottky/index.html' },
@@ -86,9 +85,7 @@
       { t: 'O[1,1,1,−Φ] Reflection Toolkit',u: 'Geometric/Tools/Kleinian/orthogonalPhi.html' },
       { t: 'Mandelbrot & Julia Explorer',   u: 'Geometric/Tools/Kleinian/mandelbrot.html' },
       { t: 'Julia (escape time)',           u: 'Geometric/Tools/Kleinian/julia.html' },
-      { t: 'Maskit',                        u: 'Geometric/Tools/Kleinian/maskit.html' },
-      { t: 'Maskit (alt 2)',                u: 'Geometric/Tools/Kleinian/maskit2.html' },
-      { t: 'Pleating Coordinates',          u: 'Geometric/Tools/Kleinian/pleating.html' },
+      { t: 'Maskit Group Limit Sets',                        u: 'Geometric/Tools/Kleinian/maskit.html' },
     ]},
     { section: 'Geometric · Euclidean', icon: '∥', items: [
       { t: 'Discrete Subgroups of Isom(ℝ²)', u: 'Geometric/Tools/Euclidean/2deuc/index.html' },

@@ -16,6 +16,9 @@ archived pages' relative links mostly still resolve.
 | `dirichlet/` | `Tools/Kleinian/dirichlet/` | `Kleinian/poincare` (all of its presets are there, with exact certificates) |
 | `limitsets.html` | `Tools/Kleinian/limitsets.html` | `Kleinian/poincare` (same presets; isometric circles in the cusp/Ford view) |
 | `fuchstest.html` | `Tools/Kleinian/fuchstest.html` | October 2025 prototype of the H² Dirichlet viewer |
+| `rileySlice/` | `Tools/Kleinian/rileySlice/` | `Kleinian/riley-slice`, which gained a corrected explainer (`explanation.html`), the dominant-slope line in its selection readout and a slope legend. Its ρ / symmetric-z switch is riley-slice's ρ / √ρ plane. The old URL redirects to riley-slice. This tool's explanation.html is wrong in places and was not copied: both generators are parabolic, the slice is Robert Riley's, and \|Φ\| > 2 does not mean discrete. |
+| `pleating.html` | `Tools/Kleinian/pleating.html` | `Kleinian/riley`, which gained its two root plots (tr = +2, the roots of Q − 2, and the zeros of the bottom-left entry c), computed from riley's Farey word, plus the continued fraction of p/q. Its own word construction was not ported: for 1/2 it builds XXY, with trace 2 + 2ρ, not the Farey word with Φ₁/₂ = 2 + ρ². |
+| `maskit2.html` | `Tools/Kleinian/maskit2.html` | `Kleinian/maskit.html`, as its "Orbit density" mode. Despite its "(Riley Slice)" title, this page drew the Maskit group ⟨z + 1, (μz − i)/(−iz)⟩: the density of random-word orbits. |
 | `pleatingRays/` | `Tools/Kleinian/pleatingRays/` | `Kleinian/riley-slice` (a strict superset: same rays, extensions and dots, plus Ford regions) |
 | `maskit1.html` | `Tools/Kleinian/maskit1.html` | `Kleinian/riley-slice` (a per-pixel Riley-slice plot, despite the name) |
 | `apollodense.html` | `Tools/Kleinian/apollodense.html` | `Kleinian/apollonian.html` (a WebGPU port of the plain gasket; its shader no longer compiles) |

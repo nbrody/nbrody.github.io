@@ -226,7 +226,7 @@
   <div class="panel-header">
     <div class="header-text" style="flex:1; min-width:0">
       <h1 class="panel-title">Riley Slice</h1>
-      <p class="panel-subtitle">Ford regions &amp; pleating rays &middot; <a href="../../../index.html">Geometric Tools</a></p>
+      <p class="panel-subtitle">Ford regions &amp; pleating rays &middot; <a href="explanation.html">Explanation</a> &middot; <a href="../../../index.html">Geometric Tools</a></p>
     </div>
   </div>
   <div class="panel-content">
@@ -387,6 +387,8 @@
         <span class="control-label label-val" data-out="val">80</span>
       </div>
       <label class="chk"><input type="checkbox" id="wheel"> Full color wheel (unmirror halves)</label>
+      <div id="slopeLegend" style="display:flex; flex-wrap:wrap; gap:4px 10px; margin:6px 0 10px; font-size:0.72rem; color:var(--text-dim)"
+        title="The ray colour of a few slopes p/q (upper half plane; the lower half mirrors them unless the full wheel is on)"></div>
       <button class="btn" id="randomize">Random palette</button>
     </div>
 
@@ -1639,7 +1641,24 @@ function wallCurves() {
   return list;
 }
 
+/* Swatches for a few slopes, coloured exactly as the rays are (hueForSlope). */
+let slopeLegendKey = "";
+function renderSlopeLegend() {
+  const el = document.getElementById("slopeLegend");
+  if (!el) return;
+  const sat = +ui.sat.value, val = +ui.val.value;
+  const key = [ui.hueL.value, ui.hueR.value, ui.gamma.value, sat, val, ui.wheel.checked, ui.inkRays.checked].join("|");
+  if (key === slopeLegendKey) return;
+  slopeLegendKey = key;
+  el.style.display = ui.inkRays.checked ? "none" : "flex";
+  el.innerHTML = [[0, 1], [1, 5], [1, 4], [1, 3], [2, 5], [1, 2], [3, 5], [2, 3], [3, 4], [4, 5], [1, 1]]
+    .map(([p, q]) => `<span><span style="display:inline-block; width:14px; height:3px; border-radius:2px;
+      vertical-align:middle; margin-right:3px; background:hsl(${hueForSlope(p / q, false).toFixed(1)} ${sat}%
+      ${(val * 0.55).toFixed(0)}%)"></span>${p}/${q}</span>`).join("");
+}
+
 function draw() {
+  renderSlopeLegend();
   const pr = window.devicePixelRatio || 1;
   const W = canvas.clientWidth * pr, H = canvas.clientHeight * pr;
   if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
@@ -1929,6 +1948,19 @@ function drawFordInsetExt(faces) {
   g.fillText("Ford domain at both cusps, seen from ∞ · dashed: Re z = ½ + n", 8 * pr, H - 6 * pr);
 }
 
+/* The Farey word of smallest trace at rho, among denominators <= DOMINANT_Q:
+   roughly the shortest of the curves the pleating rays are named by. */
+const DOMINANT_Q = 24;
+function dominantSlope(x, y) {
+  let best = null;
+  for (const [p, q] of fareyFractions) {
+    if (q > DOMINANT_Q) continue;
+    const e = evaluator(p, q)(x, y), a = Math.hypot(e[0], e[1]);
+    if (!best || a < best.a) best = { p, q, a };
+  }
+  return best;
+}
+
 function describeSelection() {
   if (!sel) return;
   const lines = [];
@@ -1950,6 +1982,12 @@ function describeSelection() {
     let line = `Φ<sub>${sel.p}/${sel.q}</sub>(ρ) = ${fmtC(e[0], e[1], 4)}`;
     if (sel.kind === "heckoid") line += ` &nbsp;(−2cos(π/${sel.n}))`;
     lines.push(line);
+  }
+  if (sel.kind !== "origin") {
+    const d = dominantSlope(sel.x, sel.y);
+    if (d) lines.push(`<b>Dominant slope</b>: ${d.p}/${d.q} &mdash; of the Farey words with
+      denominator &le; ${DOMINANT_Q}, W<sub>${d.p}/${d.q}</sub> has the smallest trace here,
+      |Φ<sub>${d.p}/${d.q}</sub>(ρ)| = ${d.a.toPrecision(4)}`);
   }
   if (sel.kind === "origin" || inRegionPoly(sel.x, sel.y)) {
     lines.push(`<b>Ford domain</b>: inside the non-discrete / non-free region

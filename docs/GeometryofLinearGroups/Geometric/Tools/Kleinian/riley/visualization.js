@@ -12,6 +12,8 @@ class RileyVisualization {
         this.showRealLocus = true;
         this.showRootsP = false;
         this.showRootsQ = false;
+        this.showRootsQm2 = false;
+        this.showZerosC = false;
 
         // Setup toggle buttons
         this.setupToggleButtons();
@@ -30,6 +32,10 @@ class RileyVisualization {
                     this.showRootsP = !this.showRootsP;
                 } else if (toggle === 'rootsQ') {
                     this.showRootsQ = !this.showRootsQ;
+                } else if (toggle === 'rootsQm2') {
+                    this.showRootsQm2 = !this.showRootsQm2;
+                } else if (toggle === 'zerosC') {
+                    this.showZerosC = !this.showZerosC;
                 }
 
                 // Update button state
@@ -95,6 +101,20 @@ class RileyVisualization {
             const rootsQ = this.currentPolynomial.findRoots();
             console.log(`Visualization: Found ${rootsQ.length} roots of Q for ${p}/${q}`);
             this.plotRoots(rootsQ, xMin, xMax, yMin, yMax, '#10b981', 'Q'); // green
+        }
+
+        // Roots of Q(z) − 2: the Farey word is parabolic with trace +2 (or trivial)
+        if (this.showRootsQm2) {
+            const rootsQm2 = this.currentPolynomial.subtract(Polynomial.fromConstant(2)).findRoots();
+            this.plotRoots(rootsQm2, xMin, xMax, yMin, yMax, '#a78bfa', 'Q−2'); // violet
+        }
+
+        // Zeros of c(z), the bottom-left entry of the Farey word's matrix: there the
+        // word fixes ∞, the fixed point of R
+        if (this.showZerosC) {
+            const word = getMatrixWord(reduced.p, reduced.q);
+            const matrix = word ? computeMatrixFromWord(word) : null;
+            if (matrix) this.plotRoots(matrix[1][0].findRoots(), xMin, xMax, yMin, yMax, '#f59e0b', 'c'); // amber
         }
     }
 
