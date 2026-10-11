@@ -1022,7 +1022,15 @@ function specItems(sources) {
         let u = v, d = null;
         if (!gIsId) { const lm = localMap(g, v); u = lm.labels; d = fnorm(toFloat(lm.h)); }
         const { F, gap } = frameAt(u, st, fc);
-        const Mq = qmul(ga, specMat(frameOf(v), spec.a)), M = fnorm(Mq.map((x) => x.toNumber()));
+        const Mq = qmul(ga, specMat(frameOf(v), spec.a));
+        const landed = {
+            key: keyOf(v), v, u, root: !u.length, dep: u.length, tc: shadeOf(u, v, LQ), F0: F, CF0: F.half ? null : toCF(F), gap0: gap, d, Mq,
+        };
+        // g(a)·g_v(a) leaves PGL₂ at a pole or a zero of the determinant (the example
+        // (1, t/(t−1); 0, 1) at the default t = 1). It has no landing isometry: collapsing
+        // still carries the plane onto the base, with no tessellation of its own.
+        if (qdet(Mq).isZero()) return { ...landed, CFt: baseCF, M: ID, flip: false, P: () => ID };
+        const M = fnorm(Mq.map((x) => x.toNumber()));
         // Where it lands: on the half-plane, M = A·K with A: z ↦ β + αz taking i to M·i and K a
         // rotation about i, so the plane unrolls around its own place in the frame A and only K
         // turns its contents. (A disk base has no such frames, so there it is the base and K = M.)
@@ -1035,10 +1043,7 @@ function specItems(sources) {
             K = fnorm(fmul([1, -beta, 0, alpha], M));
         }
         const rel = d ? fmul(K, finv(d)) : K, flip = fdet(rel) < 0;
-        return {
-            key: keyOf(v), v, u, root: !u.length, dep: u.length, tc: shadeOf(u, v, LQ), F0: F, CF0: F.half ? null : toCF(F), CFt, gap0: gap,
-            d, M, Mq, flip, P: mobiusPath(flip ? fmul(RHO, rel) : rel),
-        };
+        return { ...landed, CFt, M, flip, P: mobiusPath(flip ? fmul(RHO, rel) : rel) };
     });
 }
 // The planes with the biggest pictures keep their tessellations, one for each lattice.
@@ -1048,7 +1053,7 @@ function chooseOverlays(items) {
     const seen = new Set();
     for (const it of [...items].sort((a, b) => b.rs - a.rs)) {
         const k = latticeKey(it.Mq);
-        it.overlay = !seen.has(k) && seen.size < OVERLAYS;
+        it.overlay = k != null && !seen.has(k) && seen.size < OVERLAYS;
         if (it.overlay) seen.add(k);
     }
 }
