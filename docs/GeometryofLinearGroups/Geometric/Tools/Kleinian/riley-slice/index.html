@@ -464,7 +464,7 @@
   </div>
 </div>
 
-<script src="fordCore.js"></script>
+<script src="fordCore.js?v=2026-10-11"></script>
 <script>
 "use strict";
 
@@ -1957,6 +1957,21 @@ function describeSelection() {
     fordInsetEl.style.display = "none";
   } else if (fordEngine === "ext") {
     const fd = FordCore.fordDomain(sel.x, sel.y, { polys: true });
+    if (fd.nondiscrete) {
+      // Shimizu: an isometric circle of radius > 1 (|c| < 1 against A = z + 1)
+      const w = fd.nondiscrete.word;
+      let name = FordCore.gammaName(w).replace(/A/g, "X").replace(/B/g, "Y");
+      if (name.length > 60) name = name.slice(0, 60) + `… (${w.length} syllables)`;
+      lines.push(`<b>Not discrete</b>: ${FordCore.inGamma(w) ? "" : "the element "}<i>${name}</i>
+        has an isometric circle of radius ${fd.nondiscrete.r.toFixed(4)} &gt; 1, so |c| &lt; 1 against
+        X = z + 1: Shimizu's lemma fails, Γ<sub>ρ</sub> (index ≤ 2 in ⟨X, E⟩) is not discrete, and ρ is
+        outside the Riley slice.`);
+      fordInsetEl.style.display = "none";
+      selInfoEl.innerHTML = lines.join("<br>");
+      exportBtn.disabled = false;
+      copyBtn.disabled = false;
+      return;
+    }
     const n = fd.faces.length;
     const c = FordCore.paletteColor(regionPal.name, n, regionPal);
     const xy = w => FordCore.gammaName(w).replace(/A/g, "X").replace(/B/g, "Y");
@@ -1965,7 +1980,8 @@ function describeSelection() {
       .map(f => FordCore.inGamma(f.word) ? xy(f.word) : `<i>${xy(f.word)}</i>`);
     lines.push(`<b>Region</b>: <span style="display:inline-block;width:10px;height:10px;
       border-radius:2px;vertical-align:-1px;background:rgb(${c})"></span>
-      ${n} face${n === 1 ? "" : "s"} of the Ford domain at both cusps${fd.complete ? "" : " (face cap reached)"}`);
+      ${n} face${n === 1 ? "" : "s"} of the Ford domain at both cusps${fd.complete ? "" : fd.capped
+        ? " (undecided: the faces need words past the length cap)" : " (face cap reached)"}`);
     lines.push(`<b>Faces</b>: ${names.slice(0, 10).join(", &nbsp;")}${
       names.length > 10 ? ` &nbsp;+${names.length - 10} more` : ""}
       <br><span class="hint">italic = gE, the faces of the cusp at 0 (hatched below)</span>`);

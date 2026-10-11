@@ -242,11 +242,21 @@ function fordCoreFactory() {
 
   /* Ford domain at rho by closure.  group: "ext" (Gamma^, Riley's picture) or
      "gamma" (Gamma_rho at the cusp infinity only).  seed: words to start from
-     (e.g. a neighbour's faces).  Returns {faces, complete}.                  */
+     (e.g. a neighbour's faces).  Returns {faces, complete, capped, nondiscrete}.
+
+     Shimizu's lemma: a discrete group containing A = z + 1 has |c| >= 1 for
+     every element (a b; c d) not fixing infinity, i.e. every isometric circle
+     has radius <= 1.  A candidate with radius > 1 (both groups contain A, and
+     Gamma_rho has index <= 2 in Gamma^) proves rho is NOT in the Riley slice:
+     nondiscrete = {word, r}, and the closure stops.  Near the boundary of the
+     slice such elements are long (68 letters at rho = 4^(1/3) e^(2 pi i/3)),
+     so the closure must not stop at the word-length cap and call that
+     complete: a final round that skipped products for the cap is `capped`,
+     not complete.                                                           */
   const key = w => w.join(",");
   function fordDomain(rr, ri, opts = {}) {
     const group = opts.group || "ext";
-    const LCAP = Math.min(opts.maxLength ?? 48, LMAXH - 2);
+    const LCAP = Math.min(opts.maxLength ?? 160, LMAXH - 2);
     const FCAP = opts.maxFaces ?? 160;
     const JOIN = group === "gamma" ? [1, -1, 2, -2] : [1, -1];
     let seed = opts.seed && opts.seed.length ? opts.seed
@@ -255,26 +265,33 @@ function fordCoreFactory() {
     if (!seed.length) seed = group === "gamma" ? [[1], [-1]] : [[]];
     const E = makeE(rr, ri);
     let faces = visibleItems(seed.map(w => wordItem(w, E)), false);
-    let complete = false, hidden = null;
-    for (let round = 0; round < 40; round++) {
+    let complete = false, capped = false, hidden = null, nondiscrete = null;
+    const SHIMIZU = 1 + 1e-9;
+    for (const f of faces) if (f.r > SHIMIZU && (!nondiscrete || f.r > nondiscrete.r)) nondiscrete = { word: wordOf(f), r: f.r };
+    for (let round = 0; round < 40 && !nondiscrete; round++) {
       const have = new Set();
       for (const f of faces) have.add(f.key);
       const old = new Set(have);
       const cand = faces.slice();
+      let skipped = false, big = null;
       for (const f of faces) for (const g of faces) for (const k of JOIN) {
-        if (f.len + g.len + 1 > LCAP) continue;
+        if (f.len + g.len + 1 > LCAP) { skipped = true; continue; }
         const h1 = (f.h1 + code(k) * POW1[f.len] + g.h1 * POW1[f.len + 1]) % P1;
         const h2 = (f.h2 + code(k) * POW2[f.len] + g.h2 * POW2[f.len + 1]) % P2;
         const kk = h1 * P2 + h2;
         if (have.has(kk)) continue;
         have.add(kk);
-        cand.push(productItem(f, k, g));
+        const it = productItem(f, k, g);
+        if (it.r > SHIMIZU && (!big || it.r > big.r)) big = it;
+        cand.push(it);
       }
+      if (big) { nondiscrete = { word: wordOf(big), r: big.r }; break; }
       const hiddenItems = [];
       const nf = visibleItems(cand, false, hiddenItems);
       const same = nf.length === faces.length && nf.every(f => old.has(f.key));
       faces = nf;
       if (same) {
+        if (skipped) { capped = true; break; }  // products past the cap were never looked at
         complete = true;
         if (opts.hidden) {                     // the near misses: candidates no single
           const at = new Map(faces.map((f, t) => [f, t]));   // circle contains
@@ -287,7 +304,7 @@ function fordCoreFactory() {
       if (faces.length > FCAP) break;
     }
     if (opts.polys) faces = visibleItems(faces, true);
-    return { faces: faces.map(faceOut), complete, hidden };
+    return { faces: faces.map(faceOut), complete, capped, hidden, nondiscrete };
   }
   // a hash of the face set (order-free), for colouring by type
   function typeHash(faces) {
@@ -701,7 +718,7 @@ function fordCoreFactory() {
       const [a, b] = rhoAt(t);
       if (skip(a, b)) return null;
       stats.closures++;
-      return fordDomain(a, b, { seed, group, hidden: true });
+      return fordDomain(a, b, { seed, group, hidden: true, maxLength: opts.maxLength });
     };
     const record = (t, fd) => {
       const cnt = fd && fd.complete ? fd.faces.length : 0;
