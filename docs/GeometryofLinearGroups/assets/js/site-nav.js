@@ -75,7 +75,6 @@
       { t: '4D Kleinian Explorer',          u: 'Geometric/Tools/Kleinian/4dExplorer/index.html' },
       { t: '4D Kleinian Limit Sets',        u: 'Geometric/Tools/Kleinian/4dKleinian/index.html' },
       { t: '4D Kleinian Visualizer',        u: 'Geometric/Tools/Kleinian/4dKlein2/index.html' },
-      { t: 'GPS Manifolds (Kleinian)',      u: 'Geometric/Tools/Kleinian/GPS/index.html' },
       { t: 'GPS Calculator',                u: 'Geometric/Tools/Kleinian/gpsCalculator/index.html' },
       { t: 'QP¹ Algorithm (S-A-X)',         u: 'Geometric/Tools/Kleinian/QP1Algorithm/index.html' },
       { t: 'QP¹ Height Reduction',          u: 'Geometric/Tools/Kleinian/qp1.html' },
