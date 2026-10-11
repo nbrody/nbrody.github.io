@@ -71,7 +71,6 @@
       { t: 'Long-Reid Racer 3',             u: 'Geometric/Tools/Kleinian/longReidRacer3/index.html' },
       { t: 'Long-Reid Racer 2',             u: 'Geometric/Tools/Kleinian/longReidRacer2/index.html' },
       { t: 'Long-Reid Racer 1',             u: 'Geometric/Tools/Kleinian/longReidRacer/index.html' },
-      { t: 'KnotFolio',                     u: 'Geometric/Tools/Kleinian/knotfolio/index.html' },
       { t: '4D Kleinian Explorer',          u: 'Geometric/Tools/Kleinian/4dExplorer/index.html' },
       { t: '4D Kleinian Limit Sets',        u: 'Geometric/Tools/Kleinian/4dKleinian/index.html' },
       { t: '4D Kleinian Visualizer',        u: 'Geometric/Tools/Kleinian/4dKlein2/index.html' },
