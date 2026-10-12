@@ -796,7 +796,15 @@
             prevT = null; update();
         }
         function random(n) {
-            chords = HG.randomChords(n);
+            const next = HG.randomChords(n);
+            // randomChords is null only when every candidate clipped the circle. Keep the
+            // picture that is already on screen; assigning null makes arrangement() throw
+            // and the next drag or checkbox dies with it.
+            if (!next) {
+                $('lines-warn').innerHTML = `<span style="color:var(--red)">Could not place ${n} lines inside the circle. Try again.</span>`;
+                return;
+            }
+            chords = next;
             theta0 = -Math.PI / 2 - 0.3;
             prevT = null; update();
         }
