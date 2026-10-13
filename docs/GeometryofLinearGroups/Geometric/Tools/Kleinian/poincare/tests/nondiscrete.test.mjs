@@ -38,7 +38,7 @@ test('an elliptic of infinite order: tr²/det = 16/5', () => {
 });
 
 test('two parabolics at one cusp with ratio √2', () => {
-    const { exact, float } = witness([T, ['1', '\\sqrt{2}', '0', '1']]);
+    const { exact, float } = witness([T, ['1', '\\sqrt{2}', '0', '1']], { allowConj: true });
     assert.equal(exact.kind, 'cusp');
     assert.equal(exact.exact, true);
     assert.deepEqual(exact.words, [[1], [2]]);
@@ -92,6 +92,36 @@ test('Jørgensen and Shimizu, when no short elliptic is available', () => {
     const s = witness([T, ['1', '0', '\\frac{i}{2}', '1']], { maxLen: 2 });
     assert.equal(s.exact.kind, 'shimizu');
     assert.ok(Math.abs(s.exact.value - 0.25) < 1e-12);
+});
+
+test('a loxodromic trace within 10⁻¹⁰ of ℝ is not an exact elliptic', () => {
+    // ⟨g⟩ with tr²/det = 2 + 2√2·i/10¹² is cyclic loxodromic, hence discrete.
+    // Degree 4, and degree 16 (conjugation has to be built; it is not real).
+    for (const tr of ['\\sqrt{2}+\\frac{i}{10^{12}}', '2^{1/8}+\\frac{i}{10^{12}}']) {
+        const { exact } = witness([['0', '-1', '1', tr]], { allowConj: true, maxLen: 2 });
+        assert.equal(exact.found && exact.exact, false, tr);
+    }
+});
+
+test('a rank-2 translation lattice is not certified along a line', () => {
+    // ℤ + ℤρ with Im ρ ≠ 0 is a lattice. ρ = √2 + i/10¹², and the same with
+    // 2cos(2π/13) where conjugation cannot be constructed (degree 24).
+    const rows = [
+        ['1', '\\sqrt{2}+\\frac{i}{10^{12}}', '0', '1'],
+        ['1', '2^{1/8}+\\frac{i}{10^{12}}', '0', '1'],
+        ['1', 'e^{2\\pi i/13}+e^{-2\\pi i/13}+\\frac{i}{10^{12}}', '0', '1'],
+    ];
+    for (const row of rows) {
+        const { exact } = witness([T, row], { allowConj: true, maxLen: 2 });
+        assert.equal(exact.found && exact.exact, false, row[1]);
+    }
+});
+
+test('translation by 2^{1/8} is still an exact real-irrational cusp', () => {
+    const { exact } = witness([T, ['1', '2^{1/8}', '0', '1']], { allowConj: true });
+    assert.equal(exact.kind, 'cusp');
+    assert.equal(exact.exact, true);
+    assert.match(exact.text, /both exact/);
 });
 
 test('no false positive on any preset (all discrete), exact or floating point', () => {
