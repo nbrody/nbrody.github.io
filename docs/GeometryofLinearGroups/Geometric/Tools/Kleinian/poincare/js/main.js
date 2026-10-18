@@ -35,7 +35,7 @@ import { showIsometryAxis } from './isoAxis.js';
 import {
     inspect, pickWall, rayFromEvent, pickVertex, selectVertex, handleFaceClick, clearFaceSelection,
     updateEdgeCycles, rebuildFaceLabels, updateFaceLabels, refreshInspectOverlays, fordPairingAt,
-    invalidateSkeleton, worldToBall
+    invalidateSkeleton, worldToBall, CYCLE_HUES
 } from './inspector.js';
 import {
     setBanner, bannerForReport, renderCertificate, renderPresentation, renderStabilizer,
@@ -44,10 +44,12 @@ import {
 import { renderInvariants, clearGeodesicSelection } from './invariantsPanel.js';
 import { horo, updateHoroballs } from './horoballs.js';
 import {
-    manifoldFragmentShader, honeycombFragmentShader, makeTessellationUniforms, loadTessellationUniforms
+    manifoldFragmentShader, honeycombFragmentShader, makeTessellationUniforms, loadTessellationUniforms,
+    loadEdgeCycles
 } from './tessellation.js';
 import { readStateFromURL, writeStateToURL } from './permalink.js';
 import { createPlanarView, isRealGroup, framePlanarCamera, planarPick, PLANAR_MAX_WALLS } from './planar.js';
+import { createPostFX } from './postfx.js';
 
 const EMBED = document.documentElement.classList.contains('embed-mode');
 const service = createDomainService({ version: window.APP_VERSION || '' });
@@ -75,6 +77,27 @@ const honeycombMaterial = makeTessMaterial(honeycombFragmentShader);
 const manifoldMaterial = makeTessMaterial(manifoldFragmentShader);
 const render = { honeycomb: false, manifold: false };
 
+// Every frame is smoothed by FXAA (postfx.js), which is nearly free. "Smooth"
+// quality also renders 1.5× the pixels per side (about 2.25× the cost), and
+// is remembered per browser.
+const postfx = createPostFX(renderer);
+const QUALITY_KEY = 'poincare.quality';
+let quality = 'fast';
+try { if (localStorage.getItem(QUALITY_KEY) === 'smooth') quality = 'smooth'; } catch (e) { /* storage blocked */ }
+
+function applyPixelRatio() {
+    // The honeycomb marches through every tile per pixel: keep it affordable.
+    const base = render.honeycomb ? 1 : Math.min(window.devicePixelRatio, 2);
+    renderer.setPixelRatio(base * (quality === 'smooth' ? 1.5 : 1));
+}
+
+function setQuality(q, remember = true) {
+    quality = q === 'smooth' ? 'smooth' : 'fast';
+    if (remember) try { localStorage.setItem(QUALITY_KEY, quality); } catch (e) { /* storage blocked */ }
+    document.querySelectorAll('.quality-opt').forEach(b => b.classList.toggle('active', b.dataset.quality === quality));
+    applyPixelRatio();
+}
+
 // The plane picture (planar.js): a group in PGL₂(ℝ) is drawn as its tiling of
 // the hyperbolic plane over ℝ, by default. A new group resets the choice.
 const planarView = createPlanarView(scene, material.uniforms);
@@ -94,6 +117,26 @@ function activeMaterial() {
     return material;
 }
 
+/** The honeycomb sees each wall from both sides, so a face and its partner
+    get one colour, and its edges take the Edge Cycles colours. */
+function loadTessUniforms(m) {
+    const D = app.scene;
+    let colors = faceColors(D);
+    if (m === honeycombMaterial && D) {
+        colors = D.walls.map((w, i) => {
+            const j = w.pairing ? w.pairing.partner : -1;
+            return j >= 0 && j < i ? colors[j] : colors[i];
+        });
+        const cycles = (!app.fordOn && app.report && app.report.edgeCycles) || null;
+        loadEdgeCycles(m.uniforms, cycles, k => {
+            const c = {};
+            CYCLE_HUES(k).getRGB(c, THREE.SRGBColorSpace);
+            return [c.r, c.g, c.b];
+        });
+    }
+    return loadTessellationUniforms(m.uniforms, D, colors);
+}
+
 function syncMaterial() {
     const m = activeMaterial();
     if (mesh.material !== m) mesh.material = m;
@@ -103,7 +146,7 @@ function syncMaterial() {
         if (material.fragmentShader !== frag) { material.fragmentShader = frag; material.needsUpdate = true; }
     }
     if (m !== material) {
-        const ok = loadTessellationUniforms(m.uniforms, app.scene, faceColors(app.scene));
+        const ok = loadTessUniforms(m);
         if (!ok) {
             const why = !app.scene ? 'no domain yet'
                 : app.scene.walls.length > 64 ? `the domain has ${app.scene.walls.length} faces (the view holds 64)`
@@ -131,9 +174,9 @@ function setHoneycomb(on) {
     if (on && planar.on) setPlanar(false);
     render.honeycomb = on;
     updateToggleBtn(document.getElementById('toggle-honeycomb'), on);
+    document.getElementById('honeycomb-walls-row')?.classList.toggle('disabled', !on);
     if (on && view.model !== 'ball') setViewModel('ball');
-    // The honeycomb marches through every tile per pixel: keep it affordable.
-    renderer.setPixelRatio(on ? 1 : Math.min(window.devicePixelRatio, 2));
+    applyPixelRatio();
     syncMaterial();
 }
 
@@ -158,7 +201,7 @@ function onSceneMoved({ fast = false } = {}) {
     }
     refreshLayers({ fast });
     updateLimitSet();
-    if (mesh.material !== material && app.scene) loadTessellationUniforms(mesh.material.uniforms, app.scene, faceColors(app.scene));
+    if (mesh.material !== material && app.scene) loadTessUniforms(mesh.material);
     if (!fast) {
         refreshInspectOverlays();
         updateHoroballs();
@@ -817,6 +860,14 @@ function initUI() {
         material.uniforms.u_ceiling.value = parseFloat(cut.value);
     });
 
+    document.querySelectorAll('.quality-opt').forEach(btn => btn.addEventListener('click', () => setQuality(btn.dataset.quality)));
+    setQuality(quality, false);
+
+    const hcWalls = document.getElementById('honeycomb-walls');
+    const setHoneycombWalls = () => { honeycombMaterial.uniforms.u_wallAlpha.value = 0.3 * parseFloat(hcWalls.value); };
+    hcWalls?.addEventListener('input', setHoneycombWalls);
+    if (hcWalls) setHoneycombWalls();
+
     const limitBtn = document.getElementById('toggle-limitset');
     const limitRow = document.getElementById('limit-depth-row');
     const limitIters = document.getElementById('limit-iters');
@@ -966,7 +1017,7 @@ function animate(time) {
     if (m.uniforms.u_cameraPos) m.uniforms.u_cameraPos.value.copy(camera.position);
     material.uniforms.u_cameraPos.value.copy(camera.position);
     material.uniforms.u_time.value = time * 0.001;
-    renderer.render(scene, camera);
+    postfx.render(scene, camera, material.uniforms.u_bgColor.value);
 }
 
 controls.addEventListener('start', () => {
@@ -1013,6 +1064,15 @@ window.PoincareAPI = {
     setInsideView,
     isInsideView: () => insideView.isActive(),
     setManifold, setHoneycomb, setCuspView, setViewModel,
+    setQuality,
+    getQuality: () => quality,
+    setAntialias(on) { postfx.setEnabled(on); },
+    /** Draw one frame now (the loop may be paused in a hidden tab). */
+    renderNow() { postfx.render(scene, camera, material.uniforms.u_bgColor.value); },
+    setHoneycombWalls(v) {
+        const el = document.getElementById('honeycomb-walls');
+        if (el) { el.value = String(v); el.dispatchEvent(new Event('input')); }
+    },
     setBasepoint: (p) => setBasepointFromBall(p),
     flyBy,
     setDual(mode) {

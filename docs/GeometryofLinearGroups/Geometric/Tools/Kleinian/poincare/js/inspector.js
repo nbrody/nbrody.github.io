@@ -356,7 +356,7 @@ export function fordPairingAt(i, pScene) {
 
 // ---------------- edge cycles ----------------
 
-const CYCLE_HUES = (k) => new THREE.Color().setHSL((k * 0.6180339887 + 0.05) % 1, 0.78, 0.6);
+export const CYCLE_HUES = (k) => new THREE.Color().setHSL((k * 0.6180339887 + 0.05) % 1, 0.78, 0.6);
 
 export function updateEdgeCycles() {
     disposeGroup(cycleGroup);

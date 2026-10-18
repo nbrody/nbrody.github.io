@@ -17,7 +17,11 @@
  *    into the domain by the pairings (Poincaré's reduction), and the distance
  *    to the domain's edges measured there — the edges of every tile at once.
  *    The fold is carried along the ray incrementally, so each step costs one
- *    pass over the walls.
+ *    pass over the walls. Edges are coloured by edge cycle, so all the tiles
+ *    around an edge (which fold to different edges of its cycle) agree on
+ *    its colour. With walls shown, the ray instead walks from tile to tile
+ *    (its exit from each is a closed-form quadratic) and lays each wall it
+ *    crosses down as a translucent film.
  */
 import * as THREE from 'three';
 import { lorentzMatrix } from './math.js';
@@ -150,18 +154,33 @@ export const honeycombFragmentShader = common + `
     uniform float u_tube;          // hyperbolic tube radius around the edges
     uniform float u_rmax;          // Euclidean radius of the rendered ball
     uniform int u_maxFolds;
+    // Texel (a, b): rgb = colour of the edge cycle through the edge where
+    // walls a and b meet; alpha = 1 if they meet in an edge of the domain.
+    uniform sampler2D u_edgeTex;
+    uniform bool u_edgesKnown;     // false: no edge cycles, use the nearest two walls
+    uniform float u_wallAlpha;     // opacity of each tile's walls (0 = hidden)
+
+    vec4 edgeInfo(int a, int b) {
+        return texture2D(u_edgeTex, (vec2(float(a), float(b)) + 0.5) / ${TESS_MAX_WALLS}.0);
+    }
+
+    // The wall X lies furthest outside of, or -1 when X is in the domain.
+    int worstWall(vec4 X) {
+        float worst = 1e-6; int k = -1;
+        for (int j = 0; j < ${TESS_MAX_WALLS}; j++) {
+            if (j >= u_wallCount) break;
+            float v = mdot(u_walls[j], X);
+            if (v > worst) { worst = v; k = j; }
+        }
+        return k;
+    }
 
     // Fold X into the domain through the pairings; A accumulates the moves.
     int fold(inout vec4 X, inout mat4 A) {
         int n = 0;
         for (int it = 0; it < 48; it++) {
             if (it >= u_maxFolds) break;
-            float worst = 1e-6; int k = -1;
-            for (int j = 0; j < ${TESS_MAX_WALLS}; j++) {
-                if (j >= u_wallCount) break;
-                float v = mdot(u_walls[j], X);
-                if (v > worst) { worst = v; k = j; }
-            }
+            int k = worstWall(X);
             if (k < 0) break;
             X = u_pair[k] * X;
             A = u_pair[k] * A;
@@ -170,18 +189,116 @@ export const honeycombFragmentShader = common + `
         return n;
     }
 
+    // Hyperbolic distance from X to the geodesic where walls a and b meet:
+    // the part of X in span(W_a, W_b) has Minkowski norm sinh(d).
+    float lineDistance(vec4 X, int a, int b) {
+        float c = mdot(u_walls[a], u_walls[b]);
+        float det = 1.0 - c * c;
+        if (det < 1e-6) return 1e9;                    // the walls do not meet
+        float x = mdot(u_walls[a], X), y = mdot(u_walls[b], X);
+        return asinh(sqrt(max(0.0, (x * x - 2.0 * c * x * y + y * y) / det)));
+    }
+
     // Distance (hyperbolic) from a folded point to the domain's edges, and the
-    // two walls that meet there.
+    // two walls of the nearest one. An edge lies in two walls, so it is no
+    // nearer than the second-nearest wall: the edges among the three nearest
+    // walls are measured exactly, and every other edge is at least as far as
+    // the third. The exact distance keeps each tube round, so the tiles
+    // around an edge draw one tube rather than slabs of different radii.
     float edgeDistance(vec4 X, out int wa, out int wb) {
-        float d1 = 1e9, d2 = 1e9;
-        wa = -1; wb = -1;
+        float d1 = 1e9, d2 = 1e9, d3 = 1e9;
+        int i1 = -1, i2 = -1, i3 = -1;
         for (int j = 0; j < ${TESS_MAX_WALLS}; j++) {
             if (j >= u_wallCount) break;
             float d = asinh(max(0.0, -mdot(u_walls[j], X)));
-            if (d < d1) { d2 = d1; wb = wa; d1 = d; wa = j; }
-            else if (d < d2) { d2 = d; wb = j; }
+            if (d < d1) { d3 = d2; i3 = i2; d2 = d1; i2 = i1; d1 = d; i1 = j; }
+            else if (d < d2) { d3 = d2; i3 = i2; d2 = d; i2 = j; }
+            else if (d < d3) { d3 = d; i3 = j; }
         }
-        return sqrt(d1 * d1 + d2 * d2);
+        wa = i1; wb = i2;
+        if (!u_edgesKnown || i3 < 0) return sqrt(d1 * d1 + d2 * d2);
+        float best = d3;
+        if (edgeInfo(i1, i2).a > 0.5) {
+            float d = lineDistance(X, i1, i2);
+            if (d < best) { best = d; wa = i1; wb = i2; }
+        }
+        if (edgeInfo(i1, i3).a > 0.5) {
+            float d = lineDistance(X, i1, i3);
+            if (d < best) { best = d; wa = i1; wb = i3; }
+        }
+        if (edgeInfo(i2, i3).a > 0.5) {
+            float d = lineDistance(X, i2, i3);
+            if (d < best) { best = d; wa = i2; wb = i3; }
+        }
+        return best;
+    }
+
+    // A fold that is (nearly) the identity: the tile is the domain itself.
+    bool isHome(mat4 M) {
+        return abs(M[0][0] - 1.0) + abs(M[1][1] - 1.0) + abs(M[2][2] - 1.0) + abs(M[3][3] - 1.0)
+            + abs(M[3][0]) + abs(M[3][1]) + abs(M[3][2]) < 0.02;
+    }
+
+    // Wall k of the tile folded by A, in the scene frame:
+    // <W, A X> = <J A^T J W, X> = w.X - w0 X_w.
+    void sceneWall(int k, mat4 A, out vec3 w, out float w0) {
+        vec4 JW = vec4(u_walls[k].xyz, -u_walls[k].w);
+        w = vec3(dot(A[0], JW), dot(A[1], JW), dot(A[2], JW));
+        w0 = -dot(A[3], JW);
+    }
+
+    // Where the ray p = ro + t rd leaves the tile folded by A, after t: the
+    // first wall it goes out through (k), or 1e9. At p, <W, X(p)> has the
+    // sign of g = 2 w.p - w0 (1 + |p|^2), a quadratic in t, and the ray
+    // leaves through a root where g is increasing.
+    float tileExit(mat4 A, vec3 ro, vec3 rd, float t, out int k) {
+        float best = 1e9;
+        k = -1;
+        for (int j = 0; j < ${TESS_MAX_WALLS}; j++) {
+            if (j >= u_wallCount) break;
+            vec3 w; float w0;
+            sceneWall(j, A, w, w0);
+            float qa = -w0;
+            float qb = 2.0 * (dot(w, rd) - w0 * dot(ro, rd));
+            float qc = 2.0 * dot(w, ro) - w0 * (1.0 + dot(ro, ro));
+            float r1 = 1e9, r2 = 1e9;
+            if (abs(qa) <= 1e-7 * abs(qb)) r1 = -qc / qb;
+            else {
+                float disc = qb * qb - 4.0 * qa * qc;
+                if (disc < 0.0) continue;
+                float q = -0.5 * (qb + (qb >= 0.0 ? 1.0 : -1.0) * sqrt(disc));
+                r1 = q / qa;
+                r2 = q != 0.0 ? qc / q : r1;
+            }
+            if (r1 > t && r1 < best && 2.0 * qa * r1 + qb > 0.0) { best = r1; k = j; }
+            if (r2 > t && r2 < best && 2.0 * qa * r2 + qb > 0.0) { best = r2; k = j; }
+        }
+        return best;
+    }
+
+    // Lay wall (w, w0), a copy of the domain's wall k, down where the ray
+    // crosses it: a translucent film, front to back, in the colour its
+    // pairing class has on the domain.
+    void film(vec3 w, float w0, int k, vec3 ro, vec3 rd, float tc, bool home,
+              inout vec3 acc, inout float trans) {
+        vec3 p = ro + rd * tc;
+        vec3 n = normalize(w - w0 * p);
+        float ndv = abs(dot(n, rd));
+        vec3 c = u_wallColor[k];
+        c = mix(c, mix(c, vec3(1.0), 0.45), u_lightMode);
+        // A soap film: faint face-on, stronger where it is seen edge-on.
+        float rim = pow(max(0.0, 1.0 - ndv), 3.0);
+        vec3 col = c * (0.55 + 0.45 * ndv) + (0.3 - 0.3 * u_lightMode) * rim;
+        // Tiles shrink toward the sphere at infinity and their walls crowd
+        // in, so a wall's opacity follows the conformal factor 1 - r^2: the
+        // films thin out there instead of frosting over the ball. The
+        // domain's own walls stay strong out to their circles at infinity.
+        float r = length(p) / u_rmax;
+        float fade = home ? 1.0 - 0.6 * smoothstep(0.85, 1.0, r) : 1.0 - r * r;
+        float a = u_wallAlpha * (0.45 + 0.9 * rim) * (home ? 2.0 : 1.0);
+        a = min(0.85, a) * fade;
+        acc += trans * a * col;
+        trans *= 1.0 - a;
     }
 
     float sdEdges(vec3 p, mat4 A) {
@@ -202,22 +319,61 @@ export const honeycombFragmentShader = common + `
         float t0 = max(0.0, -b - sqrt(disc)), t1 = -b + sqrt(disc);
         if (t1 <= 0.0) discard;
 
+        // March from the ball's surface: small coordinates keep the wall
+        // crossings precise.
+        ro += rd * t0;
+        t1 -= t0;
         mat4 A = mat4(1.0);
-        float t = t0 + 1e-4;
+        float t = 1e-4;
         bool hit = false;
+        bool walls = u_wallAlpha > 0.0;
+        // With walls the ray walks from tile to tile exactly: it leaves the
+        // current tile at tx, through wall kx. (Inferring crossings from the
+        // fold would follow the fold's path, not the ray's.)
+        bool walking = false;
+        float tx = 1e9;
+        int kx = -1;
+        vec3 acc = vec3(0.0);
+        float trans = 1.0;
         int wa = -1, wb = -1;
         for (int i = 0; i < 140; i++) {
             vec3 p = ro + rd * t;
             float r2 = dot(p, p);
             if (t > t1 || r2 >= u_rmax * u_rmax) break;
             vec4 X = A * toHyp(p);
-            fold(X, A);
+            if (!walls) fold(X, A);
+            else if (!walking || worstWall(X) >= 0) {
+                // The first sample, or the walk lost its tile: fold back in.
+                fold(X, A);
+                walking = worstWall(X) < 0;
+                tx = walking ? tileExit(A, ro, rd, t, kx) : 1e9;
+            }
             float d = edgeDistance(X, wa, wb) - u_tube;
             if (d < 1e-3) { hit = true; break; }
             // Hyperbolic → Euclidean step at p: ds_E = ds_H (1 − |p|²)/2.
-            t += max(0.8 * d * (1.0 - r2) * 0.5, 2e-4);
+            float tn = t + max(0.8 * d * (1.0 - r2) * 0.5, 2e-4);
+            if (walking) {
+                for (int c = 0; c < 24; c++) {
+                    if (tx >= tn || tx > t1 || kx < 0) break;
+                    mat4 A2 = u_pair[kx] * A;
+                    vec3 w; float w0;
+                    sceneWall(kx, A, w, w0);
+                    film(w, w0, kx, ro, rd, tx, isHome(A) || isHome(A2), acc, trans);
+                    A = A2;
+                    tx = tileExit(A, ro, rd, tx, kx);
+                }
+                if (trans < 0.03) break;
+            }
+            t = tn;
         }
-        if (!hit) discard;
+        if (!hit) {
+            // Only walls on this ray (or nothing).
+            float cover = 1.0 - trans;
+            if (cover < 0.004) discard;
+            gl_FragDepth = 0.999;
+            gl_FragColor = vec4(acc / cover, cover * u_opacity);
+            return;
+        }
 
         vec3 p = ro + rd * t;
         // Normal by central differences of the edge distance (same fold).
@@ -226,7 +382,10 @@ export const honeycombFragmentShader = common + `
             sdEdges(p + e.xyy, A) - sdEdges(p - e.xyy, A),
             sdEdges(p + e.yxy, A) - sdEdges(p - e.yxy, A),
             sdEdges(p + e.yyx, A) - sdEdges(p - e.yyx, A)));
-        vec3 base = mix(0.5 * (u_wallColor[wa] + u_wallColor[wb]), vec3(1.0), 0.12);
+        // One colour per edge cycle: every tile around the edge agrees.
+        vec4 info = edgeInfo(wa, wb);
+        vec3 edgeCol = (u_edgesKnown && info.a > 0.5) ? info.rgb : 0.5 * (u_wallColor[wa] + u_wallColor[wb]);
+        vec3 base = mix(edgeCol, vec3(1.0), 0.12);
         // The fundamental domain's own edges stand out: p itself lies in D.
         vec4 Xp = toHyp(p);
         bool inD = true;
@@ -246,14 +405,14 @@ export const honeycombFragmentShader = common + `
         vec3 key = normalize(vec3(0.5, 0.8, 0.6));
         float diff = 0.3 + 0.55 * ndv + 0.3 * max(0.0, dot(n, key));
         float spec = pow(max(0.0, dot(n, normalize(key + V))), 32.0);
-        float rim = pow(1.0 - ndv, 3.0);
+        float rim = pow(max(0.0, 1.0 - ndv), 3.0);
         vec3 rimCol = mix(mix(base, vec3(1.0), 0.6), base * 0.4, u_lightMode);
         vec3 col = mix(base * diff + (0.25 - 0.1 * u_lightMode) * spec, rimCol, 0.4 * rim);
         // Fog only near the sphere at infinity, where the tubes shrink below a pixel.
         float fog = smoothstep(0.72, 1.0, length(p) / u_rmax);
         col = mix(col, u_bgColor, fog * 0.75);
         gl_FragDepth = depthOf(p);
-        gl_FragColor = vec4(col, u_opacity);
+        gl_FragColor = vec4(acc + trans * col, u_opacity);
     }
 `;
 
@@ -277,6 +436,38 @@ export function loadTessellationUniforms(uniforms, domain, colors) {
     return true;
 }
 
+/**
+ * The honeycomb's edge table from the certificate's edge cycles: texel (a, b)
+ * gets the colour `colorOf(k)` of the cycle k through the edge where walls a
+ * and b meet. `cycles` null (no certificate) falls back to the nearest walls.
+ */
+export function loadEdgeCycles(uniforms, cycles, colorOf) {
+    const tex = uniforms.u_edgeTex.value;
+    if (tex.userData.cycles === cycles) return;
+    tex.userData.cycles = cycles;
+    const N = TESS_MAX_WALLS, data = tex.image.data;
+    data.fill(0);
+    (cycles || []).forEach((c, k) => {
+        const rgb = colorOf(k).map(x => Math.round(255 * Math.min(1, Math.max(0, x))));
+        for (const [a, b] of c.pairs || []) {
+            if (a >= N || b >= N) continue;
+            data.set([...rgb, 255], 4 * (b * N + a));
+            data.set([...rgb, 255], 4 * (a * N + b));
+        }
+    });
+    uniforms.u_edgesKnown.value = Array.isArray(cycles);
+    tex.needsUpdate = true;
+}
+
+function makeEdgeTexture() {
+    const N = TESS_MAX_WALLS;
+    const tex = new THREE.DataTexture(new Uint8Array(4 * N * N), N, N, THREE.RGBAFormat);
+    tex.magFilter = tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    return tex;
+}
+
 export function makeTessellationUniforms() {
     return {
         u_walls: { value: Array.from({ length: TESS_MAX_WALLS }, () => new THREE.Vector4()) },
@@ -292,5 +483,8 @@ export function makeTessellationUniforms() {
         u_tube: { value: 0.03 },
         u_rmax: { value: 0.94 },
         u_maxFolds: { value: 24 },
+        u_edgeTex: { value: makeEdgeTexture() },
+        u_edgesKnown: { value: false },
+        u_wallAlpha: { value: 0 },
     };
 }

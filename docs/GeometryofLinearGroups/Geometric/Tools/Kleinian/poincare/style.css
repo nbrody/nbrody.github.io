@@ -561,7 +561,8 @@ button {
 }
 
 .cayley-opt,
-.dual-opt {
+.dual-opt,
+.quality-opt {
     flex: 1;
     padding: 6px 0;
     background: transparent;
@@ -576,16 +577,22 @@ button {
 }
 
 .cayley-opt:hover,
-.dual-opt:hover {
+.dual-opt:hover,
+.quality-opt:hover {
     color: var(--ink);
     background: var(--w05);
 }
 
 .cayley-opt.active,
-.dual-opt.active {
+.dual-opt.active,
+.quality-opt.active {
     background: var(--accent-soft);
     color: var(--ink);
     box-shadow: 0 0 10px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.quality-row {
+    margin-top: 10px;
 }
 
 /* Dual opacity slider */
