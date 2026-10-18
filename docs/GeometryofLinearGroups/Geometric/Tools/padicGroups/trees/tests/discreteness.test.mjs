@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 globalThis.NumberRingEngine = require('../../../../../Algebraic/Tools/numberRings/ringEngine.js');
 const { GlobalField, Place } = await import('../js/localField.js');
-const { decide, elementOrder, evaluateWord, projKey, maxElementOrder } = await import('../js/discreteness.js');
+const { decide, elementOrder, evaluateWord, projKey, maxElementOrder, congruenceKernel, Budget } = await import('../js/discreteness.js');
 
 const mat = (F, e) => { const [a, b, c, d] = e.map((s) => F.parse(s)); return { a, b, c, d }; };
 const O = { k: 0, lo: 0, d: [] };
@@ -63,12 +63,55 @@ test('finite groups are discrete', () => {
     assert.equal(s3.order, 6);
 });
 
-test('torsion: the infinite dihedral group via a congruence kernel', () => {
+test('torsion: the infinite dihedral group is ℤ/2 ∗ ℤ/2 = ⟨s, st⟩, not ℤ/2 ∗ ℤ', () => {
     const F = new GlobalField(null);
-    const r = run(F, 3, [['0', '1', '1', '0'], ['3', '0', '0', '1']]);
+    const mats = [['0', '1', '1', '0'], ['3', '0', '0', '1']];
+    const r = run(F, 3, mats);
     assert.equal(r.verdict, 'discrete');
     assert.equal(r.kind, 'virtually-free');
-    assert.ok(r.kernel && r.kernel.ell !== 3);
+    // D∞ = ⟨s, t | s², (st)²⟩ = ℤ/2 ∗ ℤ/2 on the pair (s, st), never ℤ/2 ∗ ℤ
+    assert.notEqual(r.freeProduct, 'ℤ/2 ∗ ℤ');
+    if (r.method === 'bass-serre') assert.deepEqual(r.presentation, { n: 2, relators: [{ enc: [1], m: 2 }, { enc: [1, 2], m: 2 }] });
+    else assert.equal(r.freeRank, 1);          // the normal closure ⟨t, sts⟩ = ⟨t⟩
+    // the congruence kernel is still available, away from 3
+    const ker = congruenceKernel(F, mats.map((m) => { const [a, b, c, d] = m.map((x) => F.parse(x)); return { a, b, c, d }; }), new Budget({ seconds: 5 }), { avoid: 3n });
+    assert.ok(ker && ker.ell !== 3);
+});
+
+test('torsion: an elliptic of order 6 and an edge inversion give the lattice ℤ/6 ∗ ℤ/2 in PGL₂(ℚ₅)', () => {
+    // g₁ = (1 −1; 1 2) fixes only o and permutes its 6 edges simply transitively; g₂ = (2 −1; −1 −2) inverts an edge at o
+    const F = new GlobalField(null);
+    const r = run(F, 5, [['1', '-1', '1', '2'], ['2', '-1', '-1', '-2']]);
+    assert.equal(r.verdict, 'discrete', r.reason);
+    assert.equal(r.method, 'bass-serre');
+    assert.equal(r.freeProduct, 'ℤ/6 ∗ ℤ/2');
+    assert.deepEqual(r.presentation, { n: 2, relators: [{ enc: [1], m: 6 }, { enc: [2], m: 2 }] });
+});
+
+test('torsion: an inversion of order 6 gets no free-product certificate (it fixes only a midpoint)', () => {
+    // g₂ = (1 −1; 1 2) inverts an edge of T₄ and has order 6: ⟨g₂⟩ fixes only the edge's midpoint,
+    // which has two directions, so no Bass–Serre map from ⟨g₁⟩ ∗ ⟨g₂⟩ can be locally injective there
+    const F = new GlobalField(null);
+    const r = run(F, 3, [['1', '-2', '-1', '-1'], ['1', '-1', '1', '2']]);
+    assert.notEqual(r.method, 'bass-serre', r.reason);
+});
+
+test('regression: an S-arithmetic group (index 4 in PGL₂(ℤ[1/3])) is not called discrete at 3', () => {
+    // ⟨(0 1; −3 −1), (1 −1; 1 2)⟩: Todd–Coxeter and the vertex orbits both give index 4; the pair
+    // (g₂²g₁, g₂) of order-6 inversions used to get an unsound ℤ/6 ∗ ℤ/6 certificate
+    const F = new GlobalField(null);
+    const r = run(F, 3, [['0', '1', '-3', '-1'], ['1', '-1', '1', '2']]);
+    assert.notEqual(r.verdict, 'discrete', r.reason);
+});
+
+test('torsion: an involution and a hyperbolic in ping-pong give ℤ/2 ∗ ℤ', () => {
+    // g₁ = (1 −2; −1 −1) has trace 0 and fixes only o in T₆; g₂ = (1 −2; 2 1) translates by 1 along an axis through o
+    const F = new GlobalField(null);
+    const r = run(F, 5, [['1', '-2', '-1', '-1'], ['1', '-2', '2', '1']]);
+    assert.equal(r.verdict, 'discrete', r.reason);
+    assert.ok(['bass-serre', 'torsion-closure'].includes(r.method), r.method);
+    assert.equal(r.freeProduct, 'ℤ/2 ∗ ℤ');
+    assert.deepEqual(r.presentation, { n: 2, relators: [{ enc: [1], m: 2 }] });
 });
 
 test('number fields: the two primes above 5 in ℚ(i)', () => {

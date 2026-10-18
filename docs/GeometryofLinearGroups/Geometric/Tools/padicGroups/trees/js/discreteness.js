@@ -301,7 +301,8 @@ export function conder(place, mats, budget) {
         let lx = translationLength(place, x), ly = translationLength(place, y);
         if (lx === 0 || ly === 0) {
             const [w, e] = lx === 0 ? [wx, x] : [wy, y];
-            return { outcome: 'elliptic', w, x: e, steps };
+            // the reduced pair (it generates the same group), for the Bass–Serre test
+            return { outcome: 'elliptic', w, x: e, steps, pair: [{ x, w: wx }, { x: y, w: wy }] };
         }
         if (lx > ly) { [x, y, wx, wy, lx, ly] = [y, x, wy, wx, ly, lx]; }
         budget.products += 2;
@@ -445,6 +446,12 @@ export function decide(place, mats, base, { seconds = 6 } = {}) {
             }
         }
 
+        // ── 2a. torsion in rank two: a free product, by Bass–Serre ──
+        if (r === 2) {
+            const bs = bassSerrePair(place, mats, budget);
+            if (bs) return { ...report, ...bs };
+        }
+
         // ── 2. Conder, rank two ──
         if (r === 2) {
             const c = conder(place, mats, budget);
@@ -453,6 +460,14 @@ export function decide(place, mats, base, { seconds = 6 } = {}) {
                 const basis = c.words.map((w, i) => ({ w, x: c.mats[i], len: null, ell: c.lengths[i] }));
                 return { ...report, verdict: 'discrete', kind: 'free', freeRank: 2, method: 'conder', basis,
                     reason: `Conder's Nielsen test: the purely hyperbolic pair ${c.words.map(wordText).join(', ')} satisfies min(ℓ(xy), ℓ(x⁻¹y)) > ℓ(y) − ℓ(x), so the group is free of rank 2 and discrete.` };
+            }
+            if (c.outcome === 'elliptic' && c.pair) {
+                // Bass–Serre on Conder's reduced pair (it generates the same group)
+                const ord0 = elementOrder(F, c.x, budget);
+                if (ord0 !== null) {
+                    const bs = bassSerrePair(place, mats, budget, c.pair);
+                    if (bs) return { ...report, ...bs };
+                }
             }
             if (c.outcome === 'elliptic') {
                 const ord = elementOrder(F, c.x, budget);
@@ -484,6 +499,10 @@ export function decide(place, mats, base, { seconds = 6 } = {}) {
         }
         log(`Markowitz's reduction reaches ${wordText(mk.w)}, elliptic of order ${ord}: the group has torsion.`);
 
+        // ── 3b. torsion: the normal closure of the rest of a reduced basis ──
+        const tc = torsionClosure(place, base, mats.length, mk, ord, budget, log);
+        if (tc) return { ...report, ...tc };
+
         // ── 4. torsion: a torsion-free congruence kernel ──
         const ker = congruenceKernel(F, mats, budget, { avoid: null });
         if (!ker) {
@@ -514,6 +533,288 @@ export function decide(place, mats, base, { seconds = 6 } = {}) {
         if (e instanceof LimitReached) return { ...report, verdict: 'unknown', reason: `Resource limit (${e.message}); not a verdict.` };
         throw e;
     }
+}
+
+/**
+ * A free product of two cyclic groups, certified by Bass–Serre, for a pair
+ * with torsion. Each generator g contributes its factor ⟨g⟩ and its core in
+ * the tree: Fix(g) for an elliptic of finite order, the midpoint of the edge
+ * it inverts for an involution swapping the two ends of an edge, the axis for
+ * a hyperbolic. The free product ⟨g₁⟩ ∗ ⟨g₂⟩ is π₁ of a graph of groups with
+ * trivial edge groups (a hyperbolic factor is an HNN loop along its axis),
+ * and the equivariant map from its Bass–Serre tree to T sends the edges to
+ * geodesics joining the cores. If that map is locally injective (the
+ * translates of the edges leave each vertex in distinct directions) it is
+ * injective; then ⟨g₁, g₂⟩ ≅ ⟨g₁⟩ ∗ ⟨g₂⟩ acts on the image with finite vertex
+ * stabilizers, so it is discrete. Returns null whenever the test does not
+ * apply or a condition fails (never a negative verdict).
+ */
+function bassSerrePair(place, mats, budget, base = null) {
+    const F = place.F;
+    // a generating pair (the input, or a Nielsen-reduced one), then the moves (a, aᵏb) and (a, baᵏ)
+    // for a member a of finite order n, 0 < k < n
+    const P0 = base || [{ x: mats[0], w: [1] }, { x: mats[1], w: [2] }];
+    const pairs = [P0];
+    for (const [i, j] of [[0, 1], [1, 0]]) {
+        const A = P0[i], B = P0[j];
+        if (translationLength(place, A.x) !== 0) continue;
+        const n = elementOrder(F, A.x, budget);
+        if (n === null || n > 12) continue;
+        let ak = { x: primitive(F, A.x), w: A.w };
+        for (let k = 1; k < n; k++) {
+            budget.products += 2;
+            for (const [x, w] of [[mmul(F, ak.x, B.x), ak.w.concat(B.w)], [mmul(F, B.x, ak.x), B.w.concat(ak.w)]]) {
+                const pair = [A, { x, w: reduceWord(w) }];
+                pairs.push(i === 0 ? pair : [pair[1], pair[0]]);
+            }
+            ak = { x: primitive(F, mmul(F, ak.x, A.x)), w: reduceWord(ak.w.concat(A.w)) };
+        }
+    }
+    for (const pair of pairs) {
+        const r = bassSerreCore(place, pair, budget);
+        if (r) return r;
+    }
+    return null;
+}
+
+function bassSerreCore(place, pairIn, budget) {
+    const F = place.F;
+    const o = place.canon(F.zero(), 0);
+    const mats = pairIn.map((p) => p.x);
+    const id = (v) => place.id(v);
+    const step = (a, b) => { const d = place.dist(a, b); return place.neighbors(a).find((u) => place.dist(u, b) === d - 1); };
+    const toward = (a, b, t) => { let v = a; for (let i = 0; i < t; i++) v = step(v, b); return v; };
+    const gens = mats.map((m, i) => {
+        const x = primitive(F, m);
+        const prep = place.prepare(x);
+        const inv = place.prepare(adj(F, x));
+        const ell = translationLength(place, x);
+        const act = (v) => place.act(prep, v), actInv = (v) => place.act(inv, v);
+        const vdet = place.val(det(F, x));
+        return { i: i + 1, w: pairIn[i].w, x, ell, act, actInv, swap: ell === 0 && (vdet & 1) === 1 };
+    });
+    if (gens.every((g) => g.ell > 0)) return null;                       // Conder's case
+    for (const g of gens) {
+        if (g.ell > 0) continue;
+        g.order = elementOrder(F, g.x, budget);
+        if (g.order === null) return null;                               // decided elsewhere (not discrete)
+        if (g.swap && g.order % 2) return null;                           // an inversion has even order
+        // an inversion of order 2k > 2 fixes only the midpoint of its edge, where there are two directions:
+        // ⟨g⟩ cannot act freely on them, so no free-product certificate of this local kind exists
+        if (g.swap && g.order > 2) return null;
+        const w = g.act(o), d = place.dist(o, w);
+        if (g.swap) {
+            if ((d & 1) !== 1) return null;
+            const u = toward(o, w, (d - 1) / 2), u2 = g.act(u);
+            if (place.dist(u, u2) !== 1) return null;
+            g.edge = [u, u2];
+        } else {
+            if ((d & 1) !== 0) return null;
+            const x0 = toward(o, w, d / 2);
+            if (id(g.act(x0)) !== id(x0)) return null;
+            g.x0 = x0;               // a point of Fix(g); Fix(g) is convex, possibly unbounded
+        }
+    }
+    const fixed = (g, v) => { budget.products++; return id(g.act(v)) === id(v); };
+    /** Walk inside Fix(g) from x while some fixed neighbour lowers f (convex f: this reaches the minimum on Fix(g)). */
+    const descend = (g, x, f) => {
+        let fx = f(x);
+        for (let guard = 0; guard < 400; guard++) {
+            budget.check();
+            let moved = false;
+            for (const u of place.neighbors(x)) {
+                const fu = f(u);
+                if (fu < fx && fixed(g, u)) { x = u; fx = fu; moved = true; break; }
+            }
+            if (!moved) return { x, f: fx };
+        }
+        return null;
+    };
+    // the images of a direction d at x under the nontrivial powers of a finite g fixing x
+    const freeOn = (g, x, d) => {
+        const seen = new Set([id(d)]);
+        let cur = d;
+        for (let k = 1; k < g.order; k++) {
+            cur = g.act(cur);
+            if (seen.has(id(cur))) return false;
+            seen.add(id(cur));
+        }
+        return seen;
+    };
+    // an inversion g of order 2k > 2: anchored at an end u of its edge with the group ⟨g²⟩ (order k), which
+    // fixes the edge; the anchor's local condition: ⟨g²⟩ moves the bridge direction freely, and not onto the edge
+    const sq = (g) => ({ act: (v) => g.act(g.act(v)), order: g.order / 2 });
+    const otherEnd = (g, u) => g.edge.find((v) => id(v) !== id(u));
+    const swapAnchorOk = (g, u, d) => {
+        if (g.order === 2) return true;                                 // anchored at the midpoint
+        const e = otherEnd(g, u);
+        if (id(d) === id(e)) return false;
+        const seen = freeOn(sq(g), u, d);
+        return !!seen && !seen.has(id(e));
+    };
+    const [A, B] = gens;
+    const factor = (g) => (g.ell > 0 ? 'ℤ' : `ℤ/${g.order}`);
+    const ok = (why) => {
+        // the factors are ⟨x⟩, ⟨y⟩ for words x, y in g₁, g₂ related to them by a Nielsen move, so ⟨g₁, g₂ | xⁿ, yᵐ⟩
+        const relators = gens.filter((g) => g.ell === 0).map((g) => ({ enc: g.w, m: g.order }));
+        const fp = `${factor(A)} ∗ ${factor(B)}`;
+        const sup = (n) => String(n).split('').map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+c]).join('');
+        const rel = relators.map((r) => (r.enc.length === 1 ? `${wordText(r.enc)}${sup(r.m)}` : `(${wordText(r.enc)})${sup(r.m)}`)).join(', ');
+        const moved = gens.some((g) => g.w.length !== 1);
+        return {
+            verdict: 'discrete', kind: 'virtually-free', method: 'bass-serre', freeProduct: fp,
+            presentation: { n: 2, relators },
+            reason: `Bass–Serre${moved ? ` on the pair ${wordText(A.w)}, ${wordText(B.w)}` : ''}: ${why} The map from the Bass–Serre tree of ${fp} to the tree is locally injective, hence injective, so the group is ${fp} = ⟨g₁, g₂ | ${rel}⟩ with finite vertex stabilizers: discrete.`,
+        };
+    };
+    const fin = gens.filter((g) => g.ell === 0), hyp = gens.filter((g) => g.ell > 0);
+    if (hyp.length === 1) {
+        // ℤ/n ∗ ℤ: Fix(a) and the axis of b
+        const a = fin[0], b = hyp[0];
+        if (a.swap) {
+            // the inverted edge [u, u′] and the axis: through the nearer endpoint
+            const [u, u2] = a.edge;
+            const du = (place.dist(u, b.act(u)) - b.ell) / 2, du2 = (place.dist(u2, b.act(u2)) - b.ell) / 2;
+            if (du === 0 && du2 === 0) return null;                        // the inverted edge lies on the axis
+            const x = du <= du2 ? u : u2, dz = Math.min(du, du2);
+            if (a.order > 2) {
+                // anchored at x with ⟨a²⟩: an HNN loop for b at x (on the axis) or a bridge to the axis
+                const e = otherEnd(a, x);
+                if (dz === 0) {
+                    const dp = step(x, b.act(x)), dm = step(x, b.actInv(x));
+                    const sp = freeOn(sq(a), x, dp), sm = freeOn(sq(a), x, dm);
+                    if (!sp || !sm || sp.has(id(e)) || sm.has(id(e))) return null;
+                    for (const k of sp) if (sm.has(k)) return null;
+                } else if (!swapAnchorOk(a, x, step(x, toward(x, b.act(x), dz)))) return null;
+                return ok(`${wordText(a.w)} inverts an edge, its square fixes it, and the anchor moves the way to the axis of ${wordText(b.w)} freely.`);
+            }
+            if (dz === 0) {
+                // x on the axis; the half-edge to the midpoint leaves along the edge, not the axis
+                const ax = [id(step(x, b.act(x))), id(step(x, b.actInv(x)))];
+                const other = du <= du2 ? u2 : u;
+                if (ax.includes(id(other))) return null;
+                return ok(`${wordText(a.w)} inverts an edge with one end on the axis of ${wordText(b.w)}, leaving it.`);
+            }
+            return ok(`${wordText(a.w)} inverts an edge at distance ${dz} from the axis of ${wordText(b.w)}.`);
+        }
+        const toAxis = (z) => (place.dist(z, b.act(z)) - b.ell) / 2;
+        const m = descend(a, a.x0, toAxis);
+        if (!m) return null;
+        const best = { z: m.x, dz: m.f };
+        const x = best.z;
+        if (best.dz === 0) {
+            // (if Fix(a) contains an edge of the axis, a fixes an axis direction and freeOn fails)
+            const dp = step(x, b.act(x)), dm = step(x, b.actInv(x));
+            const sp = freeOn(a, x, dp), sm = freeOn(a, x, dm);
+            if (!sp || !sm) return null;
+            for (const k of sp) if (sm.has(k)) return null;
+            return ok(`${wordText(a.w)} fixes one point of the axis of ${wordText(b.w)} and moves both axis directions there freely and off each other.`);
+        }
+        const y = toward(x, b.act(x), best.dz);
+        if (!freeOn(a, x, step(x, y))) return null;
+        return ok(`Fix(${wordText(a.w)}) is at distance ${best.dz} from the axis of ${wordText(b.w)}, and ${wordText(a.w)} moves the bridge freely.`);
+    }
+    // ℤ/n ∗ ℤ/m: both finite
+    // the closest points of the two cores (an inverted edge: its nearer end), by alternating descent
+    const near = (g, target) => {
+        if (g.swap) { const [u, v] = g.edge; return place.dist(u, target) <= place.dist(v, target) ? u : v; }
+        const m = descend(g, g.x0, (v) => place.dist(v, target));
+        return m ? m.x : null;
+    };
+    let x = A.swap ? A.edge[0] : A.x0, z = B.swap ? B.edge[0] : B.x0;
+    for (let guard = 0; guard < 50; guard++) {
+        const x2 = near(A, z); if (!x2) return null;
+        const z2 = near(B, x2); if (!z2) return null;
+        if (id(x2) === id(x) && id(z2) === id(z)) break;
+        x = x2; z = z2;
+    }
+    const best = { x, z, d: place.dist(x, z) };
+    if (A.swap && B.swap) {
+        const same = new Set(A.edge.map(id));
+        if (B.edge.every((v) => same.has(id(v)))) return null;            // one edge: a common fixed midpoint
+        if (A.order === 2 && B.order === 2) return ok('the two inverted edges are distinct.');
+    }
+    if (best.d === 0 && !A.swap && !B.swap) return null;                 // a common fixed point (bounded)
+    const dirFrom = (g, x, z) => {
+        if (place.dist(x, z) > 0) return step(x, z);
+        // x is an end of the edge the other generator inverts: leave along that edge
+        const h = g === A ? B : A;
+        return h.edge.find((v) => id(v) !== id(x));
+    };
+    for (const [g, x, z] of [[A, best.x, best.z], [B, best.z, best.x]]) {
+        const h = g === A ? B : A;
+        if (g.swap && g.order === 2) continue;                            // anchored at the midpoint: its two half-edges are swapped
+        if (place.dist(x, z) === 0 && !h.swap) return null;               // anchors at one vertex: not a free product of these factors
+        const d = dirFrom(g, x, z);
+        if (g.swap) { if (!swapAnchorOk(g, x, d)) return null; continue; }
+        if (!freeOn(g, x, d)) return null;
+    }
+    return ok(`the bridge between the cores of ${wordText(A.w)} and ${wordText(B.w)} has length ${best.d}, and each finite factor moves its end of the bridge freely.`);
+}
+
+/**
+ * Torsion without a congruence kernel. Markowitz's basis B generates the group
+ * and contains an elliptic a of finite order n. The normal closure N of
+ * B ∖ {a} is generated by the conjugates aⁱ z a⁻ⁱ (z ∈ B ∖ {a}, 0 ≤ i < n), and
+ * [Γ : N] ≤ n, since Γ/N is generated by the image of a. If Markowitz shows N
+ * free and discrete, so is Γ (a finite extension); if N contains an elliptic
+ * of infinite order, Γ is not discrete; if it meets torsion again, repeat
+ * (three times at most). Anything else returns null, for the congruence kernel.
+ *
+ * When B = {a, b} is the input pair up to inverses and N is free on the n
+ * conjugates of b, Γ ≅ ℤ/n ∗ ⟨b⟩: the surjection ℤ/n ∗ ℤ → Γ is injective on
+ * the kernel of ℤ/n ∗ ℤ → ℤ/n, so its kernel is a finite normal subgroup of
+ * ℤ/n ∗ ℤ, hence trivial. That gives the presentation ⟨g₁, g₂ | gᵢⁿ⟩.
+ */
+function torsionClosure(place, base, rank, mk, ord, budget, log) {
+    const F = place.F;
+    const id = { a: F.one(), b: F.zero(), c: F.zero(), d: F.one() };
+    let a = { x: primitive(F, mk.x), w: mk.w, n: ord }, basis = mk.basis, index = 1;
+    for (let level = 0; level < 3; level++) {
+        const ka = projKey(F, a.x), kai = projKey(F, adj(F, a.x));
+        const rest = basis.filter((b) => { const k = projKey(F, b.x); return k !== ka && k !== kai; });
+        if (!rest.length) return null;
+        const gens = [], words = [];
+        let ai = { x: id, w: [] };
+        for (let i = 0; i < a.n; i++) {
+            const aiInv = adj(F, ai.x);
+            for (const z of rest) {
+                budget.products += 2;
+                gens.push(primitive(F, mmul(F, mmul(F, ai.x, z.x), aiInv)));
+                words.push(reduceWord(ai.w.concat(z.w, inverseWord(ai.w))));
+            }
+            ai = { x: primitive(F, mmul(F, ai.x, a.x)), w: reduceWord(ai.w.concat(a.w)) };
+        }
+        index *= a.n;
+        log(`${wordText(a.w)} has order ${a.n}: the normal closure of the other ${rest.length} basis element${rest.length === 1 ? '' : 's'} has index ≤ ${a.n}, with ${gens.length} generators.`);
+        const m = markowitz(place, base, gens, words, budget);
+        if (m.outcome === 'free') {
+            const out = {
+                verdict: 'discrete', kind: 'virtually-free', freeRank: m.basis.length, method: 'torsion-closure',
+                basis: basisRows(place, base, m.basis), certificate: m.certificate, closureIndex: index,
+                reason: `${wordText(a.w)} has order ${a.n}, and the normal closure of the rest of the reduced basis (index ≤ ${index} in the group) has an N-reduced basis of ${m.basis.length} element${m.basis.length === 1 ? '' : 's'}: it is free and discrete, hence so is the group.`,
+            };
+            // ℤ/n ∗ ℤ on the input pair itself
+            const single = (w) => w.length === 1;
+            if (level === 0 && rank === 2 && basis.length === 2 && rest.length === 1 && single(a.w) && single(rest[0].w)
+                && Math.abs(a.w[0]) !== Math.abs(rest[0].w[0]) && m.basis.length === gens.length) {
+                const i = Math.abs(a.w[0]);
+                out.presentation = { n: 2, relators: [{ enc: [i], m: a.n }] };
+                out.freeProduct = `ℤ/${a.n} ∗ ℤ`;
+                out.reason += ` It is free on the ${a.n} conjugates of g${'₀₁₂₃₄₅₆₇₈₉'[3 - i]}, so the group is ℤ/${a.n} ∗ ℤ = ⟨g₁, g₂ | g${'₀₁₂₃₄₅₆₇₈₉'[i]}${a.n === 2 ? '²' : a.n === 3 ? '³' : `^${a.n}`}⟩.`;
+            }
+            return out;
+        }
+        if (m.outcome !== 'elliptic') return null;
+        const o = elementOrder(F, m.x, budget);
+        if (o === null) {
+            return { verdict: 'nondiscrete', kind: 'elliptic', method: 'torsion-closure', witness: { w: m.w, x: m.x },
+                reason: `The normal closure (index ≤ ${index}) contains ${wordText(m.w)}, elliptic of infinite order.` };
+        }
+        a = { x: primitive(F, m.x), w: m.w, n: o };
+        basis = m.basis;
+    }
+    return null;
 }
 
 function summarizeMarkowitz(mk) {

@@ -1565,7 +1565,8 @@ function relatorTex(R, orders = new Map()) {
 
 /**
  * The relations to show beside the generators: { source, rels, complete, free }
- * or null. A presentation comes from Poincaré at a discrete place at ∞; a tree
+ * or null. A presentation comes from Poincaré at a discrete place at ∞, or from the tree at a discrete
+ * prime (the header reads "Geometric at ℂ₁", "Geometric at ℚ₃"); a tree
  * decision "free of rank n" (n generators) has none; otherwise FlashBeam's
  * relations, which need not present Γ.
  */
@@ -1579,7 +1580,7 @@ function presentationData() {
         if (sm && sm.presentation) {
             const orders = new Map(sm.presentation.relators.filter((r) => r.enc.length === 1).map((r) => [Math.abs(r.enc[0]), r.m]));
             const complete = sm.presentationComplete !== false;
-            return { source: `Poincaré at ${placeLabel(pl)}`, rels: sm.presentation.relators.map((r) => relatorTex(r, orders)), complete, free: complete && !sm.presentation.relators.length };
+            return { source: `Geometric at ${placeLabel(pl)}`, rels: sm.presentation.relators.map((r) => relatorTex(r, orders)), complete, free: complete && !sm.presentation.relators.length };
         }
     }
     const Pr = R.presentation && R.presentation.result && R.presentation.result.pres;
@@ -1591,9 +1592,9 @@ function presentationData() {
     }
     for (const pl of disc) {
         const d = pl.decision;
-        if (d && d.kind === 'free' && d.freeRank === nGens) return { source: `free, by the tree at ${placeLabel(pl)}`, rels: [], complete: true, free: true };
+        if (d && d.kind === 'free' && d.freeRank === nGens) return { source: `Geometric at ${placeLabel(pl)}`, rels: [], complete: true, free: true };
         if (d && d.presentation && d.presentation.n === nGens) {
-            return { source: `${d.freeProduct || 'a free product'}, by the tree at ${placeLabel(pl)}`, rels: d.presentation.relators.map((r) => relatorTex(r)), complete: true };
+            return { source: `Geometric at ${placeLabel(pl)}`, rels: d.presentation.relators.map((r) => relatorTex(r)), complete: true };
         }
     }
     const res = R.sarith && R.sarith.result;
