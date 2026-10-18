@@ -6,7 +6,7 @@
 //   node --test --import ./tests/register.mjs tests/library.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { Matrix2x2: M, Complex } = await import('../js/math.js');
+const { Matrix2x2: M, Complex, translationTowards } = await import('../js/math.js');
 const { serializeTowerContext } = await import('../js/tower.js');
 const { buildGroup } = await import('../js/matrixInput.js');
 const { exampleLibrary } = await import('../js/groupLibrary.js');
@@ -152,15 +152,68 @@ test('PGL(2,Z) = ⟨T, S, z ↦ −z̄⟩ is the (2,3,∞) reflection triangle',
     assert.equal(out.invariants.h1String, 'ℤ/2 ⊕ ℤ/2');
 });
 
-test('a generator outside the face-pairing group fails membership until the search reaches it', () => {
-    // C is a reflection in PGL(2,Z) whose word in T, S is long.
+test('a generator far from the domain is reduced into it: its remainder is a wall', () => {
+    // C is a reflection in PGL(2,Z) whose word in T, S is long (the beam alone
+    // needed depth 24). Reduced by the face pairings of PSL(2,Z), it leaves a
+    // mirror whose orbit point lies in the domain.
     const C = mk(-127, 336, -48, 127, true);
+    for (const depth of [2, 8]) {
+        const out = compute([T, S, C], { depth });
+        assert.equal(out.report.status, 'verified');
+        assert.equal(out.domain.walls.length, 3);
+        assert.ok(out.report.membership.every(m => m.ok));
+    }
+});
+
+test('a generator outside the face-pairing group fails membership until the word cap reaches it', () => {
+    // z ↦ −z̄ + 60 reduces to the mirror z ↦ −z̄ only by T⁻⁶⁰: 61 letters,
+    // past the cap of 6 × Word Length = 48 at depth 8.
+    const C = mk(-1, 60, 0, 1, true);
     const short = compute([T, S, C], { depth: 8 });
     assert.equal(short.report.status, 'failed');
     assert.deepEqual(short.report.membership.map(m => m.ok), [true, true, false]);
-    const long = compute([T, S, C], { depth: 24 });
+    const long = compute([T, S, C], { depth: 16 });
     assert.equal(long.report.status, 'verified');
     assert.equal(long.domain.walls.length, 3);
+});
+
+test('presets that once needed a deeper search verify at the default depth', () => {
+    // The beam over the generators alone needed depth 10 or 14 for these; the
+    // closure finds their walls as products of walls.
+    for (const name of ['Jorgensen fibered (n=4)', 'P(2/5)', 'P(2/7)']) {
+        const ex = exampleLibrary.find(e => e.name === name);
+        const { mats, exactCtx } = loadPreset(ex);
+        const out = compute(mats, { exactCtx, depth: 8 });
+        assert.equal(out.report.status, 'verified', name);
+        assert.equal(out.domain.walls.length, EXPECT[name].faces, name);
+    }
+});
+
+test('Dirichlet domains at random basepoints verify and agree with the default domain’s invariants', () => {
+    // The Dirichlet domain depends on the centre; its volume and H₁ do not.
+    const toward = ([x, y, z], r) => {
+        const n = Math.hypot(x, y, z);
+        return translationTowards({ x: x / n, y: y / n, z: z / n }, 2 * Math.atanh(r));
+    };
+    for (const name of ['Weeks manifold (closed)', 'Figure eight knot group', 'P(3/7)', 'PSL(2,Z[w])']) {
+        const ex = exampleLibrary.find(e => e.name === name);
+        const { mats, exactCtx } = loadPreset(ex);
+        const want = EXPECT[name];
+        for (const [dir, r] of [[[0.3, -0.5, 0.8], 0.45], [[-0.7, 0.2, 0.1], 0.3]]) {
+            const B = toward(dir, r);
+            const Bi = B.inv().normalized();
+            const home = mats.map(g => Bi.mul(g).mul(B).normalized());
+            const input = {
+                gens: home.map(matToArr), origGens: mats.map(matToArr), B: matToArr(B),
+                maxFaces: 96, maxDepth: ex.depth || 8, fullDirichlet: false,
+                exact: exactCtx ? serializeTowerContext(exactCtx) : null, ford: null,
+            };
+            const out = runCompute(JSON.parse(JSON.stringify(input)));
+            assert.equal(out.report.status, 'verified', `${name} at ${dir}, ${r}`);
+            assert.equal(out.invariants.h1String, want.h1, name);
+            if (want.vol != null) assert.ok(Math.abs(out.invariants.volume - want.vol) < 2e-6 * want.vol, name);
+        }
+    }
 });
 
 // ---------------- polyhedron ----------------

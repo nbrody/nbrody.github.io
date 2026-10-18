@@ -150,19 +150,20 @@ export function distFromIdentityPSL(m) {
 export function pslKey(m, digits = 5) {
     // Quantize BEFORE choosing the PSL sign. Sub-precision noise in a leading
     // entry must not flip the sign of every significant entry, and values that
-    // round to zero must not produce distinct "-0.00000" keys.
-    const values = [m.a.re, m.a.im, m.b.re, m.b.im, m.c.re, m.c.im, m.d.re, m.d.im];
-    const parts = values.map(v => v.toFixed(digits));
-    const zero = (0).toFixed(digits);
-    const negativeZero = '-' + zero;
-    const first = parts.find(v => v !== zero && v !== negativeZero);
-    const flip = first?.[0] === '-';
-    for (let i = 0; i < parts.length; i++) {
-        if (parts[i] === negativeZero) parts[i] = zero;
-        else if (parts[i] === zero) continue;
-        else if (flip) parts[i] = parts[i][0] === '-' ? parts[i].slice(1) : '-' + parts[i];
+    // round to zero must not produce distinct negative-zero keys. Entries are
+    // rounded like toFixed(digits) (|v| half up, sign kept) but kept as
+    // integers: the searches key every element they meet, and eight toFixed
+    // strings cost more than the matrix product itself.
+    const scale = 10 ** digits;
+    const q = [m.a.re, m.a.im, m.b.re, m.b.im, m.c.re, m.c.im, m.d.re, m.d.im];
+    let flip = 0;
+    for (let i = 0; i < 8; i++) {
+        const r = Math.round(Math.abs(q[i]) * scale);
+        q[i] = r === 0 ? 0 : (q[i] < 0 ? -r : r);
+        if (flip === 0 && q[i] !== 0) flip = q[i] < 0 ? -1 : 1;
     }
-    return `${m.anti ? 'A' : ''}[${parts[0]},${parts[1]}|${parts[2]},${parts[3]}|${parts[4]},${parts[5]}|${parts[6]},${parts[7]}]`;
+    if (flip < 0) for (let i = 0; i < 8; i++) q[i] = q[i] === 0 ? 0 : -q[i];
+    return `${m.anti ? 'A' : ''}[${q[0]},${q[1]}|${q[2]},${q[3]}|${q[4]},${q[5]}|${q[6]},${q[7]}]`;
 }
 
 // ---------------- Model maps: UHS <-> ball <-> Minkowski ----------------

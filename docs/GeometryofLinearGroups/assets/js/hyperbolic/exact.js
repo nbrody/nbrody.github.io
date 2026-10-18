@@ -439,9 +439,11 @@ export class ExactMat {
  * Exact matrix of a word in the input generators (signed 1-based indices,
  * negative = inverse). Inverses are taken as adjugates, so everything stays
  * in the ring — all identity checks are projective, which is what PGL2 needs.
+ * `start` (default the identity) is the product so far: the letters are
+ * multiplied onto it one by one, exactly as they would be in a longer word.
  */
-export function exactFromWord(word, gens, K) {
-    let M = ExactMat.identity(K);
+export function exactFromWord(word, gens, K, start = null) {
+    let M = start || ExactMat.identity(K);
     for (const wi of word) {
         M = M.mul(wi > 0 ? gens[wi - 1] : gens[-wi - 1].invProj());
     }

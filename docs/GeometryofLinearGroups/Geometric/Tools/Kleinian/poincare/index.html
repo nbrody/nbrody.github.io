@@ -29,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-10-10d';
+            const APP_VERSION = '2026-10-16e';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -132,7 +132,7 @@
                     <div class="control-row" style="margin-top: 12px;">
                         <label for="wordLength" class="control-label">Word Length</label>
                         <input id="wordLength" type="number" value="8" min="1" max="32" step="1" class="number-input"
-                            title="Depth of the orbit search that finds the walls. Raise it when a certificate fails for want of faces.">
+                            title="Depth of the orbit search that seeds the walls, which are then closed up under products; wall words may be up to 6× this long. Raise it when a certificate fails for want of faces.">
                     </div>
                     <div class="control-row" style="margin-top: 12px;">
                         <label for="face-count-input" class="control-label">Max Faces</label>

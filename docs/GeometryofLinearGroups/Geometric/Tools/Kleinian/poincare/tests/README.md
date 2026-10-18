@@ -14,9 +14,12 @@ Uses the existing sibling `vendor/three` files; no dependency installation is re
   reproduce its certificate status, face count, membership of the input generators, H₁, volume
   (SnapPy / Humbert values), cusp count and invariant trace field, with its relations verified
   exactly. Also: Ford-domain volumes and
-  maximal cusp heights, PGL(2,ℤ) (walls tangent at ∞), the membership failure for a generator
-  the search has not reached, the right-angled dodecahedron's combinatorics (V − E + F), and the
-  presentation tools (Tietze moves, abelianization). A new preset must be added to its
+  maximal cusp heights, PGL(2,ℤ) (walls tangent at ∞), a long generator reduced into the
+  domain (its remainder is a wall), the membership failure for a generator whose remainder
+  needs words past the cap, the presets that once needed a deeper search verifying at depth 8,
+  domains at random basepoints (same volume and H₁), the right-angled dodecahedron's
+  combinatorics (V − E + F), and the presentation tools (Tietze moves, abelianization). A new
+  preset must be added to its
   expectation table — the first test fails otherwise.
 - `tower.test.mjs` — exact input: factoring over ℚ, the field tower (only the irreducible factor
   through the requested root is adjoined, so √6 adds nothing to ℚ(√2, √3)), the reader of

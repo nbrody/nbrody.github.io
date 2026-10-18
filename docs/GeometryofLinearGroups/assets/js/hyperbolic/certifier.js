@@ -41,7 +41,7 @@ import {
     applyMatrixToBall, wallSD, hypDist,
     formatWordMathJax, reduceWord, invertWord, uhsToBall, ballToUHS
 } from './math.js';
-import { exactFromWord, Frac } from './exact.js';
+import { exactFromWord, ExactMat, Frac } from './exact.js';
 import {
     buildPolyhedron, checkEuler, ballToKlein, kleinToBall,
     edgePoint, edgeSamples, edgeMidpoint
@@ -111,12 +111,11 @@ function parabolicFixedBall(m) {
  * Classify a cusp holonomy element (det normalized to 1). It is a
  * horospherical ISOMETRY iff it is the identity, parabolic, or elliptic —
  * i.e. tr² real in [0,4]. Loxodromic holonomy = incomplete cusp.
- * With an exact context, identity and parabolicity are decided EXACTLY
+ * With its exact matrix E, identity and parabolicity are decided EXACTLY
  * (tr² = 4·det is projectively invariant), and an exact negative overrides
  * a numerically-passing verdict.
  */
-function classifyCuspHolonomy(Mnorm, word, exactCheck, exactCtx) {
-    const E = exactCheck ? exactCheck(word) : null;
+function classifyCuspHolonomy(Mnorm, E, exactCtx) {
     if (E) {
         if (E.isProjectiveIdentity()) return { ok: true, kind: 'the identity (exact)', type: 'identity' };
         const trE = E.a.add(E.d);
@@ -269,6 +268,54 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
             return null;
         }
     };
+    // The checked words are products of a few pieces — face-pairing words and
+    // input generators — and every piece recurs across the checks (each wall
+    // in two pairing checks and in its edge cycles). So each piece is expanded
+    // letter by letter once, and a check multiplies the cached pieces. The
+    // expansions are memoised in a trie of prefixes, as the pairing words
+    // share long prefixes. A piece is expanded from the orientation of the
+    // product before it, so every letter is conjugated exactly as in a
+    // letter-by-letter run of the whole word: the result is the same exact
+    // matrix. Should a piece fail, the whole word is re-run letter by letter
+    // through exactCheck (its warning and its fallback).
+    const prefixRoots = new Map();             // starting orientation → trie node {M, next}
+    const exactPiece = (word, anti) => {
+        const K = exactCtx.field;
+        let node = prefixRoots.get(anti);
+        if (!node) {
+            node = { M: new ExactMat(K.one(), K.zero(), K.zero(), K.one(), anti), next: new Map() };
+            prefixRoots.set(anti, node);
+        }
+        for (const l of word) {
+            let child = node.next.get(l);
+            if (!child) {
+                let M = null;                  // null: this prefix failed
+                try { M = exactFromWord([l], exactCtx.gens, K, node.M); } catch (e) { /* re-run below */ }
+                child = { M, next: new Map() };
+                node.next.set(l, child);
+            }
+            if (!child.M) return null;
+            node = child;
+        }
+        return node.M;
+    };
+    const exactCheckPieces = (pieces) => {
+        if (!exactCtx) return null;
+        exactUsed = true;
+        try {
+            let M = null;
+            for (const w of pieces) {
+                if (!w.length) continue;
+                const T = exactPiece(w, M ? M.anti : false);
+                if (!T) return exactCheck(pieces.flat());
+                // T already carries M's orientation: multiply without conjugating.
+                M = M ? new ExactMat(M.a, M.b, M.c, M.d).mul(T) : T;
+            }
+            return M || ExactMat.identity(exactCtx.field);
+        } catch (e) {
+            return exactCheck(pieces.flat());
+        }
+    };
     if (exactCtx) {
         emit('head', `— Exact mode: relations verified over ${exactCtx.field.describe()}` +
             (exactCtx.field.deg > 1 ? `, a number field of degree ${exactCtx.field.deg}` : '') + ' —');
@@ -342,7 +389,7 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
                     }
                 }
                 // Exact involution check: s_i·s_j ≡ I projectively in PGL2(K).
-                const E = entryOk ? exactCheck([...w.pairing.word, ...wj.pairing.word]) : null;
+                const E = entryOk ? exactCheckPieces([w.pairing.word, wj.pairing.word]) : null;
                 if (E) {
                     if (E.isProjectiveIdentity()) {
                         exactLine = `  · exact: s_${i}·s_${j} ≡ I in PGL₂(${exactCtx.field.describe()}) ✓`;
@@ -400,6 +447,7 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
         let P = Matrix2x2.identity();
         let angleSum = 0;
         let words = [];
+        const pieces = [];                // words as its face-pairing words, for the exact check
         let steps = 0;
         let failed = null, degenerate = false;
         const cyclePairs = [];
@@ -414,6 +462,7 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
             if (!wa.pairing) { failed = `wall ${a} unpaired`; break; }
             P = wa.pairing.matrix.mul(P).normalized();
             words = [...wa.pairing.word, ...words];
+            pieces.unshift(wa.pairing.word);
             x1 = applyMatrixToBall(wa.pairing.matrix, x1);
             x2 = applyMatrixToBall(wa.pairing.matrix, x2);
             const arrived = wa.pairing.partner;
@@ -472,7 +521,7 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
         // verdict overrides the numeric one in either direction.
         let cycleExactLine = null;
         if (angleOk && m >= 1) {
-            const EP = exactCheck(words);
+            const EP = exactCheckPieces(pieces);
             if (EP) {
                 const exactHolds = EP.pow(Math.max(1, m)).isProjectiveIdentity();
                 if (exactHolds) {
@@ -585,6 +634,7 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
                 // stabilizes the cusp point — classify each one.
                 const treeM = new Array(nodes.length).fill(null);
                 const treeW = new Array(nodes.length).fill(null);
+                const treeP = new Array(nodes.length).fill(null);   // treeW as face-pairing words
                 const comp = new Array(nodes.length).fill(-1);
                 const usedHE = new Set();
                 const heKey = (from, face) => `${from}|${face}`;
@@ -595,6 +645,7 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
                     comp[s0] = cid;
                     treeM[s0] = Matrix2x2.identity();
                     treeW[s0] = [];
+                    treeP[s0] = [];
                     const members = [s0];
                     const queue = [s0];
                     while (queue.length) {
@@ -607,6 +658,7 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
                                 comp[h.to] = cid;
                                 treeM[h.to] = walls[h.face].pairing.matrix.mul(treeM[k]).normalized();
                                 treeW[h.to] = [...walls[h.face].pairing.word, ...treeW[k]];
+                                treeP[h.to] = [walls[h.face].pairing.word, ...treeP[k]];
                                 queue.push(h.to);
                                 members.push(h.to);
                             }
@@ -634,7 +686,9 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
                                 `classification not yet implemented; check unresolved.`, cref);
                             continue;
                         }
-                        const verdict = classifyCuspHolonomy(M, word, exactCtx ? exactCheck : null, exactCtx);
+                        const pieces = [...treeP[h.to].slice().reverse().map(invertWord),
+                            walls[h.face].pairing.word, ...treeP[h.from]];
+                        const verdict = classifyCuspHolonomy(M, exactCheckPieces(pieces), exactCtx);
                         loops.push({ matrix: M, word: reduceWord(word), type: verdict.type });
                         if (verdict.ok) {
                             emit('ok', `✓ cusp ${cid}: holonomy ${wordStr(reduceWord(word))} is ${verdict.kind} — horospherical isometry.`, cref);
@@ -722,12 +776,12 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
             const home = hypDist(x, center) < 1e-6;
             let isId = distFromIdentityPSL(Pm.normalized()) < 1e-6;
             // Word of the reduced element: s_{m_n}⋯s_{m_1}·g must be trivial.
-            const word = [];
-            for (let s = seq.length - 1; s >= 0; s--) word.push(...walls[seq[s]].pairing.word);
-            word.push(...gen.word);
+            const pieces = [];
+            for (let s = seq.length - 1; s >= 0; s--) pieces.push(walls[seq[s]].pairing.word);
+            pieces.push(gen.word);
             let exactNote = '';
             if (home && isId) {
-                const E = exactCheck(word);
+                const E = exactCheckPieces(pieces);
                 if (E) {
                     if (E.isProjectiveIdentity()) exactNote = ' (exact)';
                     else { isId = false; exactNote = ' — but NOT exactly the identity'; }

@@ -5,6 +5,9 @@
  * allowed) and a view isometry V, we compute:
  *
  *  1. The orbit of the basepoint under G out to a word-length / beam budget.
+ *     A child's distance d(p, g·s·p) = d(g⁻¹·p, s·p) is known from two stored
+ *     points before the product is formed, so only the children that can make
+ *     the beam are multiplied out and keyed.
  *  2. The basepoint stabilizer H = G ∩ Stab(p), closed up into a finite group.
  *  3. If H is nontrivial, a generically perturbed basepoint q = p + ε·v.
  *     ALL walls are then built as bisectors Bis(q, g·q) at q:
@@ -15,17 +18,26 @@
  *     Dirichlet domain at q), so every face pairs facewise via g^{-1} — no
  *     piecewise corrections — while converging to "Dirichlet domain at p
  *     ∩ fundamental cone for H" as ε → 0.
- *  4. Walls accepted incrementally by an EXACT face test: in the Klein model the
- *     domain is a Euclidean polyhedron, and a candidate bisector contributes a
- *     face iff its half-space is violated at a vertex of the current domain or
- *     on the part of the sphere at infinity the domain still reaches. (A test
- *     that samples points on the candidate wall can miss a small face; a wall
- *     it rejects is never reconsidered, which once left the FLMS manifold's
- *     domain two faces short.) Then a joint pruning pass.
+ *  4. The wall closure. Walls are accepted incrementally by an EXACT face test:
+ *     in the Klein model the domain is a Euclidean polyhedron, and a candidate
+ *     bisector contributes a face iff its half-space is violated at a vertex of
+ *     the current domain or on the part of the sphere at infinity the domain
+ *     still reaches. (A test that samples points on the candidate wall can miss
+ *     a small face; a wall it rejects is never reconsidered, which once left
+ *     the FLMS manifold's domain two faces short.) The candidates are the
+ *     walls themselves: H, the generators and the nearest orbit elements seed
+ *     the domain, then every product of two walls (or of a wall and a
+ *     generator) is tested, round after round, until no product cuts. Then the
+ *     generators are reduced into the domain: a generator outside the group of
+ *     the face pairings leaves a remainder whose orbit point lies in the
+ *     domain, so its wall cuts. Then a joint pruning pass.
  *  5. Face-pairing assignment: wall of g pairs to the wall of g^{-1} via g^{-1},
  *     with words in the user's generators — plus completion passes that add
- *     walls revealed by transporting vertices through the pairings, and, for a
- *     compact domain, a Dirichlet check over every element that could reach it.
+ *     walls revealed by transporting vertices through the pairings. For a
+ *     compact domain, a Dirichlet check over every element that could reach it
+ *     follows, unless the caller defers it (`dirichletCheck: false`) to run
+ *     `completeDirichlet` only when the Poincaré certificate fails: a verified
+ *     certificate already proves the domain is the Dirichlet domain.
  */
 // Relative (not the bare 'three' specifier) so the engine also loads in a Web
 // Worker, where import maps do not apply. Same URL as the pages' import maps.
@@ -46,6 +58,7 @@ const ON_DOMAIN_TOL = 1e-8;       // Klein residual still counted as "in the dom
 // Deterministic generic direction for the cone-defining perturbation.
 const GENERIC_DIR = new THREE.Vector3(0.5320397, 0.3141593, 0.7853982).normalize();
 const PERTURB_EPS = 0.12;
+const ORIGIN = new THREE.Vector3(0, 0, 0);
 
 // ---------------- Phase 1: orbit search ----------------
 
@@ -61,36 +74,52 @@ function searchOrbit(generators, { maxDepth, beamWidth, maxOrbit }) {
     // matrix only enters later, when geometry is built.
     const origin = new THREE.Vector3(0, 0, 0);
     const numGens = generators.length;
+    const genPts = generators.map(g => uhsToBall(imageOfOriginUHS(g)));
     const words = new Map([[pslKey(Matrix2x2.identity()), []]]);
     const orbit = [];
     const stabilizers = [];
 
-    let beam = [{ matrix: Matrix2x2.identity(), word: [], lastGenIdx: -1 }];
+    // `back` is g⁻¹·p: the child g·s lies at d(p, g·s·p) = d(g⁻¹·p, s·p).
+    let beam = [{ matrix: Matrix2x2.identity(), word: [], lastGenIdx: -1, back: origin }];
 
     for (let depth = 1; depth <= maxDepth; depth++) {
-        const candidates = [];
-        for (const entry of beam) {
+        // Rank every step by the distance of the child it would make, then
+        // form children nearest first until the beam is full: a step that
+        // carries the basepoint on past where g already took it is never
+        // multiplied out. (The sort is stable, so ties keep beam order and
+        // the first word found for an element is still a shortest one.)
+        const steps = [];
+        for (let e = 0; e < beam.length; e++) {
+            const entry = beam[e];
             for (let i = 0; i < numGens; i++) {
                 // Generators interleaved [g1, g1^-1, g2, g2^-1, ...]; skip backtracking
                 if (entry.lastGenIdx >= 0 && i === (entry.lastGenIdx ^ 1)) continue;
-                const next = entry.matrix.mul(generators[i]);
-                const key = pslKey(next);
-                if (words.has(key)) continue;
-                const base = (i >> 1) + 1;
-                const genIdx = (i & 1) === 0 ? base : -base;
-                const word = [...entry.word, genIdx];
-                words.set(key, word);          // BFS by depth: first word is shortest
-
-                const orbitPt = uhsToBall(imageOfOriginUHS(next));
-                const dist = hypDistProxy(origin, orbitPt);
-                candidates.push({ matrix: next, word, lastGenIdx: i, orbitPt, dist });
+                steps.push({ e, i, d: hypDistProxy(entry.back, genPts[i]) });
             }
+        }
+        steps.sort((a, b) => a.d - b.d);
+        const candidates = [];
+        for (const { e, i } of steps) {
+            if (candidates.length >= beamWidth) break;
+            const entry = beam[e];
+            const next = entry.matrix.mul(generators[i]);
+            const key = pslKey(next);
+            if (words.has(key)) continue;
+            const base = (i >> 1) + 1;
+            const genIdx = (i & 1) === 0 ? base : -base;
+            const word = [...entry.word, genIdx];
+            words.set(key, word);          // BFS by depth: first word is shortest
+
+            const orbitPt = uhsToBall(imageOfOriginUHS(next));
+            const dist = hypDistProxy(origin, orbitPt);
+            candidates.push({ matrix: next, word, lastGenIdx: i, orbitPt, dist });
         }
         if (candidates.length === 0) break;
         candidates.sort((a, b) => a.dist - b.dist);
-        beam = candidates.slice(0, beamWidth);
+        beam = candidates;
 
         for (const entry of beam) {
+            entry.back = uhsToBall(imageOfOriginUHS(entry.matrix.inv()));
             if (entry.orbitPt.lengthSq() < STAB_TOL) {
                 stabilizers.push({ matrix: entry.matrix, word: entry.word });
             } else if (orbit.length < maxOrbit) {
@@ -251,6 +280,154 @@ function pruneWalls(walls) {
     return poly;
 }
 
+// ---------------- Phase 4: the wall closure ----------------
+
+const SEED_WALLS = 200;         // nearest orbit elements that seed the closure
+const CLOSURE_ROUNDS = 60;
+
+const letterOf = (i) => ((i & 1) === 0 ? (i >> 1) + 1 : -((i >> 1) + 1));
+
+/**
+ * The walls of the Dirichlet domain at q0, closed up under products: the walls
+ * found so far are the search moves. Seeds go in nearest first; then each
+ * round multiplies every pair of walls (and every wall by a generator), at
+ * least one of them new, and accepts the products whose bisectors cut the
+ * domain, by the exact face test. A product a·b can cut a compact domain of
+ * radius R only if d(q, a·b·q) = d(a⁻¹·q, b·q) < 2R, which is known before the
+ * product is formed. When no product cuts, the generators are reduced into
+ * the domain; a nontrivial remainder is a generator outside the group of the
+ * face pairings, and its orbit point lies in the domain, so its wall cuts.
+ *
+ * Elements are in the basepoint frame, walls displayed through viewMat (as in
+ * computeCanonicalDomain). Returns { walls, poly, tried, stab }: `tried` is
+ * every element tested (they extend the orbit), `stab` the ones found fixing p,
+ * the unperturbed basepoint.
+ */
+function closeWalls(seeds, generators, ctx) {
+    const { viewMat, q0, conePoint, maxFaces, wordCap, words } = ctx;
+    const ptOf = (m) => applyMatrixToBall(viewMat.mul(m).normalized(), q0);
+    const walls = [];
+    let poly = buildPolyhedron(walls);
+    const known = new Map();            // key → element tested (null: the identity)
+    const wallOf = new Map();           // key → its wall, while it is one
+    const tried = [], stab = [];
+
+    // An element is settled once it is tested with a word within the cap. Met
+    // again, it keeps the shorter word: every wall turns up as many different
+    // products, and the walls carry their words to the exact certificate.
+    const consider = (matrix, word) => {
+        const m = matrix.normalized();
+        const key = pslKey(m);
+        const seen = known.get(key);
+        if (seen !== undefined) {
+            if (seen && word.length < 3 * seen.word.length) {
+                const r = reduceWord(word);
+                if (r.length < seen.word.length) {
+                    seen.word = r;
+                    words.set(key, r);
+                    const w = wallOf.get(key);
+                    if (w) w.word = r.slice();
+                }
+            }
+            return null;
+        }
+        if (distFromIdentityPSL(m) < 1e-7) { known.set(key, null); return null; }
+        const w0 = words.get(key);
+        const wd = w0 && w0.length <= word.length ? w0 : reduceWord(word);
+        if (!w0 || w0.length > wd.length) words.set(key, wd);
+        if (wd.length > wordCap) return null;      // may come back with a shorter word
+        const pt = ptOf(m);
+        const el = { matrix: m, word: wd, key, pt, dist: hypDistProxy(conePoint, pt) };
+        known.set(key, el);
+        tried.push(el);
+        if (uhsToBall(imageOfOriginUHS(m)).lengthSq() < STAB_TOL) stab.push(el);
+        return el;
+    };
+    const tryAdd = (el) => {
+        if (walls.length >= maxFaces) return false;
+        const cov = bisectorCov(conePoint, el.pt);
+        if (!cov || walls.some(w => covClose(w.cov, cov))) return false;
+        if (maxViolation(poly, cov) <= CUT_TOL) return false;
+        const isStab = uhsToBall(imageOfOriginUHS(el.matrix)).lengthSq() < STAB_TOL;
+        const wall = makeWall(cov, { matrix: el.matrix, word: el.word.slice(), kind: isStab ? 'cone' : 'face' });
+        walls.push(wall);
+        wallOf.set(el.key, wall);
+        poly = buildPolyhedron(walls);
+        return true;
+    };
+    // Poincaré reduction of g·q into the domain: while g·q lies past the wall
+    // of t (nearer t·q than q), replace g by t⁻¹·g; d(q, g·q) drops each step.
+    const reduceIntoDomain = (matrix, word) => {
+        let g = matrix.normalized(), w = word;
+        const pts = walls.map(t => ptOf(t.elem));
+        for (let it = 0; it < 400; it++) {
+            const x = ptOf(g);
+            let best = -1, bd = hypDistProxy(conePoint, x) * (1 - 1e-9);
+            for (let j = 0; j < walls.length; j++) {
+                const d = hypDistProxy(pts[j], x);
+                if (d < bd) { bd = d; best = j; }
+            }
+            if (best < 0) break;
+            g = walls[best].elem.inv().mul(g).normalized();
+            w = reduceWord([...invertWord(walls[best].word), ...w]);
+        }
+        return { g, word: w };
+    };
+
+    const start = [], inStart = new Set();
+    for (const s of seeds) {
+        const el = consider(s.matrix, s.word) || known.get(pslKey(s.matrix.normalized()));
+        if (el && !inStart.has(el.key)) { inStart.add(el.key); start.push(el); }
+    }
+    start.sort((a, b) => a.dist - b.dist);
+    for (const el of start) tryAdd(el);
+    poly = pruneWalls(walls);
+
+    const letters = generators.map((m, i) => ({ m, word: [letterOf(i)], key: pslKey(m.normalized()), pt: ptOf(m) }));
+    let fresh = new Set(walls.map(w => pslKey(w.elem)));
+    for (let round = 0; round < CLOSURE_ROUNDS && walls.length < maxFaces; round++) {
+        let reach = Infinity;
+        if (poly.finiteVolume && poly.vertices.length && poly.vertices.every(v => !v.ideal)) {
+            reach = 0;
+            for (const v of poly.vertices) reach = Math.max(reach, hypDist(kleinToBall(v.k), conePoint));
+            reach = 2 * reach + 1e-6;
+        }
+        const moves = [...walls.map(w => ({ m: w.elem, word: w.word, key: pslKey(w.elem), pt: ptOf(w.elem) })), ...letters];
+        const cands = [];
+        for (const a of walls) {
+            const aNew = fresh.has(pslKey(a.elem));
+            const back = ptOf(a.elem.inv());            // a⁻¹·q
+            for (const b of moves) {
+                if (!aNew && !fresh.has(b.key)) continue;   // tested in an earlier round
+                if (reach < Infinity && hypDist(back, b.pt) > reach) continue;
+                const el = consider(a.elem.mul(b.m), [...a.word, ...b.word]);
+                if (el) cands.push(el);
+            }
+            if (aNew) {
+                const el = consider(a.elem.inv(), invertWord(a.word));
+                if (el) cands.push(el);
+            }
+        }
+        cands.sort((x, y) => x.dist - y.dist);
+        const before = new Set(walls.map(w => pslKey(w.elem)));
+        let added = 0;
+        for (const el of cands) if (tryAdd(el)) added++;
+        if (!added) {
+            for (const s of letters) {
+                const { g, word } = reduceIntoDomain(s.m, s.word);
+                if (distFromIdentityPSL(g) < 1e-7) continue;
+                const el = known.get(pslKey(g)) || consider(g, word);
+                if (el && tryAdd(el)) added++;
+            }
+        }
+        if (!added) break;
+        poly = pruneWalls(walls);
+        fresh = new Set(walls.map(w => pslKey(w.elem)).filter(k => !before.has(k)));
+        if (fresh.size === 0) break;
+    }
+    return { walls, poly, tried, stab };
+}
+
 /**
  * Assign face pairings.
  * The wall of g is Bis(q, gq); s = g^{-1} maps it to Bis(g^{-1}q, q), the wall
@@ -306,15 +483,14 @@ function assignPairings(walls, poly, vMat, vInv) {
  * Returns the proposals (not yet added).
  */
 function transportProposals(walls, poly, ctx) {
-    const { vMat, vInv, propose, orbitCandidates, q0 } = ctx;
+    const { vMat, vInv, propose, orbitCandidates, q0, wallKeys } = ctx;
     for (let i = 0; i < walls.length; i++) {
         const w = walls[i];
         const sAlg = w.elem.inv().normalized();
         const sGeom = vMat.mul(sAlg).mul(vInv).normalized();
         const pts = facePoints(poly, i, 10);
         // Missing partner wall.
-        const keyS = pslKey(sAlg);
-        if (!walls.some(w2 => pslKey(w2.elem) === keyS) && pts.length) {
+        if (!wallKeys.has(pslKey(sAlg)) && pts.length) {
             propose(sAlg, invertWord(w.word));
         }
         // Finite vertices of the face first: they are where a missing wall
@@ -348,7 +524,9 @@ function transportProposals(walls, poly, ctx) {
  * the domain comes from an element with d(q, gq) < 2R, and every such element
  * is a product of face pairings whose partial products stay within 3R (the
  * tiles crossed by the geodesic from q to gq). Walk that ball of the Cayley
- * graph and propose every element whose bisector beats q at some vertex.
+ * graph and propose every element whose bisector beats q at some vertex. A
+ * step's distance d(q, g·s·q) = d(g⁻¹·q, s·q) is known before the product is
+ * formed, so steps that leave the ball cost a distance, not a product and a key.
  */
 function dirichletProposals(walls, poly, ctx) {
     const { vMat, q0, propose } = ctx;
@@ -357,25 +535,27 @@ function dirichletProposals(walls, poly, ctx) {
     if (verts.length === 0) return;
     const R = Math.max(...verts.map(v => hypDist(v, qV)));
     if (!Number.isFinite(R) || R > 6) return;          // large domains: skip
-    const moves = walls.filter(w => w.pairing).map(w => ({ m: w.pairing.alg, word: w.pairing.word }));
+    const ptOf = (m) => applyMatrixToBall(vMat.mul(m).normalized(), q0);
+    const moves = walls.filter(w => w.pairing).map(w => ({ m: w.pairing.alg, word: w.pairing.word, pt: ptOf(w.pairing.alg) }));
     const seen = new Set([pslKey(Matrix2x2.identity())]);
-    let frontier = [{ m: Matrix2x2.identity(), word: [] }];
+    let frontier = [{ m: Matrix2x2.identity(), word: [], back: qV }];
     const LIMIT = 20000;
+    const ball = 3 * R + 1e-6;
     for (let depth = 0; depth < 40 && frontier.length && seen.size < LIMIT; depth++) {
         const next = [];
         for (const f of frontier) {
             for (const mv of moves) {
+                const d = hypDist(f.back, mv.pt);
+                if (d > ball) continue;
                 const g = f.m.mul(mv.m).normalized();
                 const key = pslKey(g);
                 if (seen.has(key)) continue;
                 seen.add(key);
-                const gq = applyMatrixToBall(vMat.mul(g).normalized(), q0);
-                const d = hypDist(qV, gq);
-                if (d > 3 * R + 1e-6) continue;
                 const word = reduceWord([...f.word, ...mv.word]);
-                next.push({ m: g, word });
-                if (d < 2 * R && verts.some(v => hypDist(v, gq) < hypDist(v, qV) - 1e-9)) {
-                    propose(g, word);
+                next.push({ m: g, word, back: ptOf(g.inv()) });
+                if (d < 2 * R) {
+                    const gq = ptOf(g);
+                    if (verts.some(v => hypDist(v, gq) < hypDist(v, qV) - 1e-9)) propose(g, word);
                 }
             }
         }
@@ -396,7 +576,7 @@ const EMPTY_WALL = new THREE.Vector4(0.0, 0.0, 100.0, 99.995);  // far-away sphe
  * @param {Matrix2x2[]} generators - interleaved [g1, g1^-1, g2, g2^-1, ...], det 1
  * @param {Matrix2x2} viewMat - view isometry (det 1); walls are built in its frame
  * @param {number} maxFaces - cap on accepted walls
- * @param {Object} options - { maxDepth, beamWidth, maxOrbit, skipPairings, fullDirichlet }
+ * @param {Object} options - { maxDepth, beamWidth, maxOrbit, skipPairings, fullDirichlet, dirichletCheck }
  * @returns {{
  *   facesBuffer: THREE.Vector4[], count: number,
  *   walls: Array, stabilizer: { elements, capped, order },
@@ -413,7 +593,8 @@ export function computeCanonicalDomain(generators = [], viewMat = Matrix2x2.iden
         beamWidth = 600,
         maxOrbit = 6000,
         skipPairings = false,
-        fullDirichlet = false
+        fullDirichlet = false,
+        dirichletCheck = true
     } = options;
 
     const basepoint = uhsToBall(imageOfOriginUHS(viewMat));
@@ -434,7 +615,7 @@ export function computeCanonicalDomain(generators = [], viewMat = Matrix2x2.iden
     const { orbit, stabilizers, words } = searchOrbit(generators, { maxDepth, beamWidth, maxOrbit });
 
     // Phase 2: stabilizer closure
-    const { elements: H, capped } = closeStabilizer(stabilizers);
+    let { elements: H, capped } = closeStabilizer(stabilizers);
 
     // Phase 3: perturbed basepoint q0 (basepoint frame). If the stabilizer is
     // nontrivial, nudge in a fixed generic direction. All walls are bisectors
@@ -442,111 +623,147 @@ export function computeCanonicalDomain(generators = [], viewMat = Matrix2x2.iden
     // Dirichlet domain at q0: stabilizer walls pass exactly through the
     // basepoint (forming a fundamental cone for H), the rest are the
     // basepoint-bisectors up to O(ε).
-    const hasStab = H.length > 1;
     const vInv = viewMat.inv().normalized();
     // fullDirichlet: render the full (symmetric) Dirichlet domain D(p) instead
     // of the canonical fundamental domain. We then DON'T perturb the basepoint
     // and DON'T add the stabilizer cone walls — at the true basepoint those
     // bisectors are degenerate (h·p = p), so D(p) is H-invariant and symmetric
     // (it is |H| copies of a fundamental domain).
-    const usePerturb = hasStab && !fullDirichlet;
-    const q0 = usePerturb
-        ? GENERIC_DIR.clone().multiplyScalar(PERTURB_EPS)
-        : new THREE.Vector3(0, 0, 0);
-    const conePoint = applyMatrixToBall(viewMat, q0);
-
-    // Word lengths: a completion proposal is a product of wall elements, so its
-    // concatenated word can double every pass. Prefer the shortest word the
-    // search found for the same element, and refuse proposals whose word is
-    // still long — past this length the float matrix is not trustworthy either.
-    const wordCap = Math.max(24, 6 * maxDepth);
-    const shortest = (m, word) => {
-        const w = words.get(pslKey(m));
-        return w && w.length <= word.length ? w.slice() : reduceWord(word);
+    let q0, conePoint;
+    const placeBasepoint = () => {
+        const usePerturb = H.length > 1 && !fullDirichlet;
+        q0 = usePerturb
+            ? GENERIC_DIR.clone().multiplyScalar(PERTURB_EPS)
+            : new THREE.Vector3(0, 0, 0);
+        conePoint = applyMatrixToBall(viewMat, q0);
     };
+    placeBasepoint();
 
-    // Candidate walls: stabilizer elements first (their walls bound the cone
-    // and pass through the basepoint), then orbit elements by distance.
-    const candidates = [];
-    if (!fullDirichlet) {
-        for (const h of H) {
-            if (distFromIdentityPSL(h.matrix) < 1e-7) continue;  // skip identity
-            candidates.push({ matrix: h.matrix, word: h.word, kind: 'cone' });
-        }
-    }
-    for (const entry of orbit) {
-        candidates.push({ matrix: entry.matrix, word: entry.word, kind: 'face' });
-    }
+    // Word lengths: a product of walls has the concatenated word, which can
+    // double every round. Prefer the shortest word found for the same element,
+    // and refuse elements whose word is still long — past this length the
+    // float matrix is not trustworthy either.
+    const wordCap = Math.max(24, 6 * maxDepth);
 
-    // Phase 4: exact incremental acceptance. Wall of word w (displayed):
-    // Bis(V·q0, V·w·q0).
-    const walls = [];
-    let poly = buildPolyhedron(walls);
-    const covFor = (m) => bisectorCov(conePoint, applyMatrixToBall(viewMat.mul(m).normalized(), q0));
-    for (const cand of candidates) {
-        if (walls.length >= maxFaces) { notes.push(`face cap of ${maxFaces} reached`); break; }
-        const cov = covFor(cand.matrix);
-        if (!cov || walls.some(w => covClose(w.cov, cov))) continue;
-        if (maxViolation(poly, cov) <= CUT_TOL) continue;
-        walls.push(makeWall(cov, cand));
-        poly = buildPolyhedron(walls);
+    // Phase 4: the wall closure, seeded by the stabilizer elements (their
+    // walls bound the cone and pass through the basepoint), the generators and
+    // the nearest orbit elements. Wall of word w (displayed): Bis(V·q0, V·w·q0).
+    const generatorSeeds = generators.map((m, i) => ({ matrix: m, word: [letterOf(i)] }));
+    const seedsWith = (extra) => [
+        ...(fullDirichlet ? [] : H.filter(h => distFromIdentityPSL(h.matrix) >= 1e-7)),
+        ...extra, ...generatorSeeds, ...orbit.slice(0, SEED_WALLS)
+    ];
+    const close = (extra) => closeWalls(seedsWith(extra), generators, { viewMat, q0, conePoint, maxFaces, wordCap, words });
+    let closed = close([]);
+    if (H.length <= 1 && closed.stab.length && !fullDirichlet) {
+        // An element fixing the basepoint that the beam did not reach (a
+        // product of walls): perturb, and close again from the walls found.
+        ({ elements: H, capped } = closeStabilizer(closed.stab.map(e => ({ matrix: e.matrix, word: e.word }))));
+        placeBasepoint();
+        closed = close(closed.walls.map(w => ({ matrix: w.elem, word: w.word })));
     }
+    const walls = closed.walls;
+    if (walls.length >= maxFaces) notes.push(`face cap of ${maxFaces} reached`);
+
+    // The orbit, for the invariants and the completion: the beam's elements
+    // and every element the closure tested, by distance from p.
+    const inOrbit = new Set(orbit.map(o => pslKey(o.matrix)));
+    for (const el of closed.tried) {
+        if (inOrbit.has(el.key)) continue;
+        const orbitPt = uhsToBall(imageOfOriginUHS(el.matrix));
+        if (orbitPt.lengthSq() < STAB_TOL) continue;
+        orbit.push({ matrix: el.matrix, word: el.word, orbitPt, dist: hypDistProxy(ORIGIN, orbitPt) });
+    }
+    orbit.sort((a, b) => a.dist - b.dist);
+    if (orbit.length > maxOrbit) orbit.length = maxOrbit;
 
     // Phase 5: joint pruning (a later wall can make an earlier one redundant).
-    poly = pruneWalls(walls);
+    let poly = pruneWalls(walls);
 
     // Phase 6: pairings, with completion — walls revealed by transporting the
     // faces through their pairings are added, then prune/pair again until
     // stable.
-    if (!skipPairings) {
-        assignPairings(walls, poly, viewMat, vInv);
-        const tooLong = new Set();
-        for (let iter = 0; iter < 24; iter++) {
-            const toAdd = new Map();
-            const propose = (matrix, word) => {
-                const m = matrix.normalized();
-                const key = pslKey(m);
-                if (distFromIdentityPSL(m) < 1e-7 || toAdd.has(key)) return;
-                if (walls.some(w => pslKey(w.elem) === key)) return;
-                const wd = shortest(m, word);
-                if (wd.length > wordCap) { tooLong.add(key); return; }
-                toAdd.set(key, { matrix: m, word: wd });
-            };
-            const ctx = { vMat: viewMat, vInv, propose, orbitCandidates: orbit, q0 };
-            transportProposals(walls, poly, ctx);
-            if (toAdd.size === 0 && poly.finiteVolume) dirichletProposals(walls, poly, ctx);
-            let added = 0;
-            for (const { matrix, word } of toAdd.values()) {
-                if (walls.length >= maxFaces) { notes.push(`face cap of ${maxFaces} reached`); break; }
-                const cov = covFor(matrix);
-                if (!cov || walls.some(w => covClose(w.cov, cov))) continue;
-                if (maxViolation(poly, cov) <= CUT_TOL) continue;
-                const isStab = uhsToBall(imageOfOriginUHS(matrix)).lengthSq() < STAB_TOL;
-                walls.push(makeWall(cov, { matrix, word, kind: isStab ? 'cone' : 'face' }));
-                poly = buildPolyhedron(walls);
-                added++;
-            }
-            if (added === 0) break;
-            poly = pruneWalls(walls);
-            assignPairings(walls, poly, viewMat, vInv);
-        }
-        if (tooLong.size) {
-            notes.push(`${tooLong.size} completion proposal(s) skipped: words longer than ${wordCap} letters`);
-        }
-    }
-
-    // Shader buffer
-    const count = Math.min(walls.length, 256);
-    for (let i = 0; i < 256; i++) {
-        if (i < count) _paddedBuffer[i].copy(walls[i].cov);
-        else _paddedBuffer[i].copy(EMPTY_WALL);
-    }
-
-    return {
-        facesBuffer: _paddedBuffer, count, walls,
+    const domain = {
+        facesBuffer: _paddedBuffer, count: 0, walls,
         stabilizer: { elements: H, capped, order: H.length },
-        basepoint, conePoint, q0, poly, orbit, words, notes
+        basepoint, conePoint, q0, poly, orbit, words, notes,
+        _complete: { viewMat, vInv, wordCap, maxFaces }
     };
+    if (!skipPairings) completeWalls(domain, { dirichlet: dirichletCheck });
+    loadFacesBuffer(domain);
+    domain.count = Math.min(walls.length, 256);
+    return domain;
+}
+
+/**
+ * Completion passes on a domain (mutated): pairings, walls revealed by
+ * transporting faces through them, and with `dirichlet` the Dirichlet check
+ * of a compact domain, then prune and pair again until stable. Returns the
+ * number of walls added.
+ */
+function completeWalls(domain, { dirichlet }) {
+    const { walls, q0, orbit, words, notes } = domain;
+    const { viewMat, vInv, wordCap, maxFaces } = domain._complete;
+    const conePoint = applyMatrixToBall(viewMat, q0);
+    const covFor = (m) => bisectorCov(conePoint, applyMatrixToBall(viewMat.mul(m).normalized(), q0));
+    const shortest = (m, word) => {
+        const w = words.get(pslKey(m));
+        return w && w.length <= word.length ? w.slice() : reduceWord(word);
+    };
+    let poly = domain.poly;
+    let total = 0;
+    assignPairings(walls, poly, viewMat, vInv);
+    const tooLong = new Set();
+    for (let iter = 0; iter < 24; iter++) {
+        const toAdd = new Map();
+        const wallKeys = new Set(walls.map(w => pslKey(w.elem)));
+        const propose = (matrix, word) => {
+            const m = matrix.normalized();
+            const key = pslKey(m);
+            if (distFromIdentityPSL(m) < 1e-7 || toAdd.has(key) || wallKeys.has(key)) return;
+            const wd = shortest(m, word);
+            if (wd.length > wordCap) { tooLong.add(key); return; }
+            toAdd.set(key, { matrix: m, word: wd });
+        };
+        const ctx = { vMat: viewMat, vInv, propose, orbitCandidates: orbit, q0, wallKeys };
+        transportProposals(walls, poly, ctx);
+        if (dirichlet && toAdd.size === 0 && poly.finiteVolume) dirichletProposals(walls, poly, ctx);
+        let added = 0;
+        for (const { matrix, word } of toAdd.values()) {
+            if (walls.length >= maxFaces) { notes.push(`face cap of ${maxFaces} reached`); break; }
+            const cov = covFor(matrix);
+            if (!cov || walls.some(w => covClose(w.cov, cov))) continue;
+            if (maxViolation(poly, cov) <= CUT_TOL) continue;
+            const isStab = uhsToBall(imageOfOriginUHS(matrix)).lengthSq() < STAB_TOL;
+            walls.push(makeWall(cov, { matrix, word, kind: isStab ? 'cone' : 'face' }));
+            poly = buildPolyhedron(walls);
+            added++;
+        }
+        if (added === 0) break;
+        total += added;
+        poly = pruneWalls(walls);
+        assignPairings(walls, poly, viewMat, vInv);
+    }
+    if (tooLong.size) {
+        notes.push(`${tooLong.size} completion proposal(s) skipped: words longer than ${wordCap} letters`);
+    }
+    domain.poly = poly;
+    return total;
+}
+
+/**
+ * The deferred Dirichlet check (computeCanonicalDomain with
+ * `dirichletCheck: false`): for a compact domain, propose every element that
+ * could still cut it, and complete again. Mutates the domain and refreshes the
+ * shader buffer; returns true when walls were added. Call it before the
+ * domain is retargeted to another view.
+ */
+export function completeDirichlet(domain) {
+    if (!domain || !domain._complete || !domain.poly || !domain.poly.finiteVolume) return false;
+    const added = completeWalls(domain, { dirichlet: true });
+    loadFacesBuffer(domain);
+    domain.count = Math.min(domain.walls.length, 256);
+    return added > 0;
 }
 
 /**

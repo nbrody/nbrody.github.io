@@ -11,7 +11,7 @@
  * Ford domain is computed in its own frame, with the chosen cusp at ∞ (`Kf`).
  */
 import { Matrix2x2, Complex, pslKey, applyMatrixToBall } from './math.js';
-import { computeCanonicalDomain, computeFordDomain } from './canonical.js';
+import { computeCanonicalDomain, computeFordDomain, completeDirichlet } from './canonical.js';
 import { certifyDomain, transportBoundary } from './certifier.js';
 import { deserializeExactContext } from './exact.js';
 import { deserializeTowerContext } from './tower.js';
@@ -260,10 +260,12 @@ export function runCompute(input) {
     const interleaved = gens.flatMap(g => [g, g.inv().normalized()]);
     const exactCtx = !input.exact ? null
         : input.exact.kind === 'tower' ? deserializeTowerContext(input.exact) : deserializeExactContext(input.exact);
+    // The Dirichlet check of a compact domain waits for the certificate: a
+    // verified certificate already proves the walls complete.
     const D = computeCanonicalDomain(interleaved, Matrix2x2.identity(), input.maxFaces, {
-        maxDepth: input.maxDepth, fullDirichlet: !!input.fullDirichlet
+        maxDepth: input.maxDepth, fullDirichlet: !!input.fullDirichlet, dirichletCheck: false
     });
-    const t1 = Date.now();
+    let t1 = Date.now();
 
     let rep;
     if (input.fullDirichlet && D.stabilizer.order > 1) {
@@ -277,10 +279,17 @@ export function runCompute(input) {
         ];
         rep = { ok: false, status: 'full', log: lines, entries: lines.map(text => ({ kind: 'info', text })) };
     } else {
-        rep = certifyDomain(D.walls, D.basepoint, exactCtx, {
+        const certify = () => certifyDomain(D.walls, D.basepoint, exactCtx, {
             poly: D.poly, center: D.conePoint,
             generators: gens.map((m, i) => ({ matrix: m, word: [i + 1] }))
         });
+        rep = certify();
+        if (rep.status !== 'verified') {
+            const tc = Date.now();
+            const grew = completeDirichlet(D);
+            t1 += Date.now() - tc;                  // domain time, not certificate time
+            if (grew) rep = certify();
+        }
         if (rep.status !== 'verified') attachNondiscreteness(rep, gens, input.exact, D);
     }
     const t2 = Date.now();
