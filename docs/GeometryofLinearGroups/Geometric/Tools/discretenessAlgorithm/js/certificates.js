@@ -28,7 +28,7 @@ export const wordText = (w) => (w.length ? w.map((x) => `g${String(Math.abs(x)).
 /**
  * Search short words for a certificate of non-discreteness.
  * ctx = { field, gens } (no orientation-reversing generators).
- * Returns { nondiscrete: true, kind, word(s), text } or { nondiscrete: false, checked }.
+ * Returns { nondiscrete: true, kind, word(s), text, tex } or { nondiscrete: false, checked }.
  */
 export function archCertificate(ctx, { maxLen = null, cap = 600 } = {}) {
     const gens = ctx.gens;
@@ -41,6 +41,6 @@ export function archCertificate(ctx, { maxLen = null, cap = 600 } = {}) {
     if (!res.found || !res.exact) return { nondiscrete: false, checked: res.checked, length: len };
     return {
         nondiscrete: true, kind: res.kind, word: res.words[0], words: res.words,
-        angle: res.angle, value: res.value, text: res.text,
+        angle: res.angle, value: res.value, text: res.text, tex: res.tex || null,
     };
 }

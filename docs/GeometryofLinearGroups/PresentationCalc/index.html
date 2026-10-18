@@ -18,13 +18,24 @@
     <header class="top">
         <h1>Presentation Calculator</h1>
         <div class="ex-wrap">
-            <button class="quiet" id="examples-btn" aria-haspopup="true" aria-expanded="false">examples</button><button class="quiet die" id="dice-btn" title="A random example" aria-label="Load a random example">🎲</button>
+            <button class="quiet" id="examples-btn" aria-haspopup="true" aria-expanded="false">examples</button><button class="quiet die" id="dice-btn" title="A random example (⌘-click: a random group)" aria-label="Load a random example; with Command or Control, a random group">🎲</button>
             <div class="ex-pop" id="ex-pop" hidden></div>
         </div>
     </header>
 
-    <div class="mats" id="mats"></div>
-    <button class="quiet add-mat" id="add-mat" title="Add a matrix" aria-label="Add a matrix">+</button>
+    <!-- the group as a presentation: ⟨ generators | relations ⟩ -->
+    <div class="pres-top" id="pres-top">
+        <div class="angle" aria-hidden="true"><svg viewBox="0 0 20 100" preserveAspectRatio="none"><polyline points="18,1 2,50 18,99" vector-effect="non-scaling-stroke"/></svg></div>
+        <div class="pres-inner">
+            <div class="pres-gens" id="pres-gens">
+                <div class="mats" id="mats"></div>
+                <button class="quiet add-mat" id="add-mat" title="Add a matrix" aria-label="Add a matrix">+</button>
+            </div>
+            <div class="pres-bar" aria-hidden="true"></div>
+            <div class="pres-rels" id="pres-rels" aria-live="polite"></div>
+        </div>
+        <div class="angle" aria-hidden="true"><svg viewBox="0 0 20 100" preserveAspectRatio="none"><polyline points="2,1 18,50 2,99" vector-effect="non-scaling-stroke"/></svg></div>
+    </div>
 
     <div class="field">
         <div class="field-line">
@@ -45,7 +56,7 @@
         <label for="wordLength">Word length at ∞</label><input id="wordLength" type="number" value="8" min="1" max="32" step="1">
         <label for="face-count-input">Max faces at ∞</label><input id="face-count-input" type="number" value="96" min="1" max="256" step="4">
         <label for="decide-seconds">Seconds per prime</label><input id="decide-seconds" type="number" value="4" min="1" max="60" step="1">
-        <span class="sub-h">Step 4 · FlashBeam</span>
+        <span class="sub-h">Step 3 · arithmetic (FlashBeam)</span>
         <label for="beam-width">Beam width</label><input id="beam-width" type="number" value="1500" min="100" max="20000" step="100">
         <label for="flash-size">Flash size</label><input id="flash-size" type="number" value="40" min="0" max="400" step="5">
         <label for="beam-seconds">Seconds</label><input id="beam-seconds" type="number" value="60" min="5" max="1800" step="5">
@@ -61,13 +72,14 @@
     <section class="card result" id="verdict" hidden>
         <div class="v-head" id="v-head"></div>
         <p class="summary" id="v-sub"></p>
-        <div class="v-pres" id="v-pres"></div>
         <div class="steps" id="step-list"></div>
     </section>
 
     <section class="card step" id="card-zariski" data-step="zariski" hidden>
         <h2><span class="num">1</span> Zariski closure <span class="tag" data-tag></span></h2>
         <div class="step-body"></div>
+        <h3 class="sub-card" id="cong-h">Congruence closure <span class="tag" id="cong-tag"></span></h3>
+        <div class="step-body" id="cong-body"></div>
     </section>
     <section class="card step" id="card-places" data-step="places" hidden>
         <h2><span class="num">2</span> Discreteness at each place <span class="tag" data-tag></span></h2>
@@ -77,12 +89,8 @@
             <div class="frame-foot"><span id="places-caption"></span><a id="places-open" target="_blank" rel="noopener">Open in a new tab ↗</a></div>
         </div>
     </section>
-    <section class="card step" id="card-congruence" data-step="congruence" hidden>
-        <h2><span class="num">3</span> Congruence closure <span class="tag" data-tag></span></h2>
-        <div class="step-body"></div>
-    </section>
     <section class="card step" id="card-sarith" data-step="sarith" hidden>
-        <h2><span class="num">4</span> FlashBeam in the adelic product <span class="tag" data-tag></span></h2>
+        <h2><span class="num">3</span> Arithmetic <span class="h-sub">FlashBeam in the adelic product</span> <span class="tag" data-tag></span></h2>
         <div class="step-body"></div>
         <div class="frame-wrap" id="stab-frame-wrap" hidden>
             <div class="frame-host" id="stab-frame"></div>
@@ -96,10 +104,12 @@
         <summary>What is computed, and how</summary>
         <div>
             <p><b>1 · Zariski closure.</b> The <a href="../Algebraic/Tools/zariskiClosure/" target="_blank" rel="noopener">Zariski Closure</a> engine classifies the closure of <span class="m">\Gamma</span> over <span class="m">\overline{\mathbb{Q}}</span>: finite, a torus or its normalizer, a Borel or unipotent group, or all of <span class="m">\mathrm{PGL}_2</span>. A dense <span class="m">\Gamma</span> has an invariant trace field <span class="m">k</span> and quaternion algebra <span class="m">A</span>; its closure over <span class="m">\mathbb{Q}</span> is <span class="m">\mathrm{Res}_{k/\mathbb{Q}}\mathrm{PGL}_1(A)</span>, and <span class="m">\Gamma^{(2)}</span> lies in an <span class="m">S</span>-arithmetic group <span class="m">\Lambda</span>, where <span class="m">S</span> is the set of primes at which <span class="m">\Gamma</span> is unbounded.</p>
-            <p><b>2 · Discreteness.</b> For a dense <span class="m">\Gamma</span>, the <a href="../Geometric/Tools/discretenessAlgorithm/" target="_blank" rel="noopener">Discreteness Algorithm</a> tests every place of the field of definition: Poincaré’s polyhedron theorem at ∞ and the Bruhat–Tits tree at each prime. A discrete place ends the computation and is shown live, with its presentation when Poincaré finds one.</p>
-            <p><b>3 · Congruence closure.</b> The closure of <span class="m">\Gamma</span> in <span class="m">\prod_{\mathfrak{p}\notin S}\mathrm{PGL}_1(A_\mathfrak{p})</span>, prime by prime. Its index is a lower bound for <span class="m">[\Lambda : \Gamma^{(2)}]</span>.</p>
-            <p><b>4 · FlashBeam in the adelic product.</b> As in the SO₃ decision project, <span class="m">\Gamma</span> acts on the product <span class="m">X</span> of the symmetric spaces of the places where it is unbounded (<span class="m">\mathbb{H}^2</span> or <span class="m">\mathbb{H}^3</span> at ∞, the tree <span class="m">T_\mathfrak{p}</span> at each <span class="m">\mathfrak{p} \in S</span>) with the <span class="m">\ell^2</span> metric, and is discrete there. FlashBeam multiplies a beam of words by a persistent flash of the lowest elements found, scored by the height <span class="m">d(o, g\cdot o)</span>. Two words reaching one element give a relation, checked exactly. An element <span class="m">g</span> is a Dirichlet generator when the midpoint of <span class="m">[o, g\cdot o]</span> has only <span class="m">o</span> and <span class="m">g\cdot o</span> as nearest orbit points found.</p>
+            <p><b>Congruence closure.</b> The closure <span class="m">\Delta</span> of <span class="m">\Gamma</span> in the congruence topology. The engine finds, prime by prime, where the closure can be smaller than the maximal compact subgroup. Over <span class="m">\mathbb{Q}</span> the local images are then put together in one finite quotient <span class="m">\mathrm{GL}_2(\mathbb{Z}/N)/\langle -1, S\rangle</span>, with the sign of the determinant and the parities of its valuations at <span class="m">S</span>. That gives <span class="m">[\Lambda : \Delta]</span> for <span class="m">\Lambda = \mathrm{PGL}_2(\mathbb{Z}[1/S])</span>. By the congruence subgroup property, <span class="m">\Gamma</span> is <span class="m">S</span>-arithmetic exactly when <span class="m">\Gamma = \Delta</span>, so <span class="m">[\Lambda : \Gamma] \ge [\Lambda : \Delta]</span>, with equality exactly for <span class="m">S</span>-arithmetic <span class="m">\Gamma</span>.</p>
+            <p><b>2 · Discreteness.</b> For a dense <span class="m">\Gamma</span>, the <a href="../Geometric/Tools/discretenessAlgorithm/" target="_blank" rel="noopener">Discreteness Algorithm</a> tests every place of the field of definition: Poincaré’s polyhedron theorem at ∞ and the Bruhat–Tits tree at each prime where <span class="m">\Gamma</span> is unbounded. Embeddings with the same values of <span class="m">\operatorname{tr}^2/\det</span> give conjugate or complex-conjugate groups, so they count as one place, named <span class="m">\mathbb{R}_i</span> or <span class="m">\mathbb{C}_i</span> by its kind; the roots in the field’s picker turn green or red by the verdict at their place. A discrete place is shown live, with its presentation when Poincaré finds one.</p>
+            <p><b>3 · Arithmetic, when Γ is discrete.</b> <span class="m">\Gamma^{(2)}</span> lies in the arithmetic group <span class="m">\Lambda</span>, a lattice in the product of the places where <span class="m">\Gamma</span> is unbounded. With two or more such places, <span class="m">\Lambda</span> is irreducible and dense at each one, so a <span class="m">\Gamma</span> discrete at one of them is thin. With one, <span class="m">\Gamma</span> is arithmetic exactly when it is a lattice there: Stallings folding in <span class="m">\mathrm{PGL}_2(\mathbb{Z})</span> or coset enumeration in a Bianchi group decides when the generators lie there, and otherwise Poincaré’s area or volume does; at a prime, the covering certificate below.</p>
+            <p><b>3 · Arithmetic, when Γ is not discrete at any place.</b> Over <span class="m">\mathbb{Q}</span>, coset enumeration in a presentation of <span class="m">\mathrm{PGL}_2(\mathbb{Z}[1/S])</span> runs first, and settles most <span class="m">S</span>-arithmetic groups at once. Otherwise FlashBeam searches the adelic product. As in the SO₃ decision project, <span class="m">\Gamma</span> acts on the product <span class="m">X</span> of the symmetric spaces of the places where it is unbounded (<span class="m">\mathbb{H}^2</span> or <span class="m">\mathbb{H}^3</span> at ∞, the tree <span class="m">T_\mathfrak{p}</span> at each <span class="m">\mathfrak{p} \in S</span>) with the <span class="m">\ell^2</span> metric, and is discrete there. FlashBeam multiplies a beam of words by a persistent flash of the lowest elements found, scored by the height <span class="m">d(o, g\cdot o)</span>. Two words reaching one element give a relation, checked exactly. An element <span class="m">g</span> is a Dirichlet generator when the midpoint of <span class="m">[o, g\cdot o]</span> has only <span class="m">o</span> and <span class="m">g\cdot o</span> as nearest orbit points found.</p>
             <p>The proof that <span class="m">\Gamma</span> is <span class="m">S</span>-arithmetic comes from the same search: a finite set <span class="m">R</span> of vertices of the trees, with every neighbour of every <span class="m">r \in R</span> equal to <span class="m">w\cdot r'</span> for a word <span class="m">w</span> and some <span class="m">r' \in R</span>, re-checked exactly. Then <span class="m">\Gamma R</span> is every vertex. If <span class="m">A</span> is ramified at every place at ∞ this gives finite index; if it splits at one place <span class="m">\sigma</span>, the elements fixing <span class="m">o</span> must also have finite covolume at <span class="m">\sigma</span>, which Poincaré checks. A search that runs out claims nothing.</p>
+            <p>Over <span class="m">\mathbb{Q}</span> the vertex orbits on the trees are then enumerated, seeded with FlashBeam’s covering, with each vertex stabilizer kept exactly as a Stallings graph in <span class="m">\mathrm{PGL}_2(\mathbb{Z})</span>. When they close up, they give the exact index, or show that <span class="m">\Gamma</span> is thin.</p>
         </div>
     </details>
     </div>

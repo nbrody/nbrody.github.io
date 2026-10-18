@@ -7,7 +7,7 @@
     --bg: #f7f6f2; --card: #ffffff; --ink: #1f2a37; --muted: #5f6b7a; --faint: #8a94a1; --line: #e3e0d8;
     --accent: #2f5d8a; --accent-soft: #e8eff6; --good: #2e7d4f; --good-soft: #e6f3eb; --warn: #a2551a; --warn-soft: #fbefe4;
     --bad: #b3261e; --bad-soft: #fbe9e7; --info: #5b4fa8; --info-soft: #eeebf9; --input-bg: #fcfcfa;
-    --rp-accent: var(--accent); --rp-ink: var(--ink); --rp-dim: var(--muted); --rp-faint: var(--faint); --rp-bg: var(--input-bg); --rp-line: var(--line); --rp-font: var(--sans);
+    --rp-accent: var(--accent); --rp-yes: var(--good); --rp-no: var(--bad); --rp-ink: var(--ink); --rp-dim: var(--muted); --rp-faint: var(--faint); --rp-bg: var(--input-bg); --rp-line: var(--line); --rp-font: var(--sans);
     --serif: Georgia, 'Times New Roman', serif;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -65,6 +65,30 @@ input.cell, input.dname, input.dsrc { font: inherit; padding: 4px 8px; border: 1
 .mq-math-mode .mq-empty { background: var(--accent-soft); }
 .mq-editable-field .mq-selection, .mq-editable-field .mq-selection .mq-non-leaf, .mq-math-mode .mq-selection .mq-scaled { background: var(--accent-soft) !important; color: var(--ink) !important; }
 .add-mat { font-size: 1.15rem; margin: 6px 0 0 2.6em; padding: 0 8px; }
+
+/* the top of the page as a presentation: ⟨ generators | relations ⟩ */
+.pres-top { display: flex; align-items: stretch; gap: 8px; margin-bottom: 22px; }
+.angle { flex: 0 0 20px; display: flex; color: var(--muted); }
+.angle svg { width: 100%; height: 100%; min-height: 90px; overflow: visible; }
+.angle polyline { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.pres-inner { flex: 1; min-width: 0; display: flex; align-items: stretch; gap: 16px; }
+.pres-gens { flex: 0 0 auto; padding: 8px 0; }
+.pres-bar { flex: 0 0 1.6px; background: var(--muted); border-radius: 1px; }
+.pres-rels { flex: 1; min-width: 0; overflow-y: auto; padding: 8px 4px 8px 0; align-self: flex-start; }
+.rels-head { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); margin-bottom: 8px; position: sticky; top: 0; background: var(--bg); padding-bottom: 2px; }
+.rels-head .katex, .step-body h3 .katex, .card h2 .katex { text-transform: none; }
+.rels-head .partial { text-transform: none; letter-spacing: 0; color: var(--warn); }
+.rels-list { list-style: none; display: grid; gap: 5px; font-size: 1.08rem; }
+.rels-list li { overflow-x: auto; overflow-y: hidden; white-space: nowrap; }
+.rels-list li::after { content: ','; color: var(--faint); }
+.rels-list li:last-child::after { content: ''; }
+.rels-empty { color: var(--faint); font-style: italic; font-size: 0.95rem; }
+.rels-free { color: var(--muted); font-size: 0.95rem; }
+@media (max-width: 640px) {
+    .pres-inner { flex-direction: column; gap: 10px; }
+    .pres-bar { flex-basis: 1.6px; }
+    .pres-rels { align-self: stretch; }
+}
 .btn { font-family: var(--sans); font-size: 0.88rem; color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 .btn:hover { border-color: var(--accent); }
 .btn.primary { color: var(--card); background: var(--accent); font-weight: 600; padding: 7px 18px; }
@@ -124,15 +148,34 @@ details.syntax code { font-family: var(--mono); font-size: 0.85em; color: var(--
 .v-pres { margin-top: 8px; overflow-x: auto; }
 .v-pres:empty { display: none; }
 .steps { margin-top: 14px; border-top: 1px solid var(--line); }
-.step-row { display: grid; grid-template-columns: 1.6em 11em 1fr; gap: 4px 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
-.step-row:last-child { border-bottom: none; }
-.step-row:hover .step-name { color: var(--accent); }
-.step-row .num, .card h2 .num { font-family: var(--sans); font-size: 0.72rem; font-weight: 700; color: var(--card); background: var(--tone, var(--faint)); border-radius: 50%; width: 1.5em; height: 1.5em; display: inline-flex; align-items: center; justify-content: center; }
-.step-row .step-name { font-family: var(--sans); font-size: 0.86rem; color: var(--ink); }
-.step-row .step-text { font-size: 0.95rem; }
-.step-row .step-text b { font-weight: normal; color: var(--tone); }
-.step-row .step-text span { color: var(--muted); font-size: 0.9rem; }
-.step-row[data-status="skipped"], .step-row[data-status="idle"] { opacity: 0.6; }
+/* the summary: Zariski closure (congruence closure below it), the places one per line, arithmetic */
+.sum-row, .sum-group { display: grid; grid-template-columns: 11em 1fr; gap: 4px 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.sum-row { cursor: pointer; }
+.sum-row:last-child { border-bottom: none; }
+.sum-name { font-family: var(--sans); font-size: 0.86rem; color: var(--ink); }
+.sum-name[data-verdict="yes"] { color: var(--good); }
+.sum-name[data-verdict="no"] { color: var(--bad); }
+.sum-row:hover .sum-name { color: var(--accent); }
+.sum-text { font-size: 0.95rem; }
+.sum-text b { font-weight: normal; color: var(--tone); }
+.sum-text span { color: var(--muted); font-size: 0.9rem; }
+.sum-row[data-status="skipped"], .sum-row[data-status="idle"] { opacity: 0.6; }
+.sum-sub { padding-top: 0; }
+.sum-sub .sum-name { padding-left: 1.1em; font-size: 0.8rem; color: var(--muted); }
+.sum-row:has(+ .sum-sub) { border-bottom: none; }
+.sum-places { display: grid; gap: 3px; }
+.sum-place { display: grid; grid-template-columns: 8px minmax(6.5em, max-content) 1fr; gap: 10px; align-items: baseline; cursor: pointer; }
+.sum-place .dot { align-self: center; }
+.sum-place .sp-name { font-family: var(--sans); font-size: 0.84rem; color: var(--tone); }
+.sum-place .sp-text { font-size: 0.92rem; color: var(--tone); }
+.sum-place:hover .sp-name { text-decoration: underline; }
+[data-status="undecided"] { --tone: var(--faint); --tone-soft: transparent; }
+.card .num { font-family: var(--sans); font-size: 0.72rem; font-weight: 700; color: var(--card); background: var(--tone, var(--faint)); border-radius: 50%; width: 1.5em; height: 1.5em; display: inline-flex; align-items: center; justify-content: center; }
+.card h2 .h-sub { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--faint); }
+h3.sub-card { font-family: var(--sans); font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin: 22px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+h3.sub-card[hidden] { display: none; }
+h3.sub-card .tag { background: var(--tone-soft); color: var(--tone); }
+.sub-note { font-family: var(--sans); font-size: 0.8rem; color: var(--faint); margin: 14px 0 6px; }
 
 /* step cards */
 .card.step h2 .num { background: var(--tone); }
@@ -166,7 +209,9 @@ td.st-deficient { color: var(--warn); }
 .place-row .p-name { font-family: var(--sans); font-size: 0.88rem; }
 .place-row .p-sub { font-family: var(--sans); font-size: 0.76rem; color: var(--faint); display: block; }
 .place-row .p-verdict { color: var(--tone); }
-.place-row .p-detail { grid-column: 2 / 5; font-size: 0.86rem; color: var(--muted); }
+.place-row .p-detail { grid-column: 2 / 5; font-size: 0.86rem; color: var(--muted); display: grid; gap: 3px; margin-top: 3px; }
+.place-row .p-detail p, .banner.lines p { overflow-x: auto; overflow-y: hidden; }
+.banner.lines > div { display: grid; gap: 4px; min-width: 0; }
 .place-row.selected { background: linear-gradient(90deg, var(--tone-soft), transparent 70%); }
 .place-row .view-btn { grid-column: 4; grid-row: 1; align-self: center; white-space: nowrap; font-family: var(--sans); font-size: 0.78rem; color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px; cursor: pointer; }
 .place-row .view-btn:hover { border-color: var(--accent); }
@@ -225,11 +270,20 @@ details.syntax div { margin-top: 8px; display: grid; gap: 8px; }
     dl.facts { grid-template-columns: 1fr; }
     dl.facts dt { border-bottom: none; padding-bottom: 0; }
     .mq-editable-field.dsrc { min-width: 6em; }
-    .step-row { grid-template-columns: 1.6em 1fr; }
-    .step-row .step-text { grid-column: 2; }
+    .sum-row, .sum-group { grid-template-columns: 1fr; gap: 2px; }
+    .sum-sub .sum-name { padding-left: 0; }
+    .sum-place { grid-template-columns: 8px minmax(5.5em, max-content) 1fr; }
     .place-row { grid-template-columns: 14px 1fr auto; }
     .place-row .p-name { grid-column: 2; grid-row: 1; }
     .place-row .view-btn { grid-column: 3; grid-row: 1; }
     .place-row .p-verdict, .place-row .p-detail { grid-column: 2 / 4; }
     .settings-grid { grid-template-columns: 1fr 7em; }
 }
+
+/* the presentation of an S-arithmetic Γ (sarithView.js presentationSection) */
+.pres-block { overflow-x: auto; overflow-y: hidden; padding: 6px 0 10px; font-size: 1.02rem; }
+.pres-rels { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 18px; margin: 0 0 10px 1.6em; font-size: 0.98rem; }
+.pres-rels li { overflow-x: auto; overflow-y: hidden; white-space: nowrap; }
+.pres-rels li::marker { color: var(--faint); font-size: 0.8rem; }
+.pres-more summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
+.rels-extra { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }

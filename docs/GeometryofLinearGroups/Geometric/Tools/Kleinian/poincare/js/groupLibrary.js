@@ -89,9 +89,9 @@ export const exampleLibrary = [
         mats: [['1', '2', '0', '1'], ['1', 'i', '0', '1'], ['1', '0', '-1-i', '1'], ['1', '0', '1-i', '1']]
     },
     {
-        name: 'Z[i] congruence',
+        name: 'Z[i] thin group',
         cat: 'Arithmetic & Bianchi groups',
-        desc: 'Congruence subgroup of the Bianchi group PSL(2,Z[i])',
+        desc: '⟨T², T^{2i}, S⟩ in the Bianchi group PSL(2,Z[i]): Zariski dense, but of infinite covolume, so of infinite index (not a congruence subgroup)',
         mats: [['1', '2', '0', '1'], ['1', '2i', '0', '1'], ['0', '-1', '1', '0']]
     },
     {

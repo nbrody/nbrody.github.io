@@ -52,7 +52,7 @@ export const CURATED = [
     },
     {
         name: 'Modular group PSL₂(ℤ)', cat: DISCRETE, chip: '\\mathrm{PSL}_2(\\mathbb{Z})',
-        desc: 'Discrete at ∞, with finite area: the pipeline stops at step 2 with Poincaré’s presentation.',
+        desc: 'Discrete at ∞, with finite area: Poincaré’s presentation, and index 2 in PGL₂(ℤ) by Stallings folding.',
         mats: [['1', '1', '0', '1'], ['0', '-1', '1', '0']],
     },
     {

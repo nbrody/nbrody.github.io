@@ -41,6 +41,7 @@
  */
 import { FlashBeam, concatWords, invertWord } from './flashbeam.js';
 import { makeArch, displacements, canonicalRelator } from './adelic.js';
+import { RelatorSet } from './relators.js';
 
 const babs = (x) => (x < 0n ? -x : x);
 function bgcd(a, b) { a = babs(a); b = babs(b); while (b) [a, b] = [b, a % b]; return a; }
@@ -319,7 +320,7 @@ export function choosePlaces(deps, F, mats, S, sameField) {
         const ok = cands.filter((c) => c.ef === want);
         if (!ok.length) return { error: `at ${p}, the field of definition is larger than the trace field (local degree ${cands[0].ef / want}); Γ preserves a proper subtree there, which this search does not handle` };
         places.push(ok[0].P);
-        if (cands.length > 1) notes.push(`${p}: ${cands.length} primes of F lie above the prime of k; one is enough (they give the same tree).`);
+        if (cands.length > 1) notes.push(`Over $${p}$, ${cands.length} primes of $F$ lie above the prime of $k$; one is enough, since they give the same tree.`);
     }
     return { places, notes };
 }
@@ -352,9 +353,7 @@ export class CoveringProblem {
         // relations (two words, one element) and the lowest elements, for the Dirichlet generators
         this.registry = new Map();
         this.registryCap = opts.registryCap ?? 300000;
-        this.relations = [];
-        this.relKeys = new Set();
-        this.relationCap = opts.relationCap ?? 64;
+        this.relSet = new RelatorSet({ cap: opts.relationCap ?? 64 });
         this.lowPool = [];
         this.lowCap = opts.lowCap ?? 1500;
         this.collisionsSeen = 0;
@@ -367,11 +366,12 @@ export class CoveringProblem {
         this.orbitRadius = opts.orbitRadius ?? 5;   // images are remembered this close to o
         this.collisions = opts.collisions ?? 6;     // collisions followed up per image
         this.orbitCap = opts.orbitCap ?? 400000;
+        this.repStabCap = opts.repStabCap ?? 48;
+        this.repStab = [];         // per representative: elements fixing it { word, M } (rep 0 uses this.stab); seeds orbits.js
 
         this.reps = [];            // { tuple, id, dist }
         this.repIndex = new Map(); // id → index
         this.orbit = new Map();    // vertex id → { word, rep, state, tuple }: state·reps[rep] = vertex
-        this.repLinks = [];        // [i, j, word]: word·r_i = r_j
         this.targets = new Map();  // id → { tuple, from: rep index, place, dist }
         this.stab = [];            // elements fixing o: { word, M, key, h }
         this.stabKeys = new Set();
@@ -446,6 +446,7 @@ export class CoveringProblem {
         this.reps.push({ tuple, id, dist: this.distO(tuple) });
         this.maxRepDist = Math.max(this.maxRepDist || 0, this.reps[i].dist);
         this.repIndex.set(id, i);
+        this.repStab.push([]);
         if (!this.orbit.has(id)) this.orbit.set(id, { word: [], rep: i, state: this.one, tuple });
         // its neighbours become targets
         tuple.forEach((vt, j) => {
@@ -528,11 +529,11 @@ export class CoveringProblem {
         const word = concatWords(invertWord(h.word), g.word);
         if (!word.length) return;
         if (h.rep === i) {
-            if (i === 0) {
-                const M = normalizeM(mulM(this.R, normalizeM(adjM(this.R, h.state)), g.state));
-                if (!isScalarM(this.R, M)) this._keepStab({ word, state: M, key: keyM(M), h: displacements(this, M).h, bits: heightM(M) });
-            }
-        } else if (this.repLinks.length < 64) this.repLinks.push([i, h.rep, word]);
+            const M = normalizeM(mulM(this.R, normalizeM(adjM(this.R, h.state)), g.state));
+            if (isScalarM(this.R, M)) return;
+            if (i === 0) this._keepStab({ word, state: M, key: keyM(M), h: displacements(this, M).h, bits: heightM(M) });
+            else if (this.repStab[i].length < this.repStabCap) this.repStab[i].push({ word, M });
+        }
     }
 
     // ── progress ──
@@ -607,23 +608,18 @@ export class CoveringProblem {
         this._relation(concatWords(node.word, invertWord(old)));
     }
 
-    /** Record a relator after checking it exactly. */
+    /**
+     * Record a relator after checking it exactly, unless the relators kept so far already
+     * imply it (relators.js); at the cap, a shorter relator replaces the longest.
+     */
     _relation(word) {
         const r = canonicalRelator(word);
         if (!r.length) return;
-        const k = r.join(',');
-        if (this.relKeys.has(k)) return;
-        // at the cap, a shorter relator replaces the longest
-        let drop = -1;
-        if (this.relations.length >= this.relationCap) {
-            drop = 0;
-            this.relations.forEach((x, i) => { if (x.length > this.relations[drop].length) drop = i; });
-            if (this.relations[drop].length <= r.length) return;
-        }
-        if (!isScalarM(this.R, wordMatrix(this.R, this.gens, r, this.one))) throw new Error('internal: a relation failed its exact check');
-        this.relKeys.add(k);
-        if (drop >= 0) this.relations[drop] = r; else this.relations.push(r);
+        this.relSet.offer(r, (x) => {
+            if (!isScalarM(this.R, wordMatrix(this.R, this.gens, x, this.one))) throw new Error('internal: a relation failed its exact check');
+        });
     }
+    get relations() { return this.relSet.list; }
 
     _keepStab(node) {
         if (this.stabKeys.has(node.key)) return;
@@ -723,7 +719,12 @@ export function runCovering(problem, opts = {}, onProgress = () => { }) {
         twoSided: true,
         flashSplit: (n) => (n.stratum === 0 ? 'stab' : 'move'),
     });
-    const deadline = Date.now() + 1000 * (opts.seconds ?? 30);
+    // the budget: opts.clock() is the time spent so far in ms, by default wall-clock; a worker the
+    // browser slows down (a page in the background) passes one in full-speed ms, and opts.maxStretch
+    // caps the wall-clock time at that many times the budget
+    const t0 = Date.now(), budgetMs = 1000 * (opts.seconds ?? 30);
+    const clock = opts.clock || (() => Date.now() - t0);
+    const wallCap = t0 + budgetMs * Math.max(1, opts.maxStretch ?? 1);
     const maxIter = opts.maxIterations ?? 200;
     const patience = opts.patience ?? 3;
     // after the covering is complete (or with no tree to cover), keep going a
@@ -741,7 +742,7 @@ export function runCovering(problem, opts = {}, onProgress = () => { }) {
             // exploring for Dirichlet generators: a narrow beam, as in the SO₃ project
             beam.beamWidth = Math.min(beam.beamWidth, opts.exploreWidth ?? 400);
         }
-        if (Date.now() > deadline || beam.iteration >= maxIter) { if (status !== 'covered' && !noTrees) status = 'budget'; break; }
+        if (clock() > budgetMs || Date.now() > wallCap || beam.iteration >= maxIter) { if (status !== 'covered' && !noTrees) status = 'budget'; break; }
         problem.newCover = 0;
         const stats = beam.step();
         let promoted = null;

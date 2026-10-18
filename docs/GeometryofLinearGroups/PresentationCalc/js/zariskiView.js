@@ -90,7 +90,7 @@ export function zariskiCard(res, model) {
     }
     html += `<dl class="facts">${facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('')}</dl>`;
     if (C.kind !== 'dense') {
-        html += `<div class="banner" data-status="info"><span class="dot"></span><div>${mix('Γ is not Zariski dense, so it is virtually solvable or finite: the pipeline stops here. Steps 2–4 are for dense groups.')}</div></div>`;
+        html += `<div class="banner" data-status="info"><span class="dot"></span><div>${mix('Γ is not Zariski dense, so it is virtually solvable or finite: the pipeline stops here. Steps 2 and 3 are for dense groups.')}</div></div>`;
     }
     return html + '</div>';
 }
@@ -126,7 +126,7 @@ export function congruenceCard(A) {
     if (!bad.length && !undecided.length) lead = `${outside} closure of $\\Gamma$ is as large as possible at every prime: at each $\\mathfrak{p}$ it contains the image of $\\mathrm{SL}_1$ of a maximal order.`;
     else lead = `${outside} closure of $\\Gamma$ is as large as possible at every prime except ${list(bad.concat(undecided).map((c) => `$${c.tex}$`))}${C.totalIndex && !undecided.length && bad.length ? `; the product of the local indices is $${C.totalIndex}$` : ''}.`;
     html += `<p class="lead">${mix(lead)}</p>`;
-    html += `<div class="banner" data-status="info"><span class="dot"></span><div>${mix(`This bounds $\\Gamma$ from above: $\\Gamma^{(2)}$ lies in the congruence group $\\Lambda \\cap \\overline{\\Gamma}$, so $[\\Lambda : \\Gamma^{(2)}] \\ge ${C.totalIndex && !undecided.length ? C.totalIndex : '[\\Lambda : \\Lambda \\cap \\overline{\\Gamma}]'}$. It cannot show that $\\Gamma$ has finite index: that is step 4.`)}</div></div>`;
+    html += `<div class="banner" data-status="info"><span class="dot"></span><div>${mix(`This bounds $\\Gamma$ from above: $\\Gamma^{(2)}$ lies in the congruence group $\\Lambda \\cap \\overline{\\Gamma}$, so $[\\Lambda : \\Gamma^{(2)}] \\ge ${C.totalIndex && !undecided.length ? C.totalIndex : '[\\Lambda : \\Lambda \\cap \\overline{\\Gamma}]'}$. It cannot show that $\\Gamma$ has finite index: that is step 3.`)}</div></div>`;
     if (special.length) {
         html += '<div class="wrap"><table><thead><tr><th>Prime</th><th>q</th><th>Closure</th><th>Notes</th></tr></thead><tbody>';
         for (const c of special) html += `<tr><td>${tex(c.tex)}</td><td>${tex(c.q)}</td><td class="st-${c.status === 'full' ? 'full' : 'deficient'}">${closureCell(c)}</td><td class="note">${notes(c)}</td></tr>`;
@@ -152,4 +152,60 @@ export function congruenceLine(A) {
     if (bad.length) parts.push(`deficient at ${bad.map((c) => texToText(c.tex)).join(', ')}${C.totalIndex && !undecided.length ? ` (index ${C.totalIndex})` : ''}`);
     if (undecided.length) parts.push(`not decided at ${undecided.map((c) => texToText(c.tex)).join(', ')}`);
     return { head: bad.length ? `Index ≥ ${C.totalIndex || '?'}` : 'Full where decided', detail: parts.join('; ') + '.' };
+}
+
+/** Λ = PGL₂(ℤ[1/S]) as text and TeX. */
+function lambdaName(A) {
+    const ps = A.ring.S.map((s) => s.p);
+    return { text: `PGL₂(ℤ[1/${ps.join('·')}])`, tex: `\\mathrm{PGL}_2(\\mathbb{Z}[1/${ps.join('\\cdot ')}])` };
+}
+const levelsText = (J) => (J.levels.length ? J.levels.join(' · ') : 'none');
+
+/**
+ * One line for the summary: the joint congruence closure over ℚ (congruence.js) when it was
+ * computed, else the engine's prime-by-prime line. cong = { status, result, error } or null.
+ */
+export function jointCongruenceLine(cong, A) {
+    const J = cong && cong.result;
+    if (cong && cong.status === 'running') return { status: 'running', head: 'Computing…', detail: '' };
+    if (!J || J.status === 'na' || J.status === 'too-large') {
+        const e = congruenceLine(A);
+        const why = J && J.reason ? J.reason : cong && cong.error ? cong.error : '';
+        return { status: A && A.congruence && !A.congruence.error ? 'info' : 'open', head: e.head, detail: `${e.detail}${why && A.k.d === 1 && A.ring.S.length ? ` (The joint closure was not computed: ${why}.)` : ''}` };
+    }
+    const L = lambdaName(A);
+    const classes = `Γ meets ${J.classes.gamma} of the ${J.classes.lambda} determinant classes`;
+    if (J.index === 1 && J.status === 'exact') {
+        return { status: 'info', head: 'Δ = Λ', detail: `Γ is dense in the congruence completion of Λ = ${L.text}, so it is S-arithmetic only if it is all of Λ.` };
+    }
+    const rel = J.status === 'exact' ? '=' : '≥';
+    return {
+        status: 'info', head: `[Λ : Δ] ${rel} ${J.index.toLocaleString()}`,
+        detail: `Λ = ${L.text}; levels ${levelsText(J)}; ${classes}. Γ is S-arithmetic exactly when [Λ : Γ] = [Λ : Δ]${J.status === 'exact' ? '' : '; this is a lower bound'}.`,
+    };
+}
+
+/** The congruence part of card 1: the joint closure (over ℚ), then the engine's local analysis. */
+export function congruenceSection(cong, A) {
+    if (!A || !A.congruence) return '<div class="vc-inner"><p class="lead">Not computed.</p></div>';
+    let html = '';
+    const J = cong && cong.result;
+    if (cong && cong.status === 'running') html += '<div class="vc-inner"><p class="lead">Computing the joint image of Γ…</p></div>';
+    else if (J && (J.status === 'exact' || J.status === 'lower')) {
+        const L = lambdaName(A);
+        const rel = J.status === 'exact' ? '=' : '\\ge';
+        html += '<div class="vc-inner">';
+        html += `<div class="head-math">${tex(`[\\Lambda : \\Delta] ${rel} ${J.index}, \\qquad \\Lambda = ${L.tex}`, true)}</div>`;
+        html += `<p class="lead">${mix(`$\\Delta$ is the closure of $\\Gamma$ in the congruence topology. $\\Lambda$ has the congruence subgroup property, so $[\\Lambda : \\Gamma] \\ge [\\Lambda : \\Delta]$, with equality exactly when $\\Gamma$ is $S$-arithmetic.`)}</p>`;
+        const facts = [
+            ['Levels', mix(`$N = ${J.levels.length ? J.levels.join(' \\cdot ') : '1'}$`) + `<div class="note">${mix('The primes where the closure is smaller than $\\mathrm{SL}_2(\\mathbb{Z}_\\ell)$, from the engine below, and $2$ and $3$, each followed up its powers until the index stops growing.')}</div>`],
+            ['Determinant', mix(`$\\Gamma$ meets ${J.classes.gamma} of the ${J.classes.lambda} classes of $\\Lambda/\\Lambda_0$ (the sign of $\\det$ and the parities of its valuations at $S$), where $\\Lambda_0 = \\mathrm{PSL}_2(\\mathbb{Z}[1/S])$.`)],
+            ['Image', mix(`$\\Gamma \\cap \\Lambda_0$ has ${J.image.toLocaleString()} elements modulo $N$, of ${J.ambient.toLocaleString()} in $\\mathrm{SL}_2(\\mathbb{Z}/N)/\\pm1$.`) + `<div class="note">${(J.ms / 1000).toFixed(1)} s</div>`],
+        ];
+        if (J.notes && J.notes.length) facts.push(['Lower bound', J.notes.map((n) => `<div>${esc(n)}</div>`).join('')]);
+        html += `<dl class="facts">${facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('')}</dl></div>`;
+        html += '<p class="sub-note">Prime by prime, from the Zariski Closure engine:</p>';
+    } else if (J && J.reason) html += `<div class="vc-inner"><p class="note">${esc(`The joint closure was not computed: ${J.reason}.`)}</p></div>`;
+    else if (cong && cong.error) html += `<div class="vc-inner"><p class="err">${esc(cong.error)}</p></div>`;
+    return html + congruenceCard(A);
 }

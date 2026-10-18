@@ -154,7 +154,8 @@ test('PSL₂(ℤ) in H²: Dirichlet generators S and TS, relations S² and (TS)�
     assert.ok(D.pairs.length === 2, `two generators up to inverses, got ${words}`);
     const rels = P.relations.map((r) => r.join(','));
     assert.ok(rels.includes(canonicalRelator([2, 2]).join(',')), 'S² = 1');
-    assert.ok(rels.includes(canonicalRelator([1, 2, 1, 2, 1, 2]).join(',')), '(TS)³ = 1');
+    // with S of order 2 kept, relators are written with S's exponent reduced (relators.js)
+    assert.ok(rels.includes(P.relSet.canonical([1, 2, 1, 2, 1, 2]).join(',')), '(TS)³ = 1');
 });
 
 test('Hurwitz quaternions at 5 and 13: the Dirichlet generators are the 3 + 7 prime letters', () => {

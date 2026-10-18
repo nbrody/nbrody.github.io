@@ -140,6 +140,19 @@ export function createInput({ onEdit = () => { }, onEnter = () => { }, tex = (t)
             r.querySelector('.def-picker').hidden = !r._roots.length;
         });
     }
+    /** The root rows' roots as last shown: [{ row (its index among the definitions), roots }]. */
+    function rootRows() {
+        return [...defs.children].map((r, i) => ({ row: i, kind: r.dataset.kind, roots: r._roots || [] }))
+            .filter((x) => x.kind === 'root' && x.roots.length);
+    }
+    /** Colour each root by tone(row, i) → { tone: 'yes' | 'no' | null, note }, or clear with null. */
+    function showTones(tone) {
+        [...defs.children].forEach((r, i) => {
+            if (r.dataset.kind !== 'root' || !r._picker || !r._picker.setTones) return;
+            const ts = (r._roots || []).map((_, j) => (tone ? tone(i, j) : null) || { tone: null, note: '' });
+            r._picker.setTones(ts.map((t) => t.tone), ts.map((t) => t.note));
+        });
+    }
     /** Mark what an error of readGroup points at (err.where). */
     function markErrors(where) {
         [...mats.children].forEach((b, g) => {
@@ -156,5 +169,5 @@ export function createInput({ onEdit = () => { }, onEnter = () => { }, tex = (t)
     $('add-root').addEventListener('click', () => { addDef('root', freshName(ROOT_NAMES), '', null, true); edited(); });
     $('add-value').addEventListener('click', () => { addDef('value', freshName(VALUE_NAMES), '', null, true); edited(); });
 
-    return { getState, setState, showRoots, markErrors, isBlank, entryErrors: () => [] };
+    return { getState, setState, showRoots, rootRows, showTones, markErrors, isBlank, entryErrors: () => [] };
 }

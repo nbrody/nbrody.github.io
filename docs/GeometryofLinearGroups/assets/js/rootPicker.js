@@ -4,11 +4,14 @@
  *
  *   const picker = RootPicker.create(container, { onSelect: (i) => … });
  *   picker.set(roots, selectedIndex, name);   // roots: [{ re, im }], name: the generator, e.g. 'w'
+ *   picker.setTones(tones, notes);            // optional: 'yes' | 'no' | null per root (green / red),
+ *                                             // with a note per root for its tooltip; cleared when the roots change
  *
  * Roots are clickable and keyboard-selectable (Tab to focus, arrows to move, Enter or Space to pick).
  * Colours come from CSS variables so each page can theme it:
  *   --rp-accent (selected root), --rp-ink (other roots), --rp-dim (caption), --rp-faint (axes),
- *   --rp-bg (plot background), --rp-dot (fill of unselected roots), --rp-line (border), --rp-font.
+ *   --rp-bg (plot background), --rp-dot (fill of unselected roots), --rp-line (border), --rp-font,
+ *   --rp-yes, --rp-no (tones).
  */
 (function (root) {
     'use strict';
@@ -30,6 +33,11 @@
 .rp-root.sel .rp-dot { fill: var(--rp-accent, #2f5d8a); stroke: var(--rp-accent, #2f5d8a); }
 .rp-root.sel .rp-halo { opacity: 0.22; }
 .rp-root:focus-visible .rp-halo { opacity: 0.32; }
+.rp-root.tone-yes .rp-dot { stroke: var(--rp-yes, #2f8f5b); fill: var(--rp-yes, #2f8f5b); fill-opacity: 0.28; }
+.rp-root.tone-no .rp-dot { stroke: var(--rp-no, #c0392b); fill: var(--rp-no, #c0392b); fill-opacity: 0.28; }
+.rp-root.tone-yes.sel .rp-dot, .rp-root.tone-no.sel .rp-dot { fill-opacity: 1; }
+.rp-root.tone-yes .rp-halo { fill: var(--rp-yes, #2f8f5b); }
+.rp-root.tone-no .rp-halo { fill: var(--rp-no, #c0392b); }
 .rp-caption { margin-top: 5px; font: 12.5px var(--rp-font, -apple-system, BlinkMacSystemFont, sans-serif); color: var(--rp-dim, #5f6b7a); font-variant-numeric: tabular-nums; }
 .rp-caption b { color: var(--rp-ink, #1f2a37); font-weight: 600; }
 .rp-empty { fill: var(--rp-faint, #8a94a1); font: 12px var(--rp-font, -apple-system, BlinkMacSystemFont, sans-serif); }
@@ -72,7 +80,7 @@
         wrap.appendChild(svg);
         wrap.appendChild(caption);
         container.appendChild(wrap);
-        const state = { roots: [], sel: 0, name: 'w' };
+        const state = { roots: [], sel: 0, name: 'w', tones: [], notes: [] };
         let focusIndex = null;
 
         function render() {
@@ -113,11 +121,12 @@
             // roots
             roots.forEach((z, i) => {
                 const sel = i === state.sel;
+                const tone = state.tones[i], note = state.notes[i] ? ` — ${state.notes[i]}` : '';
                 const g = el('g', {
-                    class: `rp-root${sel ? ' sel' : ''}`, tabindex: sel ? '0' : '-1', role: 'radio',
-                    'aria-checked': sel ? 'true' : 'false', 'aria-label': `${name} ≈ ${fmt(z)}`,
+                    class: `rp-root${sel ? ' sel' : ''}${tone ? ` tone-${tone}` : ''}`, tabindex: sel ? '0' : '-1', role: 'radio',
+                    'aria-checked': sel ? 'true' : 'false', 'aria-label': `${name} ≈ ${fmt(z)}${note}`,
                 }, svg);
-                el('title', {}, g).textContent = `${name} ≈ ${fmt(z)}`;
+                el('title', {}, g).textContent = `${name} ≈ ${fmt(z)}${note}`;
                 el('circle', { cx: X(z.re), cy: Y(z.im), r: 11, class: 'rp-halo' }, g);
                 el('circle', { cx: X(z.re), cy: Y(z.im), r: sel ? 6 : 5, class: 'rp-dot' }, g);
                 el('circle', { cx: X(z.re), cy: Y(z.im), r: 13, class: 'rp-hit' }, g);
@@ -148,9 +157,17 @@
         return {
             el: wrap,
             set(roots, sel = 0, name = state.name) {
-                state.roots = (roots || []).map((z) => ({ re: +z.re, im: +z.im || 0 }));
+                const next = (roots || []).map((z) => ({ re: +z.re, im: +z.im || 0 }));
+                const same = next.length === state.roots.length && next.every((z, i) => Math.abs(z.re - state.roots[i].re) + Math.abs(z.im - state.roots[i].im) < 1e-12);
+                if (!same) { state.tones = []; state.notes = []; }
+                state.roots = next;
                 state.sel = Math.min(Math.max(0, sel | 0), Math.max(0, state.roots.length - 1));
                 state.name = name || 'w';
+                render();
+            },
+            setTones(tones, notes = []) {
+                state.tones = (tones || []).slice();
+                state.notes = (notes || []).slice();
                 render();
             },
             get selected() { return state.sel; },

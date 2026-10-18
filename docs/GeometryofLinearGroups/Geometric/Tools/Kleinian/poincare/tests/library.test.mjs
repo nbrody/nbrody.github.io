@@ -44,7 +44,7 @@ const EXPECT = {
     'Modular group': { faces: 5, h1: 'ℤ/6' },
     'Borromean rings group': { faces: 16, vol: 7.327724753, h1: 'ℤ³', cusps: 3, tf: 'x^2 + 64', arith: true },
     'Index-6 subgroup of PSL(2,Z[i])': { faces: 8, vol: 6 * 0.3053218647, h1: 'ℤ ⊕ ℤ/2 ⊕ ℤ/2', arith: true },
-    'Z[i] congruence': { faces: 16, h1: 'ℤ² ⊕ ℤ/2' },
+    'Z[i] thin group': { faces: 16, h1: 'ℤ² ⊕ ℤ/2' },
     'Surface group': { faces: 9, h1: 'ℤ²' },
     'Surface group 2': { faces: 7, h1: 'ℤ/2 ⊕ ℤ/2 ⊕ ℤ/2' },
     'Long-Reid Group': { faces: 9, h1: 'ℤ²' },

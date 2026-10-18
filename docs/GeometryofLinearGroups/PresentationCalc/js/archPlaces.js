@@ -38,7 +38,11 @@ const scale = (A) => { const m = Math.max(...A.map((z) => Math.hypot(z.re, z.im)
 
 /** t = tr²/det for every word of length ≤ 3 in the generators at the root `root`. */
 function tauValues(model, root) {
-    const gens = model.mats.map((row) => row.map((e) => evalAt(e.coeffs, root)));
+    return tauValuesOf(model.mats.map((row) => row.map((e) => evalAt(e.coeffs, root))));
+}
+
+/** t = tr²/det for every word of length ≤ 3 in numeric generators [a, b, c, d] ({ re, im } entries). */
+export function tauValuesOf(gens) {
     const letters = gens.flatMap((g) => [scale(g), scale(adj(g))]);
     const out = [];
     let layer = letters;
@@ -60,9 +64,23 @@ function tauValues(model, root) {
 }
 
 /**
+ * Do two lists of t-values (from tauValuesOf, the same words) agree, up to complex conjugation?
+ * Then the groups are conjugate in PGL₂(ℂ), or complex conjugate: over the same place of k.
+ */
+export function sameTaus(t1, t2) {
+    if (!t1 || !t2 || t1.length !== t2.length) return false;
+    const close = (sgn) => t1.every((a, i) => {
+        const b = t2[i], s = Math.max(1, Math.hypot(a.re, a.im));
+        return Math.hypot(a.re - b.re, a.im - sgn * b.im) < 1e-6 * s;
+    });
+    return close(1) || close(-1);
+}
+
+/**
  * The places at ∞ of F (model.arch), each with
  *   noncompact: Γ is unbounded there
  *   classKey:   equal for places over the same place of k
+ *   taus:       the t-values (tauValuesOf), to compare with sameTaus
  */
 export function archClasses(model) {
     return model.arch.map((a) => {
@@ -76,6 +94,6 @@ export function archClasses(model) {
         const sgn = first && first.im < 0 ? -1 : 1;
         const r = (x) => String(Math.round(x * 1e5) / 1e5 + 0);
         const classKey = taus.slice(0, 40).map((t) => `${r(t.re)},${r(sgn * t.im)}`).join(';');
-        return { ...a, noncompact, classKey };
+        return { ...a, noncompact, classKey, taus };
     });
 }
