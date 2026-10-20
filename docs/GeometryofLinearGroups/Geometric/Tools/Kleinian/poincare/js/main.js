@@ -5,7 +5,7 @@
  * never block. See app.js for the frame conventions.
  */
 import * as THREE from 'three';
-import { Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD } from './math.js';
+import { Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD, lorentzMatrix } from './math.js';
 import { serializeTowerContext } from './tower.js';
 import { exportDomainAs3MF } from './export3mf.js';
 import { createInsideView } from './insideView.js';
@@ -45,7 +45,7 @@ import { renderInvariants, clearGeodesicSelection } from './invariantsPanel.js';
 import { horo, updateHoroballs } from './horoballs.js';
 import {
     manifoldFragmentShader, honeycombFragmentShader, makeTessellationUniforms, loadTessellationUniforms,
-    loadEdgeCycles
+    loadEdges, loadFaceRadii
 } from './tessellation.js';
 import { readStateFromURL, writeStateToURL } from './permalink.js';
 import { createPlanarView, isRealGroup, framePlanarCamera, planarPick, PLANAR_MAX_WALLS } from './planar.js';
@@ -119,20 +119,34 @@ function activeMaterial() {
 
 /** The honeycomb sees each wall from both sides, so a face and its partner
     get one colour, and its edges take the Edge Cycles colours. */
+let classColors = { from: null, colors: null };
 function loadTessUniforms(m) {
     const D = app.scene;
     let colors = faceColors(D);
     if (m === honeycombMaterial && D) {
-        colors = D.walls.map((w, i) => {
-            const j = w.pairing ? w.pairing.partner : -1;
-            return j >= 0 && j < i ? colors[j] : colors[i];
-        });
+        if (classColors.from !== colors) {
+            const from = colors;
+            classColors = { from, colors: D.walls.map((w, i) => {
+                const j = w.pairing ? w.pairing.partner : -1;
+                return j >= 0 && j < i ? from[j] : from[i];
+            }) };
+        }
+        colors = classColors.colors;
         const cycles = (!app.fordOn && app.report && app.report.edgeCycles) || null;
-        loadEdgeCycles(m.uniforms, cycles, k => {
+        loadEdges(m.uniforms, app.home, cycles, k => {
             const c = {};
             CYCLE_HUES(k).getRGB(c, THREE.SRGBColorSpace);
             return [c.r, c.g, c.b];
-        });
+        }, colors, lorentzMatrix(sceneMatrix()));
+        if (m.uniforms.u_faceFill.value > 0) loadFaceRadii(m.uniforms, app.home);
+        // Faces go on the domain and the cells across its faces: tiles whose
+        // centre is within twice the farthest wall's distance of D's centre.
+        const c = D.conePoint, r2 = c.lengthSq();
+        const C = new THREE.Vector4(2 * c.x / (1 - r2), 2 * c.y / (1 - r2), 2 * c.z / (1 - r2), (1 + r2) / (1 - r2));
+        m.uniforms.u_center.value.copy(C);
+        let far = 0;
+        for (const w of D.walls) far = Math.max(far, Math.asinh(Math.abs(w.cov.x * C.x + w.cov.y * C.y + w.cov.z * C.z - w.cov.w * C.w)));
+        m.uniforms.u_faceReach.value = Math.cosh(2 * far + 0.05);
     }
     return loadTessellationUniforms(m.uniforms, D, colors);
 }
@@ -175,6 +189,7 @@ function setHoneycomb(on) {
     render.honeycomb = on;
     updateToggleBtn(document.getElementById('toggle-honeycomb'), on);
     document.getElementById('honeycomb-walls-row')?.classList.toggle('disabled', !on);
+    document.getElementById('honeycomb-faces-row')?.classList.toggle('disabled', !on);
     if (on && view.model !== 'ball') setViewModel('ball');
     applyPixelRatio();
     syncMaterial();
@@ -867,6 +882,14 @@ function initUI() {
     const setHoneycombWalls = () => { honeycombMaterial.uniforms.u_wallAlpha.value = 0.3 * parseFloat(hcWalls.value); };
     hcWalls?.addEventListener('input', setHoneycombWalls);
     if (hcWalls) setHoneycombWalls();
+    const hcFaces = document.getElementById('honeycomb-faces');
+    const setHoneycombFaces = () => {
+        const v = parseFloat(hcFaces.value);
+        honeycombMaterial.uniforms.u_faceFill.value = v;
+        if (v > 0) loadFaceRadii(honeycombMaterial.uniforms, app.home);
+    };
+    hcFaces?.addEventListener('input', setHoneycombFaces);
+    if (hcFaces) setHoneycombFaces();
 
     const limitBtn = document.getElementById('toggle-limitset');
     const limitRow = document.getElementById('limit-depth-row');
@@ -1071,6 +1094,10 @@ window.PoincareAPI = {
     renderNow() { postfx.render(scene, camera, material.uniforms.u_bgColor.value); },
     setHoneycombWalls(v) {
         const el = document.getElementById('honeycomb-walls');
+        if (el) { el.value = String(v); el.dispatchEvent(new Event('input')); }
+    },
+    setHoneycombFaces(v) {
+        const el = document.getElementById('honeycomb-faces');
         if (el) { el.value = String(v); el.dispatchEvent(new Event('input')); }
     },
     setBasepoint: (p) => setBasepointFromBall(p),

@@ -29,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-10-18a';
+            const APP_VERSION = '2026-10-20a';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -287,6 +287,12 @@
                         <input id="honeycomb-walls" class="opacity-slider" type="range" min="0" max="1"
                             step="0.01" value="0"
                             title="Show the walls of every tile as translucent films, coloured like the domain's faces (far left hides them). The domain's own walls are drawn stronger.">
+                    </div>
+                    <div class="cayley-selector limit-depth-row disabled" id="honeycomb-faces-row">
+                        <span class="cayley-label">Faces</span>
+                        <input id="honeycomb-faces" class="opacity-slider" type="range" min="0" max="1"
+                            step="0.01" value="0"
+                            title="Fill every tile's faces in from their edges, as solid bands: far left draws none, far right fills each face completely.">
                     </div>
                     <div class="cayley-selector">
                         <span class="cayley-label">Cayley</span>
