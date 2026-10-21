@@ -99,7 +99,8 @@ self.onmessage = (ev) => {
         // where parabolics of an S-arithmetic group are found (cusps.js)
         if (!problem) { send({ type: 'elements', words: [] }); return; }
         const n = ev.data.count ?? 20000;
-        const arch = problem.archive.slice().sort((x, y) => x.score - y.score).slice(0, n).map((x) => x.word);
+        // with no tree (S = ∅) nothing is archived: the lowest elements at ∞ instead
+        const arch = (problem.archive.length ? problem.archive : problem.lowPool).slice().sort((x, y) => x.score - y.score).slice(0, n).map((x) => x.word);
         const st = problem.stabilizerElements(Math.min(n, 2000)).map((e) => e.word);
         send({ type: 'elements', words: arch.concat(st) });
         return;

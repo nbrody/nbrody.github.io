@@ -380,10 +380,9 @@ export function presentationSection(P) {
     if (P.status === 'running') return html + para(['Standard generators of $\\Lambda$, the congruence description and a presentation of $\\Gamma$ are being computed…']);
     if (P.error || !P.result) return html + banner('open', [P.error ? `No presentation was found: ${String(P.error).replace(/\$/g, '')}.` : 'No presentation was found.']);
     const R = P.result;
-    const ringTex = R.ring ? { 1: '\\mathbb{Z}[i]', 2: '\\mathbb{Z}[\\sqrt{-2}]', 3: '\\mathbb{Z}[\\omega]' }[R.ring] : '\\mathbb{Z}';
+    const ringTex = R.ring ? RING_TEX[R.ring] : '\\mathbb{Z}';
     // over the rings, entries in the ring's generator (i, √−2, ω), not the letter w of the generator w
-    const sym = R.ring ? { 1: 'i', 2: '\\sqrt{-2}', 3: '\\omega' }[R.ring] : null;
-    const ent = (x) => (sym ? String(x).replace(/−/g, '-').replace(/(\d)w/g, '$1' + sym).replace(/w/g, sym) : String(x));
+    const ent = entTex(R.ring);
     const matTex = (M) => `\\left(\\begin{smallmatrix}${M.map(ent).join('&').replace(/&([^&]*)&/, '&$1\\\\')}\\end{smallmatrix}\\right)`;
     const Stex = (R.S || []).map((x) => (R.ring ? `(${ent(x)})` : x)).join('\\cdot ') || '1', Ltex = `\\mathrm{PGL}_2(${ringTex}[1/${Stex}])`;
     // Λ on its standard generators
@@ -417,6 +416,8 @@ export function presentationSection(P) {
     } else if (C && !C.error && !C.agrees) {
         html += para([`The congruence closure found has index $${C.index.toLocaleString()}$, not the coset table's $${Pr.index}$, because its levels were not certified deep enough.`]);
     }
+    // Γ as a graph of groups on the tree of the last prime
+    if (R.graph) html += graphSection(R.graph, R.S || []);
     // Γ
     if (Pr.error) return html + para([`No presentation of $\\Gamma$ was found: ${String(Pr.error).replace(/\$/g, '')}.`]);
     const names = Pr.gens.map((g) => g.name.replace(/^g(\d+)$/, 'g_{$1}').replace(/^h(\d+)$/, 'h_{$1}'));
@@ -433,9 +434,10 @@ export function presentationSection(P) {
             `Reidemeister–Schreier on it gives ${Pr.rs.generators} generators and ${Pr.rs.relators} relators.`,
         ]
         : [`Reidemeister–Schreier on the ${Pr.index.toLocaleString()} cosets of the coset table gives ${Pr.rs.generators} generators and ${Pr.rs.relators} relators.`];
-    html += `<p><b>${mix('A presentation of $\\Gamma$.')}</b> ${mix([
+    html += `<p><b>${mix(R.graph && !R.graph.error ? 'On the given generators.' : 'A presentation of $\\Gamma$.')}</b> ${mix([
         ...from, ...sub,
         `Tietze moves remove the Schreier generators in favour of the given ones${extra.length ? `, except ${extra.length === 1 ? 'one, which is' : `${extra.length}, which are`} written out below` : ''}.`,
+        ...(Pr.hFrom === 'graph' ? ['The ones they could not remove alone are written in the given generators through the graph of groups: each is rewritten in its generators by the Bass–Serre normal form, and those have words in the given ones. Each such word is a relator that removes one.'] : []),
         'Every relator is multiplied out and checked to be the identity.',
     ].join(' '))}</p>`;
     const rels = Pr.relators;
@@ -452,4 +454,172 @@ export function presentationGap(Pr) {
     const names = Pr.gens.map((g) => g.name);
     const w = (u) => u.map((x) => (x > 0 ? names[x - 1] : `${names[-x - 1]}^-1`)).join('*') || 'One(F)';
     return `F := FreeGroup(${names.map((n) => `"${n}"`).join(', ')});;\n${names.map((n, i) => `${n} := F.${i + 1};;`).join(' ')}\nG := F / [${Pr.relators.map(w).join(', ')}];;`;
+}
+
+
+// ───────────────────────── the graph of groups ─────────────────────────
+
+const FIELD_TEX = { 1: '\\mathbb{Q}(i)', 2: '\\mathbb{Q}(\\sqrt{-2})', 3: '\\mathbb{Q}(\\omega)' };
+/** an entry as bianchiPresentation.js writes it (a+bw, with −) in TeX, in the ring's generator i, √−2 or ω */
+const entTex = (ring) => (x) => (ring ? ringElt(ring, x) : String(x));
+/**
+ * The words that depend on the ring of the graph of groups G (over ℚ, or G.ring = d over ℤ[i], ℤ[√−2],
+ * ℤ[ω]): the rings ℤ[1/S′], the local fields, Γ₀ of a prime, its w, matrices.
+ */
+function graphCtx(G) {
+    const d = G.ring || null, ent = entTex(d);
+    return {
+        ent,
+        ring: (ps) => (d
+            ? (ps.length ? `${RING_TEX[d]}[1/${ps.map((p) => `(${ent(p)})`).join('\\cdot ')}]` : RING_TEX[d])
+            : (ps.length ? `\\mathbb{Z}[1/${ps.join('\\cdot ')}]` : '\\mathbb{Z}')),
+        local: (p) => (d ? `${FIELD_TEX[d]}_{(${ent(p)})}` : `\\mathbb{Q}_{${p}}`),
+        gamma0: (p) => (d ? `\\Gamma_0(${ent(p)})` : `\\Gamma_0(${p})^{\\pm}`),
+        w: (p) => (d ? `W_{${ent(p)}}` : `w_{${p}}`),
+        valence: (node) => node.valence ?? Number(node.prime) + 1,
+        mat: (M) => `\\left(\\begin{smallmatrix}${ent(M[0])}&${ent(M[1])}\\\\${ent(M[2])}&${ent(M[3])}\\end{smallmatrix}\\right)`,
+    };
+}
+/** TeX names that are safe to juxtapose */
+const safeNames = (G) => G.gens.map((g) => `{${g.name}}`);
+/** a word in named letters, powers collected; long words cut */
+function namedWordTex(w, names, maxParts = 40) {
+    if (!w || !w.length) return '1';
+    const parts = [];
+    for (let i = 0; i < w.length;) {
+        let j = i;
+        while (j < w.length && w[j] === w[i]) j++;
+        const e = (j - i) * Math.sign(w[i]);
+        parts.push(`${names[Math.abs(w[i]) - 1]}${e === 1 ? '' : `^{${e}}`}`);
+        i = j;
+    }
+    return parts.length > maxParts ? `${parts.slice(0, maxParts).join('')}\\cdots\\ (\\text{${w.length} letters})` : parts.join('');
+}
+const gNamesTex = (n) => Array.from({ length: n }, (_, i) => `g_{${i + 1}}`);
+
+/** The quotient graph of the top level as a small SVG: vertices G₁ …, edges, half-edges for inversions. */
+function graphSvg(node, G) {
+    const V = node.vertices.length;
+    const loopsUp = node.edges.some((e) => e.from === e.to);
+    const W = 520, H = V <= 2 ? (loopsUp ? 150 : 90) : 190;
+    // inversions point up from their vertex (down from the odd ones when the vertices zigzag)
+    const cy = V <= 2 ? (loopsUp ? 0.62 * H : H / 2) : H / 2;
+    const xs = node.vertices.map((_, v) => (V === 1 ? W / 2 : 90 + (v * (W - 180)) / (V - 1)));
+    const ys = node.vertices.map((_, v) => (V <= 2 ? cy : cy + (v % 2 ? 34 : -34)));
+    const invCount = node.vertices.map((_, v) => node.edges.filter((e) => e.kind === 'inversion' && e.from === v).length);
+    const name = (k) => G.gens[k - 1].name.replace(/\\sigma/g, 'σ').replace(/_\{(\d+)\}/g, (_, d) => d.split('').map((c) => '₀₁₂₃₄₅₆₇₈₉'[+c]).join(''));
+    let out = '';
+    const loops = new Map();
+    node.edges.forEach((e) => {
+        const a = e.from, b = e.to;
+        if (e.kind === 'inversion') {
+            const k = loops.get(a) || 0; loops.set(a, k + 1);
+            const up = V <= 2 || a % 2 === 0;
+            const ang = (up ? -Math.PI / 2 : Math.PI / 2) + (k - (invCount[a] - 1) / 2) * 0.8;
+            const x2 = xs[a] + 50 * Math.cos(ang), y2 = ys[a] + 50 * Math.sin(ang);
+            out += `<line x1="${xs[a]}" y1="${ys[a]}" x2="${x2}" y2="${y2}" class="gg-edge"/><rect x="${x2 - 5}" y="${y2 - 5}" width="10" height="10" class="gg-mid"/>`;
+            out += `<text x="${x2 + (Math.cos(ang) < -0.2 ? -9 : 9)}" y="${y2 + 4}" class="gg-lab" text-anchor="${Math.cos(ang) < -0.2 ? 'end' : 'start'}">${name(e.gen)}</text>`;
+        } else if (a === b) {
+            const k = loops.get(a) || 0; loops.set(a, k + 1);
+            const r = 26 + 10 * k, up = a % 2 ? 1 : -1;
+            out += `<path d="M ${xs[a] - 10} ${ys[a] + up * 8} C ${xs[a] - r * 1.6} ${ys[a] + up * r * 2.2}, ${xs[a] + r * 1.6} ${ys[a] + up * r * 2.2}, ${xs[a] + 10} ${ys[a] + up * 8}" class="gg-edge${e.kind === 'stable' ? ' hnn' : ''}"/>`;
+            if (e.gen) out += `<text x="${xs[a]}" y="${ys[a] + up * (r * 1.65 + 8) + 4}" class="gg-lab" text-anchor="middle">${name(e.gen)}</text>`;
+        } else {
+            const mx = (xs[a] + xs[b]) / 2, my = (ys[a] + ys[b]) / 2;
+            const key = [Math.min(a, b), Math.max(a, b)].join('-');
+            const k = loops.get(key) || 0; loops.set(key, k + 1);
+            const off = k ? (k % 2 ? 1 : -1) * 22 * Math.ceil(k / 2) : 0;
+            out += `<path d="M ${xs[a]} ${ys[a]} Q ${mx} ${my + 2 * off} ${xs[b]} ${ys[b]}" class="gg-edge${e.kind === 'stable' ? ' hnn' : ''}"/>`;
+            if (e.gen) out += `<text x="${mx}" y="${my + off - 6}" class="gg-lab" text-anchor="middle">${name(e.gen)}</text>`;
+        }
+    });
+    node.vertices.forEach((v, i) => {
+        out += `<circle cx="${xs[i]}" cy="${ys[i]}" r="15" class="gg-vtx"/><text x="${xs[i]}" y="${ys[i] + 4}" class="gg-vlab" text-anchor="middle">G${'₁₂₃₄₅₆₇₈₉'[i] || i + 1}</text>`;
+    });
+    return `<svg class="gg-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="The quotient graph of groups">${out}</svg>`;
+}
+
+/** One level of the graph of groups, as a description (nested for |S| ≥ 2). */
+function levelHtml(node, G, primesLeft, depth, X = graphCtx(G)) {
+    const p = node.prime, below = primesLeft.slice(0, -1);
+    const Lp = `\\mathrm{PGL}_2(${X.ring(below)})`;
+    const vtx = node.vertices.map((v, i) => {
+        const h = v.h, hId = h[0] === h[3] && h[1] === '0' && h[2] === '0';
+        const conj = hId ? Lp : `h_{${i + 1}} ${Lp}\\, h_{${i + 1}}^{-1}`;
+        let line = `$G_{${i + 1}} = \\Gamma \\cap ${conj}$, of index ${v.index} in it`;
+        if (!hId) line += `, with $h_{${i + 1}} = ${X.mat(h)}$`;
+        if (v.sub.leaf) {
+            const names = v.sub.gens.map((k) => G.gens[k - 1].name);
+            line += names.length ? `, generated by $${names.join(', ')}$` : ', trivial';
+            return `<li>${mix(line + '.')}</li>`;
+        }
+        return `<li>${mix(line + `; it acts on the tree of $\\mathrm{PGL}_2(${X.local(v.sub.prime)})$:`)}${levelHtml(v.sub, G, below, depth + 1, X)}</li>`;
+    }).join('');
+    const eds = node.edges.map((e) => {
+        const a = `G_{${e.from + 1}}`, b = `G_{${e.to + 1}}`;
+        const nm = e.gen ? G.gens[e.gen - 1].name : null;
+        const grp = `an edge group of index ${e.edgeIndex} in $${X.gamma0(p)}$ (up to conjugation), ${e.edgeGens} Schreier generator${e.edgeGens === 1 ? '' : 's'}`;
+        if (e.kind === 'tree') return `<li>${mix(`$${a}$ — $${b}$: amalgamated along ${grp}.`)}</li>`;
+        if (e.kind === 'stable') return `<li>${mix(`$${a}$ — $${b}$, off the spanning tree: the stable letter $${nm}$ conjugates ${grp} of $${a}$ into $${b}$.`)}</li>`;
+        return `<li>${mix(`an edge at $${a}$ inverted by $${nm}$: amalgamation with $\\langle E, ${nm}\\rangle$, where $E$ is ${grp} and $${nm}^2 \\in E$.`)}</li>`;
+    }).join('');
+    const V = node.vertices.length, Ecount = node.edges.length, inv = node.edges.filter((e) => e.kind === 'inversion').length;
+    const head = `${V} orbit${V === 1 ? '' : 's'} of vertices and ${Ecount} of edges${inv ? ` (${inv} inverted)` : ''}.`;
+    return `<div class="gg-level${depth ? ' nested' : ''}">${depth === 0 ? '' : `<p class="note">${mix(head)}</p>`}<ul class="gg-list">${vtx}${eds}</ul></div>`;
+}
+
+/**
+ * The section on the graph of groups (sarithPresentation.js graphReport, bianchiPresentation.js
+ * graphReportBianchi). G.hall: Γ ⊄ Λ, and the graph of groups is that of K = Γ ∩ Λ, extended by u's.
+ */
+export function graphSection(G, S) {
+    let html = '<h3>As a graph of groups</h3>';
+    if (G.error) return html + para([`The graph of groups was not computed: ${String(G.error).replace(/\$/g, '')}.`]);
+    const X = graphCtx(G);
+    S = G.primes || S;
+    const top = G.tree, p = top.prime;
+    const V = top.vertices.length, Ecount = top.edges.length, inv = top.edges.filter((e) => e.kind === 'inversion').length;
+    const H = G.hall, A = H ? 'K' : '\\Gamma';
+    html += para([
+        ...(H ? [`$\\Gamma$ is not inside $\\Lambda$: its elements of even valuation at the primes outside $S$ form a normal subgroup $K = \\Gamma \\cap \\Lambda$ of index ${H.kernelIndex}, with $\\Gamma / K \\cong ${H.count === 1 ? '\\mathbb{Z}/2' : `(\\mathbb{Z}/2)^{${H.count}}`}$.`] : []),
+        `$${A}$ acts on the Bruhat–Tits tree $T_{${X.valence(top)}}$ of $\\mathrm{PGL}_2(${X.local(p)})$ with ${V} orbit${V === 1 ? '' : 's'} of vertices and ${Ecount} of edges${inv ? ` (${inv} inverted by an element of $${A}$)` : ''}, read off the coset table: vertex orbits are the orbits of $\\mathrm{PGL}_2(${X.ring(S.slice(0, -1))})$ on $${A}\\backslash\\Lambda$, edge orbits those of $${X.gamma0(p)}$ paired by $${X.w(p)}$.`,
+        `By Bass–Serre, $${A}$ is the fundamental group of the quotient graph of groups: generated by the vertex groups, a stable letter for each edge off a spanning tree and an element inverting each inverted edge, with the vertex groups' relations and, across each edge, $t^{-1} h\\, t = \\varphi(h)$ for generators $h$ of the edge group.`,
+    ], 'lead');
+    html += graphSvg(top, G);
+    html += levelHtml(top, G, S, 0, X);
+    if (H) {
+        const us = G.gens.filter((g) => g.kind === 'coset').map((g) => g.name);
+        html += `<p><b>${mix('The extension.')}</b> ${mix([
+            `$\\Gamma$ is generated by $K$ and ${us.length === 1 ? 'a representative' : 'representatives'} $${us.join(', ')}$ of ${us.length === 1 ? 'the other coset' : 'a basis of $\\Gamma / K$'}, products of the given generators.`,
+            `P. Hall's presentation of the extension adds ${us.length === 1 ? `the relators $${us[0]}^2 = k_0$ and` : `the relators $u_j^2 = k_j$, $[u_j, u_l] = k_{jl}$ and`} $${us.length === 1 ? us[0] : 'u_j'}\\, x\\, ${us.length === 1 ? us[0] : 'u_j'}^{-1} = \\varphi(x)$ for each generator $x$ of $K$, with every right-hand side in $K$, written in its generators by the Bass–Serre normal form.`,
+        ].join(' '))}</p>`;
+    }
+    const names = safeNames(G);
+    const orders = ordersFrom(G.relators);
+    const T = G.relators.map((w) => relatorTexNamed(w, names, orders));
+    html += `<p><b>${mix('The presentation.')}</b> ${mix(`On the ${G.gens.length} generators of the graph of groups${H ? ' and the extension' : ''}, ${T.length} relator${T.length === 1 ? '' : 's'}, each multiplied out and checked to be the identity.`)}</p>`;
+    if (T.length <= 8 && T.join('').length < 160) html += `<div class="pres-block">${tex(`\\Gamma = \\left\\langle ${names.join(', ')} \\;\\middle|\\; ${T.join(',\\ ')} \\right\\rangle`)}</div>`;
+    else html += `<div class="pres-block">${tex(`\\Gamma = \\left\\langle ${names.join(', ')} \\;\\middle|\\; r_1, \\ldots, r_{${T.length}} \\right\\rangle`)}:</div><ol class="pres-rels">${T.map((t) => `<li>${tex(t)}</li>`).join('')}</ol>`;
+    const gn = gNamesTex(G.given.length);
+    html += `<p><b>${mix('The generators, as words in $g_1, g_2, \\ldots$')}</b></p><ul class="nice-gens">`;
+    html += G.gens.map((g) => `<li>${tex(`${g.name} = ${g.word ? namedWordTex(g.word, gn) : '?'} = ${X.mat(g.M)}`)}</li>`).join('') + '</ul>';
+    html += `<p class="note">${mix('Conversely, by the Bass–Serre normal form (walking each $g_i$ through the cosets): ')}${G.given.map((w, i) => tex(`g_{${i + 1}} = ${namedWordTex(w, names)}`)).join(', ')}. ${esc(`(${G.ms} ms.)`)}</p>`;
+    return html;
+}
+
+/** The graph-of-groups presentation for the top of the page (main.js presentationData). */
+export function graphTop(G) {
+    const X = graphCtx(G);
+    const names = safeNames(G);
+    const orders = ordersFrom(G.relators);
+    const V = G.tree.vertices.length;
+    const us = G.gens.filter((g) => g.kind === 'coset').map((g) => g.name);
+    return {
+        source: `Graph of groups on $T_{${X.valence(G.tree)}}$`,
+        note: `${V} vertex group${V === 1 ? '' : 's'} in $\\mathrm{PGL}_2(${X.ring(G.primes.slice(0, -1))})$${us.length ? `, for $K = \\Gamma \\cap \\Lambda$, and $${us.join(', ')}$ for $\\Gamma/K$` : ''}`,
+        rels: G.relators.map((w) => relatorTexNamed(w, names, orders)),
+        complete: true, free: !G.relators.length,
+        names: G.gens.map((g) => g.name),
+        defs: G.gens.map((g) => `${g.name} = ${g.word ? namedWordTex(g.word, gNamesTex(G.given.length), 12) : '?'}`),
+    };
 }

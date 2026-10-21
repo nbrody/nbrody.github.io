@@ -287,3 +287,27 @@ details.syntax div { margin-top: 8px; display: grid; gap: 8px; }
 .pres-rels li::marker { color: var(--faint); font-size: 0.8rem; }
 .pres-more summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
 .rels-extra { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
+.rels-on { color: var(--muted); font-size: 0.9rem; margin: -2px 0 6px; }
+.rels-head .rels-note { text-transform: none; letter-spacing: 0; color: var(--muted); }
+.rels-head .rels-toggle { text-transform: none; letter-spacing: 0; font-size: 0.78rem; margin-left: 6px; }
+.gg-svg { display: block; width: 100%; max-width: 560px; margin: 4px auto 10px; }
+.gg-svg .gg-edge { fill: none; stroke: var(--muted); stroke-width: 1.6; }
+.gg-svg .gg-edge.hnn { stroke: var(--accent); }
+.gg-svg .gg-mid { fill: var(--bg); stroke: var(--muted); stroke-width: 1.4; }
+.gg-svg .gg-vtx { fill: var(--accent-soft, #eef); stroke: var(--accent); stroke-width: 1.6; }
+.gg-svg .gg-vlab { font: 600 12px var(--sans); fill: var(--ink); }
+.gg-svg .gg-lab { font: italic 13px var(--serif, serif); fill: var(--muted); }
+.gg-list { margin: 4px 0 12px 1.2em; display: grid; gap: 4px; }
+.gg-level.nested { margin: 6px 0 4px 0.6em; padding-left: 10px; border-left: 2px solid var(--line); }
+.nice-gens { list-style: none; display: grid; gap: 6px; margin: 4px 0 10px; padding: 0; }
+.nice-gens li { overflow-x: auto; overflow-y: hidden; }
+
+/* the congruence closure, one prime power at a time */
+.cq-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+.cq-tab { font: inherit; font-size: 0.92rem; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 12px; cursor: pointer; }
+.cq-tab:hover { border-color: var(--accent); color: var(--accent); }
+.cq-tab[aria-selected="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.cq-panel { display: grid; gap: 4px; padding: 8px 12px; border-left: 2px solid var(--accent-soft); margin-bottom: 8px; }
+.cq-panel[hidden] { display: none; }
+.cq-panel p { overflow-x: auto; overflow-y: hidden; }
+#cong-body .head-math { overflow-x: auto; overflow-y: hidden; }

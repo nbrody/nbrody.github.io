@@ -290,7 +290,8 @@ export function runCompute(input) {
             t1 += Date.now() - tc;                  // domain time, not certificate time
             if (grew) rep = certify();
         }
-        if (rep.status !== 'verified') attachNondiscreteness(rep, gens, input.exact, D);
+        // input.skipNondiscrete: the caller knows the group is discrete (PresentationCalc's vertex stabilizers)
+        if (rep.status !== 'verified' && !input.skipNondiscrete) attachNondiscreteness(rep, gens, input.exact, D);
     }
     const t2 = Date.now();
     const inv = rep.status === 'full' ? { finiteVolume: false } : computeInvariants(D, rep, gens.length, exactCtx);

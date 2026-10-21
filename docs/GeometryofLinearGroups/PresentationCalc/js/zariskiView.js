@@ -6,6 +6,8 @@
  */
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+import { patternTex, pointTex, powerName, modLConditionsTex, matrixTex } from './congruenceShape.js';
+
 export const tex = (s, display = false) => (display ? `\\[${s}\\]` : `\\(${s}\\)`);
 /** Text with $…$ math, escaped outside the math. */
 export const mix = (s) => String(s).split(/(\$[^$]*\$)/).map((part) => (part.startsWith('$') && part.endsWith('$') && part.length > 1 ? `\\(${part.slice(1, -1)}\\)` : esc(part))).join('');
@@ -90,7 +92,7 @@ export function zariskiCard(res, model) {
     }
     html += `<dl class="facts">${facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('')}</dl>`;
     if (C.kind !== 'dense') {
-        html += `<div class="banner" data-status="info"><span class="dot"></span><div>${mix('Γ is not Zariski dense, so it is virtually solvable or finite: the pipeline stops here. Steps 2 and 3 are for dense groups.')}</div></div>`;
+        html += `<div class="banner" data-status="info"><span class="dot"></span><div>${mix('Γ is not Zariski dense, so it is virtually solvable or finite. Steps 2 and 3 are for dense groups; its presentation is below.')}</div></div>`;
     }
     return html + '</div>';
 }
@@ -162,6 +164,179 @@ function lambdaName(A) {
 const levelsText = (J) => (J.levels.length ? J.levels.join(' · ') : 'none');
 
 /**
+ * The congruence closure written out (congruenceShape.js): one formula for Δ ∩ Λ₀ when it is cut
+ * out prime by prime by congruences, then each prime power of the level on its own (a switcher):
+ * its congruences as a matrix pattern, the index, a fixed point of ℙ¹, and what is left when the
+ * image is smaller than its pattern.
+ */
+export function closureShapeHtml(cong, A) {
+    const D = cong && cong.shape;
+    if (!cong || cong.status !== 'done') return '';
+    if (D === undefined) return `<p class="note">${mix('Writing out the closure prime by prime…')}</p>`;
+    if (!D || D.error) return D && D.error ? `<p class="note">${esc(`The closure could not be written out: ${D.error}.`)}</p>` : '';
+    const ps = A.ring.S.map((x) => x.p), L0 = `\\mathrm{PSL}_2(\\mathbb{Z}[1/${ps.join('\\cdot ')}])`;
+    let html = '<h3>The closure, written out</h3>';
+    // cut out prime by prime: Δ ∩ Λ₀ is the intersection of the local conditions when the primes
+    // are not linked, and lies in it otherwise (with the index, when that was counted)
+    const clean = D.local.every((x) => (x.exact && x.conds) || x.byModL);
+    if (clean) {
+        const rel = D.linked === 1 || D.local.length === 1 ? '=' : '\\subseteq';
+        // each prime as a matrix pattern, or, when that is a mess or there is none, by what g does
+        // mod ℓ: fix a point of ℙ¹ (with its eigenvalue there), or lie in a cyclic group
+        const how = (x) => (x.exact && x.conds && !(messy(x) && (x.byModL || isStabilizer(x))) ? 'pattern'
+            : x.byModL ? 'modL' : 'point');
+        const eigen = D.local.filter((x) => how(x) === 'modL' && x.modL.power > 1);
+        const lam = (x) => (eigen.length > 1 ? `\\lambda_{${x.l}}` : '\\lambda');
+        const P = patternTex(D.local.filter((x) => how(x) === 'pattern').flatMap((x) => x.conds));
+        const condsAt = (x) => (how(x) === 'pattern' ? patternTex(x.conds).side
+            : how(x) === 'point' ? [`g \\cdot ${pointTex(x.fixed[0])} \\equiv ${pointTex(x.fixed[0])} \\pmod{${x.q}}`]
+                : modLConditionsTex(x.modL, x.l, lam(x)));
+        const geo = D.local.filter((x) => how(x) !== 'pattern').flatMap(condsAt);
+        // what the matrix does not show, one line per prime
+        const rows = D.local.map((x) => condsAt(x).join(',\\ \\ ')).filter(Boolean);
+        const head = `\\Delta \\cap \\Lambda_0 ${rel} \\left\\{ ${P.plain ? 'g' : `g = \\pm ${P.matrix}`} \\in ${L0}`;
+        // one short condition fits on the line; more go under it, a line per prime
+        const set = !rows.length ? `${head} \\right\\}`
+            : rows.length === 1 && rows[0].length <= 70 ? `${head} \\;:\\; ${rows[0]} \\right\\}`
+                : `\\begin{array}{l} ${head} \\;:\\; \\right. \\\\[4pt] ${rows.map((r, i) => (i < rows.length - 1 ? `\\qquad ${r}, \\\\[2pt]` : `\\qquad \\left. ${r} \\;\\right\\}`)).join(' ')} \\end{array}`;
+        // full at every prime says nothing until the joint image is counted
+        const full = P.plain && !geo.length;
+        if (full && rel === '=') html += `<div class="head-math">${tex(`\\Delta \\cap \\Lambda_0 = \\Lambda_0 = ${L0}`, true)}</div>`;
+        else if (!full) html += `<div class="head-math">${tex(set, true)}</div>`;
+        const moved = D.local.filter((x) => how(x) === 'point' || (how(x) === 'modL' && ['borel', 'split'].includes(x.modL.kind)));
+        if (moved.length) {
+            html += `<p class="note">${mix(`Here $g$ acts on $\\mathbb{P}^1$${eigen.length ? ' and on column vectors' : ''} by reduction modulo ${moved.map((x) => `$${how(x) === 'point' ? x.q : x.l}$`).join(' and ')}${eigen.length ? `, and $${eigen.map(lam).join(', ')}$ ${eigen.length > 1 ? 'are its eigenvalues' : 'is its eigenvalue'} on the line through that point` : ''}.`)}</p>`;
+        }
+        if (!P.plain) html += `<p class="note">${mix(`Here $a, b, c, d$ run over $\\mathbb{Z}[1/S]$ with $ad - bc = 1$, and each condition is a congruence modulo a prime outside $S$${D.local.length > 1 && D.linked === 1 ? '; the conditions at different primes are independent' : ''}.`)}</p>`;
+    }
+    const B = D.classes;
+    html += `<p class="note">${mix(B.basis.length
+        ? `$\\Delta$ meets ${B.gamma} of the ${B.lambda} classes of $\\Lambda / \\Lambda_0$: its determinants, modulo squares of $S$-units, are $\\langle ${B.basis.join(',\\ ')} \\rangle$.`
+        : 'Every determinant in $\\Gamma$ is the square of an $S$-unit, so $\\Delta \\subset \\Lambda_0$.')}</p>`;
+    // one prime power at a time: the first with a condition, unless one was picked
+    const interesting = (x) => !(x.exact && x.conds && x.conds.length === 0);
+    const pick = cong.sel != null && D.local.some((x) => x.q === cong.sel) ? cong.sel : (D.local.find(interesting) || D.local[0]).q;
+    if (D.local.length > 1) {
+        html += `<div class="cq-tabs" role="tablist" aria-label="One prime at a time">${D.local.map((x) => `<button class="cq-tab" role="tab" data-cq="${x.q}" aria-selected="${x.q === pick}">mod ${x.q}</button>`).join('')}</div>`;
+    }
+    for (const x of D.local) html += `<div class="cq-panel" data-cq="${x.q}"${x.q === pick ? '' : ' hidden'}>${localHtml(x)}</div>`;
+    if (D.linked === null && D.local.length > 1) {
+        html += `<p class="note">${mix('The joint image modulo $N$ was too large to count, so whether the primes are linked was not decided: $\\Delta$ may be smaller than the intersection of their conditions.')}</p>`;
+    } else if (D.linked > 1) {
+        html += `<p class="note">${mix(`The primes are linked${clean ? `: $\\Delta \\cap \\Lambda_0$ has index $${D.linked}$ in the set above` : ''}. Modulo $N = ${D.local.map((x) => x.q).join(' \\cdot ')}$, the image of $\\Gamma \\cap \\Lambda_0$ has index $${D.linked}$ in the product of its images at each prime, so a condition at one prime constrains $g$ at another (Goursat).`)}</p>`;
+    }
+    return html;
+}
+
+/** Does the pattern need conditions mixing entries, other than a ≡ d? */
+const messy = (x) => !!(x.conds && x.conds.some((c) => c.f.filter((v) => v).length > 1 && !(c.f[0] === 1 && c.f[3] === -1 && !c.f[1] && !c.f[2])));
+
+/** Is the local closure exactly the stabilizer of its one fixed point of ℙ¹(ℤ/q)? (index q/ℓ · (ℓ + 1)) */
+const isStabilizer = (x) => !!(x.exact && x.fixed && x.fixed.length === 1 && x.order && Math.round(x.ambient / x.order) === (x.q / x.l) * (x.l + 1));
+
+/** The residues ±u of a subgroup of 𝔽_ℓ^× containing −1, as TeX. */
+const unitsTex = (units, l) => `\\{ ${units.filter((u) => 2 * u < l).map((u) => `\\pm ${u}`).join(', ')} \\}`;
+
+/**
+ * The image mod ℓ in words (congruenceShape.js's shapeModL). these: the sentence explains a set
+ * already written as conditions on g ("These are the g that …"); otherwise it reports the image.
+ */
+function modLWords(s, l, these) {
+    const F = `\\mathbb{F}_{${l}}`, P1 = `$\\mathbb{P}^1(${F})$`, PSL = `$\\mathrm{PSL}_2(${F})$`;
+    const who = these ? 'These are the $g$ that' : `Modulo $${l}$, its elements`;
+    const ord = s.order ? `, of order $${s.order}$ in ${PSL}` : '';
+    if (s.kind === 'full') return `Modulo $${l}$ it is all of ${PSL}.`;
+    if (s.kind === 'trivial') return `Modulo $${l}$ it is trivial: every element is $\\equiv ${l > 2 ? '\\pm ' : ''}1 \\pmod{${l}}$.`;
+    if (s.kind === 'borel') {
+        const [P] = s.points, at0 = P[1] === 0;
+        const conj = (name) => (at0 ? `that is, $${name}$` : `a conjugate of $${name}$`);
+        if (s.power === 1) return `${who} fix the point $${pointTex(P)}$ of ${P1}: the stabilizer of that point, ${conj(`\\Gamma_0(${l})`)} modulo $${l}$${these ? '' : ord}.`;
+        if (s.units && s.units.length === 2) return `${who} fix the point $${pointTex(P)}$ of ${P1} and act on the line through it by $\\pm 1$: ${conj(`\\Gamma_1(${l})`)} modulo $${l}$${these ? '' : ord}.`;
+        const H = `H = (${F}^{\\times})^{${s.power}}${s.units ? ` = ${unitsTex(s.units, l)}` : ''}`;
+        const head = `${who} fix the point $${pointTex(P)}$ of ${P1} and act on the line through it by ${powerName(s.power)}${these ? '' : ord}`;
+        return at0 ? `${head}: that is, $\\Gamma_H(${l})$ modulo $${l}$, with $${H}$.`
+            : `${head}. Moving $${pointTex(P)}$ to $[1 : 0]$ turns this into $\\Gamma_H(${l})$ modulo $${l}$, with $${H}$.`;
+    }
+    if (s.kind === 'split') {
+        const [P, Q] = s.points, two = `the points $${pointTex(P)}$ and $${pointTex(Q)}$ of ${P1}`;
+        return s.power === 1 ? `${who} fix ${two}: a split Cartan subgroup${these ? '' : ord}.`
+            : `${who} fix ${two}, and act on the line through $${pointTex(P)}$ by ${powerName(s.power)}: a subgroup of index $${s.power}$ in a split Cartan subgroup${these ? '' : ord}.`;
+    }
+    if (s.kind === 'split-normalizer') {
+        const [P, Q] = s.points;
+        return `Modulo $${l}$, its elements fix or swap the points $${pointTex(P)}$ and $${pointTex(Q)}$ of ${P1}: it lies in the normalizer of a split Cartan subgroup${ord}.`;
+    }
+    if (s.kind === 'cyclic') {
+        const gen = s.gen ? ` generated by $${l > 2 ? '\\pm ' : ''}${matrixTex(s.gen)}$` : '';
+        const cartan = `a non-split Cartan subgroup, the elements of norm $1$ in $\\mathbb{F}_{${l * l}}^{\\times}$${l > 2 ? ' modulo $\\pm 1$' : ''}`;
+        const m = (l + 1) / (l > 2 ? 2 : 1) / s.order;
+        const where = s.cartan ? `it is ${cartan}` : `it has index $${m}$ in ${cartan}`;
+        return these ? `These are the $g$ whose reduction lies in the cyclic group${gen}, of order $${s.order}$ in ${PSL}. It fixes no point of ${P1}: ${where}.`
+            : `Modulo $${l}$ it is the cyclic group${gen}${ord}. It fixes no point of ${P1}: ${where}.`;
+    }
+    if (s.kind === 'dihedral') return `Modulo $${l}$ it is dihedral${ord}, and preserves no point or pair of points of ${P1}: it lies in the normalizer of a non-split Cartan subgroup.`;
+    if (['A4', 'S4', 'A5'].includes(s.kind)) return `Modulo $${l}$ it is exceptional: isomorphic to $${s.kind[0]}_${s.kind[1]}$${ord}.`;
+    return `Modulo $${l}$ it fixes no point of ${P1}${ord}.`;
+}
+
+/** One prime power q = ℓ^k of the level, in sentences. */
+function localHtml(x) {
+    const lines = [];
+    const field = x.k === 1 ? `\\mathbb{F}_{${x.q}}` : `\\mathbb{Z}/${x.q}`;
+    const SL = `\\mathrm{SL}_2(${field})/{\\pm 1}`;
+    const index = x.order ? Math.round(x.ambient / x.order) : null;
+    const of = index ? `, of index $${index}$ in $${SL}$` : '';
+    const s = x.modL;
+    let saidModL = false;
+    if (x.exact && x.conds && !x.conds.length) {
+        lines.push(`Modulo $${x.q}$, the image of $\\Gamma \\cap \\Lambda_0$ is all of $${SL}$: there is no condition at $${x.l}$.`);
+        saidModL = true;
+    } else if (x.byModL && (messy(x) || !(x.exact && x.conds))) {
+        // what g does mod ℓ first; congruences that mix the entries only after it
+        lines.push(`Modulo $${x.q}$, the image of $\\Gamma \\cap \\Lambda_0$ is $\\left\\{ \\pm g \\;:\\; ${modLConditionsTex(s, x.l).join(',\\ \\ ')} \\right\\}$${of}.`);
+        lines.push(modLWords(s, x.l, true));
+        if (x.k > 1) lines.push(`It contains every $g \\equiv ${x.l > 2 ? '\\pm ' : ''}1 \\pmod{${x.l}}$, so only $g$ modulo $${x.l}$ matters.`);
+        if (x.exact && x.conds) {
+            const P = patternTex(x.conds);
+            lines.push(`In coordinates, it is $\\left\\{ \\pm ${P.matrix} \\;:\\; ${P.side.join(',\\ \\ ')} \\right\\}$.`);
+        }
+        saidModL = true;
+    } else if (x.exact && x.conds) {
+        const P = patternTex(x.conds);
+        lines.push(`Modulo $${x.q}$, the image of $\\Gamma \\cap \\Lambda_0$ is $\\left\\{ \\pm ${P.matrix} ${P.side.length ? `\\;:\\; ${P.side.join(',\\ \\ ')}` : ''} \\right\\}$${of}.`);
+        if (isStabilizer(x)) {
+            const [Pt] = x.fixed;
+            lines.push(`This is the stabilizer of the point $${pointTex(Pt)}$ of $\\mathbb{P}^1(${field})$, ${Pt[1] === 0 ? `that is, $\\Gamma_0(${x.q})$` : `a conjugate of $\\Gamma_0(${x.q})$`}.`);
+            saidModL = true;
+        } else if (x.fixed && x.fixed.length) {
+            lines.push(`It fixes the point${x.fixed.length > 1 ? 's' : ''} ${x.fixed.map((Pt) => `$${pointTex(Pt)}$`).join(' and ')} of $\\mathbb{P}^1(${field})$.`);
+        }
+        // the image mod ℓ only when the pattern hides it (a non-split Cartan, or a mixing congruence)
+        if (!s || (!messy(x) && ['full', 'trivial', 'borel', 'split'].includes(s.kind))) saidModL = true;
+    } else if (x.conds && x.conds.length) {
+        const P = patternTex(x.conds);
+        lines.push(`Modulo $${x.q}$, the image of $\\Gamma \\cap \\Lambda_0$ lies in $\\left\\{ \\pm ${P.matrix} ${P.side.length ? `\\;:\\; ${P.side.join(',\\ \\ ')}` : ''} \\right\\}$${x.inside ? `, with index $${x.inside}$ there` : ''}${of}.`);
+    } else if (x.conds) {
+        lines.push(`Modulo $${x.q}$, no linear congruence holds on the image of $\\Gamma \\cap \\Lambda_0$${index ? `, which has index $${index}$ in $${SL}$` : ''}.`);
+    } else {
+        lines.push(`Modulo $${x.q}$, the linear span of the image has index $${x.hullIndex}$ in $M_2(\\mathbb{Z}/${x.q})$, but no short congruences cut it out${index ? `; the image has index $${index}$ in $${SL}$` : ''}.`);
+    }
+    if (x.order === null) {
+        lines.push(`The image modulo $${x.q}$ is too large to list here, so whether it is all of ${x.conds && x.conds.length ? 'this set' : `$${SL}$`} is not decided.`);
+    }
+    if (!saidModL && s) {
+        lines.push(modLWords(s, x.l, false));
+        if (x.k > 1 && x.kernel) {
+            const K = `$g \\equiv ${x.l > 2 ? '\\pm ' : ''}1 \\pmod{${x.l}}$`;
+            lines.push(x.kernel === x.fullKernel ? `It contains every ${K}, so only $g$ modulo $${x.l}$ matters.`
+                : x.kernel === 1 ? `Reduction modulo $${x.l}$ maps it isomorphically onto that image: its only elements with ${K} are $\\pm 1$.`
+                    : `Of the $${x.fullKernel}$ classes modulo $${x.q}$ with ${K}, it contains $${x.kernel}$.`);
+        }
+    }
+    return lines.map((l) => `<p>${mix(l)}</p>`).join('');
+}
+
+/**
  * One line for the summary: the joint congruence closure over ℚ (congruence.js) when it was
  * computed, else the engine's prime-by-prime line. cong = { status, result, error } or null.
  */
@@ -203,9 +378,10 @@ export function congruenceSection(cong, A) {
             ['Image', mix(`$\\Gamma \\cap \\Lambda_0$ has ${J.image.toLocaleString()} elements modulo $N$, of ${J.ambient.toLocaleString()} in $\\mathrm{SL}_2(\\mathbb{Z}/N)/\\pm1$.`) + `<div class="note">${(J.ms / 1000).toFixed(1)} s</div>`],
         ];
         if (J.notes && J.notes.length) facts.push(['Lower bound', J.notes.map((n) => `<div>${esc(n)}</div>`).join('')]);
-        html += `<dl class="facts">${facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('')}</dl></div>`;
+        html += `<dl class="facts">${facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('')}</dl>`;
+        html += closureShapeHtml(cong, A) + '</div>';
         html += '<p class="sub-note">Prime by prime, from the Zariski Closure engine:</p>';
-    } else if (J && J.reason) html += `<div class="vc-inner"><p class="note">${esc(`The joint closure was not computed: ${J.reason}.`)}</p></div>`;
+    } else if (J && J.reason) html += `<div class="vc-inner"><p class="note">${esc(`The joint closure was not computed: ${J.reason}.`)}</p>${closureShapeHtml(cong, A)}</div>`;
     else if (cong && cong.error) html += `<div class="vc-inner"><p class="err">${esc(cong.error)}</p></div>`;
     return html + congruenceCard(A);
 }

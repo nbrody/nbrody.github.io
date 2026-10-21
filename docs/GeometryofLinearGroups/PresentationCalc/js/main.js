@@ -34,18 +34,20 @@ import { CURATED, CAT_ORDER, allExamples } from './examples.js';
 import { archClasses, sameTaus, tauValuesOf } from './archPlaces.js';
 import { mathLines, mathLine, innerTex } from './texText.js';
 import { zariskiCard, congruenceSection, zariskiLine, congruenceLine, jointCongruenceLine, texToText, esc, mix } from './zariskiView.js';
-import { sarithCard, liveNumbers, wordText, gapText, presentationSection, presentationGap, relatorTexNamed, ordersFrom, orientRelator } from './sarithView.js';
+import { sarithCard, liveNumbers, wordText, gapText, presentationSection, presentationGap, relatorTexNamed, ordersFrom, orientRelator, graphTop } from './sarithView.js';
 import { createInput, fromZariskiStyle } from './input.js';
 import { indexInPGL2Z } from './modularIndex.js';
 import { exactIndexCheck } from './sarithIndex.js';
 import { fuchsianPairTest } from './fuchsian2.js';
 import { bianchiRing, wordMatrices, indexInBianchi, indexInPGL2OS, unitDeterminants, RINGS } from './bianchi.js';
 import { descendToQ } from './descent.js';
+import { infiniteOrderWord } from './cusps.js';
 import { foldPGL2Z } from './stallings.js';
 import { referenceMs } from './calibrate.js';
 import { randomGroup } from './randomGroup.js';
+import { elementarySection, elementaryTop } from './elementaryView.js';
 
-const VERSION = '2026-10-15a';          // busts the workers' module caches
+const VERSION = '2026-10-20a';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const ZARISKI_TIMEOUT = 120;
 const MAX_PRIMES = 12;
@@ -260,6 +262,7 @@ function zariskiDone(R, res) {
     if (res.closure.kind !== 'dense') {
         setStep('zariski', 'info', line.head, line.detail);
         for (const s of ['places', 'congruence', 'sarith']) setStep(s, 'skipped', 'Not needed', 'Γ is not Zariski dense.');
+        startElementary(R, res.closure.kind);
         renderVerdict();
         refreshView('zariski');
         return;
@@ -274,6 +277,32 @@ function zariskiDone(R, res) {
     refreshView('zariski');
     startCongruence();
     startPlaces();
+}
+
+/**
+ * A Γ that is not Zariski dense: its presentation on nice generators (elementary.js, in
+ * elementaryWorker.js), each written in the given ones.
+ */
+function startElementary(R, kind) {
+    R.elementary = { status: 'running' };
+    let worker;
+    try { worker = new Worker(new URL(`./elementaryWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
+    catch (e) { R.elementary = { status: 'error', error: 'module workers are unavailable here' }; return; }
+    R.workers.add(worker);
+    const done = (m) => {
+        clearTimeout(timer);
+        try { worker.terminate(); } catch (e) { /* gone */ }
+        R.workers.delete(worker);
+        if (R !== run) return;
+        R.elementary = m.error ? { status: 'error', error: m.error } : { status: 'done', result: m.result };
+        renderVerdict();
+        refreshView('zariski');
+    };
+    const timer = setTimeout(() => done({ error: 'no answer after 60 s' }), 60000);
+    worker.onmessage = (ev) => done(ev.data);
+    worker.onerror = (e) => { e.preventDefault?.(); done({ error: e.message || 'the worker failed to load' }); };
+    const m = R.model;
+    worker.postMessage({ id: R.seq, rows: m.mats.map((r) => r.map((e) => e.src)), poly: m.poly.map(String), root: m.degree > 1 ? m.roots[m.defaultIndex] : null, kind });
 }
 
 // ───────────────────────── step 2: discreteness at each place ─────────────────────────
@@ -706,10 +735,18 @@ function startCongruence() {
         return;
     }
     R.workers.add(worker);
-    const done = (m) => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); congruenceDone(R, m); };
-    const timer = setTimeout(() => done({ error: `no answer after ${CONG_SECONDS + 20} s` }), (CONG_SECONDS + 20) * 1000);
-    worker.onmessage = (ev) => done(ev.data);
-    worker.onerror = (e) => { e.preventDefault?.(); done({ error: e.message || 'the worker failed to load' }); };
+    // two messages: the closure, then its description (congruenceShape.js), which may take longer
+    let answered = false;
+    const stop = () => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); };
+    const done = (m) => { if (answered) return; answered = true; congruenceDone(R, m); };
+    const timer = setTimeout(() => { stop(); if (!answered) done({ error: `no answer after ${CONG_SECONDS + 20} s` }); }, (CONG_SECONDS + 40) * 1000);
+    worker.onmessage = (ev) => {
+        const m = ev.data;
+        if ('shape' in m) { stop(); if (R === run && R.congruence) { R.congruence.shape = m.shape; refreshView('zariski'); } return; }
+        done(m);
+        if (m.error) stop();
+    };
+    worker.onerror = (e) => { e.preventDefault?.(); stop(); done({ error: e.message || 'the worker failed to load' }); };
     worker.postMessage({ id: R.seq, rows: R.model.mats.map((r) => r.map((e) => e.src)), S, C: A.congruence, cap: 4000000, seconds: CONG_SECONDS });
 }
 
@@ -1047,7 +1084,8 @@ function startSarith(afterCusps = false) {
         } else if (msg.type === 'done') {
             clearTimeout(timer);
             // the worker stays up for the vertex orbits (over ℚ) and while the stabilizer may need more elements
-            if (!orbitsApply(R) && !vasersteinApplies(R) && !(msg.status === 'covered' && R.sarith.certifiable && R.sarith.arch)) stop();
+            if (msg.status !== 'covered') msg.auto = autoCovering(R, msg);
+            if (!orbitsApply(R) && !vasersteinApplies(R) && !((msg.status === 'covered' || msg.auto) && R.sarith.certifiable && R.sarith.arch)) stop();
             sarithDone(R, msg);
         } else if (msg.type === 'orbits') {
             const h = R.sarith.orbitsWaiting;
@@ -1107,7 +1145,13 @@ function cuspFound(R, c, source) {
     const where = c.cusp === 'inf' ? '$\\infty$' : 'a cusp';
     const Stex = S.map((x) => x.tex).join(', ');
     const what = S.length ? 'S-arithmetic' : 'arithmetic';
-    const lattice = S.length
+    const lattice = S.length && c.byTranslations
+        ? [
+            `There, the parabolics of $\\Gamma$ (starting from $${wordTex(c.parabolic, gName)}$) translate by a lattice of full rank $${c.d}$ in $K$.`,
+            "Conjugating to put another cusp at $0$ gives every elementary matrix of some level $N\\mathcal{O}$, a subgroup of finite index in $\\mathrm{SL}_2(\\mathcal{O})$ by Vaserstein's theorem, since $\\mathcal{O}$ has infinitely many units.",
+            `So the closure of $\\Gamma$ at each prime of $S = \\{${Stex}\\}$ is open; it is unbounded there, so it contains $\\mathrm{PSL}_2$ (an open unbounded subgroup of $\\mathrm{SL}_2$ of a local field is everything). Hence $\\Gamma$ has finitely many orbits on the trees, with stabilizers of finite index.`,
+        ]
+        : S.length
         ? [
             `There, the parabolic $${wordTex(c.parabolic, gName)}$ and the loxodromic $${wordTex(c.other, gName)}$, which fixes the same point, have multipliers whose primes cover $S = \\{${Stex}\\}$.`,
             'So the unipotents of $\\Gamma$ at that cusp form a subgroup of finite index in a fractional ideal of $\\mathcal{O}_S$.',
@@ -1116,15 +1160,17 @@ function cuspFound(R, c, source) {
     const prev = R.sarith || {};
     R.sarith = {
         ...prev, phase: 'done', status: 'yes', cusp: c, places: prev.places || [], history: prev.history || [], metric: R.settings.metric,
-        head: [
-            `A search among ${source} found a cusp of $\\Gamma$ at ${where} whose unipotents have full rank.`,
-            ...lattice,
-            'Conjugating that cusp to $\\infty$ and another cusp to $0$, $\\Gamma$ contains every elementary matrix of some level $\\mathfrak{q}$.',
-            "By Vaserstein's theorem, these generate a subgroup of finite index in $\\mathrm{SL}_2(\\mathcal{O}_S)$, since $\\mathcal{O}_S$ has infinitely many units.",
-            `$\\Gamma$ is discrete in the product of the places where it is unbounded, so it is a lattice there, and $\\Gamma$ is ${what}. Benoist–Oh's criterion for products of $\\mathrm{SL}_2$ gives the same conclusion.`,
-        ],
+        head: c.byTranslations && S.length
+            ? [`A search among ${source} found a cusp of $\\Gamma$ at ${where} whose unipotents have full rank${c.collisions ? `, partly from collisions of the cusp's orbit modulo its translations` : ''}.`, ...lattice, `So $\\Gamma$ has finite index in an S-arithmetic group: it is ${what}.`]
+            : [
+                `A search among ${source} found a cusp of $\\Gamma$ at ${where} whose unipotents have full rank${c.collisions ? `, partly from collisions of the cusp's orbit modulo its translations` : ''}.`,
+                ...lattice,
+                'Conjugating that cusp to $\\infty$ and another cusp to $0$, $\\Gamma$ contains every elementary matrix of some level $\\mathfrak{q}$.',
+                "By Vaserstein's theorem, these generate a subgroup of finite index in $\\mathrm{SL}_2(\\mathcal{O}_S)$, since $\\mathcal{O}_S$ has infinitely many units.",
+                `$\\Gamma$ is discrete in the product of the places where it is unbounded, so it is a lattice there, and $\\Gamma$ is ${what}. Benoist–Oh's criterion for products of $\\mathrm{SL}_2$ gives the same conclusion.`,
+            ],
     };
-    setStep('sarith', 'yes', S.length ? 'S-arithmetic' : 'Arithmetic', `The unipotents of $\\Gamma$ at ${where} have full rank${S.length ? ` over $\\mathcal{O}_S$, with $S = \\{${Stex}\\}$` : `, namely $${c.d}$`}, from ${source} (${(c.ms / 1000).toFixed(1)} s), so $\\Gamma$ is ${what} by Vaserstein's theorem.`);
+    setStep('sarith', 'yes', S.length ? 'S-arithmetic' : 'Arithmetic', `The unipotents of $\\Gamma$ at ${where} have full rank${c.byTranslations && S.length ? `, $${c.d}$, with $S = \\{${Stex}\\}$` : S.length ? ` over $\\mathcal{O}_S$, with $S = \\{${Stex}\\}$` : `, namely $${c.d}$`}, from ${source} (${(c.ms / 1000).toFixed(1)} s), so $\\Gamma$ is ${what} by Vaserstein's theorem.`);
     renderVerdict();
     refreshView('sarith');
 }
@@ -1236,10 +1282,36 @@ function runOrbits(R, msg) {
             renderVerdict(); refreshView('sarith');
             return;
         }
-        if (!(msg.status === 'covered' && S.certifiable && S.arch)) stopWorker();
+        if (!((msg.status === 'covered' || msg.auto) && S.certifiable && S.arch)) stopWorker();
         sarithDone(R, msg);
     };
     S.worker.postMessage({ id: R.seq, cmd: 'orbits', rows: R.model.mats.map((r) => r.map((e) => e.src)), S: R.zariski.arith.ring.S.map((x) => x.p), seconds: ORBIT_SECONDS });
+}
+
+/**
+ * The vertex orbits without a covering. Theorem: let Γ ⊂ PGL₂(k), k the invariant trace field, be
+ * Zariski dense (so dense in Res_{k/ℚ} PGL₂), S the primes where it is unbounded, and suppose an
+ * element of infinite order fixes o. Then Γ is not discrete in G_S = ∏_{𝔭∈S} PGL₂(k_𝔭), and its
+ * closure H there is open: near 1, H is a product over the residue characteristics p of p-adic Lie
+ * groups, whose Lie algebras are Ad(Γ)-invariant, hence ideals of ⊕_{𝔭|p} 𝔰𝔩₂(k_𝔭); a missing
+ * factor 𝔭 would make the elements of Γ near 1 trivial at 𝔭, hence trivial, and Γ discrete. An open
+ * subgroup of G_S unbounded in every factor contains ∏ PSL₂(k_𝔭), and Γ has the orbits of H
+ * (H = Γ·H_v), so its vertex orbits on X are the classes of vertex types its determinants allow:
+ * the representatives FlashBeam starts from. Returns infiniteOrderWord's { word, why } or null.
+ */
+function autoCovering(R, msg) {
+    const A = R.zariski && R.zariski.arith, m = R.model, S = R.sarith;
+    if (!A || !m || m.degree !== A.k.d || !S || !S.certifiable || !S.arch || !msg.stab || !msg.stab.length) return null;
+    try { return infiniteOrderWord(m.mats.map((r) => r.map((e) => e.src)), m.poly, msg.stab.map((e) => e.word)); } catch (e) { return null; }
+}
+
+function autoCoveringLines(R, msg) {
+    const a = msg.auto;
+    return [
+        `It did not finish covering the trees (${msg.covered} of the ${msg.targets} neighbours), but the element $${wordTex(a.word, gName)}$ fixes $o$ and has infinite order (${a.why === 'parabolic' ? 'it is parabolic' : '$\\mathrm{tr}^2/\\det$ lies outside $[0, 4]$ at some place at $\\infty$'}).`,
+        'So $\\Gamma$ is not discrete in $G_S = \\prod_{\\mathfrak{p} \\in S} \\mathrm{PGL}_2(k_\\mathfrak{p})$. It is Zariski dense in $\\mathrm{Res}_{k/\\mathbb{Q}} \\mathrm{PGL}_2$, so the Lie algebra of its closure $H$ is an ideal of $\\bigoplus_\\mathfrak{p} \\mathfrak{sl}_2(k_\\mathfrak{p})$, and a missing factor would make $\\Gamma$ discrete: $H$ is open.',
+        'An open subgroup of $G_S$ that is unbounded at every $\\mathfrak{p}$ contains $\\prod_\\mathfrak{p} \\mathrm{PSL}_2(k_\\mathfrak{p})$, and $\\Gamma$ has the vertex orbits of $H$. So the orbits are the classes of vertex types that the determinants of $\\Gamma$ allow, the representatives the search starts from: no covering is needed.',
+    ];
 }
 
 function sarithDone(R, msg) {
@@ -1257,6 +1329,17 @@ function sarithDone(R, msg) {
         setStep('sarith', 'open', 'No certificate', `FlashBeam found ${S.found}, but no certificate applies here. ${S.note}`);
         renderVerdict();
         refreshView('sarith');
+        return;
+    }
+    if (msg.auto && S.arch) {
+        // the vertex orbits by the theorem (autoCovering): it remains to check the stabilizer of o
+        S.auto = msg.auto;
+        S.phase = 'stab';
+        S.head = [`FlashBeam found ${S.found}.`, ...autoCoveringLines(R, msg), 'It remains to show that the stabilizer of $o$ is a lattice at $\\infty$.'];
+        setStep('sarith', 'running', 'Checking the stabilizer…', 'The vertex orbits are known (an element of infinite order fixes $o$); checking the elements that fix $o$.');
+        renderVerdict();
+        refreshView('sarith');
+        stabilizerCheck(R, msg.stab, 0);
         return;
     }
     if (msg.status !== 'covered' || !(msg.verify && msg.verify.ok)) {
@@ -1471,8 +1554,8 @@ function finishStab(R, ok) {
     S.phase = 'done';
     if (ok) {
         S.status = 'yes';
-        const found = `FlashBeam found ${S.found}, and a covering of the trees by ${plural(nR, 'representative')}, checked again exactly.`;
-        const orbits = `So $\\Gamma$ has at most ${plural(nR, 'orbit')} on the vertices of the trees.`;
+        const found = S.auto ? `FlashBeam found ${S.found}.` : `FlashBeam found ${S.found}, and a covering of the trees by ${plural(nR, 'representative')}, checked again exactly.`;
+        const orbits = S.auto ? autoCoveringLines(R, S.result) : `So $\\Gamma$ has at most ${plural(nR, 'orbit')} on the vertices of the trees.`;
         const stab = S.stab.cusp
             ? "The elements found fixing $o$ contain a full lattice of unipotents at a cusp, so by Vaserstein's theorem they generate a subgroup of finite index in $\\Lambda_o$, since $\\mathcal{O}_K$ has infinitely many units."
             : S.stab.exact
@@ -1480,19 +1563,23 @@ function finishStab(R, ok) {
                 ? `The elements found fixing $o$ generate a subgroup of index $${S.stab.index}$ in $\\Lambda_o = \\mathrm{PGL}_2(\\mathbb{Z})$, by coset enumeration.`
                 : `The elements found fixing $o$ meet the Bianchi group $${S.stab.groupTex}$ in a subgroup of index $${S.stab.index}$, by coset enumeration.`)
             : `The stabilizer of $o$ has finite ${S.arch.kind === 'real' ? 'area' : 'covolume'} at $\\infty$, so it has finite index in $\\Lambda_o$.`;
-        S.head = [found, orbits, stab, 'Hence $[\\Lambda : \\Gamma^{(2)}] < \\infty$, and $\\Gamma$ is S-arithmetic.'];
-        setStep('sarith', 'yes', 'S-arithmetic', `FlashBeam covered the trees with ${plural(nR, 'representative')}, and ${S.stab.cusp
+        S.head = [found, ...[].concat(orbits), stab, 'Hence $[\\Lambda : \\Gamma^{(2)}] < \\infty$, and $\\Gamma$ is S-arithmetic.'];
+        setStep('sarith', 'yes', 'S-arithmetic', `${S.auto ? 'An element of infinite order fixes $o$, so the vertex orbits are the vertex types (no covering needed)' : `FlashBeam covered the trees with ${plural(nR, 'representative')}`}, and ${S.stab.cusp
             ? `the elements fixing $o$ contain unipotents of rank $${S.stab.rank}$ at a cusp`
             : S.stab.exact
             ? `the elements fixing $o$ have index $${S.stab.index}$ in $${S.stab.groupTex}$`
             : 'the stabilizer of $o$ is a lattice at $\\infty$'}.`);
     } else {
         S.status = 'open';
-        S.head = [
-            `FlashBeam found ${S.found}, and a covering of the trees by ${plural(nR, 'representative')}.`,
-            'But the stabilizer of $o$ was not shown to be a lattice at $\\infty$, so there is no certificate.',
-        ];
-        setStep('sarith', 'open', 'No certificate', 'FlashBeam covered the trees, but the stabilizer of $o$ was not shown to be a lattice at $\\infty$.');
+        S.head = S.auto
+            ? [`FlashBeam found ${S.found}.`, ...autoCoveringLines(R, S.result), 'But the stabilizer of $o$ was not shown to be a lattice at $\\infty$, so there is no certificate.']
+            : [
+                `FlashBeam found ${S.found}, and a covering of the trees by ${plural(nR, 'representative')}.`,
+                'But the stabilizer of $o$ was not shown to be a lattice at $\\infty$, so there is no certificate.',
+            ];
+        setStep('sarith', 'open', 'No certificate', S.auto
+            ? 'The vertex orbits are known (an element of infinite order fixes $o$), but the stabilizer of $o$ was not shown to be a lattice at $\\infty$.'
+            : 'FlashBeam covered the trees, but the stabilizer of $o$ was not shown to be a lattice at $\\infty$.');
     }
     renderVerdict();
     refreshView('sarith');
@@ -1509,7 +1596,9 @@ function verdict() {
     if (z.status === 'open') return { cls: 'open', head: `Step 1 failed: ${z.detail}` };
     if (z.status === 'info') {
         const C = R.zariski.closure;
-        return { cls: 'info', head: `Γ is not Zariski dense: its closure is $${C.tex}$.`, sub: C.summary.replace(/⟨S⟩/g, 'Γ') };
+        const E = R.elementary && R.elementary.status === 'done' ? R.elementary.result : null;
+        const iso = E && !E.finite && E.structure && E.structure !== '1' ? ` $\\Gamma \\cong ${E.structure}$${E.finitelyPresented === false ? ', not finitely presented' : ''}.` : '';
+        return { cls: 'info', head: `Γ is not Zariski dense: its closure is $${C.tex}$.${iso}`, sub: C.summary.replace(/⟨S⟩/g, 'Γ') };
     }
     if (p.status === 'yes') {
         const order = placeOrder(R).filter((x) => x.status === 'discrete');
@@ -1573,6 +1662,7 @@ function relatorTex(R, orders = new Map()) {
 function presentationData() {
     const R = run;
     if (!R || R.error || !R.places) return null;
+    if (R.elementary && R.elementary.status === 'done') return elementaryTop(R.elementary.result);
     const nGens = R.model ? R.model.mats.length : 0;
     const disc = placeOrder(R).filter((p) => p.status === 'discrete');
     for (const pl of disc) {
@@ -1584,11 +1674,17 @@ function presentationData() {
         }
     }
     const Pr = R.presentation && R.presentation.result && R.presentation.result.pres;
+    // an S-arithmetic Γ (over ℚ, or over ℤ[i], ℤ[√−2], ℤ[ω]): its graph of groups on the tree of a
+    // prime (for K = Γ ∩ Λ and coset representatives when Γ ⊄ Λ), or Reidemeister–Schreier on the given generators
+    const Gg = R.presentation && R.presentation.result && R.presentation.result.graph;
+    const hasGraph = !!(Gg && !Gg.error && Gg.gens);
+    if (hasGraph && R.presView !== 'given') return { ...graphTop(Gg), toggle: { to: 'given', label: 'on g₁, g₂, …' } };
     if (Pr && !Pr.error && Pr.gens) {
         const names = Pr.gens.map((g) => g.name.replace(/^g(\d+)$/, 'g_{$1}').replace(/^h(\d+)$/, 'h_{$1}'));
-        const extra = Pr.gens.map((g, i) => (g.given === null ? `${names[i]} = \\left(\\begin{smallmatrix}${g.M[0]}&${g.M[1]}\\\\${g.M[2]}&${g.M[3]}\\end{smallmatrix}\\right)` : null)).filter(Boolean);
+        const d = R.presentation.result.ring, ent = (x) => (d ? ringEltTex(d, x) : x);
+        const extra = Pr.gens.map((g, i) => (g.given === null ? `${names[i]} = \\left(\\begin{smallmatrix}${ent(g.M[0])}&${ent(g.M[1])}\\\\${ent(g.M[2])}&${ent(g.M[3])}\\end{smallmatrix}\\right)` : null)).filter(Boolean);
         const orders = ordersFrom(Pr.relators);
-        return { source: 'Reidemeister–Schreier', rels: Pr.relators.map((w) => relatorTexNamed(w, names, orders)), complete: true, free: !Pr.relators.length, extra };
+        return { source: 'Reidemeister–Schreier', rels: Pr.relators.map((w) => relatorTexNamed(w, names, orders)), complete: true, free: !Pr.relators.length, extra, toggle: hasGraph ? { to: 'nice', label: 'as a graph of groups' } : null };
     }
     for (const pl of disc) {
         const d = pl.decision;
@@ -1616,12 +1712,17 @@ function renderPresentation() {
         return;
     }
     const n = d.rels.length;
-    const head = `${esc(d.source)} · ${n} relation${n === 1 ? '' : 's'}${d.complete ? '' : ` <span class="partial">— ${d.source === 'FlashBeam' ? 'found, not known to be a presentation' : 'some may be missing'}</span>`}`;
-    el.innerHTML = `<div class="rels-head">${head}</div>` + (d.free
-        ? '<p class="rels-free">No relations: Γ is free on these generators.</p>'
-        : `<ol class="rels-list">${d.rels.map((t) => `<li>\\(${t}\\)</li>`).join('')}</ol>`)
-        + (d.extra && d.extra.length ? `<p class="rels-extra">with ${d.extra.map((t) => `\\(${t}\\)`).join(', ')}</p>` : '');
+    const head = `${mix(d.source)} · ${n} relation${n === 1 ? '' : 's'}${d.toggle ? ` <button class="quiet rels-toggle" id="rels-toggle" data-to="${d.toggle.to}">${esc(d.toggle.label)}</button>` : ''}${d.note ? ` <span class="rels-note">— ${mix(d.note)}</span>` : ''}${d.complete ? '' : ` <span class="partial">— ${d.source === 'FlashBeam' ? 'found, not known to be a presentation' : 'some may be missing'}</span>`}`;
+    el.innerHTML = `<div class="rels-head">${head}</div>`
+        + (d.names ? `<p class="rels-on">on \\(${d.names.join(', ')}\\)</p>` : '')
+        + (d.free
+            ? `<p class="rels-free">No relations: Γ is free on ${d.names ? 'this generator' : 'these generators'}.</p>`
+            : `<ol class="rels-list">${d.rels.map((t) => `<li>\\(${t}\\)</li>`).join('')}</ol>`)
+        + (d.extra && d.extra.length ? `<p class="rels-extra">with ${d.extra.map((t) => `\\(${t}\\)`).join(', ')}</p>` : '')
+        + (d.defs && d.defs.length ? `<p class="rels-extra">where ${d.defs.map((t) => `\\(${t}\\)`).join(', ')}</p>` : '');
     typeset(el);
+    const tg = $('rels-toggle');
+    if (tg) tg.addEventListener('click', () => { if (run) { run.presView = tg.dataset.to; renderPresentation(); } });
     syncRelsHeight();
 }
 
@@ -1764,6 +1865,7 @@ function refreshView(step) {
         if (!R.zariski) html = `<p class="lead">${esc(R.error || 'Computing…')}</p>`;
         else if (!R.zariski.ok) html = `<div class="banner" data-status="open"><span class="dot"></span><div>${esc(R.zariski.error)}</div></div>`;
         else html = zariskiCard(R.zariski, R.model);
+        if (R.elementary) html = html.replace(/<\/div>$/, `${elementarySection(R.elementary)}</div>`);
         if (R.descent && R.descent.mats) {
             const st = { v: 1, mats: R.descent.mats, anti: R.descent.mats.map(() => false), consts: [] };
             const link = `#s=${btoa(unescape(encodeURIComponent(JSON.stringify(st)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
@@ -2075,6 +2177,15 @@ function wire() {
         const row = e.target.closest('[data-step]');
         const target = row && (row.dataset.step === 'congruence' ? $('cong-h') : $(`card-${row.dataset.step}`));
         if (target && !target.hidden && !target.closest('[hidden]')) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    // the congruence closure, one prime power at a time
+    $('cong-body').addEventListener('click', (e) => {
+        const b = e.target.closest('.cq-tab');
+        if (!b || !run || !run.congruence) return;
+        const q = Number(b.dataset.cq);
+        run.congruence.sel = q;
+        $('cong-body').querySelectorAll('.cq-tab').forEach((t) => t.setAttribute('aria-selected', String(Number(t.dataset.cq) === q)));
+        $('cong-body').querySelectorAll('.cq-panel').forEach((p) => { p.hidden = Number(p.dataset.cq) !== q; });
     });
     $('card-places').addEventListener('click', (e) => {
         const b = e.target.closest('[data-place]');

@@ -76,6 +76,16 @@ export const CURATED = [
         mats: [['1', '1', '0', '1'], ['2', '0', '0', '1']],
     },
     {
+        name: 'ℤ[1/6] ⋊ ℤ: not finitely presented', cat: NOTDENSE, chip: '\\mathbb{Z}[\\tfrac16] \\rtimes \\mathbb{Z}',
+        desc: '(1 1; 0 1) and diag(3, 2): z ↦ z + 1 and z ↦ 3z/2. The translations form ℤ[1/6], and t u t⁻¹ = u^{3/2}; by Bieri–Strebel the group is not finitely presented.',
+        mats: [['1', '1', '0', '1'], ['3', '0', '0', '2']],
+    },
+    {
+        name: 'A non-split extension of ℤ² by ℤ[1/15]', cat: NOTDENSE, chip: '\\mathbb{Z}[\\tfrac1{15}] \\,.\\, \\mathbb{Z}^2',
+        desc: 'z ↦ 3z and z ↦ 5z + 1: the multipliers 3 and 5 have no common fixed point modulo the translations, so [t₁, t₂] = u is a translation.',
+        mats: [['3', '0', '0', '1'], ['5', '1', '0', '1']],
+    },
+    {
         name: 'Normalizer of a torus', cat: NOTDENSE, chip: 'D_\\infty',
         desc: 'diag(2, 1) and (0 1; 1 0): an infinite dihedral group.',
         mats: [['2', '0', '0', '1'], ['0', '1', '1', '0']],

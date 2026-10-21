@@ -120,10 +120,10 @@ export function presentationPGL2ZS(primesIn) {
             const r = enumerateInvolutions(letter, P.relators, sub.map((x) => x.sw), { maxCosets: 20000, seconds: 1, strategy: 'felsch' });
             if (r.index === want) { chosen = sub; break; }
         }
-        const relators = chosen.map(({ sw, S }) => {
-            const phi = primitive(mul(mul(Wq, S), adj(Wq)));
-            return [letter].concat(sw, [letter], reverse(wordInPGL2ZS(phi, P)));
-        });
+        // the edge group Λ_e on its generators, and φ(s) = w s w⁻¹ as words in the letters before w
+        const phiWords = chosen.map(({ S }) => wordInPGL2ZS(primitive(mul(mul(Wq, S), adj(Wq))), P));
+        const relators = chosen.map(({ sw }, k) => [letter].concat(sw, [letter], reverse(phiWords[k])));
+        (P.levels = P.levels || []).push({ q, letter, relCount: P.relators.length, egens: chosen.map((x) => x.sw), ephi: phiWords });
         P.primes.push(q);
         P.gens.push(Wq);
         P.relators.push(...relators);

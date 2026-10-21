@@ -96,7 +96,22 @@ export function mulM(R, A, B) {
 export const adjM = (R, A) => [A[3], R.neg(A[1]), R.neg(A[2]), A[0]];
 export const detM = (R, A) => R.sub(R.mul(A[0], A[3]), R.mul(A[1], A[2]));
 export const traceM = (R, A) => R.add(A[0], A[3]);
-const keyM = (A) => A.map((e) => e.join(',')).join(';');
+/**
+ * A key for a matrix: its entries, or for a large matrix a 64-bit digest of them, so that the
+ * registry and FlashBeam's visited set stay small when entries grow. A collision of digests would
+ * only suggest a relation, and relations are checked exactly (_relation).
+ */
+const keyM = (A) => {
+    const s = A.map((e) => e.join(',')).join(';');
+    if (s.length <= 200) return s;
+    let h1 = 0x811c9dc5 | 0, h2 = 0x9747b28c | 0;
+    for (let i = 0; i < s.length; i++) {
+        const c = s.charCodeAt(i);
+        h1 = Math.imul(h1 ^ c, 16777619);
+        h2 = Math.imul(h2 ^ c, 0x5bd1e995); h2 ^= h2 >>> 15;
+    }
+    return `#${s.length}:${(h1 >>> 0).toString(36)}:${(h2 >>> 0).toString(36)}`;
+};
 const isScalarM = (R, A) => R.isZero(A[1]) && R.isZero(A[2]) && A[0].every((t, i) => t === A[3][i]);
 const heightM = (A) => { let h = 0; for (const e of A) for (const t of e) { const b = bitlen(t); if (b > h) h = b; } return h; };
 
@@ -152,10 +167,14 @@ export function fastPlace(F, place) {
         if (a !== 1n) throw new Error('internal: not a unit');
         return ((s % m) + m) % m;
     }
-    // images of the basis of O in ℤ/p^N
-    let beta;
-    if (n === 1) beta = [mod(F.toK({ v: [1n], den: 1n })[0].n)];
-    else {
+    // images of the basis of O in ℤ/p^m (the embedding O → ℤ_p at 𝔭), at precision m = N and, for
+    // elements divisible by a high power of 𝔭 (the content of a matrix is divided out over ℤ only),
+    // at doubled precisions, cached
+    let betaAt;
+    if (n === 1) {
+        const b1 = F.toK({ v: [1n], den: 1n })[0].n;
+        betaAt = (m) => [((b1 % m) + m) % m];
+    } else {
         const w = F.generator();
         if (!w) return null;
         const f = F.minpolyQ(w);                     // integral, low → high
@@ -167,31 +186,50 @@ export function fastPlace(F, place) {
             if (place.val(F.sub(w, F.fromInt(r))) > 0) { a0 = r; break; }
         }
         if (a0 < 0n || evd(a0, p) === 0n) return null;
-        let a = a0, m = p;
-        while (m < PN) {
-            m = m * m > PN ? PN : m * m;
-            a = ((a - ev(a, m) * inv(evd(a, m), m)) % m + m) % m;
-        }
-        const pw = [1n];
-        for (let i = 1; i < n; i++) pw.push(pw[i - 1] * a % PN);
-        const M = F.M_OK;
-        beta = [];
+        const M = F.M_OK, Ls = [];
         for (let j = 0; j < n; j++) {
-            let num = 0n, L = 1n;
+            let L = 1n;
             for (let i = 0; i < n; i++) { const d = M[j][i].d; L = (L / bgcd(L, d)) * d; }
             if (L % p === 0n) return null;
-            for (let i = 0; i < n; i++) { const r = M[j][i]; num += r.n * (L / r.d) * pw[i]; }
-            beta.push(mod(num * inv(L, PN)));
+            Ls.push(L);
         }
+        let a = a0, am = p;                          // the root of f at 𝔭, modulo am (Hensel)
+        betaAt = (PM) => {
+            while (am < PM) {
+                am = am * am > PM ? PM : am * am;
+                a = ((a - ev(a, am) * inv(evd(a, am), am)) % am + am) % am;
+            }
+            const ar = a % PM;
+            const pw = [1n];
+            for (let i = 1; i < n; i++) pw.push(pw[i - 1] * ar % PM);
+            const out = [];
+            for (let j = 0; j < n; j++) {
+                let num = 0n;
+                for (let i = 0; i < n; i++) { const r = M[j][i]; num += r.n * (Ls[j] / r.d) * pw[i]; }
+                out.push(((num * inv(Ls[j], PM)) % PM + PM) % PM);
+            }
+            return out;
+        };
     }
+    const beta = betaAt(PN);
     const image = n === 1 ? (u) => mod(u[0] * beta[0]) : (u) => { let s = 0n; for (let j = 0; j < n; j++) if (u[j]) s += u[j] * beta[j]; return mod(s); };
     const isZero = (u) => u.every((t) => t === 0n);
     const exactVal = (u) => place.val({ v: u.slice(), den: 1n });
+    const deep = [];                                 // [p^m, β mod p^m] for m = 2N, 4N, …
     /** v_𝔭 of integral coordinates. */
     const val = (u) => {
         const x = image(u);
         if (x !== 0n) return vp(x);
-        return isZero(u) ? Infinity : exactVal(u);
+        if (isZero(u)) return Infinity;
+        for (let k = 0; k < 6; k++) {
+            if (!deep[k]) { const PM = PN ** BigInt(2 << k); deep[k] = [PM, betaAt(PM)]; }
+            const [PM, b] = deep[k];
+            let y = 0n;
+            for (let j = 0; j < n; j++) if (u[j]) y += u[j] * b[j];
+            y %= PM;
+            if (y !== 0n) return vp(y);
+        }
+        return exactVal(u);
     };
     // sanity: the model must agree with the exact valuation
     const probe = [];
@@ -241,9 +279,24 @@ export function fastPlace(F, place) {
         const vNB = vp(NB);
         return canon(unitOf(NB, vNB), unitOf(ND, vND), vNB - vND, kk, N - Math.max(vNB, vND));
     }
+    const betaCache = new Map();
+    /**
+     * The images of the entries, with their common power of 𝔭 divided out (a scalar: the same
+     * action), so that elements whose entries all lie deep in 𝔭 keep to this fast model.
+     */
+    function images(M) {
+        const im = M.map(image);
+        if (im.some((x) => x % p !== 0n)) return im;
+        const v = Math.min(...M.map(val));
+        if (!(v > 0) || v === Infinity) return im;
+        let b = betaCache.get(v);
+        const pv = p ** BigInt(v), PM = PN * pv;
+        if (!b) { b = betaAt(PM); betaCache.set(v, b); if (betaCache.size > 256) betaCache.delete(betaCache.keys().next().value); }
+        return M.map((u) => { let y = 0n; for (let j = 0; j < n; j++) if (u[j]) y += u[j] * b[j]; y %= PM; if (y < 0n) y += PM; return mod(y / pv); });
+    }
     /** Prepare a matrix (integral coordinates) for act; null when its determinant is too divisible. */
     function prepare(M, R) {
-        const [a, b, c, d] = M.map(image);
+        const [a, b, c, d] = images(M);
         const det = mod(a * d - b * c);
         if (det === 0n) return null;
         let vc;
@@ -253,6 +306,72 @@ export function fastPlace(F, place) {
         return { a, b, c, d, vdet: vp(det), vc, aZero: isZero(M[0]) };
     }
     return { p, N, val, act, prepare, image };
+}
+
+/**
+ * A generator π of the prime 𝔭 of a fast place, when 𝔭 is principal with a small generator: an
+ * element of O with |N(π)| = p and v_𝔭(π) = 1, by a short search over small coordinates. Returns
+ * { p, fast, divide(u, m) = u/π^m } (u ∈ 𝔭^m, exact), or null.
+ */
+function uniformizer(R, fast, p, n) {
+    const B = n <= 3 ? 3 : n <= 4 ? 2 : 1;
+    const unit = (j) => { const e = new Array(n).fill(0n); e[j] = 1n; return e; };
+    const multMatrix = (u) => { const cols = []; for (let j = 0; j < n; j++) cols.push(R.mul(u, unit(j))); return cols; };   // column j: u·e_j
+    const detOf = (C) => {
+        const M = C.map((c) => c.slice());
+        let prev = 1n, sign = 1n;
+        for (let k = 0; k < n; k++) {
+            let q = k; while (q < n && M[q][k] === 0n) q++;
+            if (q === n) return 0n;
+            if (q !== k) { [M[k], M[q]] = [M[q], M[k]]; sign = -sign; }
+            for (let i = k + 1; i < n; i++) { for (let j = k + 1; j < n; j++) M[i][j] = (M[i][j] * M[k][k] - M[i][k] * M[k][j]) / prev; M[i][k] = 0n; }
+            prev = M[k][k];
+        }
+        return sign * M[n - 1][n - 1];
+    };
+    const u = new Array(n).fill(0n);
+    let found = null;
+    const visit = (i) => {
+        if (found) return;
+        if (i === n) {
+            if (u.every((x) => x === 0n) || fast.val(u) !== 1) return;
+            const C = multMatrix(u), d = detOf(C);
+            if (d === p || d === -p) found = { pi: u.slice(), C };
+            return;
+        }
+        for (let x = -B; x <= B && !found; x++) { u[i] = BigInt(x); visit(i + 1); }
+        u[i] = 0n;
+    };
+    visit(0);
+    if (!found) return null;
+    // u/π: solve C·x = u over ℚ (C is multiplication by π in the basis), exact when π | u
+    const C = found.C;
+    const rows = Array.from({ length: n }, (_, r) => C.map((col) => col[r]));
+    const solve = (v) => {
+        const M = rows.map((r, i) => r.concat([v[i]]));
+        let prev = 1n;
+        for (let k = 0; k < n; k++) {
+            let q = k; while (q < n && M[q][k] === 0n) q++;
+            [M[k], M[q]] = [M[q], M[k]];
+            for (let i = k + 1; i < n; i++) { for (let j = k + 1; j <= n; j++) M[i][j] = (M[i][j] * M[k][k] - M[i][k] * M[k][j]) / prev; M[i][k] = 0n; }
+            prev = M[k][k];
+        }
+        const x = new Array(n);
+        for (let i = n - 1; i >= 0; i--) {
+            let t = M[i][n];
+            for (let j = i + 1; j < n; j++) t -= M[i][j] * x[j];
+            if (t % M[i][i] !== 0n) return null;
+            x[i] = t / M[i][i];
+        }
+        return x;
+    };
+    return {
+        p, fast,
+        divide(v, m) {
+            for (let k = 0; k < m; k++) { const x = solve(v); if (!x) throw new Error('internal: not divisible by π'); v = x; }
+            return v;
+        },
+    };
 }
 
 // ───────────────────────── choosing the places ─────────────────────────
@@ -328,6 +447,10 @@ export function choosePlaces(deps, F, mats, S, sameField) {
 // ───────────────────────── the search problem ─────────────────────────
 
 const L_WEIGHT = 0.0005;      // per letter, after the adelic height
+// FlashBeam multiplies the beam by recent products, so word lengths double from one iteration to the
+// next; past MAX_WORD letters a product is not formed (FlashBeam skips it), which bounds the memory
+const MAX_WORD = 512;
+const NB_SCAN = 64;           // neighbours of an image looked up for collisions, per tree
 
 export class CoveringProblem {
     /**
@@ -347,12 +470,20 @@ export class CoveringProblem {
         this.one = integralMatrix(F, { a: F.one(), b: F.zero(), c: F.zero(), d: F.one() });
         this.fast = places.map((P) => { try { return fastPlace(F, P); } catch (e) { return null; } });
         this.vals = places.map((P, j) => (this.fast[j] ? this.fast[j].val : valuationAt(F, P)));
+        // generators π of the principal primes 𝔭 = (π) of S: a common power of 𝔭 in the entries of a
+        // matrix is a scalar, divided out (normalizing over ℤ alone leaves it, and products double it)
+        this.unifs = F.n > 1 && opts.reduce !== false ? places.map((P, j) => (this.fast[j] ? uniformizer(R, this.fast[j], P.p, F.n) : null)).filter(Boolean) : [];
         this.archs = (opts.arch || []).map((e) => makeArch(F, e));
         this.weights = places.map((P) => (opts.metric === 'unit' ? 1 : Math.log(P.q)));
         this.certify = places.length > 0;
         // relations (two words, one element) and the lowest elements, for the Dirichlet generators
         this.registry = new Map();
         this.registryCap = opts.registryCap ?? 300000;
+        // the words FlashBeam builds double in length from one iteration to the next: the registry and
+        // the orbit table are budgeted by letters too (≈ 8 bytes each)
+        this.letterCap = opts.letterCap ?? 2e7;
+        this.registryLetters = 0;
+        this.orbitLetters = 0;
         this.relSet = new RelatorSet({ cap: opts.relationCap ?? 64 });
         this.lowPool = [];
         this.lowCap = opts.lowCap ?? 1500;
@@ -369,6 +500,7 @@ export class CoveringProblem {
         this.repStabCap = opts.repStabCap ?? 48;
         this.repStab = [];         // per representative: elements fixing it { word, M } (rep 0 uses this.stab); seeds orbits.js
 
+        this.deadline = Infinity;  // wall-clock ms: FlashBeam stops an iteration past it (done())
         this.reps = [];            // { tuple, id, dist }
         this.repIndex = new Map(); // id → index
         this.orbit = new Map();    // vertex id → { word, rep, state, tuple }: state·reps[rep] = vertex
@@ -380,6 +512,21 @@ export class CoveringProblem {
 
         this._addRep(this.o);
         for (const t of this.parityReps()) this._addRep(t);
+    }
+
+    /** normalizeM, with the common powers of the principal primes of S divided out. */
+    norm(M) {
+        M = normalizeM(M);
+        if (!this.unifs.length) return M;
+        let changed = false;
+        for (const U of this.unifs) {
+            let m = Infinity;
+            for (const e of M) { if (this.R.isZero(e)) continue; if (U.fast.image(e) % U.p !== 0n) { m = 0; break; } const v = U.fast.val(e); if (v < m) m = v; }
+            if (!(m > 0) || m === Infinity) continue;
+            M = M.map((e) => U.divide(e, m));
+            changed = true;
+        }
+        return changed ? normalizeM(M) : M;
     }
 
     // ── vertices ──
@@ -483,7 +630,7 @@ export class CoveringProblem {
             const ids = V.map((vt, j) => this.places[j].id(vt));
             const vid = ids.join('|');
             const same = this.orbit.get(vid);
-            if (same) {
+            if (same && !same.closure) {
                 if (same.word.length && same.word !== node.word) this._sameImage(same, node, i);
                 if (same.word.length <= node.word.length) continue;
             }
@@ -491,22 +638,26 @@ export class CoveringProblem {
             let budget = this.collisions;
             if (budget > 0) {
                 for (let j = 0; j < V.length && budget > 0; j++) {
-                    const nb = this.places[j].neighbors(V[j]);
-                    const start = (node.word.length * 7 + i) % nb.length;
-                    for (let t = 0; t < nb.length && budget > 0; t++) {
-                        const u = nb[(start + t) % nb.length];
+                    // the neighbours one at a time (the parent, then children), at most NB_SCAN of them:
+                    // over a large residue field, listing all q + 1 for every image fills the memory
+                    const Pj = this.places[j], deg = Number(Pj.q) + 1;
+                    const start = (node.word.length * 7 + i) % deg;
+                    for (let t = 0; t < Math.min(deg, NB_SCAN) && budget > 0; t++) {
+                        const r = (start + t) % deg;
+                        const u = r === 0 ? Pj.parent(V[j]) : Pj.child(V[j], r - 1);
                         const saved = ids[j];
                         ids[j] = this.places[j].id(u);
                         const e = this.orbit.get(ids.join('|'));
                         ids[j] = saved;
-                        if (!e) continue;
+                        if (!e || e.closure) continue;
                         budget--;
                         this._collide(e, node, i, V);
                     }
                 }
             }
-            if (this.orbit.size < this.orbitCap || dV <= this.maxRepDist + 1) {
+            if ((this.orbit.size < this.orbitCap && this.orbitLetters < this.letterCap) || dV <= this.maxRepDist + 1) {
                 if (!same && this.targets.has(vid)) this.newCover++;
+                this.orbitLetters += node.word.length;
                 this.orbit.set(vid, { word: node.word, rep: i, state: node.state, tuple: V });
             }
         }
@@ -519,9 +670,9 @@ export class CoveringProblem {
         const tid = this.tupleId(T);
         const old = this.orbit.get(tid);
         const word = concatWords(invertWord(h.word), g.word);
-        if (old && old.word.length <= word.length) return;
+        if (old && !old.closure && old.word.length <= word.length) return;
         if (!old && this.targets.has(tid)) this.newCover++;
-        this.orbit.set(tid, { word, rep: i, state: normalizeM(mulM(this.R, hinv, g.state)), tuple: T });
+        this.orbit.set(tid, { word, rep: i, state: this.norm(mulM(this.R, hinv, g.state)), tuple: T });
     }
 
     /** h·r_j = g·r_i. */
@@ -529,7 +680,7 @@ export class CoveringProblem {
         const word = concatWords(invertWord(h.word), g.word);
         if (!word.length) return;
         if (h.rep === i) {
-            const M = normalizeM(mulM(this.R, normalizeM(adjM(this.R, h.state)), g.state));
+            const M = this.norm(mulM(this.R, normalizeM(adjM(this.R, h.state)), g.state));
             if (isScalarM(this.R, M)) return;
             if (i === 0) this._keepStab({ word, state: M, key: keyM(M), h: displacements(this, M).h, bits: heightM(M) });
             else if (this.repStab[i].length < this.repStabCap) this.repStab[i].push({ word, M });
@@ -543,6 +694,52 @@ export class CoveringProblem {
         return out;
     }
     coveredCount() { let c = 0; for (const id of this.targets.keys()) if (this.orbit.has(id)) c++; return c; }
+
+    /**
+     * Spread the covering along the elements found fixing each representative: if s fixes r_i and
+     * the neighbour n of r_i is reached (w·r = n), so is s·n, by s·w. The group these elements
+     * generate permutes the finitely many neighbours of r_i, so a search over its generators reaches
+     * every neighbour in the orbits of those already reached. Returns the number of new targets.
+     */
+    closeUnderStabilizers(maxGens = 24) {
+        if (!this.closureSeen) this.closureSeen = [];
+        let added = 0;
+        for (let i = 0; i < this.reps.length; i++) {
+            const S = i === 0 ? this.stab.slice().sort(byBits).slice(0, maxGens).map((e) => ({ word: e.word, M: e.M })) : this.repStab[i].slice(0, maxGens);
+            if (!S.length) continue;
+            const r = this.reps[i], ids = [];
+            r.tuple.forEach((vt, j) => {
+                for (const u of this.places[j].neighbors(vt)) { const t = r.tuple.slice(); t[j] = u; ids.push(this.tupleId(t)); }
+            });
+            const reached = ids.filter((id) => this.orbit.has(id));
+            const sig = `${S.length}:${reached.length}`;
+            if (this.closureSeen[i] === sig || reached.length === ids.length) { this.closureSeen[i] = sig; continue; }
+            const gens = [];
+            for (const s of S) {
+                gens.push({ word: s.word, M: s.M, prep: this.prepare(s.M) });
+                const inv = normalizeM(adjM(this.R, s.M));
+                gens.push({ word: invertWord(s.word), M: inv, prep: this.prepare(inv) });
+            }
+            const queue = reached.slice(), seen = new Set(reached);
+            while (queue.length) {
+                const e = this.orbit.get(queue.pop());
+                for (const g of gens) {
+                    const T = this.act(g.M, e.tuple, g.prep);
+                    const tid = this.tupleId(T);
+                    if (seen.has(tid)) continue;
+                    seen.add(tid);
+                    if (!this.orbit.has(tid)) {
+                        // for the certificate only: the search does not build on these (their states are long products)
+                        this.orbit.set(tid, { word: concatWords(g.word, e.word), rep: e.rep, state: this.norm(mulM(this.R, g.M, e.state)), tuple: T, closure: true });
+                        if (this.targets.has(tid)) { this.newCover++; added++; }
+                    }
+                    queue.push(tid);
+                }
+            }
+            this.closureSeen[i] = `${S.length}:${ids.filter((id) => this.orbit.has(id)).length}`;
+        }
+        return added;
+    }
     complete() { for (const id of this.targets.keys()) if (!this.orbit.has(id)) return false; return true; }
 
     /** Make the nearest uncovered neighbour a representative. Returns it, or null at the cap. */
@@ -574,12 +771,13 @@ export class CoveringProblem {
         return out;
     }
     multiply(a, b) {
+        if (a.word.length + b.word.length > MAX_WORD) return null;
         const w = concatWords(a.word, b.word);
-        return this._node(normalizeM(mulM(this.R, a.state, b.state)), w);
+        return this._node(this.norm(mulM(this.R, a.state, b.state)), w);
     }
     isIdentity(n) { return isScalarM(this.R, n.state); }
     visit(node) {
-        if (this.registry.size < this.registryCap) this.registry.set(node.key, node.word);
+        if (this.registry.size < this.registryCap && this.registryLetters < this.letterCap) { this.registry.set(node.key, node.word); this.registryLetters += node.word.length; }
         if (this.isIdentity(node)) { if (node.word.length) this._relation(node.word); return; }
         this.lowPool.push(node);
         if (this.lowPool.length > 2 * this.lowCap) {
@@ -597,7 +795,9 @@ export class CoveringProblem {
             }
         }
     }
-    done() { return !this.harvesting && !this.exploring && this.certify && this.complete(); }
+    // FlashBeam asks after every product: past the deadline it ends the iteration where it is (one
+    // iteration can take minutes once the elements are large)
+    done() { return Date.now() > this.deadline || (!this.harvesting && !this.exploring && this.certify && this.complete()); }
 
     /** FlashBeam met an element it has seen: the two words give a relation. */
     collide(node) {
@@ -615,9 +815,15 @@ export class CoveringProblem {
     _relation(word) {
         const r = canonicalRelator(word);
         if (!r.length) return;
-        this.relSet.offer(r, (x) => {
-            if (!isScalarM(this.R, wordMatrix(this.R, this.gens, x, this.one))) throw new Error('internal: a relation failed its exact check');
-        });
+        try {
+            this.relSet.offer(r, (x) => {
+                if (!isScalarM(this.R, wordMatrix(this.R, this.gens, x, this.one))) throw Object.assign(new Error('not a relation'), { notRelation: true });
+            });
+        } catch (e) {
+            // two different elements with one digest (keyM): not a relation, and nothing is kept
+            if (!e.notRelation) throw e;
+            this.falseRelations = (this.falseRelations || 0) + 1;
+        }
     }
     get relations() { return this.relSet.list; }
 
@@ -725,12 +931,15 @@ export function runCovering(problem, opts = {}, onProgress = () => { }) {
     const t0 = Date.now(), budgetMs = 1000 * (opts.seconds ?? 30);
     const clock = opts.clock || (() => Date.now() - t0);
     const wallCap = t0 + budgetMs * Math.max(1, opts.maxStretch ?? 1);
+    // the time budget inside an iteration too: at the wall cap, or (at full speed) at the budget plus a margin
+    problem.deadline = opts.clock ? wallCap : t0 + budgetMs * 1.1;
     const maxIter = opts.maxIterations ?? 200;
     const patience = opts.patience ?? 3;
     // after the covering is complete (or with no tree to cover), keep going a
     // little, for the Dirichlet generators and relations
     const extra = opts.extraIterations ?? 4;
     const noTrees = !problem.certify;
+    const closure = opts.closure ?? !globalThis.__noCoveringClosure;
     let stall = 0, status = noTrees ? 'none' : 'budget', after = 0;
     beam.start();
     problem.exploring = true;
@@ -747,6 +956,7 @@ export function runCovering(problem, opts = {}, onProgress = () => { }) {
         const stats = beam.step();
         let promoted = null;
         if (!noTrees && status !== 'covered') {
+            if (closure) problem.closeUnderStabilizers();
             if (problem.complete()) status = 'covered';
             else {
                 stall = problem.newCover ? 0 : stall + 1;
@@ -757,6 +967,7 @@ export function runCovering(problem, opts = {}, onProgress = () => { }) {
         if (stats.exhausted) { if (status !== 'covered' && !noTrees) status = 'exhausted'; break; }
     }
     problem.exploring = false;
+    problem.deadline = Infinity;
     const out = { status, problem, beam };
     if (status === 'covered') out.verify = problem.verify(problem.certificate());
     return out;
@@ -771,6 +982,7 @@ export function harvest(problem, beam, { seconds = 10, maxIterations = 40 } = {}
     beam.strata = [0.6, 0.2, 0.1, 0.1];
     const before = problem.stab.length;
     const deadline = Date.now() + 1000 * seconds;
+    problem.deadline = deadline;
     let it = 0;
     while (Date.now() < deadline && it < maxIterations) {
         const st = beam.step();
@@ -778,7 +990,54 @@ export function harvest(problem, beam, { seconds = 10, maxIterations = 40 } = {}
         if (st.exhausted) break;
     }
     problem.harvesting = false;
+    problem.deadline = Infinity;
     return { iterations: it, found: problem.stab.length - before };
+}
+
+// ───────────────────────── words in the generators (wordSearch.js) ─────────────────────────
+
+/**
+ * The places of a search without the search: { R, one, vals, archs, weights } for F, the places of S
+ * (trees' Place) and the places at ∞ (arch: [{ re, im, kind }], the image of w), as a CoveringProblem
+ * has them.
+ */
+export function wordContext(F, places, arch = []) {
+    const vals = places.map((P) => {
+        let fp = null;
+        try { fp = fastPlace(F, P); } catch (e) { /* the exact valuation */ }
+        return fp ? fp.val : valuationAt(F, P);
+    });
+    return {
+        R: makeRing(F), one: integralMatrix(F, { a: F.one(), b: F.zero(), c: F.zero(), d: F.one() }),
+        vals, archs: arch.map((e) => makeArch(F, e)), weights: places.map((P) => Math.log(P.q)),
+    };
+}
+
+/**
+ * The ring wordSearch.js flashWords searches in, over any number field: the integral matrices of this
+ * file, from ctx = a CoveringProblem or wordContext(F, places, arch). The height is d(o, g·o) in the
+ * product of the symmetric spaces at ctx.archs and the trees (adelic.js displacements); it does not
+ * depend on the scalar a matrix carries, which normalizeM removes only when it is rational (over a
+ * field with infinitely many units the same element comes as many matrices). So keys are exact up
+ * to rational scalars only, and a target is looked up by its height (bucket) and checked exactly (same).
+ */
+export function wordRing(ctx) {
+    const R = ctx.R;
+    const memo = new WeakMap();
+    const measure = (M) => { let d = memo.get(M); if (!d) { d = displacements(ctx, M); memo.set(M, d); } return d; };
+    const height = (M) => { const h = measure(M).h; return Number.isFinite(h) ? h : 1e9; };
+    return {
+        norm: normalizeM, one: ctx.one,
+        mul: (A, B) => normalizeM(mulM(R, A, B)), inv: (A) => normalizeM(adjM(R, A)),
+        key: keyM, isIdentity: (A) => isScalarM(R, A),
+        height, fixes: (M) => measure(M).tree.every((d) => d === 0),
+        // equal elements have equal heights (to rounding): the buckets next to it are looked at too
+        bucket: (M) => Math.round(height(M) * 1e6),
+        same: (A, B) => {
+            for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) if (!R.isZero(R.sub(R.mul(A[i], B[j]), R.mul(A[j], B[i])))) return false;
+            return true;
+        },
+    };
 }
 
 export { concatWords, invertWord };

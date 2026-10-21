@@ -129,7 +129,7 @@ self.onmessage = (ev) => {
             const B = basepointMatrix(bp), Bi = B.inv();
             const res = runCompute({
                 gens: matrices.map((g) => matToArr(Bi.mul(g).mul(B).normalized())), origGens: orig, B: matToArr(B),
-                maxFaces, maxDepth, fullDirichlet: false, exact, ford: null,
+                maxFaces, maxDepth, fullDirichlet: false, exact, ford: null, skipNondiscrete: !certify,
             });
             const s = summarize(res, real);
             s.bp = bp;

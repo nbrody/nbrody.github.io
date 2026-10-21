@@ -77,7 +77,7 @@ export function engineLevels(C, S) {
 }
 
 /** The class of det(M) in C: bit 0 the sign, bit i+1 the parity of v_{S[i]}. */
-function detClass(M, S) {
+export function detClass(M, S) {
     let d = bdet(M), c = d < 0n ? 1 : 0;
     d = babs(d);
     S.forEach((p, i) => { let v = 0; const P = BigInt(p); while (d % P === 0n) { d /= P; v++; } if (v & 1) c |= 2 << i; });
@@ -94,7 +94,7 @@ const badj = (A) => [A[3], -A[1], -A[2], A[0]];
  * Γ₀ = Γ ∩ Λ₀ by Schreier generators over the classes Γ meets: { gens, classes }. Every generator
  * has det = (an S-unit)², so it is s·A with A ∈ SL₂(ℤ[1/S]): returned as { M, s } (M primitive).
  */
-function kernelZero(gens, S) {
+export function kernelZero(gens, S) {
     const reps = new Map([[0, [1n, 0n, 0n, 1n]]]), queue = [0];
     while (queue.length) {
         const c = queue.shift();

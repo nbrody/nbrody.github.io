@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { cuspCertificate, parsePoly } from '../js/cusps.js';
+import { cuspCertificate, parsePoly, infiniteOrderWord } from '../js/cusps.js';
 
 // valuations at the primes of S come from ringEngine.js
 globalThis.NumberRingEngine = createRequire(import.meta.url)('../../Algebraic/Tools/numberRings/ringEngine.js');
@@ -38,4 +38,32 @@ test('S ≠ ∅, any field (Vaserstein for O_S): a parabolic and multipliers tha
     }
     // ⟨(0 1; 1 −2), (0 2; 3 0)⟩ ≅ ℤ ∗ ℤ/2 (it looks thin): no certificate
     assert.equal(cuspCertificate(rows('0,1,1,-2|0,2,3,0'), Q.poly, Q.root, { maxElements: 60000, seconds: 30 }).found, false);
+});
+
+test('full-rank translations at a cusp certify S ≠ ∅ when O^× is infinite (random draw 1:16 over ℚ(∛2))', () => {
+    const c3 = { poly: [-2n, 0n, 0n, 1n], root: { re: Math.cbrt(2), im: 0 } };
+    const c = cuspCertificate([['0', '1-w+w^2', 'w+2w^2', 'w'], ['w', '0', '0', '-1+w^2']], c3.poly, c3.root, { maxElements: 40000, seconds: 20 });
+    assert.equal(c.found, true);
+    assert.equal(c.byTranslations, true);
+    assert.equal(c.rank, 3);
+    assert.deepEqual(c.S, ['2', '3', '17']);
+});
+
+test('collisions of a cusp orbit modulo its translations find the multipliers (a ℚ(ζ₇)⁺ group from the database)', () => {
+    const c7 = { poly: [-1n, -2n, 1n, 1n], root: { re: 2 * Math.cos(2 * Math.PI / 7), im: 0 } };
+    const gens = [['1', '-1-w', '-1-w', '-1'], ['1', '-2+w+w^2', '0', '1']];
+    assert.equal(cuspCertificate(gens, c7.poly, c7.root, { maxElements: 40000, seconds: 20, collisions: false }).found, false);
+    const c = cuspCertificate(gens, c7.poly, c7.root, { maxElements: 40000, seconds: 20 });
+    assert.equal(c.found, true);
+    assert.deepEqual(c.S, ['13']);
+});
+
+test('infinite order: exact for parabolics, certified at a place at ∞ otherwise; finite orders are never claimed', () => {
+    const phi = [-1n, -1n, 1n], z5 = [1n, 1n, 1n, 1n, 1n];
+    assert.equal(infiniteOrderWord([['0', '-1', '1', '-1']], phi, [[1], [1, 1]]), null);           // order 3
+    assert.equal(infiniteOrderWord([['w', '-1', '1', '0']], phi, [[1], [1, 1]]), null);            // order 5 over ℚ(√5)
+    assert.equal(infiniteOrderWord([['w', '0', '0', '1']], z5, [[1]]), null);                      // order 5 over ℚ(ζ₅)
+    assert.equal(infiniteOrderWord([['0', '-1', '1', '0'], ['1', '2', '0', '1']], [0n, 1n], [[1], [2]]).why, 'parabolic');
+    assert.equal(infiniteOrderWord([['w', '0', '0', '1']], phi, [[1]]).why, 'loxodromic');         // x = (w+1)²/w ≈ 4.24 at one real place
+    assert.equal(infiniteOrderWord([['1', '2', '3', '7']], [0n, 1n], [[1]]).why, 'loxodromic');
 });

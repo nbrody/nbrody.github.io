@@ -413,7 +413,8 @@ function valuation(R, x, pi) { let v = 0; for (let y = x; ; v++) { const z = R.d
  * w_π = (0 1; π 0) for each π. As over ℚ (sarithIndex.js), one prime at a time:
  * Λ_{S∪{π}} = Λ_S ∗_{Λ_S ∩ Γ₀(π)} ⟨Λ_S ∩ Γ₀(π), w_π⟩ (Λ_S fixes o in T_π and is transitive on its
  * neighbours P¹(O/π); w_π inverts the edge [o, w_π·o]), with relators w_π² and w_π s w_π⁻¹ = φ(s) for
- * Schreier generators s of the edge group. Returns { d, primes, gens, relators }.
+ * Schreier generators s of the edge group. Returns { d, primes, gens, relators, levels }, levels as
+ * over ℚ: [{ q: π, name, norm: |O/π|, letter (the column of w_π), relCount, egens, ephi }].
  */
 export function presentationPGL2OS(d, S) {
     const R = O(d);
@@ -460,11 +461,16 @@ export function presentationPGL2OS(d, S) {
             if (r.index === res.q + 1) { chosen = schreier.slice(0, k); break; }
         }
         const rels = [[2 * n, 2 * n]];                  // w_π² = π (scalar)
+        const ephi = [];
         for (const { sw, S: Sm } of chosen) {
             const phi = primitiveO(R, mm(R, mm(R, W, Sm), adj(R, W)));
             const pw = wordInPGL2OS(phi, P);
+            ephi.push(pw);
             rels.push([2 * n].concat(sw, [2 * n + 1], invWord(pw)));
         }
+        // the edge group Λ_e on its generators and φ(s) = w_π s w_π⁻¹, as words in the letters before
+        // w_π (column 2n), for the graph of groups (graphOfGroups.js)
+        (P.levels = P.levels || []).push({ q: pi, name: primeText(pi), norm: res.q, letter: 2 * n, relCount: P.relators.length, egens: chosen.map((x) => x.sw), ephi });
         P.primes.push(pi);
         P.gens.push(W);
         P.relators.push(...rels);

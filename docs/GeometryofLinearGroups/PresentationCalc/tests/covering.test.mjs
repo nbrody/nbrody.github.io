@@ -62,6 +62,46 @@ test('the fast local model agrees with trees’ exact action', () => {
     }
 });
 
+test('deep in 𝔭: valuations beyond the model’s precision, and the action with the common power of 𝔭 divided out', () => {
+    // ℚ(i) at 5 = (2+i)(2−i): (2+i)^k is divisible by 𝔭^k but not by 5, so normalizing over ℤ keeps it
+    const F = field('w^2+1');
+    const R = makeRing(F);
+    for (const idx of [0, 1]) {
+        const P = new Place(F, 5n, idx);
+        const fp = fastPlace(F, P);
+        assert.ok(fp);
+        const pi = integralMatrix(F, mats(F, [['2+w', '0', '0', '2+w']])[0])[0];
+        let x = [1n, 0n];
+        for (let k = 0; k < fp.N + 40; k++) x = R.mul(x, pi);
+        for (const u of [x, R.mul(x, [3n, 1n]), R.mul(x, [0n, 7n])]) assert.equal(fp.val(u), P.val({ v: u, den: 1n }));
+        // a matrix whose entries all lie in 𝔭^(N+40) acts as the matrix divided by that power
+        const g = integralMatrix(F, mats(F, [['3+w', '2', '1', 'w']])[0]);
+        const big = normalizeM(g.map((e) => R.mul(e, x)));
+        const o = P.canon(F.zero(), 0);
+        const verts = [o, ...P.neighbors(o)];
+        const pg = fp.prepare(big), ex = P.prepare({ a: { v: g[0], den: 1n }, b: { v: g[1], den: 1n }, c: { v: g[2], den: 1n }, d: { v: g[3], den: 1n } });
+        assert.ok(pg, 'stays on the fast model');
+        for (const v of verts) assert.equal(P.id(fp.act(pg, v)), P.id(P.act(ex, v)));
+    }
+});
+
+test('the covering spreads along the elements fixing a representative', () => {
+    // ⟨T, S, diag(5, 1)⟩ at 5: diag(5, 1)·o is one neighbour of o, and T, S (fixing o) move it to all six
+    const F = field(null);
+    const M = mats(F, [['1', '1', '0', '1'], ['0', '-1', '1', '0'], ['5', '0', '0', '1']]);
+    const ch = choosePlaces({ Place }, F, M, [{ p: 5n, e: 1, f: 1 }], true);
+    const Q = new CoveringProblem(F, ch.places, M);
+    assert.equal(Q.reps.length, 1);
+    Q.stab = [{ word: [1], M: Q.gens[0] }, { word: [2], M: Q.gens[1] }];
+    const T = Q.act(Q.gens[2], Q.o);
+    Q.orbit.set(Q.tupleId(T), { word: [3], rep: 0, state: Q.gens[2], tuple: T });
+    assert.equal(Q.coveredCount(), 1);
+    assert.equal(Q.closeUnderStabilizers(), 5);
+    assert.ok(Q.complete());
+    const v = Q.verify(Q.certificate());
+    assert.ok(v.ok, v.failures.join('; '));
+});
+
 test('PGL₂(ℤ[½]) is covered at once, and the certificate checks', () => {
     const { P, res } = cover(null, [['1', '1', '0', '1'], ['0', '-1', '1', '0'], ['2', '0', '0', '1']], [{ p: 2, e: 1, f: 1 }], true);
     assert.equal(res.status, 'covered');

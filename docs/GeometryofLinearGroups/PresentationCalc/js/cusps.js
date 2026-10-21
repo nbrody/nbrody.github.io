@@ -182,6 +182,87 @@ export function cuspCertificatePool(gens, poly, words, root, opts = {}) {
 }
 
 /** Generators (rows of ringEngine text) as integral matrices with coprime coefficients, or null. */
+/**
+ * The first of the words whose element has infinite order, or null. An element g of finite order
+ * has x = tr²(g)/det(g) = 2 + ζ + ζ⁻¹ for a root of unity ζ, in [0, 4] at every embedding, and
+ * x = 4 only for g = 1. So g has infinite order if x = 4 with g ≠ 1 (exact: g is parabolic), or if
+ * |σ(x) − 2| > 2 at some embedding σ: checked in floating point with a bound on the rounding,
+ * and on the error of the computed roots of poly.
+ * Returns { index, word, why: 'parabolic' | 'loxodromic' }.
+ */
+export function infiniteOrderWord(gens, poly, words, opts = {}) {
+    const P = poly.map(BigInt), K = field(P);
+    const G = integralGens(K, gens);
+    if (!G) return null;
+    const { mm, adj, prim } = matOps(K);
+    const roots = complexRoots(P);
+    const n = Math.min(words.length, opts.maxWords ?? 400);
+    for (let i = 0; i < n; i++) {
+        const w = words[i];
+        let M = [K.one, K.zero, K.zero, K.one];
+        for (const x of w) M = prim(mm(M, x > 0 ? G[x - 1] : adj(G[-x - 1])));
+        if (K.isZero(M[1]) && K.isZero(M[2]) && K.isZero(K.sub(M[0], M[3]))) continue;
+        const tr = K.add(M[0], M[3]), t2 = K.mul(tr, tr), det = K.sub(K.mul(M[0], M[3]), K.mul(M[1], M[2]));
+        if (K.isZero(K.sub(t2, K.scale(det, 4n)))) return { index: i, word: w, why: 'parabolic' };
+        if (roots.some((r) => outsideDisc(t2, det, r))) return { index: i, word: w, why: 'loxodromic' };
+    }
+    return null;
+}
+
+/** |σ(a/b) − 2| > 2 at the root r ± r.err, proved with the rounding bounded (a, b: integral coordinates). */
+function outsideDisc(a, b, r) {
+    let top = 0;
+    for (const c of a.concat(b)) { const t = c < 0n ? -c : c; const l = t.toString(2).length; if (l > top) top = l; }
+    const s = BigInt(Math.max(0, top - 900));
+    const R = Math.hypot(r.re, r.im), dr = r.err;
+    const ev = (u) => {
+        // σ(u >> s) and a bound on its error: rounding of each term, the shift, and the root's error
+        let re = 0, im = 0, pre = 1, pim = 0, err = 0, mag = 1;
+        for (let i = 0; i < u.length; i++) {
+            const c = Number(u[i] >> s), ac = Math.abs(c);
+            re += c * pre; im += c * pim;
+            err += (ac * 1e-14 * (u.length + 2) + (s ? 1 : 0)) * mag + (i ? ac * i * Math.pow(R + dr, i - 1) * dr : 0);
+            [pre, pim] = [pre * r.re - pim * r.im, pre * r.im + pim * r.re];
+            mag *= R;
+        }
+        return { re, im, err };
+    };
+    const A = ev(a), B = ev(b);
+    const absB = Math.hypot(B.re, B.im);
+    if (!(absB > B.err)) return false;
+    const num = Math.hypot(A.re - 2 * B.re, A.im - 2 * B.im) - A.err - 2 * B.err;
+    return num > 2 * (absB + B.err) * (1 + 1e-9);
+}
+
+/** The complex roots of an integer polynomial (low → high), by Durand–Kerner, each with an error bound. */
+function complexRoots(P) {
+    const d = P.length - 1;
+    if (d < 1) return [];
+    const lead = Number(P[d]), c = P.map((x) => Number(x) / lead);
+    const f = (z) => { let re = 0, im = 0; for (let i = d; i >= 0; i--) { [re, im] = [re * z.re - im * z.im + c[i], re * z.im + im * z.re]; } return { re, im }; };
+    let zs = Array.from({ length: d }, (_, k) => ({ re: Math.cos(0.4 + 2 * Math.PI * k / d) * 1.1, im: Math.sin(0.4 + 2 * Math.PI * k / d) * 1.1 }));
+    for (let it = 0; it < 500; it++) {
+        let moved = 0;
+        zs = zs.map((z, k) => {
+            let dre = 1, dim = 0;
+            zs.forEach((y, j) => { if (j !== k) { const ar = z.re - y.re, ai = z.im - y.im; [dre, dim] = [dre * ar - dim * ai, dre * ai + dim * ar]; } });
+            const v = f(z), q = dre * dre + dim * dim;
+            const step = { re: (v.re * dre + v.im * dim) / q, im: (v.im * dre - v.re * dim) / q };
+            moved = Math.max(moved, Math.hypot(step.re, step.im));
+            return { re: z.re - step.re, im: z.im - step.im };
+        });
+        if (moved < 1e-15) break;
+    }
+    // a root lies within d·|f(z)/∏(z − y)| of z (the Durand–Kerner step, by Gerschgorin-type bounds): kept generous
+    return zs.map((z, k) => {
+        let dre = 1, dim = 0;
+        zs.forEach((y, j) => { if (j !== k) { const ar = z.re - y.re, ai = z.im - y.im; [dre, dim] = [dre * ar - dim * ai, dre * ai + dim * ar]; } });
+        const v = f(z);
+        const e = d * Math.hypot(v.re, v.im) / Math.hypot(dre, dim);
+        return { re: z.re, im: z.im, err: Math.max(1e-12 * (1 + Math.hypot(z.re, z.im)), 10 * e) };
+    });
+}
+
 function integralGens(K, gens) {
     const d = K.d, G = [];
     for (const row of gens) {
@@ -250,8 +331,11 @@ function unboundedPrimes(K, G, ring) {
     return S;
 }
 
-function certificateFor(K, G, root, { maxElements = 40000, seconds = 10, S: Sgiven = null, poly = null, pool = null } = {}) {
+function certificateFor(K, G, root, { maxElements = 40000, seconds = 10, S: Sgiven = null, poly = null, pool = null, collisions = true } = {}) {
     const t0 = Date.now(), d = K.d;
+    // O^× is infinite unless K is ℚ or imaginary quadratic
+    const P2 = poly ? poly.map(BigInt) : null;
+    const unitsInfinite = d >= 3 || (d === 2 && !!P2 && P2[1] * P2[1] - 4n * P2[0] * P2[2] > 0n);
     // the primes where Γ is unbounded (given, e.g. [] for a vertex stabilizer, or computed)
     const ring = poly ? ringOf(poly) : null;
     let S = Sgiven;
@@ -270,15 +354,22 @@ function certificateFor(K, G, root, { maxElements = 40000, seconds = 10, S: Sgiv
     const ckey = (z) => (z === null ? 'inf' : `${Math.round(z.re * 1e6)},${Math.round(z.im * 1e6)}`);
     // enumerate reduced words breadth first, exact matrices, deduplicated by their floating-point images
     const seenKey = new Set();
+    const bitsOf = (A) => { let top = 0; for (const e of A) for (const x of e) { const l = (x < 0n ? -x : x).toString(2).length; if (l > top) top = l; } return top; };
     const keyOf = (A) => {
-        const v = A.map(ev);
+        // projective: the entries scaled down together stay in floating range
+        const top = bitsOf(A), sh = BigInt(Math.max(0, top - 600));
+        const v = (sh ? A.map((e) => e.map((x) => x >> sh)) : A).map(ev);
         const k = v.findIndex((z) => Math.hypot(z.re, z.im) > 1e-9);
         if (k < 0 || v.some((z) => !Number.isFinite(z.re) || !Number.isFinite(z.im))) return 'x:' + A.map((e) => e.join(',')).join(';');   // out of floating range: an exact key
         return v.map((z) => cdiv(z, v[k])).map((z) => `${z.re.toPrecision(12)},${z.im.toPrecision(12)}`).join(';');
     };
     let frontier = [{ M: [K.one, K.zero, K.zero, K.one], last: -1, word: [] }];
     const elements = [];
-    while (frontier.length && elements.length < maxElements && Date.now() - t0 < 1000 * seconds) {
+    // a memory budget too: the letters may be large matrices (elements of a vertex stabilizer), and
+    // their products grow
+    let bitsUsed = 0;
+    const bitBudget = 2.4e9;
+    while (frontier.length && elements.length < maxElements && bitsUsed < bitBudget && Date.now() - t0 < 1000 * seconds) {
         const next = [];
         for (const x of frontier) {
             for (let i = 0; i < letters.length; i++) {
@@ -290,9 +381,10 @@ function certificateFor(K, G, root, { maxElements = 40000, seconds = 10, S: Sgiv
                 const word = x.word.concat(i % 2 ? -(i >> 1) - 1 : (i >> 1) + 1);
                 elements.push({ M, word });
                 next.push({ M, last: i, word });
-                if (elements.length >= maxElements) break;
+                bitsUsed += 4 * d * bitsOf(M) + 64 * word.length;
+                if (elements.length >= maxElements || bitsUsed >= bitBudget) break;
             }
-            if (elements.length >= maxElements) break;
+            if (elements.length >= maxElements || bitsUsed >= bitBudget) break;
         }
         frontier = next;
     }
@@ -391,6 +483,49 @@ function certificateFor(K, G, root, { maxElements = 40000, seconds = 10, S: Sgiv
             for (const c of byFloat.get(ckey(z)) || []) if (fixes(c, A)) c.words.push({ word: e.word, M: A, parabolic: false });
         }
     }
+    // more of each cusp's stabilizer, by collisions of its orbit modulo a known parabolic u at c: if
+    // e(c) = u^s f(c) then f⁻¹u^{−s}e fixes c. In the frame h_c (c ↦ ∞), u is z ↦ z + τ, and the
+    // images e(c) are keyed by (e(c)/τ) mod ℤ, exactly; every element found is checked to fix c.
+    if (collisions) {
+        const inv = (w) => w.slice().reverse().map((x) => -x);
+        const powW = (w, n) => { const b = n < 0 ? inv(w) : w; const out = []; for (let i = 0; i < Math.abs(n); i++) out.push(...b); return out; };
+        let budget = 2000;
+        for (const c of [...cusps.values()].slice(0, 8)) {
+            const par = c.words.find((it) => it.parabolic);
+            if (!par || budget <= 0) continue;
+            const B = conjAt(c, par.M);
+            const tau = K.divide(B[1], B[3]);                      // u: z ↦ z + τ in the frame
+            if (K.isZero(tau.num)) continue;
+            const tauEl = { num: tau.num, den: tau.den };
+            const table = new Map();
+            let found = 0;
+            for (const e of elements) {
+                if (Date.now() - t0 > 1000 * seconds * 1.5 || budget <= 0) break;
+                // e(c) in the frame: h_c·e·(c) = (h_c e h_c⁻¹)(∞)
+                const E = conjAt(c, e.M);
+                if (K.isZero(E[2])) continue;                       // e fixes c: found above
+                const p = K.divide(E[0], E[2]);                     // the point, as [num, den]
+                // r = p/τ = (p.num·τ.den) / (p.den·τ.num): exact, as a rational vector
+                const r = K.divide(K.scale(p.num, tauEl.den), K.scale(tauEl.num, p.den));
+                const c0 = r.num[0];
+                const k0 = (c0 >= 0n ? c0 : c0 - r.den + 1n) / r.den;           // ⌊r₀⌋
+                const key = [c0 - k0 * r.den].concat(r.num.slice(1)).join(',') + '/' + r.den;
+                const hit = table.get(key);
+                if (!hit) { table.set(key, { e, k: k0 }); continue; }
+                const s = Number(k0 - hit.k);
+                if (Math.abs(s) > 64) continue;
+                const word = inv(hit.e.word).concat(powW(par.word, -s), e.word);
+                let M = [K.one, K.zero, K.zero, K.one];
+                for (const x of word) M = prim(mm(M, x > 0 ? G[x - 1] : adj(G[-x - 1])));
+                if (isScalar(M) || !fixes(c, M)) continue;
+                const t2 = tr(M), D2 = det(M);
+                c.words.push({ word, M, parabolic: K.isZero(K.sub(K.mul(t2, t2), K.scale(D2, 4n))) });
+                found++; budget--;
+                if (found > 400) break;
+            }
+            c.collisions = found;
+        }
+    }
     // the rank at each cusp (S = ∅), or a parabolic with multipliers that generate K and cover S
     const generatesK = (q) => { const vs = []; let cur = { num: K.one }; for (let k = 0; k < d; k++) { vs.push(cur.num); cur = { num: K.mul(cur.num, q.num) }; } return rankQ(vs.map((v, k) => K.scale(v, q.den ** BigInt(d - 1 - k)))) === d; };
     let best = null;
@@ -399,10 +534,23 @@ function certificateFor(K, G, root, { maxElements = 40000, seconds = 10, S: Sgiv
             const trans = [], mult = [];
             for (const it of c.words) {
                 const B = conjAt(c, it.M);
-                if (it.parabolic) trans.push({ word: it.word });
+                if (it.parabolic) trans.push({ word: it.word, M: it.M });
                 else mult.push({ v: K.divide(B[0], B[3]), word: it.word });
             }
-            if (!trans.length || !mult.length) { if (!best) best = { rank: 0, cusp: c.key, trans: trans.length, mult: mult.length, covered: 0 }; continue; }
+            // the ℤ-rank of the translations: rank d (and O^× infinite) gives E(N·O) ⊆ hΓh⁻¹ as in the
+            // S = ∅ case, so Γ ∩ SL₂(O) has finite index in SL₂(O) (Vaserstein); Γ is unbounded at
+            // every prime of S and Zariski dense, so its closure there is open and unbounded, hence
+            // contains PSL₂ (Howe–Moore), and Γ is S-arithmetic
+            if (trans.length && unitsInfinite) {
+                const tv = trans.slice(0, 600).map((t) => { const B = conjAt(c, t.M); return K.divide(B[1], B[3]).num; });
+                const rk = rankQ(tv);
+                if (rk === d) {
+                    const ms = Date.now() - t0;
+                    return { found: true, d, rank: d, S: S.map((pl) => `${pl.p}`), cusp: c.key, parabolic: trans[0].word, other: null, byTranslations: true, trans: trans.length, mult: mult.length, collisions: c.collisions || 0, elements: elements.length, cusps: cusps.size, ms };
+                }
+                if (!best || rk > (best.transRank || 0)) best = { ...(best || {}), transRank: rk };
+            }
+            if (!trans.length || !mult.length) { if (!best || !best.cusp) best = { ...(best || {}), rank: 0, cusp: c.key, trans: trans.length, mult: mult.length, covered: 0 }; continue; }
             const covered = S.map(() => null);
             let gen = null;
             for (const m of mult.slice(0, 300)) {
