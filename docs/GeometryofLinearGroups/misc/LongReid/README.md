@@ -61,8 +61,8 @@ python3 python/integerBeam.py -p t^3-t-1 --score mixed
 python3 python/longReidBeam.py -t 9 -d 90 -w 6000  # non-properness witnesses
 ```
 
-Both scripts merge into `data/integer_matrix_db.json` (don't run two savers
-concurrently; last write wins).
+Both scripts merge into `data/integer_matrix_db.json` via a locked
+`update_db()` reload-merge-save cycle (safe to run concurrent savers).
 
 ## Structure found so far (June 2026)
 

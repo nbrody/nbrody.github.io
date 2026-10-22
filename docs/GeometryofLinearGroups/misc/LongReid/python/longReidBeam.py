@@ -43,7 +43,7 @@ from fractions import Fraction as Fr
 
 from magnusCore import (
     NumberField, SYMS, INV, primitive_root_of,
-    load_db, save_db, field_entry, merge_records,
+    update_db, field_entry, merge_records,
 )
 
 # The length-82 witness of arXiv:2512.19760 (a -> A, b -> B, lowercase
@@ -231,17 +231,19 @@ def main():
             print('(database keys require integer t; use --no-save for '
                   'non-integer rational t)')
             return
-        db = load_db()
-        K = NumberField([-int(t), 1])      # minpoly  t - n
-        entry = field_entry(db, K, f'Long-Reid group at t = {t} '
-                                   f'(PSL2-normalized, witnesses of '
-                                   f'non-properness on trees)')
-        entry['mode'] = 'psl2_normalized'
-        merge_records(entry, records, cap=args.cap)
-        bs = entry['search'].setdefault('beam', [])
-        bs.append({'depth': args.depth, 'width': args.width,
-                   'score': args.score, 'normalized': True})
-        path = save_db(db, time.strftime('%Y-%m-%d'))
+
+        def apply(db):
+            K = NumberField([-int(t), 1])      # minpoly  t - n
+            entry = field_entry(db, K, f'Long-Reid group at t = {t} '
+                                       f'(PSL2-normalized, witnesses of '
+                                       f'non-properness on trees)')
+            entry['mode'] = 'psl2_normalized'
+            merge_records(entry, records, cap=args.cap)
+            bs = entry['search'].setdefault('beam', [])
+            bs.append({'depth': args.depth, 'width': args.width,
+                       'score': args.score, 'normalized': True})
+
+        path = update_db(apply, time.strftime('%Y-%m-%d'))
         print('wrote', path)
 
 
