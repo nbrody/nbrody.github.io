@@ -415,12 +415,31 @@
     };
 
     const ENGINES = { blackjack: Blackjack, war: War, gofish: GoFish };
-    let engine = ENGINES[session.game] || Blackjack;
+    // Unknown/unimplemented catalog ids (e.g. leftover sessionStorage 'snap')
+    // must not silently run Blackjack while phones still think they are in Snap.
+    const engine = ENGINES[session.game] || null;
     let gameState = null;
     let stateHistory = [];
 
+    function abortMissingEngine() {
+      document.getElementById('game-name-label').textContent = session.game || 'Unknown';
+      document.getElementById('result-emoji').textContent = '🃏';
+      document.getElementById('result-title').textContent = 'Game unavailable';
+      document.getElementById('result-subtitle').textContent =
+        (session.game || 'This game') + ' is not available yet. Return to the lobby to pick Blackjack, War, or Go Fish.';
+      const overlay = document.getElementById('game-over-overlay');
+      overlay.classList.add('visible');
+      const newRoundBtn = overlay.querySelector('.btn-gold');
+      if (newRoundBtn) newRoundBtn.style.display = 'none';
+      document.getElementById('loading-screen').style.display = 'none';
+    }
+
     // ===== INIT =====
     function init() {
+      if (!engine) {
+        abortMissingEngine();
+        return;
+      }
       // Update UI
       document.getElementById('game-name-label').textContent = engine.DISPLAY_NAME;
       document.getElementById('room-code-pill').textContent = session.room;
@@ -562,6 +581,7 @@
 
     // ===== GAME ACTIONS =====
     window.dealCards = function() {
+      if (!engine) { toast('Game unavailable'); return; }
       if (!engine.dealRound) { toast('Click "Next" to proceed'); return; }
       stateHistory.push(JSON.parse(JSON.stringify(gameState)));
       gameState = engine.dealRound(gameState);
@@ -570,6 +590,7 @@
     };
 
     window.nextAction = function() {
+      if (!engine || !gameState) { toast('Game unavailable'); return; }
       if (gameState.phase === 'done') { newRound(); return; }
       if (session.game === 'blackjack' && gameState.phase === 'betting') {
         dealCards();
@@ -597,6 +618,7 @@
     };
 
     window.newRound = function() {
+      if (!engine) { backToLobby(); return; }
       document.getElementById('game-over-overlay').classList.remove('visible');
       const playerIds = Object.keys(session.players);
       gameState = engine.initState(playerIds);
@@ -662,6 +684,7 @@
       }
 
       if (msg.type === 'player-action' && msg.roomCode === session.room) {
+        if (!engine || !gameState) return;
         const { playerId, action, ...params } = msg;
         stateHistory.push(JSON.parse(JSON.stringify(gameState)));
 
