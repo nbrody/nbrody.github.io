@@ -12,6 +12,9 @@ class TriviaGame {
         this.timeLeft = 20;
         this.answers = {};
         this.listeners = [];
+        this.revealed = false;
+        this.revealTimeout = null;
+        this.advanceTimeout = null;
 
         // Trivia question bank
         this.questions = [
@@ -151,6 +154,15 @@ class TriviaGame {
 
         const q = this.questions[this.currentQuestionIndex];
         this.answers = {};
+        this.revealed = false;
+        if (this.revealTimeout) {
+            clearTimeout(this.revealTimeout);
+            this.revealTimeout = null;
+        }
+        if (this.advanceTimeout) {
+            clearTimeout(this.advanceTimeout);
+            this.advanceTimeout = null;
+        }
 
         // Update Firebase
         updateGameState(this.roomCode, {
@@ -190,6 +202,7 @@ class TriviaGame {
 
             if (this.timeLeft <= 0) {
                 clearInterval(this.timer);
+                this.timer = null;
                 this.revealAnswer();
             }
         }, 1000);
@@ -218,8 +231,16 @@ class TriviaGame {
 
                 // Check if all players answered
                 if (Object.keys(this.answers).length >= Object.keys(this.players).length) {
-                    clearInterval(this.timer);
-                    setTimeout(() => this.revealAnswer(), 500);
+                    if (this.timer) {
+                        clearInterval(this.timer);
+                        this.timer = null;
+                    }
+                    if (!this.revealed && !this.revealTimeout) {
+                        this.revealTimeout = setTimeout(() => {
+                            this.revealTimeout = null;
+                            this.revealAnswer();
+                        }, 500);
+                    }
                 }
             }
         });
@@ -259,6 +280,17 @@ class TriviaGame {
     }
 
     revealAnswer() {
+        if (this.revealed) return;
+        this.revealed = true;
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        if (this.revealTimeout) {
+            clearTimeout(this.revealTimeout);
+            this.revealTimeout = null;
+        }
+
         const q = this.questions[this.currentQuestionIndex];
         const correct = q.correct;
 
@@ -296,7 +328,8 @@ class TriviaGame {
         renderScoreboard();
 
         // Clear actions for next question
-        setTimeout(() => {
+        this.advanceTimeout = setTimeout(() => {
+            this.advanceTimeout = null;
             getRoomRef(this.roomCode).child('gameState/actions').remove();
             this.currentQuestionIndex++;
             this.showQuestion();
@@ -310,6 +343,12 @@ class TriviaGame {
 
     cleanup() {
         if (this.timer) clearInterval(this.timer);
+        this.timer = null;
+        if (this.revealTimeout) clearTimeout(this.revealTimeout);
+        this.revealTimeout = null;
+        if (this.advanceTimeout) clearTimeout(this.advanceTimeout);
+        this.advanceTimeout = null;
+        this.revealed = true;
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
     }
