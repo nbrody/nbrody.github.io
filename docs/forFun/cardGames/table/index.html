@@ -512,12 +512,13 @@
 
         const player = gameState.players?.[pid];
         const isCurrent = gameState.currentPlayer === pid;
+        // Declared once for the seat — must not sit after blackjack info uses it (TDZ crash).
+        const hand = player?.hand || [];
 
         nameEl.className = `seat-name ${isCurrent ? 'active' : 'inactive'}`;
 
         if (cardsEl) {
           cardsEl.innerHTML = '';
-          const hand = player?.hand || [];
           if (hand.length) {
             hand.forEach((card, i) => {
               // Show face-down for Go Fish (private hands) / War
@@ -537,8 +538,7 @@
 
         if (infoEl) {
           if (session.game === 'blackjack') {
-            const total = blackjackTotal(player?.hand || []);
-            const result = player?.result;
+            const total = blackjackTotal(hand);
             const chips = player?.chips || 100;
             infoEl.innerHTML = hand.length
               ? `<div>${total > 21 ? '💀BUST' : total}</div><div class="chip-count">💰${chips}</div>`
@@ -549,8 +549,6 @@
             infoEl.textContent = player?.deck?.length ? `${player.deck.length} cards` : '❌ Out';
           }
         }
-
-        const hand = player?.hand;
       });
 
       // Game over check

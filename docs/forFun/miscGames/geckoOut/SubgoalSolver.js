@@ -206,12 +206,14 @@ export class SubgoalSolver {
 
             // Use A* to find moves to complete this gecko (passing progress callback for live updates)
             const moves = await this.aStarForGecko(board, target.id, onProgress);
+            let appliedMoves = false;
 
             if (moves && moves.length > 0) {
                 // Apply moves to board one at a time with animation
                 for (const move of moves) {
                     allMoves.push(move);
                     board.moveGecko(move.geckoId, move.pos, move.end);
+                    appliedMoves = true;
 
                     // Animate each move
                     if (onProgress) {
@@ -239,6 +241,7 @@ export class SubgoalSolver {
                         for (const move of nextMoves) {
                             allMoves.push(move);
                             board.moveGecko(move.geckoId, move.pos, move.end);
+                            appliedMoves = true;
 
                             if (onProgress) {
                                 await new Promise(resolve => setTimeout(resolve, 50));
@@ -256,6 +259,13 @@ export class SubgoalSolver {
                         }
                     }
                 }
+            }
+
+            // A* failed for every completable target and the board did not change —
+            // without this break the outer while loops forever (allMoves never grows).
+            if (!appliedMoves) {
+                console.log('No progress this iteration — aborting to avoid infinite solve loop');
+                break;
             }
 
             // Progress callback
