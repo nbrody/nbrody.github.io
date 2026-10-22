@@ -291,6 +291,7 @@ class RoadblocksGame {
         this.renderer = new BoardRenderer(containerEl, { cellSize: this.cellSize, gap: this.gap });
         this.moveQueue = [];
         this.isProcessingQueue = false;
+        this._advanceTimeout = null;
         this._setupInput();
     }
 
@@ -307,11 +308,21 @@ class RoadblocksGame {
         }
     }
 
+    _clearAdvanceTimeout() {
+        if (this._advanceTimeout != null) {
+            clearTimeout(this._advanceTimeout);
+            this._advanceTimeout = null;
+        }
+    }
+
     _loadLevel(idx) {
+        if (idx < 0 || idx >= this.levels.length) return;
+        this._clearAdvanceTimeout();
         this.currentLevel = idx;
         this.grid = JSON.parse(JSON.stringify(this.levels[idx]));
         this.active = true;
         this.isMoving = false;
+        this.isProcessingQueue = false;
         this.moveCount = 0;
         this.moveQueue = [];
 
@@ -433,7 +444,11 @@ class RoadblocksGame {
             this.container.closest('.glass-panel')?.classList.add('shake');
             setTimeout(() => this.container.closest('.glass-panel')?.classList.remove('shake'), 500);
 
-            setTimeout(() => this._loadLevel(this.currentLevel), 900);
+            this._clearAdvanceTimeout();
+            this._advanceTimeout = setTimeout(() => {
+                this._advanceTimeout = null;
+                this._loadLevel(this.currentLevel);
+            }, 900);
 
         } else if (status === 'win') {
             this.active = false;
@@ -441,9 +456,11 @@ class RoadblocksGame {
             this.renderer.playWin();
             if (this.currentLevel < this.levels.length - 1) {
                 if (this.onLevelComplete) this.onLevelComplete(this.currentLevel, this.moveCount);
-                setTimeout(() => {
-                    this.currentLevel++;
-                    this._loadLevel(this.currentLevel);
+                const next = this.currentLevel + 1;
+                this._clearAdvanceTimeout();
+                this._advanceTimeout = setTimeout(() => {
+                    this._advanceTimeout = null;
+                    this._loadLevel(next);
                 }, 1000);
             } else {
                 if (this.onWin) this.onWin(this.moveCount);
