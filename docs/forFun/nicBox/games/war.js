@@ -13,6 +13,8 @@ class WarGame {
         this.round = 0;
         this.maxRounds = 15;
         this.listeners = [];
+        this.pendingTimeouts = [];
+        this.dead = false;
 
         this.suits = ['♠', '♥', '♦', '♣'];
         this.ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -20,6 +22,16 @@ class WarGame {
         this.ranks.forEach((r, i) => this.rankValues[r] = i + 2);
 
         this.init();
+    }
+
+    schedule(fn, ms) {
+        const id = setTimeout(() => {
+            this.pendingTimeouts = this.pendingTimeouts.filter(t => t !== id);
+            if (this.dead) return;
+            fn();
+        }, ms);
+        this.pendingTimeouts.push(id);
+        return id;
     }
 
     init() {
@@ -96,6 +108,8 @@ class WarGame {
     }
 
     startRound() {
+        if (this.dead) return;
+
         this.round++;
         if (this.round > this.maxRounds) {
             this.endWar();
@@ -103,9 +117,12 @@ class WarGame {
         }
 
         this.currentCards = {};
-        document.getElementById('war-round').textContent = this.round;
-        document.getElementById('war-result').textContent = '';
-        document.getElementById('war-status').textContent = 'Tap "Play Card" on your phone!';
+        const roundEl = document.getElementById('war-round');
+        const resultEl = document.getElementById('war-result');
+        const statusEl = document.getElementById('war-status');
+        if (roundEl) roundEl.textContent = this.round;
+        if (resultEl) resultEl.textContent = '';
+        if (statusEl) statusEl.textContent = 'Tap "Play Card" on your phone!';
 
         // Reset cards to face-down
         this.playerIds.forEach(pid => {
@@ -134,7 +151,7 @@ class WarGame {
 
                 // Check if all played
                 if (Object.keys(this.currentCards).length >= this.playerIds.length) {
-                    setTimeout(() => this.revealCards(), 500);
+                    this.schedule(() => this.revealCards(), 500);
                 }
             }
         });
@@ -166,13 +183,15 @@ class WarGame {
     }
 
     revealCards() {
+        if (this.dead) return;
         updateGameState(this.roomCode, { phase: 'reveal' });
-        document.getElementById('war-status').textContent = '';
+        const statusEl = document.getElementById('war-status');
+        if (statusEl) statusEl.textContent = '';
 
         // Flip cards with animation
         let delay = 0;
         this.playerIds.forEach(pid => {
-            setTimeout(() => {
+            this.schedule(() => {
                 const card = this.currentCards[pid];
                 if (!card) return;
 
@@ -197,12 +216,13 @@ class WarGame {
         });
 
         // Determine winner after all reveals
-        setTimeout(() => {
+        this.schedule(() => {
             this.determineRoundWinner();
         }, delay + 500);
     }
 
     determineRoundWinner() {
+        if (this.dead) return;
         let highestValue = -1;
         let winnerId = null;
         let isTie = false;
@@ -221,6 +241,7 @@ class WarGame {
         });
 
         const resultEl = document.getElementById('war-result');
+        if (!resultEl) return;
 
         if (isTie) {
             resultEl.textContent = '⚔️ WAR! It\'s a tie!';
@@ -244,7 +265,7 @@ class WarGame {
         }
 
         // Next round after delay
-        setTimeout(() => {
+        this.schedule(() => {
             this.startRound();
         }, 3000);
     }
@@ -255,6 +276,9 @@ class WarGame {
     }
 
     cleanup() {
+        this.dead = true;
+        this.pendingTimeouts.forEach(clearTimeout);
+        this.pendingTimeouts = [];
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
     }
