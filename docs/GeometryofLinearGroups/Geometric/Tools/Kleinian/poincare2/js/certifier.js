@@ -74,6 +74,7 @@ const INSIDE_TOL = 2e-5;       // domain membership slack
 const ANGLE_TOL = 0.02;        // radians, for 2π/m matching
 const CIRCLE_SAMPLES = 1440;
 const MAX_CYCLE_LEN = 200;
+const MAX_CYCLE_ORDER = 10000;
 
 // ---------------- Edge extraction ----------------
 
@@ -578,26 +579,37 @@ export function certifyDomain(walls, basepoint) {
             continue;
         }
 
-        // Angle condition: angleSum = 2π/m
+        // Angle condition: angleSum = 2π/m. Guard before checking P^m:
+        // degenerate cycles can make m infinite or enormous, which would hang
+        // the browser if used as the loop bound below.
         const mFloat = 2 * Math.PI / angleSum;
-        const m = Math.round(mFloat);
-        const angleOk = m >= 1 && Math.abs(angleSum - 2 * Math.PI / m) < ANGLE_TOL;
+        const m = Number.isFinite(mFloat) && mFloat > 0 ? Math.round(mFloat) : null;
+        const orderCheckable = Number.isSafeInteger(m) && m >= 1 && m <= MAX_CYCLE_ORDER;
+        const angleOk = orderCheckable && Math.abs(angleSum - 2 * Math.PI / m) < ANGLE_TOL;
 
         // Cycle transformation condition: P^m = ±I
-        let Pm = Matrix2x2.identity();
-        for (let k = 0; k < Math.max(1, m); k++) Pm = Pm.mul(P);
-        const orderRes = distFromIdentityPSL(Pm.normalized());
-        const orderOk = orderRes < 1e-5;
+        let orderRes = Infinity;
+        let orderOk = false;
+        if (orderCheckable) {
+            let Pm = Matrix2x2.identity();
+            for (let k = 0; k < m; k++) Pm = Pm.mul(P);
+            orderRes = distFromIdentityPSL(Pm.normalized());
+            orderOk = orderRes < 1e-5;
+        }
 
+        const mLabel = m === null ? 'invalid' : (m > MAX_CYCLE_ORDER ? `>${MAX_CYCLE_ORDER}` : m);
         const desc = `${cyclePairs.length} edges, Σθ = ${(angleSum / Math.PI).toFixed(5)}π ` +
-            `(2π/${m}), cycle elt ${wordStr(reduceWord(words))}` +
-            (m > 1 ? `, order ${m} residual ${orderRes.toExponential(1)}` : '');
+            `(2π/${mLabel}), cycle elt ${wordStr(reduceWord(words))}` +
+            (orderCheckable && m > 1 ? `, order ${m} residual ${orderRes.toExponential(1)}` : '');
         if (angleOk && orderOk) {
             log.push(`✓ edge cycle at (${e0.i},${e0.j}): ${desc}`);
         } else {
             ok = false;
+            const failure = !orderCheckable
+                ? `cycle order is invalid or exceeds ${MAX_CYCLE_ORDER}`
+                : (!angleOk ? `angle sum is not 2π/m` : `cycle element does not have order ${m}`);
             log.push(`✗ edge cycle at (${e0.i},${e0.j}): ${desc} — ` +
-                (!angleOk ? `angle sum is not 2π/m` : `cycle element does not have order ${m}`));
+                failure);
         }
         edgeCycles.push({ pairs: cyclePairs, ok: angleOk && orderOk, m, angleSum });
     }
