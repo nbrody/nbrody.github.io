@@ -6,6 +6,11 @@ let currentRoom = null;
 let currentGame = null;
 let players = {};
 let roomListeners = [];
+// Prevent overlapping selectGame() calls (double-click / rapid picker taps).
+// Without this latch, each call constructs a game whose Firebase listeners are
+// never cleaned up when currentGame is overwritten — orphan instances keep
+// scoring and advancing forever.
+let selectingGame = false;
 
 // ─── Initialization ────────────────────────────────────────
 
@@ -166,53 +171,67 @@ function backToLobby() {
 // ─── Game Selection ────────────────────────────────────────
 
 async function selectGame(gameName) {
-    // Clear any leftover game state so the new game's child_added listeners
-    // don't replay stale actions from a previous round.
-    await resetGameState(currentRoom);
-    await setRoomGame(currentRoom, gameName);
-    await setRoomState(currentRoom, 'playing');
+    if (selectingGame) return;
+    selectingGame = true;
 
-    // Update header
-    const nameMap = {
-        trivia: '🧠 Trivia Showdown',
-        war: '⚔️ Card War',
-        blackjack: '🃏 Blackjack',
-        checkers: '🏁 Checkers',
-        drawguess: '🎨 Draw & Guess'
-    };
-    document.getElementById('game-name').textContent = nameMap[gameName] || gameName;
+    try {
+        // Tear down any live game before awaiting Firebase writes. Otherwise a
+        // second picker click (or a leftover instance) keeps orphan listeners.
+        if (currentGame && currentGame.cleanup) {
+            currentGame.cleanup();
+        }
+        currentGame = null;
 
-    // Render scoreboard
-    renderScoreboard();
+        // Clear any leftover game state so the new game's child_added listeners
+        // don't replay stale actions from a previous round.
+        await resetGameState(currentRoom);
+        await setRoomGame(currentRoom, gameName);
+        await setRoomState(currentRoom, 'playing');
 
-    // Start game
-    const gameArea = document.getElementById('game-area');
-    gameArea.innerHTML = '';
+        // Update header
+        const nameMap = {
+            trivia: '🧠 Trivia Showdown',
+            war: '⚔️ Card War',
+            blackjack: '🃏 Blackjack',
+            checkers: '🏁 Checkers',
+            drawguess: '🎨 Draw & Guess'
+        };
+        document.getElementById('game-name').textContent = nameMap[gameName] || gameName;
 
-    switch (gameName) {
-        case 'trivia':
-            currentGame = new TriviaGame(currentRoom, players, gameArea);
-            break;
-        case 'war':
-            currentGame = new WarGame(currentRoom, players, gameArea);
-            break;
-        case 'blackjack':
-            currentGame = new BlackjackGame(currentRoom, players, gameArea);
-            break;
-        case 'checkers':
-            currentGame = new CheckersGame(currentRoom, players, gameArea);
-            break;
-        case 'drawguess':
-            currentGame = new DrawGuessGame(currentRoom, players, gameArea);
-            break;
-        default:
-            gameArea.innerHTML = `
-                <div class="flex-col" style="gap: 16px;">
-                    <span style="font-size: 4rem;">🚧</span>
-                    <h3>Coming Soon!</h3>
-                    <p style="color: var(--text-secondary);">This game is still being built.</p>
-                </div>
-            `;
+        // Render scoreboard
+        renderScoreboard();
+
+        // Start game
+        const gameArea = document.getElementById('game-area');
+        gameArea.innerHTML = '';
+
+        switch (gameName) {
+            case 'trivia':
+                currentGame = new TriviaGame(currentRoom, players, gameArea);
+                break;
+            case 'war':
+                currentGame = new WarGame(currentRoom, players, gameArea);
+                break;
+            case 'blackjack':
+                currentGame = new BlackjackGame(currentRoom, players, gameArea);
+                break;
+            case 'checkers':
+                currentGame = new CheckersGame(currentRoom, players, gameArea);
+                break;
+            case 'drawguess':
+                currentGame = new DrawGuessGame(currentRoom, players, gameArea);
+                break;
+            default:
+                gameArea.innerHTML = `
+                    <div class="flex-col" style="gap: 16px;">
+                        <span style="font-size: 4rem;">🚧</span>
+                        <h3>Coming Soon!</h3>
+                        <p style="color: var(--text-secondary);">This game is still being built.</p>
+                    </div>
+                `;
+        }
+    } finally {
+        selectingGame = false;
     }
 }
 
