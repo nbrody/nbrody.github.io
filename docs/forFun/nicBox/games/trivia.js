@@ -11,6 +11,7 @@ class TriviaGame {
         this.timer = null;
         this.timeLeft = 20;
         this.answers = {};
+        this.revealed = false;
         this.listeners = [];
 
         // Trivia question bank
@@ -151,6 +152,7 @@ class TriviaGame {
 
         const q = this.questions[this.currentQuestionIndex];
         this.answers = {};
+        this.revealed = false;
 
         // Update Firebase
         updateGameState(this.roomCode, {
@@ -209,18 +211,28 @@ class TriviaGame {
 
         actionsRef.on('child_added', (snapshot) => {
             const data = snapshot.val();
-            if (data.action?.type === 'trivia_answer' && !this.answers[data.playerId]) {
-                this.answers[data.playerId] = {
-                    answer: data.action.answer,
-                    timestamp: data.action.timestamp
-                };
-                this.showPlayerAnswered(data.playerId);
+            if (data.action?.type !== 'trivia_answer') return;
+            if (this.revealed) return;
+            // Ignore answers aimed at a different question (late taps after
+            // reveal/advance would otherwise score against the next item).
+            if (data.action.questionIndex !== undefined &&
+                data.action.questionIndex !== this.currentQuestionIndex) {
+                return;
+            }
+            if (this.answers[data.playerId]) return;
+            // Unknown player ids (e.g. mid-game joiners) must not enter scoring.
+            if (!this.players[data.playerId]) return;
 
-                // Check if all players answered
-                if (Object.keys(this.answers).length >= Object.keys(this.players).length) {
-                    clearInterval(this.timer);
-                    setTimeout(() => this.revealAnswer(), 500);
-                }
+            this.answers[data.playerId] = {
+                answer: data.action.answer,
+                timestamp: data.action.timestamp
+            };
+            this.showPlayerAnswered(data.playerId);
+
+            // Check if all players answered
+            if (Object.keys(this.answers).length >= Object.keys(this.players).length) {
+                clearInterval(this.timer);
+                setTimeout(() => this.revealAnswer(), 500);
             }
         });
 
@@ -259,6 +271,10 @@ class TriviaGame {
     }
 
     revealAnswer() {
+        if (this.revealed) return;
+        this.revealed = true;
+        if (this.timer) clearInterval(this.timer);
+
         const q = this.questions[this.currentQuestionIndex];
         const correct = q.correct;
 
@@ -279,7 +295,7 @@ class TriviaGame {
         // Score players who got it right (faster = more points)
         const correctPlayers = [];
         Object.entries(this.answers).forEach(([pid, data]) => {
-            if (data.answer === correct) {
+            if (data.answer === correct && this.players[pid]) {
                 correctPlayers.push({ pid, timestamp: data.timestamp });
             }
         });
@@ -288,9 +304,10 @@ class TriviaGame {
         correctPlayers.sort((a, b) => a.timestamp - b.timestamp);
         correctPlayers.forEach((p, index) => {
             const points = Math.max(100 - index * 20, 20); // 100, 80, 60, 40, 20
-            const currentScore = this.players[p.pid]?.score || 0;
-            this.players[p.pid].score = currentScore + points;
-            updateScoreDisplay(p.pid, this.players[p.pid].score);
+            const player = this.players[p.pid];
+            if (!player) return;
+            player.score = (player.score || 0) + points;
+            updateScoreDisplay(p.pid, player.score);
         });
 
         renderScoreboard();
