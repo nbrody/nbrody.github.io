@@ -12,6 +12,9 @@ class CheckersGame {
         this.selectedPiece = null;
         this.currentTurnIndex = 0;
         this.listeners = [];
+        this.movePending = false;
+        this.turnTimer = null;
+        this.availableMoves = [];
 
         // Player color assignments
         this.colorMap = {};
@@ -123,6 +126,7 @@ class CheckersGame {
 
     setTurn(turnIndex) {
         this.currentTurnIndex = turnIndex;
+        this.movePending = false;
         const pid = this.playerIds[turnIndex];
         const player = this.players[pid];
 
@@ -140,6 +144,23 @@ class CheckersGame {
 
         // Calculate available moves and send to Firebase
         const moves = this.getAvailableMoves(turnIndex === 0 ? 1 : 2);
+
+        // No legal moves → current player loses (standard checkers rule)
+        if (moves.length === 0) {
+            this.availableMoves = [];
+            updateGameState(this.roomCode, {
+                currentTurn: pid,
+                availableMoves: {},
+                actions: null
+            });
+            if (this.playerIds.length >= 2) {
+                this.declareWinner(1 - turnIndex);
+            } else {
+                document.getElementById('checkers-message').textContent = 'No legal moves.';
+            }
+            return;
+        }
+
         const movesList = {};
         moves.forEach((m, i) => {
             movesList[i] = {
@@ -224,10 +245,17 @@ class CheckersGame {
                 const turnPid = this.playerIds[this.currentTurnIndex];
 
                 if (pid !== turnPid) return; // Not their turn
+                // Ignore double-taps / queued actions while a move is resolving
+                if (this.movePending) return;
 
                 const moveIndex = data.action.moveIndex;
                 if (moveIndex >= 0 && moveIndex < this.availableMoves.length) {
-                    this.executeMove(this.availableMoves[moveIndex]);
+                    // Lock immediately so a second child_added cannot replay the
+                    // stale availableMoves list against an already-mutated board.
+                    this.movePending = true;
+                    const move = this.availableMoves[moveIndex];
+                    this.availableMoves = [];
+                    this.executeMove(move);
                 }
             }
         });
@@ -237,6 +265,12 @@ class CheckersGame {
 
     executeMove(move) {
         const piece = this.board[move.fromRow][move.fromCol];
+        // Stale/duplicate actions can target an emptied square; refuse them.
+        if (!piece) {
+            this.movePending = false;
+            return;
+        }
+
         this.board[move.fromRow][move.fromCol] = 0;
         this.board[move.toRow][move.toCol] = piece;
 
@@ -277,7 +311,11 @@ class CheckersGame {
 
         // Switch turn
         const nextTurn = (this.currentTurnIndex + 1) % this.playerIds.length;
-        setTimeout(() => this.setTurn(nextTurn), 500);
+        if (this.turnTimer) clearTimeout(this.turnTimer);
+        this.turnTimer = setTimeout(() => {
+            this.turnTimer = null;
+            this.setTurn(nextTurn);
+        }, 500);
     }
 
     checkWin() {
@@ -307,6 +345,7 @@ class CheckersGame {
     declareWinner(playerIndex) {
         const winnerId = this.playerIds[playerIndex];
         const winner = this.players[winnerId];
+        this.movePending = true; // Freeze further moves during win celebration
 
         // Bonus points for winning
         winner.score = (winner.score || 0) + 50;
@@ -317,13 +356,22 @@ class CheckersGame {
         document.getElementById('checkers-message').innerHTML =
             `<span style="color: var(--neon-green); font-size: 1.5rem;">🏆 Victory!</span>`;
 
-        setTimeout(() => {
+        if (this.turnTimer) {
+            clearTimeout(this.turnTimer);
+            this.turnTimer = null;
+        }
+        this.turnTimer = setTimeout(() => {
+            this.turnTimer = null;
             this.cleanup();
             endGame();
         }, 3000);
     }
 
     cleanup() {
+        if (this.turnTimer) {
+            clearTimeout(this.turnTimer);
+            this.turnTimer = null;
+        }
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
     }
