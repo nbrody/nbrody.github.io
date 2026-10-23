@@ -105,7 +105,9 @@ function initGrid() {
 // reverses the edge (Möbius, RP²) and the growth is odd, the two margins
 // can't be equal, so the extension jogs one cell sideways in the first
 // margin column (row) to land on its partner. Cropping by the same amount
-// undoes a resize exactly, jog included.
+// undoes a resize exactly, jog included. An odd shrink of a drawing that
+// was not produced by that grow jogs the boundary exits that remain, so a
+// closed curve sitting inside the kept window stays closed.
 // ============================================================
 const emptyGrid = (m) => Array.from({ length: m }, () => new Array(m).fill(0));
 
@@ -121,6 +123,17 @@ function resizeFlatGrid(old, n, m, edge) {
     if (m <= n) {
         const d = Math.floor((n - m) / 2);
         for (let r = 0; r < m; r++) for (let c = 0; c < m; c++) grid[r][c] = old[r + d][c + d];
+        // An odd crop shifts a reversed gluing by one row (column): row r used
+        // to meet n−1−r and now meets m−1−r, one off, even when the cropped
+        // strip was empty. Step each straight boundary exit one cell toward
+        // the low side so the strands that remain still meet. Skip when the
+        // crop did not add mismatches — that is the inverse of an odd grow,
+        // whose jog already lives in the strip this crop removes.
+        if ((n - m) % 2 === 1 && (edge.reversedLR || edge.reversedTB) &&
+            countMismatches(grid, edge) > countMismatches(old, edge)) {
+            const jogged = jogOddShrink(grid, edge);
+            if (countMismatches(jogged, edge) < countMismatches(grid, edge)) return jogged;
+        }
         return grid;
     }
     const g = m - n, d = Math.floor(g / 2), jog = g % 2 === 1;
@@ -158,6 +171,113 @@ function resizeFlatGrid(old, n, m, edge) {
         if (pairs[r][c].length) grid[r][c] = tileForPairs(pairs[r][c]);
     }
     return grid;
+}
+
+// Red-dash count, matching drawMismatchesFlat: interior edges, glued edges,
+// and free boundaries (north/south unless that pair is glued, west only on
+// the disk).
+function countMismatches(grid, edge) {
+    const n = grid.length;
+    let bad = 0;
+    const freeN = !edge.periodicTB && !edge.reversedTB;
+    const freeW = !edge.periodicLR && !edge.reversedLR;
+    for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+            const ti = grid[r][c];
+            const tile = TILE_TYPES[ti];
+            if (!tile) continue;
+            if (c < n - 1) {
+                if (!connectionsMatch(ti, grid[r][c + 1], 'E')) bad++;
+            } else if (edge.periodicLR) {
+                if (!connectionsMatch(ti, grid[r][0], 'E')) bad++;
+            } else if (edge.reversedLR) {
+                if (!connectionsMatch(ti, grid[n - 1 - r][0], 'E')) bad++;
+            } else if (tile.connections.E) bad++;
+
+            if (r < n - 1) {
+                if (!connectionsMatch(ti, grid[r + 1][c], 'S')) bad++;
+            } else if (edge.periodicTB) {
+                if (!connectionsMatch(ti, grid[0][c], 'S')) bad++;
+            } else if (edge.reversedTB) {
+                if (!connectionsMatch(ti, grid[0][n - 1 - c], 'S')) bad++;
+            } else if (tile.connections.S) bad++;
+
+            if (freeN && r === 0 && tile.connections.N) bad++;
+            if (freeW && c === 0 && tile.connections.W) bad++;
+        }
+    }
+    return bad;
+}
+
+// Move each straight exit on a reversed edge one step toward the low side
+// (an EW pair on the east edge steps up a row, an NS pair on the south edge
+// steps left a column) so an odd shrink still glues it to the partner it
+// had. Any other strand in that cell stays. A destination that cannot take
+// the arriving end is left alone.
+function jogOddShrink(grid, edge) {
+    let cur = grid.map(row => row.slice());
+    if (edge.reversedLR) cur = keepIfFewerMismatches(cur, jogStraightExits(cur, 'LR'), edge);
+    if (edge.reversedTB) cur = keepIfFewerMismatches(cur, jogStraightExits(cur, 'TB'), edge);
+    return cur;
+}
+
+function keepIfFewerMismatches(cur, next, edge) {
+    return countMismatches(next, edge) < countMismatches(cur, edge) ? next : cur;
+}
+
+function cellPairs(tile) {
+    const pairs = TILE_PAIRS[tile];
+    return pairs ? [...pairs] : [];
+}
+
+function pairClash(pairs) {
+    const sides = pairs.join('');
+    return new Set(sides).size !== sides.length;
+}
+
+function pairsToTile(pairs) {
+    if (pairs.length === 0) return 0;
+    const tile = tileForPairs(pairs);
+    const got = TILE_PAIRS[tile];
+    if (!got) return null;
+    const norm = xs => [...xs].sort().join(',');
+    return norm(got) === norm(pairs) ? tile : null;
+}
+
+function jogStraightExits(grid, which) {
+    const m = grid.length;
+    const g = grid.map(row => row.slice());
+    const horizontal = which === 'LR';
+    const from = horizontal ? 'EW' : 'NS';
+    const pairs = [];
+    for (let i = 0; i < m; i++) {
+        const r = horizontal ? i : m - 1;
+        const c = horizontal ? m - 1 : i;
+        pairs.push(cellPairs(g[r][c]));
+    }
+    const movers = [];
+    for (let i = 0; i < m; i++) if (pairs[i].includes(from)) movers.push(i);
+    const changed = new Set();
+    for (const i of movers) {
+        if (i === 0) continue;   // the partner row/column was cropped away
+        const turned = pairs[i].map(p => (p === from ? 'NW' : p));
+        if (pairClash(turned) || pairsToTile(turned) === null) continue;
+        if (pairs[i - 1].includes('ES') || pairClash([...pairs[i - 1], 'ES'])) continue;
+        const dest = [...pairs[i - 1], 'ES'];
+        if (pairsToTile(dest) === null) continue;
+        pairs[i] = turned;
+        pairs[i - 1] = dest;
+        changed.add(i);
+        changed.add(i - 1);
+    }
+    for (const i of changed) {
+        const tile = pairsToTile(pairs[i]);
+        if (tile === null) continue;
+        const r = horizontal ? i : m - 1;
+        const c = horizontal ? m - 1 : i;
+        g[r][c] = tile;
+    }
+    return g;
 }
 
 // Offsets of each cube face's old block inside its resized face, for a
