@@ -317,7 +317,7 @@ function sphereNeighbor(face, row, col, side) {
 // in screen pixels; at ordinary zooms they are unchanged.
 // ============================================================
 function strandLineWidth() {
-    return Math.min(Math.max(state.strandWidth, 1.25 / state.zoom), 0.1 * cellSize());
+    return Math.min(Math.max(state.strandWidth, 1.25 / state.zoom), 0.16 * cellSize());
 }
 function decorScale() {
     return Math.max(1, 0.8 / state.zoom);
@@ -1644,8 +1644,18 @@ exampleSelect.addEventListener('change', () => {
     if (isNaN(idx)) return;
     const examples = EXAMPLES[state.surface] || [];
     const ex = examples[idx];
-    if (!ex) return;
+    if (ex) applyExample(ex);
+});
+
+// Load a preset: one from the Examples menu, or a hidden one named in the URL
+// (which may carry its own surface).
+function applyExample(ex) {
     pushUndo();
+    if (ex.surface && ex.surface !== state.surface) {
+        state.surface = ex.surface;
+        surfaceSelect.value = ex.surface;
+        populateExamples();
+    }
 
     if (state.surface === 'sphere') {
         state.faceSize = ex.faceSize || state.faceSize;
@@ -1666,7 +1676,7 @@ exampleSelect.addEventListener('change', () => {
     if (ex.strandColor && state.bgMode !== 'white') setStrandColor(ex.strandColor);
     updateHud();
     fitView();
-});
+}
 
 populateExamples();
 
@@ -1979,6 +1989,19 @@ resizeCanvas();
 updateHud();
 syncSizeControls();
 requestAnimationFrame(() => fitView());
+
+// ?preset=<key> opens a preset from HIDDEN_EXAMPLES, which the Examples menu
+// does not list (hbd/ forwards here with ?preset=hbd).
+const presetKey = new URLSearchParams(location.search).get('preset');
+if (presetKey && typeof HIDDEN_EXAMPLES !== 'undefined' && HIDDEN_EXAMPLES[presetKey]) {
+    const ex = HIDDEN_EXAMPLES[presetKey];
+    document.title = ex.name;
+    // open on the picture, with the panel collapsed
+    requestAnimationFrame(() => {
+        window.PoincareUI?.setCollapsed(true);
+        applyExample(ex);
+    });
+}
 
 document.getElementById('show-orientations-toggle')?.addEventListener('change', buildPalette);
 
