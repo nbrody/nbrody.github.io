@@ -8,7 +8,8 @@ Open `index.html` through a local server (ES modules), e.g. the `golg-site` laun
 
 ## What it does
 
-- **Factor**: enter α (`2 + e1 − 3e5`, `(1+e1+e2+e4)/2`, products like `(1+e1+e2)(2+e3)`, or 8 coordinates),
+- **Factor**: enter α in a MathQuill field (type `1/2` for a fraction, `e1` for e₁, `*` for ·; products, powers and
+  i, j, k are accepted), or pick an example; the norm field takes e.g. `3^2*5*7` for a random α of that norm. Then
   drag the prime chips to reorder, re-associate the bracketing tree with ↶/↷, and step through the 240
   metamigrations at any node. The product is re-multiplied in the chosen bracketing as a check.
 - **Box & paths**: the lattices B_d(α) = α𝕆 + d𝕆 (d | N(α)) form a canonical product of geodesic segments
@@ -33,8 +34,9 @@ Open `index.html` through a local server (ES modules), e.g. the `golg-site` laun
 | `js/g2.js` | 𝕆/p𝕆 arithmetic, Cayley hexagon, apartment geometry, Macdonald counts |
 | `js/g2group.js` | G₂(ℤ[1/N]): rational automorphisms, rational lattices (sum, meet, dual), positions from p-adic elementary divisors, step-vertex formulas, isomorphism search, `factorG2`, `randomG2` |
 | `js/fanoE8.js` | Fano plane and the E₈ Coxeter-plane projection |
-| `js/app.js`, `js/boxview.js`, `js/g2view.js`, `js/ui.js` | the page |
-| `tests/run.mjs` | `node tests/run.mjs`: 53 checks of every arithmetic claim the page makes (about 5 s) |
+| `js/tex.js` | KaTeX helpers (inline, `$…$` rich text, labels inside SVG via foreignObject) and MathQuill glue: `latexToExpr` turns MathQuill LaTeX into the parser's grammar |
+| `js/app.js`, `js/boxview.js`, `js/g2view.js`, `js/ui.js` | the page; all mathematics is typeset with KaTeX |
+| `tests/run.mjs` | `node tests/run.mjs`: 56 checks of the arithmetic claims and the LaTeX round trips (about 5 s) |
 
 ## Conventions
 

@@ -5,11 +5,12 @@
 import * as G from "./g2.js";
 import * as GG from "./g2group.js";
 import { isProbablePrime } from "./factor.js";
-import { svgEl, el, clear, esc, colorVar, tip, renderChips, renderBox, fmtBig } from "./ui.js";
+import { svgEl, el, clear, colorVar, tip, renderChips, renderBox } from "./ui.js";
+import { tex, rich, svgTex, texNum, mathField, latexToExpr } from "./tex.js";
 
 const $ = (id) => document.getElementById(id);
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const subs = (n) => String(n).split("").map((c) => "₀₁₂₃₄₅₆₇₈₉"[+c]).join("");
+const posTex = (a, b) => (!a && !b ? "0" : [a ? (a > 1 ? a : "") + "\\omega_s" : "", b ? (b > 1 ? b : "") + "\\omega_\\ell" : ""].filter(Boolean).join(" + "));
 
 export function initG2() {
   const st = {
@@ -21,6 +22,7 @@ export function initG2() {
     boxSeen: new Map(), orderingsTried: new Set(), boxBad: 0,
     hoverChamber: -1,
     hexLayout: null,
+    edit: [{ p: 2, a: 1, b: 1 }, { p: 3, a: 2, b: 0 }, { p: 5, a: 0, b: 1 }], // the target editor
   };
   const tPrimes = () => [...new Set(st.targets.map((t) => String(t.p)))].map(BigInt).sort((a, b) => (a < b ? -1 : 1));
   const primeIndex = (p) => tPrimes().findIndex((q) => q === BigInt(p));
@@ -54,8 +56,42 @@ export function initG2() {
   $("g2-labels").addEventListener("change", () => render());
   $("g2-cone").addEventListener("change", () => render());
   $("g2-targets-go").addEventListener("click", () => buildRandom(Math.random));
-  $("g2-targets").addEventListener("keydown", (e) => { if (e.key === "Enter") buildRandom(Math.random); });
+  $("g2-add-prime").addEventListener("click", () => {
+    const used = new Set(st.edit.map((t) => t.p));
+    let p = 2;
+    while (used.has(p) || !isProbablePrime(BigInt(p))) p++;
+    st.edit.push({ p, a: 1, b: 0 });
+    renderTargets();
+  });
   $("g2-use").addEventListener("click", () => useOwn());
+  const uFields = [
+    mathField($("g2-u1"), { latex: "e_1", onEnter: () => useOwn() }),
+    mathField($("g2-u2"), { latex: "\\frac{3e_2+4e_4}{5}", onEnter: () => useOwn() }),
+    mathField($("g2-u3"), { latex: "e_3", onEnter: () => useOwn() }),
+  ];
+
+  // the target editor: one row per prime, p and the steppers for a and b
+  function renderTargets() {
+    const box = $("g2-targets-rows");
+    clear(box);
+    st.edit.forEach((t, i) => {
+      const pin = el("input", { class: "field pin", type: "number", min: "2", max: "97", value: String(t.p), "aria-label": "prime" });
+      pin.addEventListener("change", () => { const v = parseInt(pin.value, 10); if (v >= 2) t.p = v; renderTargets(); });
+      const step = (key, d) => () => { t[key] = Math.max(0, Math.min(4, t[key] + d)); renderTargets(); };
+      const stepper = (key) => el("span", { class: "stepper" },
+        el("button", { class: "btn", type: "button", onclick: step(key, -1), "aria-label": `decrease ${key}` }, "−"),
+        el("span", { class: "sv" }, String(t[key])),
+        el("button", { class: "btn", type: "button", onclick: step(key, 1), "aria-label": `increase ${key}` }, "+"));
+      const ok = isProbablePrime(BigInt(t.p));
+      box.append(el("div", { class: "trow" },
+        el("span", { html: tex("p =") }), pin,
+        el("span", { class: "muted small", html: tex("a") }), stepper("a"),
+        el("span", { class: "muted small", html: tex("b") }), stepper("b"),
+        el("span", { class: "tpos", html: ok ? tex(`\\lambda_{${t.p}} = ${posTex(t.a, t.b)}`) : `<span class="err">${t.p} is not prime</span>` }),
+        el("button", { class: "btn", type: "button", "aria-label": "remove", onclick: () => { st.edit.splice(i, 1); renderTargets(); } }, "×")));
+    });
+  }
+  renderTargets();
   $("g2-shuffle").addEventListener("click", () => {
     const a = st.steps.slice();
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
@@ -66,17 +102,14 @@ export function initG2() {
 
   function parseTargets() {
     const out = [];
-    for (const tok of $("g2-targets").value.trim().split(/\s+/).filter(Boolean)) {
-      const m = tok.match(/^(\d+):(\d+),(\d+)$/);
-      if (!m) throw new Error(`could not read “${tok}” — use p:a,b`);
-      const p = BigInt(m[1]), a = +m[2], b = +m[3];
+    for (const t of st.edit) {
+      const p = BigInt(t.p);
       if (!isProbablePrime(p)) throw new Error(p + " is not prime");
       if (p > 97n) throw new Error("primes up to 97 here");
-      if (a > 4 || b > 4) throw new Error("keep a, b ≤ 4");
-      if (out.some((t) => t.p === p)) throw new Error("repeated prime " + p);
-      if (a + b) out.push({ p, a, b });
+      if (out.some((u) => u.p === p)) throw new Error("repeated prime " + p);
+      if (t.a + t.b) out.push({ p, a: t.a, b: t.b });
     }
-    if (!out.length) throw new Error("give at least one target p:a,b");
+    if (!out.length) throw new Error("give at least one prime with a step");
     if (out.reduce((s, t) => s + t.a + t.b, 0) > 10) throw new Error("at most 10 steps in total");
     return out;
   }
@@ -98,14 +131,14 @@ export function initG2() {
   function useOwn() {
     st.err = "";
     try {
-      const g = GG.parseTriple($("g2-u1").value, $("g2-u2").value, $("g2-u3").value);
+      const g = GG.parseTriple(...uFields.map((f) => latexToExpr(f.latex())));
       const sup = GG.supportOf(g);
       if (sup.some((p) => p > 97n)) throw new Error("g has denominators at primes above 97");
       const pos = GG.positions(g, sup);
       const targets = sup.map((p, i) => ({ p, a: pos[i][0], b: pos[i][1] }));
       if (targets.reduce((s, t) => s + t.a + t.b, 0) > 12) throw new Error("this g needs more than 12 steps");
       setG(g, targets);
-      if (!targets.length) st.err = "This g fixes 𝕆: it is one of the 12096 elements of Aut(𝕆) = G₂(𝔽₂).";
+      if (!targets.length) st.err = "This $g$ fixes $\\mathbb O$: it is one of the $12096$ elements of $\\operatorname{Aut}(\\mathbb O) \\cong G_2(\\mathbb F_2)$.";
       renderPaths();
     } catch (e) { st.err = e.message; renderPaths(); }
   }
@@ -163,7 +196,7 @@ export function initG2() {
           st.hoverChamber = i;
           poly.setAttribute("style", "fill:var(--warn-wash);cursor:pointer");
           drawHexagon();
-          tip(`Chamber ${i + 1} of the 12 at 𝕆 — in the building it is one of (p+1)·#H(p) = ${fmtBig(BigInt(st.p + 1) * G.hexagonSize(st.p))} chambers at 𝕆; it corresponds to the highlighted flag of H(p).`, e);
+          tip(rich(`Chamber ${i + 1} of the 12 at $\\mathbb O$ in this apartment. In the building it is one of $(p+1)\\,\\#H(p) = ${texNum(BigInt(st.p + 1) * G.hexagonSize(st.p))}$ chambers at $\\mathbb O$; it is the highlighted flag of $H(${st.p})$.`), e);
         });
         poly.addEventListener("pointerleave", () => { st.hoverChamber = -1; poly.setAttribute("style", "cursor:pointer"); drawHexagon(); tip(null); });
       }
@@ -173,9 +206,9 @@ export function initG2() {
       const r = R + 0.5;
       const pts = [[0, 0], [r, 0], [r * Math.cos(Math.PI / 6), r * Math.sin(Math.PI / 6)]];
       svgEl("polygon", { points: pts.map((q) => X(q) + "," + Y(q)).join(" "), fill: css("--accent"), "fill-opacity": 0.1, stroke: css("--accent"), "stroke-width": 1, "stroke-opacity": 0.5, "pointer-events": "none" }, g);
-      const l1 = svgEl("text", { x: X([R - 0.25, 0]) , y: Y([R - 0.25, 0]) + 14, class: "poslbl", style: "fill:var(--accent)" }, g); l1.textContent = "ω_s";
-      const q2 = [(R - 0.4) * Math.cos(Math.PI / 6), (R - 0.4) * Math.sin(Math.PI / 6)];
-      const l2 = svgEl("text", { x: X(q2) - 6, y: Y(q2) - 6, class: "poslbl", style: "fill:var(--accent)" }, g); l2.textContent = "ω_ℓ";
+      svgTex(g, X([R - 0.3, 0]), Y([R - 0.3, 0]) + 16, "\\omega_s", { size: 14, color: "var(--accent)", w: 40 });
+      const q2 = [(R - 0.45) * Math.cos(Math.PI / 6), (R - 0.45) * Math.sin(Math.PI / 6)];
+      svgTex(g, X(q2) - 8, Y(q2) - 14, "\\omega_\\ell", { size: 14, color: "var(--accent)", w: 40 });
     }
     // the path of the current factorization at this prime: positions of h₁⋯h_j𝕆, computed
     if (st.posTrack && st.posTrack[0].has(String(st.p))) {
@@ -206,15 +239,13 @@ export function initG2() {
       const hit = svgEl("circle", { cx: x, cy: y, r: 10, fill: "transparent" }, gv);
       const n = G.hyperspecialCount(st.p, a, b);
       const msg = a === 0 && b === 0
-        ? `<b>𝕆</b> — the base vertex (stabilizer G₂(ℤ<sub>${st.p}</sub>))`
-        : `<b>position ${a ? (a > 1 ? a : "") + "ω_s" : ""}${a && b ? " + " : ""}${b ? (b > 1 ? b : "") + "ω_ℓ" : ""}</b> from 𝕆<br>` +
-          `${esc(fmtBig(n))} hyperspecial vertices of the building sit at this position`;
+        ? rich(`$\\mathbb O$, the base vertex, with stabilizer $G_2(\\mathbb Z_{${st.p}})$`)
+        : rich(`position $${posTex(a, b)}$ from $\\mathbb O$<br>$${texNum(n)}$ hyperspecial vertices of the building sit at this position`);
       hit.addEventListener("pointerenter", (e) => tip(msg, e));
       hit.addEventListener("pointermove", (e) => tip(msg, e));
       hit.addEventListener("pointerleave", () => tip(null));
       if (showLab && h.mn[0] - h.mn[1] >= 0 && h.mn[1] >= 0 && (a || b)) {
-        const t = svgEl("text", { x: x + 5, y: y + 11, class: "poslbl" }, gv);
-        t.textContent = `${a},${b}`;
+        svgTex(gv, x + 5, y + 12, `(${a},${b})`, { anchor: "start", size: 9.5, w: 50, h: 16, color: "var(--ink-soft)" });
       }
       void node;
     }
@@ -274,7 +305,7 @@ export function initG2() {
     const Wc = cv.width, Hc = cv.height;
     ctx.clearRect(0, 0, Wc, Hc);
     if (st.p > 7) {
-      note.textContent = `H(${st.p}) has ${fmtBig(G.hexagonSize(st.p))} points — too many to draw here; counts are on the left.`;
+      note.innerHTML = rich(`$H(${st.p})$ has $${texNum(G.hexagonSize(st.p))}$ points, too many to draw here; the counts are below.`);
       return;
     }
     let L;
@@ -337,9 +368,10 @@ export function initG2() {
       if (nodes[i].kind === "p") ctx.arc(x, y, 6, 0, 2 * Math.PI); else ctx.rect(x - 5.5, y - 5.5, 11, 11);
       ctx.fill(); ctx.stroke();
     }
-    note.innerHTML = `H(${st.p}): ${fmtBig(BigInt(L.H.points.length))} points (● = type-2 vertices, SL₃-type) and ${fmtBig(BigInt(L.H.lines.length))} lines (■ = type-1 vertices, SO₄-type) adjacent to 𝕆. ` +
-      `Each point is on ${st.p + 1} lines and each line has ${st.p + 1} points. Rings are distance 0…6 from one point in the incidence graph, with sizes 1, ${st.p + 1}, ${st.p * (st.p + 1)}, ${st.p ** 2 * (st.p + 1)}, ${st.p ** 3 * (st.p + 1)}, ${st.p ** 4 * (st.p + 1)}, ${st.p ** 5}. ` +
-      `The girth is 12 and the diameter 6, so this is a generalized hexagon. The outer ring is the ${st.p ** 5} points opposite the centre, with chords back to ring 5. The blue 12-cycle is one apartment of H(${st.p}): the 12 chambers at 𝕆 in the apartment on the left.`;
+    const p = st.p;
+    note.innerHTML = rich(`$H(${p})$ has $${texNum(BigInt(L.H.points.length))}$ points (● type-2 vertices, $\\mathrm{SL}_3$-type) and $${texNum(BigInt(L.H.lines.length))}$ lines (■ type-1 vertices, $\\mathrm{SO}_4$-type), all adjacent to $\\mathbb O$. ` +
+      `Each point is on $${p + 1}$ lines and each line has $${p + 1}$ points. The rings are the distances $0,\\dots,6$ from one point in the incidence graph, of sizes $1,\\ ${p + 1},\\ ${p * (p + 1)},\\ ${p ** 2 * (p + 1)},\\ ${p ** 3 * (p + 1)},\\ ${p ** 4 * (p + 1)},\\ ${p ** 5}$. ` +
+      `The girth is $12$ and the diameter $6$, so this is a generalized hexagon. The outer ring holds the $${p ** 5}$ points opposite the centre, with chords back to ring $5$. The blue $12$-cycle is one apartment of $H(${p})$: the $12$ chambers at $\\mathbb O$ in the apartment on the left.`);
   }
   // canvas hover
   $("hexcanvas").addEventListener("pointermove", (e) => {
@@ -352,9 +384,9 @@ export function initG2() {
     L.xy.forEach((q, i) => { const dx = c0 + q[0] * rr - x, dy = c0 - q[1] * rr - y, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = i; } });
     if (best < 0 || bd > 400) { tip(null); return; }
     const n = L.nodes[best];
-    const what = n.kind === "p" ? "point of H(p): an isotropic line in Im(𝕆/p𝕆)" : "line of H(p): a plane ⟨x, y⟩ with xy = 0";
-    tip(`<b>${n.kind === "p" ? "point" : "line"} ${n.id}</b> — ${what}<br>distance ${n.level} from the centre point in the incidence graph` +
-      (n.kind === "p" ? `<br><span class="mono">coords mod ${st.p}: (${L.H.points[n.id].join(", ")})</span> in the ℤ-basis of 𝕆` : ""), e);
+    const what = n.kind === "p" ? `point of $H(p)$: an isotropic line in $\\operatorname{Im}(\\mathbb O/${st.p}\\mathbb O)$` : `line of $H(p)$: a plane $\\langle x, y\\rangle$ with $xy = 0$`;
+    tip(rich(`<b>${n.kind === "p" ? "point" : "line"} ${n.id}</b>: ${what}<br>distance $${n.level}$ from the centre point in the incidence graph` +
+      (n.kind === "p" ? `<br>coordinates mod $${st.p}$ in the $\\mathbb Z$-basis of $\\mathbb O$: $(${L.H.points[n.id].join(",")})$` : "")), e);
   });
   $("hexcanvas").addEventListener("pointerleave", () => tip(null));
 
@@ -363,41 +395,43 @@ export function initG2() {
     const p = BigInt(st.p);
     const hs = G.hexagonSize(st.p);
     const rows = [
-      ["octavian primes of norm p", 240n * (p ** 3n + 1n)],
-      ["… mod units (Rehm's primary primes; a spread of Q₇⁺(p))", p ** 3n + 1n],
-      ["points of the quadric Q₇⁺(p) ⊂ ℙ(𝕆/p𝕆)", (p + 1n) * (p * p + 1n) * (p ** 3n + 1n)],
-      ["   trace-zero points = points of H(p)", hs],
-      ["   idempotent points (stabilizer SL₃(𝔽ₚ))", p ** 3n * (p ** 3n + 1n)],
-      ["type-1 and type-2 vertices adjacent to 𝕆 (each)", hs],
-      ["chambers containing 𝕆 (flags of H(p))", (p + 1n) * hs],
-      ["hyperspecial vertices at ω_s (short step)", G.hyperspecialCount(st.p, 1, 0)],
-      ["hyperspecial vertices at ω_ℓ (long step)", G.hyperspecialCount(st.p, 0, 1)],
-      ["|G₂(𝔽ₚ)| = p⁶(p⁶−1)(p²−1)", p ** 6n * (p ** 6n - 1n) * (p * p - 1n)],
-      ["vertex stabilizer in G₂(ℤ[1/N]): Aut(octavians) = G₂(𝔽₂)", BigInt(G.G2F2_ORDER)],
+      ["octavian primes of norm $p$", 240n * (p ** 3n + 1n)],
+      ["… up to units: Rehm's primary primes, a spread of $Q_7^+(p)$", p ** 3n + 1n],
+      ["points of the quadric $Q_7^+(p) \\subset \\mathbb P(\\mathbb O/p\\mathbb O)$", (p + 1n) * (p * p + 1n) * (p ** 3n + 1n)],
+      ["&emsp;trace-zero points $=$ points of $H(p)$", hs],
+      ["&emsp;idempotent points (stabilizer $\\mathrm{SL}_3(\\mathbb F_p)$)", p ** 3n * (p ** 3n + 1n)],
+      ["type-1 and type-2 vertices adjacent to $\\mathbb O$ (each)", hs],
+      ["chambers containing $\\mathbb O$ (flags of $H(p)$)", (p + 1n) * hs],
+      ["hyperspecial vertices at $\\omega_s$ (short step)", G.hyperspecialCount(st.p, 1, 0)],
+      ["hyperspecial vertices at $\\omega_\\ell$ (long step)", G.hyperspecialCount(st.p, 0, 1)],
+      ["$|G_2(\\mathbb F_p)| = p^6(p^6-1)(p^2-1)$", p ** 6n * (p ** 6n - 1n) * (p * p - 1n)],
+      ["vertex stabilizer in $G_2(\\mathbb Z[1/N])$: $\\operatorname{Aut}(\\mathbb O) \\cong G_2(\\mathbb F_2)$", BigInt(G.G2F2_ORDER)],
     ];
     const box = $("g2-stats");
     clear(box);
-    for (const [k, v] of rows) box.append(el("div", { class: "k" }, k), el("div", { class: "v" }, fmtBig(v)));
+    $("g2-stats-title").innerHTML = "Counting at " + tex("p = " + st.p);
+    for (const [k, v] of rows) box.append(el("div", { class: "k", html: rich(k) }), el("div", { class: "v", html: tex(texNum(v)) }));
   }
 
   // ------------------------------------------------------------------ paths
   function renderPaths() {
-    $("g2paths-intro").innerHTML =
-      `G₂(ℤ[1/N]) = Aut(𝕆[1/N]) acts on ∏<sub>p|N</sub> B<sub>p</sub>, transitively on hyperspecial vertices (= maximal orders), with stabilizer Aut(𝕆) ≅ G₂(𝔽₂). ` +
-      `An element g puts g𝕆 at position a<sub>p</sub>ω_s + b<sub>p</sub>ω_ℓ at each p. For <b>every ordering</b> of those steps there is exactly one chain of vertices, so exactly one factorization ` +
-      `g = h₁h₂⋯h<sub>m</sub>·u, where each h<sub>i</sub> is a canonical <i>G₂-prime</i> (one short or long step at one prime) and u ∈ Aut(𝕆). ` +
-      `Everything is exact: each vertex is computed by lattice operations, each h<sub>i</sub> by finding an isomorphism 𝕆 → h₁⋯h<sub>i</sub>𝕆 among the 126 imaginary units of that maximal order, and the product is re-multiplied as a check.`;
+    $("g2paths-intro").innerHTML = rich(
+      `$G_2(\\mathbb Z[1/N]) = \\operatorname{Aut}(\\mathbb O[1/N])$ acts on $\\prod_{p\\mid N}\\mathcal B_p$, transitively on the hyperspecial vertices (the maximal orders), with stabilizer $\\operatorname{Aut}(\\mathbb O) \\cong G_2(\\mathbb F_2)$. ` +
+      `An element $g$ puts $g\\mathbb O$ at position $\\lambda_p = a_p\\omega_s + b_p\\omega_\\ell$ at each $p$. For <b>every ordering</b> of those steps there is exactly one chain of vertices, hence exactly one factorization ` +
+      `$g = h_1h_2\\cdots h_m\\,u$, where each $h_i$ is a canonical <i>$G_2$-prime</i> (one short or long step at one prime) and $u \\in \\operatorname{Aut}(\\mathbb O)$. ` +
+      `Everything is exact: each vertex comes from lattice operations, each $h_i$ from an isomorphism $\\mathbb O \\to h_1\\cdots h_i\\mathbb O$ found among the $126$ imaginary units of that maximal order, and the product is re-multiplied as a check.`);
     const err = $("g2-err");
-    err.hidden = !st.err; err.textContent = st.err;
+    err.hidden = !st.err; err.innerHTML = rich(st.err);
     const kv = $("g2-g");
     clear(kv);
     if (!st.g) return;
-    const add = (k, v, mono = true) => kv.append(el("div", { class: "k" }, k), el("div", { class: mono ? "v" : "", html: v }));
-    GG.gFormat(st.g).forEach((line, i) => add(i ? "" : "g", esc(line)));
-    add("support", st.targets.length ? "N = " + tPrimes().join("·") : "—", false);
-    add("g𝕆 at", st.targets.map((t) => `<span style="color:${stepColor(t.p)};font-weight:600">p=${t.p}</span>: ${posText(t.a, t.b)}`).join(" &nbsp; ") || "𝕆 itself", false);
+    const add = (k, v) => kv.append(el("div", { class: "k", html: k }), el("div", { class: "v", html: v }));
+    GG.gFormatTex(st.g).forEach((line, i) => add(i ? "" : tex("g"), tex(line)));
+    add("support", st.targets.length ? tex("N = " + tPrimes().join("\\cdot ")) : "—");
+    add(tex("g\\mathbb O") + " at", st.targets.map((t) => `<span style="color:${stepColor(t.p)}">${tex(`\\lambda_{${t.p}} = ${posTex(t.a, t.b)}`)}</span>`).join(" &emsp; ") || tex("\\mathbb O") + " itself");
     renderChips($("g2-chips"), st.steps.map((s) => ({
-      label: s.p + (s.kind === "s" ? "ₛ" : "ℓ"),
+      label: String(s.p),
+      html: tex(`${s.p}_{${s.kind === "s" ? "s" : "\\ell"}}`),
       sub: s.kind === "s" ? "short" : "long",
       aria: `prime ${s.p}, ${s.kind === "s" ? "short" : "long"} step`,
       color: stepColor(s.p),
@@ -405,46 +439,46 @@ export function initG2() {
     const m = st.steps.length;
     let orderings = factorial(m);
     for (const t of st.targets) orderings /= factorial(t.a) * factorial(t.b);
-    $("g2-count").innerHTML = `${fmtBig(orderings)} orderings, each a staircase and each a unique factorization. ` +
-      tPrimes().map((p) => `G₂-primes at ${p}: ${fmtBig(G.hyperspecialCount(p, 1, 0))} short, ${fmtBig(G.hyperspecialCount(p, 0, 1))} long`).join("; ") + ".";
+    $("g2-count").innerHTML = rich(`$${texNum(orderings)}$ orderings, each a staircase and each a unique factorization. ` +
+      tPrimes().map((p) => `$G_2$-primes at $${p}$: $${texNum(G.hyperspecialCount(p, 1, 0))}$ short, $${texNum(G.hyperspecialCount(p, 0, 1))}$ long`).join("; ") + ".");
     const tbl = $("g2-table");
     clear(tbl);
     if (!st.fz) { $("g2-formula").textContent = ""; $("g2-verify").textContent = ""; clear($("g2box")); return; }
-    $("g2-formula").textContent = "g = " + st.fz.factors.map((_, i) => "h" + subs(i + 1)).join(" · ") + (m ? " · u" : "u");
+    $("g2-formula").innerHTML = tex("g = " + st.fz.factors.map((_, i) => `h_{${i + 1}}`).join("\\,") + "\\,u");
     const prod = GG.gCompose(GG.multiply(st.fz.factors.map((f) => f.h)), st.fz.unit);
     $("g2-verify").innerHTML = GG.gEquals(prod, st.g)
-      ? `<span class="badge ok">✓ verified</span> h₁⋯h<sub>m</sub>·u = g exactly, and u𝕆 = 𝕆`
+      ? `<span class="badge ok">✓ verified</span> ` + rich(`$h_1\\cdots h_m\\,u = g$ exactly, and $u\\mathbb O = \\mathbb O$`)
       : `<span class="badge bad">✗</span> product mismatch (bug)`;
-    tbl.append(el("tr", {}, el("th", {}, ""), el("th", {}, "step"), el("th", {}, "factor (images of e₁, e₂, e₃)"), el("th", {}, "")));
+    tbl.append(el("tr", {}, el("th", {}, ""), el("th", {}, "step"), el("th", { html: "factor: images of " + tex("e_1, e_2, e_3") }), el("th", {}, "")));
     const prev = st.prevKeys ? new Set(st.prevKeys) : null;
     let nNew = 0;
     st.fz.factors.forEach((f, i) => {
       const isNew = prev && !prev.has(GG.gKey(f.h));
       if (isNew) nNew++;
       tbl.append(el("tr", { class: isNew ? "changed" : "" },
-        el("td", {}, "h" + subs(i + 1)),
-        el("td", { style: `color:${stepColor(f.p)};font-weight:600;white-space:nowrap` }, `${f.p} ${f.kind === "s" ? "short" : "long"}`),
-        el("td", { class: "v", html: GG.gFormat(f.h).map(esc).join("<br>") }),
-        el("td", { html: `<span class="badge">${f.kind === "s" ? "ω_s" : "ω_ℓ"}</span>` })));
+        el("td", { html: tex(`h_{${i + 1}}`) }),
+        el("td", { style: `color:${stepColor(f.p)};white-space:nowrap`, html: tex(`p = ${f.p}`) + ` ${f.kind === "s" ? "short" : "long"}` }),
+        el("td", { class: "v", html: GG.gFormatTex(f.h).map((l) => tex(l)).join("<br>") }),
+        el("td", { html: `<span class="badge">${tex(f.kind === "s" ? "\\omega_s" : "\\omega_\\ell")}</span>` })));
     });
     tbl.append(el("tr", {},
-      el("td", {}, "u"),
-      el("td", { class: "muted", style: "white-space:nowrap" }, "Aut(𝕆)"),
-      el("td", { class: "v", html: GG.gFormat(st.fz.unit).map(esc).join("<br>") }),
+      el("td", { html: tex("u") }),
+      el("td", { class: "muted", style: "white-space:nowrap", html: tex("\\operatorname{Aut}(\\mathbb O)") }),
+      el("td", { class: "v", html: GG.gFormatTex(st.fz.unit).map((l) => tex(l)).join("<br>") }),
       el("td", { html: `<span class="badge warn">unit</span>` })));
     if (prev) tbl.append(el("tr", {}, el("td", { colspan: "4", class: "note" }, nNew ? `${nNew} of ${m} factors are new compared with the previous ordering (highlighted).` : "Same factors as before.")));
     // the box
     const axes = [], axisOf = new Map();
     for (const t of st.targets) {
-      if (t.a) { axisOf.set(t.p + "s", axes.length); axes.push({ len: t.a, color: stepColor(t.p), label: `${t.p} short` }); }
-      if (t.b) { axisOf.set(t.p + "l", axes.length); axes.push({ len: t.b, color: stepColor(t.p), label: `${t.p} long` }); }
+      if (t.a) { axisOf.set(t.p + "s", axes.length); axes.push({ len: t.a, color: stepColor(t.p), label: `\\omega_s\\text{ at }${t.p}` }); }
+      if (t.b) { axisOf.set(t.p + "l", axes.length); axes.push({ len: t.b, color: stepColor(t.p), label: `\\omega_\\ell\\text{ at }${t.p}` }); }
     }
     const path = st.steps.map((s) => axisOf.get(s.p + s.kind));
     const pathKeys = [];
     { const v = new Array(axes.length).fill(0); pathKeys.push(v.join(",")); for (const a of path) { v[a]++; pathKeys.push(v.join(",")); } }
     renderBox($("g2box"), axes, path, new Map(), {
       width: 560, maxHeight: 340,
-      stepLabel: (j) => "h" + subs(j + 1),
+      stepLabel: (j) => `h_{${j + 1}}`,
       nodeInfo: (v) => {
         const j = pathKeys.indexOf(v.join(","));
         let i = 0;
@@ -453,21 +487,20 @@ export function initG2() {
           let a = 0, b = 0;
           if (t.a) a = v[i++];
           if (t.b) b = v[i++];
-          parts.push(`p=${t.p}: ${posText(a, b)}`);
+          parts.push(`\\lambda_{${t.p}} = ${posTex(a, b)}`);
         }
-        if (j < 0) return parts.join("<br>") + `<br><span class="muted">(off the current staircase)</span>`;
+        if (j < 0) return parts.map((x) => tex(x)).join("<br>") + `<br><span class="muted">(off the current staircase)</span>`;
         const comp = st.posTrack[j];
-        const check = st.targets.every((t, k) => { const [a, b] = comp.get(String(t.p)); return parts[k] === `p=${t.p}: ${posText(a, b)}`; });
-        return `<b>${j ? "h₁⋯h" + subs(j) + "𝕆" : "𝕆"}</b> — a maximal order at<br>` + parts.join("<br>") +
+        const check = st.targets.every((t, k) => { const [a, b] = comp.get(String(t.p)); return parts[k] === `\\lambda_{${t.p}} = ${posTex(a, b)}`; });
+        return tex(j ? `h_1\\cdots h_{${j}}\\,\\mathbb O` : "\\mathbb O") + ", a maximal order at<br>" + parts.map((x) => tex(x)).join("<br>") +
           `<br>${check ? "✓ positions recomputed from the lattice" : "✗ position mismatch"}`;
       },
     });
-    $("g2box-note").innerHTML = `The box is the product over (p, step kind) of chains, i.e. the product of the parallelograms spanned by ω_s and ω_ℓ in each B<sub>p</sub>. ` +
+    $("g2box-note").innerHTML = rich(`The box is the product of the parallelograms spanned by $\\omega_s$ and $\\omega_\\ell$ in each $\\mathcal B_p$. ` +
       `Each vertex of the box is one maximal order, the same for every ordering. ` +
       (st.boxBad ? `<b>✗ ${st.boxBad} inconsistencies</b>` : `✓ consistent over the ${st.orderingsTried.size} ordering${st.orderingsTried.size > 1 ? "s" : ""} tried so far (${st.boxSeen.size} box vertices met)`) +
-      `. Contrast the octavians on the Box &amp; paths tab, where subproducts drift off their box.`;
+      `. Contrast the octavians on the Box &amp; paths tab, where subproducts drift off their box.`);
   }
-  const posText = (a, b) => (!a && !b ? "0" : [a ? (a > 1 ? a : "") + "ω_s" : "", b ? (b > 1 ? b : "") + "ω_ℓ" : ""].filter(Boolean).join(" + "));
   const factorial = (n) => { let r = 1n; for (let i = 2n; i <= BigInt(n); i++) r *= i; return r; };
 
   function render() {
@@ -476,7 +509,7 @@ export function initG2() {
     renderPaths();
     // the hexagon for p = 7 takes a moment; let the rest paint first
     if (st.p >= 7 && (!st.hexLayout || st.hexLayout.p !== st.p)) {
-      $("hex-note").textContent = "Building H(7) from 𝕆/7𝕆…";
+      $("hex-note").innerHTML = rich("Building $H(7)$ from $\\mathbb O/7\\mathbb O$…");
       setTimeout(drawHexagon, 30);
     } else drawHexagon();
   }

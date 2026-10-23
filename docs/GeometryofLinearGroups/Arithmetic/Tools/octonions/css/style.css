@@ -239,3 +239,52 @@ canvas.hexcanvas { width: 100%; aspect-ratio: 1 / 1; display: block; background:
 .notes .callout.ok { border-color: var(--ok); background: var(--ok-wash); }
 .notes ol.refs li { font-size: 14.5px; margin-bottom: 4px; }
 a { color: var(--accent); }
+
+/* ---------- LaTeX and MathQuill ---------- */
+.katex { font-size: 1.06em; }
+.tab .katex, .btn .katex, .seg .katex, h1 .katex, h2 .katex, .chip .katex { font-size: 1em; }
+h1 .katex { font-size: 0.95em; }
+.svgtex { overflow: visible; pointer-events: none; }
+.svgtex-inner { display: flex; align-items: center; height: 100%; color: var(--ink); line-height: 1; white-space: nowrap; }
+.svgtex-inner.middle { justify-content: center; }
+.svgtex-inner.start { justify-content: flex-start; }
+.svgtex-inner.end { justify-content: flex-end; }
+.svgtex-inner .katex { font-size: 1em; }
+.mqbox {
+  flex: 1; min-width: 0; min-height: 36px; padding: 4px 8px; border: 1px solid var(--rule-strong); border-radius: 6px;
+  background: var(--paper); color: var(--ink); font-size: 17px; display: inline-flex; align-items: center;
+}
+.mq-editable-field.mq-focused, .mqbox.mq-focused { box-shadow: none; outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.mq-math-mode, .mq-math-mode .mq-root-block { color: var(--ink); }
+.mq-math-mode .mq-cursor { border-color: var(--ink); }
+.mq-label { font-size: 15px; white-space: nowrap; }
+.row.nowrap { flex-wrap: nowrap; }
+.alpha-show { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+.alpha-show .katex { font-size: 1.12em; }
+.normline .katex { font-size: 1.04em; }
+table.factors td.v { font-family: var(--f-body); font-size: 14px; }
+.kv .v { font-family: var(--f-body); font-size: 14px; overflow-x: auto; }
+.formula { font-family: var(--f-body); font-size: 15.5px; }
+.formula .katex { font-size: 1.15em; }
+.examples { position: relative; }
+.examples summary { list-style: none; cursor: pointer; }
+.examples summary::-webkit-details-marker { display: none; }
+.examples summary::after { content: " ▾"; font-size: 11px; }
+.ex-list {
+  position: absolute; z-index: 40; left: 0; top: calc(100% + 4px); width: min(560px, 86vw); max-height: 60vh; overflow: auto;
+  background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.16); padding: 6px;
+}
+.ex-item { display: block; width: 100%; text-align: left; background: none; border: none; border-radius: 6px; padding: 8px 10px; cursor: pointer; color: var(--ink); line-height: 1.5; }
+.ex-item:hover { background: var(--hl); }
+.ex-item .ex-what { font-family: var(--f-ui); font-size: 12.5px; color: var(--ink-soft); }
+.ex-item .ex-what .katex { font-size: 1em; }
+.trows { display: grid; gap: 6px; }
+.trow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.trow .pin { width: 64px; padding: 4px 6px; font-family: var(--f-ui); }
+.stepper { display: inline-flex; align-items: center; gap: 2px; }
+.stepper .btn { padding: 2px 8px; }
+.stepper .sv { min-width: 18px; text-align: center; font-family: var(--f-ui); }
+.trow .tpos { margin-left: 4px; }
+.stat .v { font-family: var(--f-body); }
+.stat .k { font-family: var(--f-body); font-size: 14px; }
+.katex, .mq-math-mode { text-transform: none; letter-spacing: normal; }

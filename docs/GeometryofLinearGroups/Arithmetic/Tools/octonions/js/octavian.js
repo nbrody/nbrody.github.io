@@ -199,6 +199,23 @@ export function format(a, opts = {}) {
 }
 export const formatAscii = (a) => format(a, { ascii: true });
 
+// LaTeX: 2 + e_{1} - 3e_{5}, or \tfrac12(…) for half-integral coordinates.
+export function linCombTex(coeffs) {
+  let s = "";
+  for (let i = 0; i < coeffs.length; i++) {
+    const c = coeffs[i];
+    if (!c) continue;
+    const mag = abs(c);
+    const term = i === 0 ? mag.toString() : (mag === 1n ? "" : mag.toString()) + "e_{" + i + "}";
+    s += s ? (c < 0n ? " - " : " + ") + term : (c < 0n ? "-" : "") + term;
+  }
+  return s || "0";
+}
+export function formatTex(a) {
+  if (oddMask(a) === 0) return linCombTex(a.map((x) => x / 2n));
+  return "\\tfrac12\\left(" + linCombTex(a) + "\\right)";
+}
+
 // Coordinates as strings (halves shown as n/2).
 export function coordStrings(a) {
   return a.map((d) => (d % 2n === 0n ? (d / 2n).toString() : d.toString() + "/2"));
@@ -273,13 +290,25 @@ function parseToRat(str) {
   // Expression.
   const s = src.replace(/−/g, "-").replace(/·|×|\*/g, "*").replace(/½/g, "(1/2)")
     .replace(/[₀₁₂₃₄₅₆₇]/g, (c) => String("₀₁₂₃₄₅₆₇".indexOf(c)));
-  const toks = s.match(/\d+(?:\.\d+)?|e\d|[ijkl]|[()+\-*/]/g);
+  const toks = s.match(/\d+(?:\.\d+)?|e\d|[ijkl]|[()+\-*/^]/g);
   if (!toks || toks.join("") !== s.replace(/\s+/g, "")) throw new Error("could not read “" + src + "”");
   let pos = 0;
   const peek = () => toks[pos];
   const next = () => toks[pos++];
   const named = { i: 1, j: 2, k: 4, l: 3 }; // quaternion units of the Hurwitz subalgebra ⟨1,e1,e2,e4⟩ (k = e1e2 = e4)
   function atom() {
+    let v = primary();
+    while (peek() === "^") {
+      next();
+      const ex = primary();
+      if (!isScalar(ex) || ex[0].d !== 1n || ex[0].n < 0n || ex[0].n > 64n) throw new Error("exponents must be whole numbers 0 … 64");
+      let r = rvec(); r[0] = R1;
+      for (let k = 0n; k < ex[0].n; k++) r = rmul(r, v);
+      v = r;
+    }
+    return v;
+  }
+  function primary() {
     const t = next();
     if (t === undefined) throw new Error("unexpected end of input");
     if (t === "(") {

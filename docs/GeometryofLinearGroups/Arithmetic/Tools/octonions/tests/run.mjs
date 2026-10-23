@@ -5,6 +5,7 @@ import * as F from "../js/factor.js";
 import * as G from "../js/g2.js";
 import * as GG from "../js/g2group.js";
 import { LINES, productOf, e8Projection } from "../js/fanoE8.js";
+import { latexToExpr } from "../js/tex.js";
 
 let pass = 0, fail = 0;
 function check(name, cond, extra = "") {
@@ -264,6 +265,18 @@ console.log("Fano plane and E₈");
   const rings = new Map();
   for (const [x, y] of E.xy) { const k = Math.hypot(x, y).toFixed(4); rings.set(k, (rings.get(k) || 0) + 1); }
   check("E₈: 240 roots, 6720 edges, 8 rings of 30 in the Coxeter plane", E.units.length === 240 && E.edges.length === 6720 && rings.size === 8 && [...rings.values()].every((n) => n === 30));
+}
+
+console.log("LaTeX and MathQuill input");
+{
+  let ok = true;
+  for (let i = 0; i < 20; i++) { const a = F.randomPrimitive([3n, 5n, 7n], rng); if (!O.equals(O.parse(latexToExpr(O.formatTex(a))), a)) ok = false; }
+  check("octavians: formatTex → MathQuill LaTeX → parse is the identity", ok);
+  check("MathQuill forms: \\frac, \\left(, e_{1}, \\cdot, powers", O.equals(O.parse(latexToExpr("\\frac{1}{2}\\left(1+e_1+e_2+e_4\\right)")), O.parse("(1+e1+e2+e4)/2")) &&
+    O.equals(O.parse(latexToExpr("\\left(1+e_{1}\\right)^{2}\\cdot e_3")), O.parse("2e1*e3")));
+  const g = GG.randomG2([{ p: 3n, a: 1, b: 1 }], rng);
+  const back = GG.parseTriple(...GG.gFormatTex(g).map((s) => latexToExpr(s.split("\\mapsto")[1])));
+  check("G₂ elements: gFormatTex → parseTriple is the identity", GG.gEquals(back, g));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

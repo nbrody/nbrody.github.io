@@ -2,6 +2,7 @@
 // ("box") renderer shared by the octavian box view and the G₂ paths view.
 
 export const NS = "http://www.w3.org/2000/svg";
+import { svgTex } from "./tex.js";
 export function svgEl(tag, attrs = {}, parent) {
   const e = document.createElementNS(NS, tag);
   for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null) e.setAttribute(k, v);
@@ -61,8 +62,9 @@ export function tip(html, ev) {
 export function renderChips(container, items, onReorder) {
   clear(container);
   const chips = items.map((it, i) => {
-    const c = el("span", { class: "chip", tabindex: "0", role: "button", "aria-label": it.aria || it.label, style: `color:${it.color}` },
-      it.label, it.sub ? el("span", { class: "sub" }, it.sub) : null);
+    const c = el("span", { class: "chip", tabindex: "0", role: "button", "aria-label": it.aria || it.label, style: `color:${it.color}` });
+    if (it.html) c.innerHTML = it.html; else c.append(it.label);
+    if (it.sub) c.append(el("span", { class: "sub" }, it.sub));
     c.dataset.i = i;
     container.appendChild(c);
     return c;
@@ -138,7 +140,7 @@ export function renderBox(svg, axes, path, marks = new Map(), opts = {}) {
   clear(svg);
   const r = axes.length;
   const W = opts.width || 640;
-  if (!r) { svgEl("text", { x: 20, y: 30, class: "lbl" }, svg).textContent = "N(α) = 1: nothing to factor."; svg.setAttribute("viewBox", `0 0 ${W} 60`); return; }
+  if (!r) { svgTex(svg, 20, 30, "N(\\alpha) = 1", { anchor: "start", size: 13 }); svg.setAttribute("viewBox", `0 0 ${W} 60`); return; }
   // directions spread over the upper half plane
   const dirs = axes.map((_, i) => {
     const th = r === 1 ? Math.PI / 2 : (Math.PI * (165 - (150 * i) / (r - 1))) / 180;
@@ -185,8 +187,11 @@ export function renderBox(svg, axes, path, marks = new Map(), opts = {}) {
     const [x1, y1] = P(pathPts[j]), [x2, y2] = P(pathPts[j + 1]);
     svgEl("line", { x1, y1, x2, y2, stroke: axes[path[j]].color, "stroke-width": 4, "stroke-linecap": "round" }, gP);
     if (opts.stepLabel) {
-      const t = svgEl("text", { x: (x1 + x2) / 2 + 7, y: (y1 + y2) / 2 + 4, class: "lbl" }, gP);
-      t.textContent = opts.stepLabel(j);
+      // label beside the edge, offset perpendicular to it (towards the upper side)
+      const L = Math.hypot(x2 - x1, y2 - y1) || 1;
+      let nx = (y2 - y1) / L, ny = -(x2 - x1) / L;
+      if (ny > 0 || (Math.abs(ny) < 1e-6 && nx < 0)) { nx = -nx; ny = -ny; }
+      svgTex(gP, (x1 + x2) / 2 + nx * 12, (y1 + y2) / 2 + ny * 12, opts.stepLabel(j), { size: 11, w: 60, color: "var(--ink-soft)" });
     }
   }
   // nodes
@@ -206,7 +211,7 @@ export function renderBox(svg, axes, path, marks = new Map(), opts = {}) {
     });
     if (opts.nodeLabel) {
       const lab = opts.nodeLabel(v);
-      if (lab) { const t = svgEl("text", { x: x + 9, y: y - 8, class: onPath.has(k) ? "lbl-strong" : "lbl" }, g); t.textContent = lab; }
+      if (lab) svgTex(g, x + 21, y - 15, lab, { anchor: "start", size: 11, w: 120, color: onPath.has(k) ? "var(--ink)" : "var(--ink-soft)" });
     }
     if (opts.nodeInfo) {
       g.addEventListener("pointerenter", (e) => tip(opts.nodeInfo(v), e));
@@ -218,10 +223,9 @@ export function renderBox(svg, axes, path, marks = new Map(), opts = {}) {
   // axis legend: a short arrow per axis below the origin
   const [ox, oy] = P(new Array(r).fill(0));
   axes.forEach((a, i) => {
-    const lx = ox + (i - (r - 1) / 2) * 74, ly = oy + 30;
-    svgEl("line", { x1: lx - 18, y1: ly, x2: lx - 18 + dirs[i][0] * 14, y2: ly + dirs[i][1] * 14, stroke: a.color, "stroke-width": 3, "stroke-linecap": "round" }, svg);
-    const t = svgEl("text", { x: lx - 8, y: ly + 4, class: "lbl", style: `fill:${a.color}` }, svg);
-    t.textContent = a.label;
+    const lx = ox + (i - (r - 1) / 2) * 88, ly = oy + 32;
+    svgEl("line", { x1: lx - 14 - dirs[i][0] * 7, y1: ly - dirs[i][1] * 7, x2: lx - 14 + dirs[i][0] * 7, y2: ly + dirs[i][1] * 7, stroke: a.color, "stroke-width": 3, "stroke-linecap": "round" }, svg);
+    svgTex(svg, lx - 2, ly, a.label, { anchor: "start", size: 11.5, w: 90, color: a.color });
   });
   return { P, pathPts };
 }

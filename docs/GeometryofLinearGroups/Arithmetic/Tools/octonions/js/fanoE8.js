@@ -5,11 +5,13 @@ import * as O from "./octavian.js";
 import { vectorsOfNorm } from "./lattice.js";
 import { unitPrimary } from "./factor.js";
 import { svgEl, el, clear, esc, tip } from "./ui.js";
+import { tex, rich, svgTex } from "./tex.js";
 
 const $ = (id) => document.getElementById(id);
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const SUBS = "₀₁₂₃₄₅₆₇";
 const eName = (i) => (i === 0 ? "1" : "e" + SUBS[i]);
+const eTex = (i) => (i === 0 ? "1" : `e_{${i}}`);
 
 // Multiplication lines (a, a+1, a+3) in cyclic order: e_a e_{a+1} = e_{a+3}.
 const idx = (i) => ((i - 1) % 7 + 7) % 7 + 1;
@@ -141,9 +143,11 @@ export function initFanoE8(getAppState) {
       }
       grp.addEventListener("click", () => { st.line = line; st.sel = []; setHl("line"); renderAll(); });
       const code = isCodeTriple(line);
-      const msg = `<b>line {${line.map(eName).join(", ")}}</b>: ${eName(line[0])}${eName(line[1])} = ${eName(line[2])}, and cyclically.<br>` +
-        `⟨1, ${line.map(eName).join(", ")}⟩ is a quaternion subalgebra; its intersection with 𝕆 is ` +
-        (code ? `a <b>Hurwitz</b> order (24 units, D₄), since {0, ${line.join(", ")}} is a codeword of 𝕆.` : `only the <b>Lipschitz</b> order (8 units ±1, ±eᵢ): {0, ${line.join(", ")}} is not a codeword.`);
+      const L3 = line.map(eTex).join(", ");
+      const msg = rich(`line $\\{${L3}\\}$: $${eTex(line[0])}${eTex(line[1])} = ${eTex(line[2])}$, and cyclically.<br>` +
+        `$\\langle 1, ${L3}\\rangle$ is a quaternion subalgebra; its intersection with $\\mathbb O$ is ` +
+        (code ? `a <b>Hurwitz</b> order ($24$ units, a $D_4$), since $\\{0, ${line.join(",")}\\}$ is a codeword of $\\mathbb O$.`
+              : `only the <b>Lipschitz</b> order ($8$ units $\\pm1, \\pm e_i$): $\\{0, ${line.join(",")}\\}$ is not a codeword.`));
       grp.addEventListener("pointerenter", (e) => tip(msg, e));
       grp.addEventListener("pointermove", (e) => tip(msg, e));
       grp.addEventListener("pointerleave", () => tip(null));
@@ -153,8 +157,7 @@ export function initFanoE8(getAppState) {
       const sel = st.sel.includes(lab);
       const g = svgEl("g", { style: "cursor:pointer" }, svg);
       svgEl("circle", { cx: p[0], cy: p[1], r: 17, fill: sel ? css("--accent") : css("--sheet"), stroke: css("--ink"), "stroke-width": 1.6 }, g);
-      const t = svgEl("text", { x: p[0], y: p[1] + 5, "text-anchor": "middle", style: `font-size:15px;font-weight:600;fill:${sel ? css("--sheet") : css("--ink")}` }, g);
-      t.textContent = eName(lab);
+      svgTex(g, p[0], p[1], eTex(lab), { size: 17, w: 40, h: 34, color: sel ? css("--sheet") : css("--ink") });
       g.addEventListener("click", () => {
         st.sel = st.sel.includes(lab) ? st.sel.filter((x) => x !== lab) : st.sel.concat([lab]).slice(-2);
         st.line = st.sel.length === 2 ? LINES.find((l) => st.sel.every((x) => l.includes(x))) : null;
@@ -168,19 +171,19 @@ export function initFanoE8(getAppState) {
       const [a, b] = st.sel;
       const { sign, k } = productOf(a, b);
       const rev = productOf(b, a);
-      out.innerHTML = `<span class="mono">${eName(a)}·${eName(b)} = ${sign < 0 ? "−" : ""}${eName(k)}</span>, &nbsp; <span class="mono">${eName(b)}·${eName(a)} = ${rev.sign < 0 ? "−" : ""}${eName(rev.k)}</span>. ` +
-        `Follow the arrow on the line through ${eName(a)} and ${eName(b)}: with the arrow the sign is +, against it −.`;
+      out.innerHTML = tex(`${eTex(a)}\\,${eTex(b)} = ${sign < 0 ? "-" : ""}${eTex(k)},\\qquad ${eTex(b)}\\,${eTex(a)} = ${rev.sign < 0 ? "-" : ""}${eTex(rev.k)}`) +
+        rich(`<br>Follow the arrow on the line through $${eTex(a)}$ and $${eTex(b)}$: with the arrow the sign is $+$, against it $-$.`);
     } else if (st.line) {
-      out.innerHTML = `Line {${st.line.map(eName).join(", ")}} selected — its units are highlighted in E₈ →`;
+      out.innerHTML = rich(`Line $\\{${st.line.map(eTex).join(", ")}\\}$ selected: its units are highlighted in $E_8$ →`);
     } else {
       out.innerHTML = `Click two points to multiply them, or a line to select its quaternion subalgebra.`;
     }
     // code triples
-    $("fano-code").innerHTML = `The half-integral units of 𝕆 are ½(±1 ± e<sub>a</sub> ± e<sub>b</sub> ± e<sub>c</sub>) for the 7 triples ` +
-      CODE_TRIPLES.map((t) => `<span class="mono" style="${LINES.some((l) => sameSet(l, t)) ? "font-weight:600" : ""}">{${t.join("")}}</span>`).join(", ") +
-      ` (plus ½(±e<sub>a</sub>±e<sub>b</sub>±e<sub>c</sub>±e<sub>d</sub>) on their complements) — another Fano plane. The bold ones are also multiplication lines, ` +
-      `so exactly ${CODE_TRIPLES.filter((t) => LINES.some((l) => sameSet(l, t))).length} of the 7 quaternion subalgebras meet 𝕆 in a Hurwitz order. ` +
-      `This 𝕆 is one of the 7 maximal orders between ℤ⁸ and ½ℤ⁸ closed under this multiplication.`;
+    $("fano-code").innerHTML = rich(`The half-integral units of $\\mathbb O$ are $\\tfrac12(\\pm1 \\pm e_a \\pm e_b \\pm e_c)$ for the $7$ triples ` +
+      CODE_TRIPLES.map((t) => { const on = LINES.some((l) => sameSet(l, t)); return `$${on ? "\\boldsymbol{\\{" + t.join("") + "\\}}" : "\\{" + t.join("") + "\\}"}$`; }).join(", ") +
+      `, together with $\\tfrac12(\\pm e_a\\pm e_b\\pm e_c\\pm e_d)$ on their complements: another Fano plane. The bold triples are also multiplication lines, ` +
+      `so exactly $${CODE_TRIPLES.filter((t) => LINES.some((l) => sameSet(l, t))).length}$ of the $7$ quaternion subalgebras meet $\\mathbb O$ in a Hurwitz order. ` +
+      `This $\\mathbb O$ is one of the $7$ maximal orders between $\\mathbb Z^8$ and $\\tfrac12\\mathbb Z^8$ closed under this multiplication.`);
   }
 
   // ---------------------------------------------------------------- E₈
@@ -258,10 +261,10 @@ export function initFanoE8(getAppState) {
     });
     ctx.globalAlpha = 1;
     const nHl = hl.size;
-    const what = { line: st.line ? `units of ⟨1, ${st.line.map(eName).join(", ")}⟩` : "select a Fano line", imag: "imaginary units: the E₇ roots", hurwitz: "Hurwitz units of ⟨1, e₁, e₂, e₄⟩: the D₄ roots", basis: "±1, ±eᵢ", eps: "the unit ε of the current factorization", none: "" }[st.hl];
-    $("e8-note").innerHTML = `The 240 units of 𝕆 are the roots of E₈ (norm 1 here; neighbours at 60° are joined: 6720 edges). ` +
-      `Projected to the Coxeter plane of a Coxeter element c = s₁⋯s₈ (order h = 30), they fall on ${radii.length} rings of 30, coloured by ring. ` +
-      (st.hl !== "none" ? `Highlighted: ${what}${nHl ? ` (${nHl})` : ""}.` : "");
+    const what = { line: st.line ? `the units of $\\langle 1, ${st.line.map(eTex).join(", ")}\\rangle$` : "select a Fano line", imag: "the imaginary units, the roots of $E_7$", hurwitz: "the Hurwitz units of $\\langle 1, e_1, e_2, e_4\\rangle$, the roots of $D_4$", basis: "$\\pm1, \\pm e_i$", eps: "the unit $\\varepsilon$ of the current factorization", none: "" }[st.hl];
+    $("e8-note").innerHTML = rich(`The $240$ units of $\\mathbb O$ are the roots of $E_8$ (norm $1$ here; neighbours at $60^\\circ$ are joined, $6720$ edges). ` +
+      `Projected to the Coxeter plane of a Coxeter element $c = s_1\\cdots s_8$ (of order $h = 30$), they fall on $${radii.length}$ rings of $30$, coloured by ring. ` +
+      (st.hl !== "none" ? `Highlighted: ${what}${nHl ? ` ($${nHl}$)` : ""}.` : ""));
   }
   const resolveCache = new Map();
   function resolve(v) {
@@ -281,7 +284,8 @@ export function initFanoE8(getAppState) {
     if (st.hover !== best) { st.hover = best; drawE8(); }
     const d = E8.units[best];
     const im = d[0] === 0n;
-    tip(`<b>unit</b> <span class="mono">${esc(O.format(d))}</span><br>${im ? "imaginary (u² = −1), an E₇ root" : "Re = " + (Number(d[0]) / 2)} · ring ${E8.radii.findIndex((q) => Math.abs(q - Math.hypot(...E8.xy[best])) < 1e-3) + 1} of ${E8.radii.length}`, e);
+    const ring = E8.radii.findIndex((q) => Math.abs(q - Math.hypot(...E8.xy[best])) < 1e-3) + 1;
+    tip(rich(`unit $u = ${O.formatTex(d)}$<br>${im ? "imaginary ($u^2 = -1$), a root of $E_7$" : `$\\operatorname{Re} u = ${Number(d[0]) / 2}$`} · ring $${ring}$ of $${E8.radii.length}$`), e);
   });
   $("e8canvas").addEventListener("pointerleave", () => { st.hover = -1; tip(null); drawE8(); });
   function setHl(h) {

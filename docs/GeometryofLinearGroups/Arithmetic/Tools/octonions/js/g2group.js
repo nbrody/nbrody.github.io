@@ -232,6 +232,23 @@ export function roFormat(x) {
   return "(" + s + ")/" + D;
 }
 
+// LaTeX with a common denominator: \tfrac{1}{5}(3e_{2} + 4e_{4}).
+export function roFormatTex(x) {
+  let D = 2n * x.q, g = D;
+  for (const v of x.d) g = gcd(g, v);
+  const n = x.d.map((v) => v / g);
+  D /= g;
+  const s = O.linCombTex(n);
+  if (D === 1n) return s;
+  const single = n.filter((v) => v).length === 1;
+  if (single) { // one term: write it as a fraction
+    const i = n.findIndex((v) => v), c = n[i];
+    const num = (abs(c) === 1n && i ? "" : abs(c).toString()) + (i ? "e_{" + i + "}" : "");
+    return (c < 0n ? "-" : "") + "\\tfrac{" + (num || "1") + "}{" + D + "}";
+  }
+  return (D === 2n ? "\\tfrac12" : "\\tfrac{1}{" + D + "}") + "\\left(" + s + "\\right)";
+}
+
 // ---------------------------------------------------------------------------------------
 // G₂ elements: g(x) = (M x)/Q in real coordinates.
 
@@ -299,6 +316,7 @@ export function parseTriple(s1, s2, s3) {
   return fromTriple(...u);
 }
 export const gKey = (g) => g.Q + ":" + g.M.map((r) => r.join(",")).join(";");
+export const gFormatTex = (g) => [1, 2, 3].map((j) => `e_{${j}} \\mapsto ${roFormatTex(gImage(g, j))}`);
 export const gFormat = (g) => [1, 2, 3].map((j) => `e${"₁₂₃"[j - 1]} ↦ ${roFormat(gImage(g, j))}`);
 
 // ---------------------------------------------------------------------------------------
