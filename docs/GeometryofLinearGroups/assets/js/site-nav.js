@@ -50,6 +50,7 @@
       { t: 'GPS Manifolds',                         u: 'Arithmetic/Tools/GPS.html' },
       { t: 'Quaternion Groups',                     u: 'Arithmetic/Tools/quaternion.html' },
       { t: 'Quaternion Algebras over Number Rings', u: 'Arithmetic/Tools/quaternionAlgebras/index.html' },
+      { t: 'Octavians & G₂ Buildings',              u: 'Arithmetic/Tools/octonions/index.html' },
       { t: 'Orthogonal — O[1,1,1,−7] Polyhedron',   u: 'Arithmetic/Tools/orthogonal.html' },
       { t: 'O(1,1,x; ℤ[x]) Calculator',             u: 'Arithmetic/Tools/orthogonalGroups/index.html' },
       { t: 'Group Structure: a²+xb²=1',             u: 'Arithmetic/Tools/orthogonalGroups/group-structure.html' },

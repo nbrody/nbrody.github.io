@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Octavians &amp; G₂ Buildings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&family=Spectral:ital,wght@0,500;0,600;1,500&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="title">
+    <h1>Octavians &amp; G₂ buildings</h1>
+    <div class="sub">Factorization in Coxeter's integral octonions, and the Bruhat–Tits buildings of G₂(ℚ<sub>p</sub>)</div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="factor" aria-selected="true">Factor</button>
+    <button class="tab" role="tab" data-tab="box" aria-selected="false">Box &amp; paths</button>
+    <button class="tab" role="tab" data-tab="g2" aria-selected="false">G₂ building</button>
+    <button class="tab" role="tab" data-tab="fano" aria-selected="false">Fano &amp; E₈</button>
+    <button class="tab" role="tab" data-tab="notes" aria-selected="false">Notes</button>
+  </nav>
+  <button class="icon-btn" id="theme-btn" title="Toggle light / dark" aria-label="Toggle light or dark theme">☾</button>
+</header>
+
+<div class="layout" id="layout">
+  <aside class="side" id="side">
+    <div class="card">
+      <h2>Integer octonion α</h2>
+      <input id="alpha-input" class="field" spellcheck="false" autocomplete="off"
+             placeholder="e.g. 2 + e1 − 3e5  or  ½(1+e1+e2+e4)  or  8 coordinates">
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" id="alpha-go">Factor</button>
+        <select id="examples" class="field" style="width:auto; flex:1">
+          <option value="">Examples…</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input id="build-primes" class="field" style="flex:1" value="3 5 7 11" spellcheck="false" title="Primes (with repeats) for a random primitive α">
+        <button class="btn" id="build-go" title="Random primitive octavian with this norm">Random α</button>
+      </div>
+      <div class="alpha-show" id="alpha-show"></div>
+      <div class="normline" id="norm-line"></div>
+      <div class="err" id="alpha-err" hidden></div>
+    </div>
+
+    <div class="card">
+      <h2>Ring</h2>
+      <div class="seg" id="ring-seg">
+        <button data-ring="O" aria-pressed="true">Octavians 𝕆 · 240 units</button>
+        <button data-ring="H" aria-pressed="false">Hurwitz ℍ · 24 units</button>
+      </div>
+      <div class="note" id="ring-note">ℍ = the Hurwitz quaternions on ⟨1, e₁, e₂, e₄⟩ (i, j, k = e₁, e₂, e₄) — available when α ∈ ℍ, for comparison.</div>
+    </div>
+
+    <div class="card">
+      <h2>Order of the rational primes</h2>
+      <div class="chips" id="chips" aria-label="Prime sequence; drag to reorder"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="ord-sort">Sort</button>
+        <button class="btn" id="ord-rev">Reverse</button>
+        <button class="btn" id="ord-shuffle">Shuffle</button>
+      </div>
+      <div class="note">Drag a chip (or focus it and use ← →) to reorder. The i-th chip is the norm of the i-th factor.</div>
+    </div>
+
+    <div class="card">
+      <h2>Bracketing</h2>
+      <div class="row">
+        <button class="btn" data-tree="left" title="((π₁π₂)π₃)⋯ — Rehm's convention">Left comb</button>
+        <button class="btn" data-tree="right" title="π₁(π₂(π₃⋯))">Right comb</button>
+        <button class="btn" data-tree="balanced">Balanced</button>
+        <button class="btn" data-tree="random">Random</button>
+      </div>
+      <div class="note" id="tree-note">Click ↶ / ↷ beside a node of the tree to re-associate there: ((AB)C) ↔ (A(BC)).</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- ================================ FACTOR ================================ -->
+    <section data-view="factor">
+      <div class="panel">
+        <h3>Bracketing tree</h3>
+        <div class="muted small" id="count-line"></div>
+        <div class="tree-wrap"><svg id="tree" class="fig" role="img" aria-label="Bracketing tree"></svg></div>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <h3>Factorization</h3>
+          <div class="formula" id="formula"></div>
+          <div class="verify" id="verify"></div>
+          <div style="margin-top:10px; overflow-x:auto"><table class="factors" id="factor-table"></table></div>
+          <div class="note" id="changed-note"></div>
+        </div>
+        <div class="panel" id="node-panel">
+          <h3>Node</h3>
+          <div id="node-detail" class="small muted">Click a node of the tree.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================ BOX ================================ -->
+    <section data-view="box" hidden>
+      <div class="grid2">
+        <div class="panel">
+          <h3>The box of α in ∏<sub>p</sub> B(Spin₈(ℚ<sub>p</sub>))</h3>
+          <svg id="boxfig" class="fig" role="img" aria-label="Divisor box"></svg>
+          <div class="legend">
+            <span><span class="sw fill"></span> left-spine subproduct is a left divisor of α (on the box)</span>
+            <span><span class="sw"></span> it is not (drifted)</span>
+            <span><span class="sw sq fill"></span><span class="sw sq"></span> same for right-spine subproducts / right divisors</span>
+          </div>
+        </div>
+        <div>
+          <div class="panel">
+            <h3>Reading the picture</h3>
+            <div class="small" id="box-explain"></div>
+          </div>
+          <div class="panel">
+            <h3>Vertex</h3>
+            <div class="small muted" id="box-detail">Hover or click a vertex of the box.</div>
+          </div>
+          <div class="panel">
+            <h3>α mod p, as G₂ sees it</h3>
+            <div class="small" id="box-quadric"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================ G2 ================================ -->
+    <section data-view="g2" hidden>
+      <div class="panel">
+        <div class="row" style="justify-content:space-between">
+          <div class="row">
+            <span class="ui small muted">Prime p</span>
+            <div class="seg" id="g2-prime-seg"></div>
+            <input id="g2-prime-custom" class="field" style="width:80px" placeholder="other p" spellcheck="false">
+          </div>
+          <div class="row ui small">
+            <label><input type="checkbox" id="g2-labels" checked> positions</label>
+            <label><input type="checkbox" id="g2-cone" checked> dominant cone</label>
+          </div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <h3>An apartment of B(G₂(ℚ<sub>p</sub>))</h3>
+          <svg id="aptfig" class="fig apt" role="img" aria-label="G2 apartment"></svg>
+          <div class="legend">
+            <span><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="v0" style="fill:var(--type0)"/></svg> type 0 · hyperspecial · G₂(ℤ<sub>p</sub>)</span>
+            <span><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" style="fill:var(--type1)"/></svg> type 1 · SO₄-type</span>
+            <span><svg width="12" height="12"><path d="M6 1 L11 10 L1 10 Z" style="fill:var(--type2)"/></svg> type 2 · SL₃-type</span>
+          </div>
+          <div class="note">Hover a vertex: its position from O and how many vertices of the building sit there. Hover one of the 12 chambers at O to find it in the link →</div>
+        </div>
+        <div class="panel">
+          <h3>The link of O: the Cayley hexagon H(p)</h3>
+          <canvas id="hexcanvas" class="hexcanvas" width="900" height="900"></canvas>
+          <div class="note" id="hex-note"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Factoring in G₂(ℤ[1/N]): paths in ∏<sub>p</sub> B(G₂(ℚ<sub>p</sub>))</h3>
+        <div class="small" id="g2paths-intro"></div>
+        <div class="grid2" style="margin-top:12px">
+          <div>
+            <div class="row">
+              <input id="g2-targets" class="field" style="flex:1" value="2:1,1  3:2,0  5:0,1" spellcheck="false" title="p:a,b — target position a·ω_s + b·ω_ℓ at p">
+              <button class="btn primary" id="g2-targets-go">Random g</button>
+            </div>
+            <details class="small" style="margin-top:8px" id="g2-own">
+              <summary class="ui">…or enter your own g by g(e₁), g(e₂), g(e₃)</summary>
+              <div style="display:grid; gap:6px; margin-top:6px">
+                <input id="g2-u1" class="field" value="e1" spellcheck="false" aria-label="g(e1)">
+                <input id="g2-u2" class="field" value="(3e2 + 4e4)/5" spellcheck="false" aria-label="g(e2)">
+                <input id="g2-u3" class="field" value="e3" spellcheck="false" aria-label="g(e3)">
+                <div class="row"><button class="btn" id="g2-use">Use this g</button><span class="note">pure imaginary units with g(e₂) ⊥ g(e₁) and g(e₃) ⊥ g(e₁), g(e₂), g(e₁)g(e₂)</span></div>
+              </div>
+            </details>
+            <div class="err" id="g2-err" hidden></div>
+            <div class="kv" id="g2-g" style="margin-top:10px"></div>
+            <h2 style="margin-top:14px">Order of the steps</h2>
+            <div class="chips" id="g2-chips"></div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn" id="g2-shuffle">Shuffle</button>
+              <button class="btn" id="g2-sort">Group by prime</button>
+            </div>
+            <div class="note" id="g2-count"></div>
+            <div class="formula" id="g2-formula" style="margin-top:10px"></div>
+            <div class="verify" id="g2-verify"></div>
+            <div style="margin-top:8px; overflow-x:auto"><table class="factors" id="g2-table"></table></div>
+          </div>
+          <div>
+            <svg id="g2box" class="fig" role="img" aria-label="Product box of G2 steps"></svg>
+            <div class="note" id="g2box-note"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Counting</h3>
+        <div class="stat" id="g2-stats"></div>
+      </div>
+    </section>
+
+    <!-- ================================ FANO & E8 ================================ -->
+    <section data-view="fano" hidden>
+      <div class="grid2">
+        <div class="panel">
+          <h3>The Fano plane: e<sub>a</sub>e<sub>a+1</sub> = e<sub>a+3</sub></h3>
+          <svg id="fanofig" class="fig" style="max-width:460px; margin:0 auto" role="img" aria-label="Fano plane"></svg>
+          <div class="small" id="fano-out" style="margin-top:6px"></div>
+          <div class="note" id="fano-code" style="margin-top:10px"></div>
+        </div>
+        <div class="panel">
+          <h3>E₈: the 240 units of 𝕆</h3>
+          <div class="row" style="margin-bottom:8px">
+            <span class="ui small muted">Highlight</span>
+            <div class="seg" id="e8-hl">
+              <button data-hl="line" aria-pressed="true">Fano line</button>
+              <button data-hl="imag" aria-pressed="false">E₇ (imaginary)</button>
+              <button data-hl="hurwitz" aria-pressed="false">D₄ (Hurwitz)</button>
+              <button data-hl="basis" aria-pressed="false">±1, ±eᵢ</button>
+              <button data-hl="eps" aria-pressed="false">ε of α</button>
+              <button data-hl="none" aria-pressed="false">none</button>
+            </div>
+          </div>
+          <canvas id="e8canvas" class="hexcanvas" width="900" height="900"></canvas>
+          <div class="note" id="e8-note"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================ NOTES ================================ -->
+    <section data-view="notes" hidden>
+      <div class="panel notes" id="notes">
+        <h3 style="margin-top:4px">1 · The quaternion picture</h3>
+        <p>For an odd prime $p$ the Hurwitz order satisfies $\mathbb H\otimes\mathbb Z_p\cong M_2(\mathbb Z_p)$. A primitive $\alpha\in\mathbb H$ of norm $p^k$ determines the right ideal $\alpha\mathbb H$, a vertex at distance $k$ from the base vertex of the Bruhat–Tits tree $T_p$, and a factorization $\alpha=\pi_1\pi_2\cdots\pi_k$ with $N(\pi_i)=p$ is the geodesic
+        $$\mathbb H\supset\pi_1\mathbb H\supset\pi_1\pi_2\mathbb H\supset\cdots\supset\alpha\mathbb H .$$
+        It is unique up to unit migration ($24^{k-1}$ choices). With several primes, each ordering of the multiset of primes is a monotone path in $\prod_p T_p$, and $\mathrm{P}\mathbb H^\times(\mathbb Z[1/N])\cong \mathrm{SO}_3(\mathbb Z[1/N])=\mathrm{Aut}(\mathbb H[1/N])$ acts on $\prod_{p\mid N}T_p$. Bracketing never matters.</p>
+
+        <h3>2 · Octavian factorization (Conway–Smith, Rehm)</h3>
+        <p>$\mathbb O$ is Coxeter's maximal order in the octonions, an $E_8$ lattice for $N(x)=x\bar x$. There are $240(p^3+1)$ octavians of norm $p$, for every prime $p$ (including $2$: $\mathbb O\otimes\mathbb Q_p$ is split at every prime).</p>
+        <p class="callout ok"><b>Theorem.</b> Let $\alpha$ be primitive with $N(\alpha)=p_1p_2\cdots p_k$, the primes in any order, and fix any bracketing $T$. Then $\alpha$ has exactly $240^{k-1}$ factorizations $\alpha=[\pi_1\pi_2\cdots\pi_k]_T$ with $N(\pi_i)=p_i$.</p>
+        <p>The engine rests on one lemma (Rehm): <b>for $m\mid N(\alpha)$, the left divisors of $\alpha$ of norm $m$ are exactly the $240$ minimal vectors of the lattice $\alpha\mathbb O+m\mathbb O\cong\sqrt m\,E_8$</b> (right divisors: $\mathbb O\alpha+m\mathbb O$). So each node of the bracketing tree is a shortest-vector problem in an $E_8$, solved here by exact LLL and enumeration. At each node the calculator chooses the right factor <em>primary</em>: $\gamma\equiv1\pmod{2\mathbb O}$ and first nonzero coordinate positive, which is unique when $N(\gamma)$ is odd. Then every factor after the first is primary up to sign and the unit sits in the first factor. For the left comb this is Rehm's unique factorization $\alpha=(\cdots((\varepsilon\pi_1)\pi_2)\cdots)\pi_k$ with $\pi_i$ primary. The other $239$ choices at a node are its <em>metamigrations</em>. Signs are central, so they are collected in the first factor.</p>
+
+        <h3>3 · What does not survive</h3>
+        <ul>
+          <li><b>Divisibility is not transitive.</b> In $((\pi_1\pi_2)\pi_3)$, $\pi_1$ divides $\pi_1\pi_2$, which divides $\alpha$, yet typically $\pi_1\nmid\alpha$ (about $93\%$ of random triples, $3\cdot5\cdot7$).</li>
+          <li><b>No action on lattices.</b> $x(y\mathbb O)\neq(xy)\mathbb O$ (in every test), and $x\mapsto\pi x\pi^{-1}$ is never an automorphism for a prime $\pi$, so $\alpha\mapsto\alpha\mathbb O\alpha^{-1}$ produces no orders.</li>
+          <li><b>The unit loop has no orbits.</b> The sets $\mathbb O^\times\pi$ overlap. Only for Rehm's primary primes $P(p)$ do they partition the primes of norm $p$. Mod $p$, the $p^3+1$ solids $\mathbb O\pi/p\mathbb O$ ($\pi\in P(p)$) form a <em>spread</em> of the hyperbolic quadric $Q_7^+(p)$, the octonion stand-in for the $p+1$ points of $\mathbb P^1(\mathbb F_p)$.</li>
+        </ul>
+        <p>So the projective octavians are a Moufang loop, not a group, and factorizations are not the paths of a group acting on a building. (An octonionic LPS construction, Dahan–Tillich arXiv:1011.2642, was withdrawn after a lemma of exactly this kind failed.)</p>
+
+        <h3>4 · What does survive: the box</h3>
+        <p>Left multiplication $L_\alpha$ is a similitude of the norm form, so the natural home of octavian arithmetic is $\mathrm{Spin}_8$ with triality, and its buildings of type $\tilde D_4$. For primitive $\alpha$ the lattices
+        $$B_d(\alpha)=\alpha\mathbb O+d\mathbb O\qquad(d\mid N(\alpha))$$
+        are vertices of $\prod_p\mathcal B(\mathrm{Spin}_8(\mathbb Q_p))$. At each $p$ they lie on the geodesic segment from $\mathbb O$ to $\alpha\mathbb O$ (elementary divisors $(1^4,(p^k)^4)$: a spin-coweight direction), so together they form a product of segments, <em>the box of $\alpha$</em>. The two-factor splits $\alpha=\beta\gamma$ with $N(\beta)=d$ are exactly the minimal vectors of $B_d(\alpha)$, so an ordering of the primes is a staircase path through the box, exactly as for quaternions.</p>
+        <p>A full factorization is a tree of splits. Only the root split is guaranteed to sit on the box. A subproduct on the left spine of the tree (a product $\pi_1\cdots\pi_j$, however bracketed inside) is a left divisor of $\alpha$, i.e. lies in $B_{d_j}(\alpha)$, only when divisibility happens to compose. The <em>Box &amp; paths</em> tab draws the box, the staircase of the current ordering, and marks every spine subproduct as on or off the box. For quaternions (ring ℍ) every mark is on.</p>
+        <p>One identity does transport boxes: Moufang's $(u\alpha)(\mathbb Ou)=u(\alpha\mathbb O)u$. At a prime $q\nmid N(u)$ this says $(u\alpha)\mathbb O_q=B_u(\alpha\mathbb O_q)$ with $B_u(x)=uxu$, one component of the triality triple $(B_u,L_u,R_u)$, not $L_u$.</p>
+
+        <h3>5 · G₂ = Aut(𝕆) and its buildings</h3>
+        <p>The analogue of $\mathrm{SO}_3=\mathrm{Aut}(\mathbb H)$ is $G_2=\mathrm{Aut}(\mathbb O)$. $\mathrm{Aut}$ of the octavians is $G_2(\mathbb F_2)$, of order $12096$, and the genus has class number one (Gross, <em>Groups over ℤ</em>). So $G_2(\mathbb Z[1/N])=\mathrm{Aut}(\mathbb O[1/N])$ acts transitively on the hyperspecial vertices of $\prod_{p\mid N}\mathcal B(G_2(\mathbb Q_p))$, with stabilizer $G_2(\mathbb F_2)$. This is the true analogue of the quaternion statement, for the group.</p>
+        <ul>
+          <li>Apartments: the $30$–$60$–$90$ tiling. Hyperspecial vertices (type 0) form a triangular lattice, type 1 vertices are edge midpoints (4 chambers, $\mathrm{SO}_4$-type), type 2 vertices are triangle centres (6 chambers, $\mathrm{SL}_3$-type). Each panel lies in $p+1$ chambers.</li>
+          <li>The link of a hyperspecial vertex is the split Cayley hexagon $H(p)$: points are isotropic points of $\mathrm{Im}(\mathbb O/p\mathbb O)$, lines are planes $\langle x,y\rangle$ with $xy=0$. This tab builds it from the octavians mod $p$.</li>
+          <li>Hyperspecial vertices at position $\lambda=a\,\omega_s+b\,\omega_\ell$ number $p^{\langle2\rho,\lambda\rangle}W(p^{-1})/W_\lambda(p^{-1})$, with $\langle 2\rho,\omega_s\rangle=6$ and $\langle2\rho,\omega_\ell\rangle=10$. In particular there are $p+p^2+\cdots+p^6$ nearest ones and $p^5+\cdots+p^{10}$ at the long step.</li>
+          <li><b>Factorization in $G_2(\mathbb Z[1/N])$.</b> If $g\mathbb O$ sits at position $(a_p,b_p)$ at each $p$, then for each ordering of the $\sum(a_p+b_p)$ steps there is a unique chain of hyperspecial vertices, because the spherical Hecke algebra has $c^{\mu+\nu}_{\mu\nu}=1$. By transitivity, $g=h_1\cdots h_m\,u$ with each $h_i$ a single short or long step at one prime ("$G_2$-primes") and $u\in\mathrm{Aut}(\mathbb O)$, unique up to $G_2(\mathbb F_2)$-migration. There are two kinds of prime at each $p$, and there is no bracketing because this is a group.</li>
+          <li><b>How the G₂ tab computes it, exactly.</b> An element is given by $g(e_1),g(e_2),g(e_3)$, a basic triple of rational unit octonions. Its position at $p$ is read from the $p$-adic elementary divisors of $g\mathbb O$ relative to $\mathbb O$, which are $\pm(a+2b),\pm(a+b),\pm b,0,0$. The vertex one step from $\mathbb O$ toward $T=r\mathbb O$ is a basis-free lattice expression:
+          $$\text{short: }(p^{-1}\mathbb O\cap p^{b}T)+(\mathbb O\cap p^{-b}T)+p\mathbb O,$$
+          $$\text{long: }(p^{-2}\mathbb O\cap p^{a+b-1}T)+(p^{-1}\mathbb O\cap T)+(\mathbb O\cap p^{1-b}T)+(p\mathbb O\cap p^{1-a-b}T)+p^{2}\mathbb O .$$
+          (In a common apartment $T$ has exponents $c$ and the step vertex has exponents $f(c)$ for an odd step function $f$, which is a minimum of maxima of the hinges $\max(x,\,y+c)$, i.e. a sum of intersections $p^x\mathbb O\cap p^yT$.) The prime $h$ is then the first isomorphism $\mathbb O\to R$ found among basic triples of the $126$ imaginary units of the maximal order $R$, in a fixed order. That makes the factorization canonical, and the product is re-multiplied as a check. The tests confirm: every step vertex is a maximal order at the predicted position, $|\mathrm{Aut}\,\mathbb O|=126\cdot96=12096$, $\mathrm{Aut}(\mathbb O)$ moves one short neighbour at $2$ onto exactly $2+4+\cdots+64=126$ maximal orders, and the maximal order at each vertex of the box is the same for every ordering.</li>
+          <li><b>Where octavians meet $G_2$.</b> $G_2(\mathbb F_p)$ has two orbits on the points of $Q_7^+(p)$. One consists of the $(p^6-1)/(p-1)$ trace-zero points, which form the link $H(p)$. The other consists of the $p^3(p^3+1)$ idempotent points, each with stabilizer $\mathrm{SL}_3(\mathbb F_p)$. A primitive $\alpha$ with $p\,\|\,N(\alpha)$ lands in the hexagon iff $p\mid\mathrm{tr}\,\alpha$. For $p>4$ a prime of norm $p$ does so only if it is pure imaginary.</li>
+        </ul>
+
+        <h3>6 · The Fano plane and E₈</h3>
+        <p>The products of $e_1,\dots,e_7$ are encoded by the Fano plane with lines $\{a,a+1,a+3\}$: $e_ae_{a+1}=e_{a+3}$ cyclically, and reversing two factors changes the sign. Each line spans a quaternion subalgebra $\langle1,e_a,e_b,e_c\rangle$. Its intersection with $\mathbb O$ is a Hurwitz order exactly when $\{0,a,b,c\}$ is a codeword of the Hamming code defining $\mathbb O$. That holds for $\{1,2,4\},\{2,3,5\},\{2,6,7\}$; for the other four lines the intersection is only the Lipschitz order. The $240$ units of $\mathbb O$ are the roots of $E_8$. Among them, the $126$ imaginary units form $E_7$, and each Hurwitz order contributes a $D_4$ (a $24$-cell). The <em>Fano &amp; E₈</em> tab draws them in the Coxeter plane of $E_8$: $8$ rings of $30$, with neighbours at $60°$ joined.</p>
+
+        <h3>References</h3>
+        <ol class="refs">
+          <li>J. H. Conway, D. A. Smith, <em>On Quaternions and Octonions</em>, A K Peters 2003, ch. 9–10.</li>
+          <li>H. P. Rehm, Prime factorization of integral Cayley octaves, <em>Ann. Fac. Sci. Toulouse</em> (6) 2 (1993) 271–289.</li>
+          <li>H. S. M. Coxeter, Integral Cayley numbers, <em>Duke Math. J.</em> 13 (1946) 561–578.</li>
+          <li>F. van der Blij, T. A. Springer, The arithmetics of octaves and the group G₂, <em>Proc. KNAW</em> 62 (1959).</li>
+          <li>B. H. Gross, Groups over ℤ, <em>Invent. Math.</em> 124 (1996) 263–279.</li>
+          <li>W. T. Gan, J.-K. Yu, Schémas en groupes et immeubles des groupes exceptionnels sur un corps local. I : le groupe G₂, <em>Bull. SMF</em> 131 (2003).</li>
+          <li>P. Tokorcheck, Lattice filtrations for G₂ of a p-adic field, arXiv:1209.1420.</li>
+          <li>X. Dahan, J.-P. Tillich, Ramanujan graphs of very large girth based on octonions, arXiv:1011.2642 (withdrawn).</li>
+          <li>J. Tits, Sur la trialité et certains groupes qui s'en déduisent, <em>Publ. IHÉS</em> 2 (1959) — generalized hexagons.</li>
+        </ol>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script type="module" src="js/app.js"></script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>
