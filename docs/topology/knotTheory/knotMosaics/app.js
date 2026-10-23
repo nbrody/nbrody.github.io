@@ -32,6 +32,7 @@ const state = {
     // interaction
     isPainting: false,
     lastMouse: null,
+    dragFrom: null,     // last pointer position of a paint/draw drag
     dragTile: 0,
     ghostEl: null,
     selectedCells: [],  // [{row, col}, ...] or [{face, row, col}, ...]
@@ -93,6 +94,114 @@ function initGrid() {
             }
         }
     }
+}
+
+// ============================================================
+// Resizing keeps the drawing
+//
+// The old grid is centred in the new one, or cropped evenly when it
+// shrinks. Strands that cross a glued edge are extended straight through
+// the new margin so they still meet their partners. Where the gluing
+// reverses the edge (Möbius, RP²) and the growth is odd, the two margins
+// can't be equal, so the extension jogs one cell sideways in the first
+// margin column (row) to land on its partner. Cropping by the same amount
+// undoes a resize exactly, jog included.
+// ============================================================
+const emptyGrid = (m) => Array.from({ length: m }, () => new Array(m).fill(0));
+
+// Tile carrying the given side pairs ('EW', 'NS', 'EN', 'NW', 'ES', 'SW').
+function tileForPairs(keys) {
+    if (keys.length === 1) return PAIR_TILE[keys[0]];
+    const both = [...keys].sort().join('+');
+    return { 'EW+NS': 7, 'EN+SW': 9, 'ES+NW': 10 }[both] ?? PAIR_TILE[keys[0]];
+}
+
+function resizeFlatGrid(old, n, m, edge) {
+    const grid = emptyGrid(m);
+    if (m <= n) {
+        const d = Math.floor((n - m) / 2);
+        for (let r = 0; r < m; r++) for (let c = 0; c < m; c++) grid[r][c] = old[r + d][c + d];
+        return grid;
+    }
+    const g = m - n, d = Math.floor(g / 2), jog = g % 2 === 1;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) grid[r + d][c + d] = old[r][c];
+
+    const pairs = Array.from({ length: m }, () => Array.from({ length: m }, () => []));
+    const add = (r, c, a, b) => pairs[r][c].push(sidePairKey(a, b));
+    const exits = (r, c, side) => TILE_TYPES[old[r][c]]?.connections[side];
+
+    if (edge.periodicLR || edge.reversedLR) {
+        for (let r = 0; r < n; r++) {
+            if (exits(r, 0, 'W')) for (let c = 0; c < d; c++) add(r + d, c, 'W', 'E');
+            if (exits(r, n - 1, 'E')) {
+                let row = r + d, c = n + d;
+                if (edge.reversedLR && jog) {   // step down a row on the way out
+                    add(row, c, 'W', 'S'); add(row + 1, c, 'N', 'E'); row++; c++;
+                }
+                for (; c < m; c++) add(row, c, 'W', 'E');
+            }
+        }
+    }
+    if (edge.periodicTB || edge.reversedTB) {
+        for (let c = 0; c < n; c++) {
+            if (exits(0, c, 'N')) for (let r = 0; r < d; r++) add(r, c + d, 'N', 'S');
+            if (exits(n - 1, c, 'S')) {
+                let col = c + d, r = n + d;
+                if (edge.reversedTB && jog) {   // step right a column on the way out
+                    add(r, col, 'N', 'E'); add(r, col + 1, 'W', 'S'); col++; r++;
+                }
+                for (; r < m; r++) add(r, col, 'N', 'S');
+            }
+        }
+    }
+    for (let r = 0; r < m; r++) for (let c = 0; c < m; c++) {
+        if (pairs[r][c].length) grid[r][c] = tileForPairs(pairs[r][c]);
+    }
+    return grid;
+}
+
+// Offsets of each cube face's old block inside its resized face, for a
+// change of g cells either way. A glued pair of face edges either keeps the
+// coordinate along the edge (equal offsets) or reverses it (offsets summing
+// to g); in the folded cube top–back, bottom–back, top–right and
+// bottom–left reverse. With h = ⌊g/2⌋ every gluing holds and each face's
+// drawing is centred to within half a cell.
+function sphereFaceOffsets(g) {
+    const h = Math.floor(g / 2), k = g - h;
+    return {
+        top:    { dy: h, dx: h },
+        front:  { dy: h, dx: h },
+        left:   { dy: h, dx: h },
+        right:  { dy: h, dx: k },
+        back:   { dy: h, dx: k },
+        bottom: { dy: k, dx: h },
+    };
+}
+
+function resizeSphereGrid(old, n, m) {
+    const off = sphereFaceOffsets(Math.abs(m - n));
+    const out = {};
+    for (const face of Object.keys(old)) {
+        const src = old[face], grid = emptyGrid(m);
+        const { dy, dx } = off[face];
+        if (m <= n) {
+            for (let r = 0; r < m; r++) for (let c = 0; c < m; c++) grid[r][c] = src[r + dy][c + dx];
+        } else {
+            for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) grid[r + dy][c + dx] = src[r][c];
+            // Every face edge is glued: run strands out to the new face edge.
+            const exits = (r, c, side) => TILE_TYPES[src[r][c]]?.connections[side];
+            for (let r = 0; r < n; r++) {
+                if (exits(r, 0, 'W')) for (let c = 0; c < dx; c++) grid[r + dy][c] = 1;
+                if (exits(r, n - 1, 'E')) for (let c = n + dx; c < m; c++) grid[r + dy][c] = 1;
+            }
+            for (let c = 0; c < n; c++) {
+                if (exits(0, c, 'N')) for (let r = 0; r < dy; r++) grid[r][c + dx] = 2;
+                if (exits(n - 1, c, 'S')) for (let r = n + dy; r < m; r++) grid[r][c + dx] = 2;
+            }
+        }
+        out[face] = grid;
+    }
+    return out;
 }
 
 // ============================================================
@@ -201,6 +310,58 @@ function sphereNeighbor(face, row, col, side) {
 }
 
 // ============================================================
+// Scale-aware drawing helpers
+//
+// World units are 64 per cell. Zoomed far out (big grids) a 3-unit strand
+// would be a fraction of a pixel, so strands and edge decorations get a floor
+// in screen pixels; at ordinary zooms they are unchanged.
+// ============================================================
+function strandLineWidth() {
+    return Math.min(Math.max(state.strandWidth, 1.25 / state.zoom), 0.1 * cellSize());
+}
+function decorScale() {
+    return Math.max(1, 0.8 / state.zoom);
+}
+
+// Rows/columns of a rows×cols block with world origin (ox, oy) that touch the
+// window, plus a one-cell margin for round line caps; half-open ranges.
+function visibleRange(ox, oy, cs, rows, cols) {
+    const a = screenToWorld(0, 0);
+    const b = screenToWorld(window.innerWidth, window.innerHeight);
+    const clamp = (v, hi) => Math.max(0, Math.min(hi, v));
+    return {
+        r0: clamp(Math.floor((a.y - oy) / cs) - 1, rows),
+        r1: clamp(Math.ceil((b.y - oy) / cs) + 1, rows),
+        c0: clamp(Math.floor((a.x - ox) / cs) - 1, cols),
+        c1: clamp(Math.ceil((b.x - ox) / cs) + 1, cols),
+    };
+}
+
+// Cell lines of a rows×cols block as one path, fading out as cells shrink
+// below ~8 px on screen, where they would only grey the picture.
+function strokeGridLines(ox, oy, cs, rows, cols, color) {
+    const fade = Math.min(1, (cs * state.zoom - 3) / 5);
+    if (fade <= 0) return;
+    const p = new Path2D();
+    for (let i = 0; i <= cols; i++) { p.moveTo(ox + i * cs, oy); p.lineTo(ox + i * cs, oy + rows * cs); }
+    for (let i = 0; i <= rows; i++) { p.moveTo(ox, oy + i * cs); p.lineTo(ox + cols * cs, oy + i * cs); }
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.5;
+    ctx.stroke(p);
+    ctx.restore();
+}
+
+// Drags call this instead of render(): at most one redraw per frame.
+let renderQueued = false;
+function scheduleRender() {
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => { renderQueued = false; render(); });
+}
+
+// ============================================================
 // Rendering
 // ============================================================
 function render() {
@@ -264,68 +425,42 @@ function renderFlatGrid() {
     ctx.fillStyle = bgColor();
     ctx.fillRect(ox, oy, totalW, totalH);
     ctx.restore();
-
-    // Cell backgrounds
-    for (let r = 0; r < n; r++) {
-        for (let c = 0; c < n; c++) {
-            const x = ox + c * cs;
-            const y = oy + r * cs;
-            ctx.fillStyle = bgColor();
-            ctx.fillRect(x, y, cs, cs);
-        }
-    }
+    ctx.fillStyle = bgColor();
+    ctx.fillRect(ox, oy, totalW, totalH);
 
     // Grid lines
-    if (state.showGrid) {
-        ctx.strokeStyle = gridLineColor();
-        ctx.lineWidth = 0.5;
-        for (let i = 0; i <= n; i++) {
-            ctx.beginPath();
-            ctx.moveTo(ox + i * cs, oy);
-            ctx.lineTo(ox + i * cs, oy + totalH);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(ox, oy + i * cs);
-            ctx.lineTo(ox + totalW, oy + i * cs);
-            ctx.stroke();
-        }
-    }
+    if (state.showGrid) strokeGridLines(ox, oy, cs, n, n, gridLineColor());
 
     // Border & edge decorations
     const hasPeriodic = hasPeriodicLR || hasPeriodicTB || hasReversedLR || hasReversedTB;
     if (!hasPeriodic) {
         // Disk: solid border
         ctx.strokeStyle = state.bgMode === 'white' ? 'rgba(108, 138, 255, 0.5)' : 'rgba(108, 138, 255, 0.35)';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 * decorScale();
         ctx.strokeRect(ox, oy, totalW, totalH);
     } else {
         // Draw each edge separately with identification arrows
         drawIdentifiedBorder(ox, oy, totalW, totalH, n, cs);
     }
 
-    // Tiles
-    const lw = state.strandWidth;
-    for (let r = 0; r < n; r++) {
-        for (let c = 0; c < n; c++) {
-            const ti = state.grid[r][c];
-            if (ti > 0) {
-                drawTile(ctx, ti, ox + c * cs, oy + r * cs, cs, state.strandColor, lw, bgColor());
-            }
-        }
-    }
+    // Tiles (only the ones on screen)
+    const vis = visibleRange(ox, oy, cs, n, n);
+    drawTilesBatched(ctx, (r, c) => state.grid[r][c], vis.r0, vis.r1, vis.c0, vis.c1,
+        ox, oy, cs, state.strandColor, strandLineWidth(), bgColor());
 
     // Selected cell highlight
     drawSelectedCellHighlight(ox, oy, cs);
 
     // Mismatches
     if (state.showMismatches) {
-        drawMismatchesFlat(ox, oy, cs, n);
+        drawMismatchesFlat(ox, oy, cs, n, vis);
     }
 }
 
 function drawIdentifiedBorder(ox, oy, w, h, n, cs) {
     const surf = state.surface;
-    const arrowLen = 14;
+    const s = decorScale();
+    const arrowLen = 14 * s;
     const midX = ox + w / 2;
     const midY = oy + h / 2;
 
@@ -337,21 +472,21 @@ function drawIdentifiedBorder(ox, oy, w, h, n, cs) {
     // Left/Right edges
     if (surf === 'torus' || surf === 'cylinder') {
         // Same-direction identification (L↔R)
-        drawDashedEdge(ox, oy, ox, oy + h, hColor);
-        drawDashedEdge(ox + w, oy, ox + w, oy + h, hColor);
-        drawArrowPair(ox - 6, midY, arrowLen, -Math.PI / 2, hColor);
-        drawArrowPair(ox + w + 6, midY, arrowLen, -Math.PI / 2, hColor);
+        drawDashedEdge(ox, oy, ox, oy + h, hColor, s);
+        drawDashedEdge(ox + w, oy, ox + w, oy + h, hColor, s);
+        drawArrowPair(ox - 6 * s, midY, arrowLen, -Math.PI / 2, hColor, s);
+        drawArrowPair(ox + w + 6 * s, midY, arrowLen, -Math.PI / 2, hColor, s);
     } else if (surf === 'projective' || surf === 'mobius') {
         // Reverse identification (L↔R reversed)
-        drawDashedEdge(ox, oy, ox, oy + h, hColor);
-        drawDashedEdge(ox + w, oy, ox + w, oy + h, hColor);
+        drawDashedEdge(ox, oy, ox, oy + h, hColor, s);
+        drawDashedEdge(ox + w, oy, ox + w, oy + h, hColor, s);
         // Opposite arrows to show reversal
-        drawSingleArrow(ox - 6, midY - arrowLen, arrowLen, Math.PI / 2, hColor);  // down
-        drawSingleArrow(ox + w + 6, midY + arrowLen, arrowLen, -Math.PI / 2, hColor); // up
+        drawSingleArrow(ox - 6 * s, midY - arrowLen, arrowLen, Math.PI / 2, hColor, s);  // down
+        drawSingleArrow(ox + w + 6 * s, midY + arrowLen, arrowLen, -Math.PI / 2, hColor, s); // up
     } else {
         // Solid border
         ctx.strokeStyle = solidBorderColor;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 * s;
         ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, oy + h); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(ox + w, oy); ctx.lineTo(ox + w, oy + h); ctx.stroke();
     }
@@ -359,30 +494,30 @@ function drawIdentifiedBorder(ox, oy, w, h, n, cs) {
     // Top/Bottom edges
     if (surf === 'torus') {
         // Same-direction identification (T↔B)
-        drawDashedEdge(ox, oy, ox + w, oy, vColor);
-        drawDashedEdge(ox, oy + h, ox + w, oy + h, vColor);
-        drawArrowPair(midX, oy - 6, arrowLen, 0, vColor);
-        drawArrowPair(midX, oy + h + 6, arrowLen, 0, vColor);
+        drawDashedEdge(ox, oy, ox + w, oy, vColor, s);
+        drawDashedEdge(ox, oy + h, ox + w, oy + h, vColor, s);
+        drawArrowPair(midX, oy - 6 * s, arrowLen, 0, vColor, s);
+        drawArrowPair(midX, oy + h + 6 * s, arrowLen, 0, vColor, s);
     } else if (surf === 'projective') {
         // Reverse identification (T↔B reversed)
-        drawDashedEdge(ox, oy, ox + w, oy, vColor);
-        drawDashedEdge(ox, oy + h, ox + w, oy + h, vColor);
-        drawSingleArrow(midX + arrowLen, oy - 6, arrowLen, Math.PI, vColor);  // left
-        drawSingleArrow(midX - arrowLen, oy + h + 6, arrowLen, 0, vColor);    // right
+        drawDashedEdge(ox, oy, ox + w, oy, vColor, s);
+        drawDashedEdge(ox, oy + h, ox + w, oy + h, vColor, s);
+        drawSingleArrow(midX + arrowLen, oy - 6 * s, arrowLen, Math.PI, vColor, s);  // left
+        drawSingleArrow(midX - arrowLen, oy + h + 6 * s, arrowLen, 0, vColor, s);    // right
     } else {
         // Solid border (cylinder, mobius top/bottom are free)
         ctx.strokeStyle = solidBorderColor;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 * s;
         ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(ox, oy + h); ctx.lineTo(ox + w, oy + h); ctx.stroke();
     }
 }
 
-function drawDashedEdge(x1, y1, x2, y2, color) {
+function drawDashedEdge(x1, y1, x2, y2, color, s = 1) {
     ctx.save();
-    ctx.setLineDash([6, 4]);
+    ctx.setLineDash([6 * s, 4 * s]);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 * s;
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
@@ -390,11 +525,11 @@ function drawDashedEdge(x1, y1, x2, y2, color) {
     ctx.restore();
 }
 
-function drawSingleArrow(cx, cy, len, angle, color) {
+function drawSingleArrow(cx, cy, len, angle, color, s = 1) {
     ctx.save();
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 * s;
     ctx.translate(cx, cy);
     ctx.rotate(angle);
 
@@ -405,8 +540,8 @@ function drawSingleArrow(cx, cy, len, angle, color) {
 
     ctx.beginPath();
     ctx.moveTo(len * 0.5, 0);
-    ctx.lineTo(len * 0.5 - 5, -3);
-    ctx.lineTo(len * 0.5 - 5, 3);
+    ctx.lineTo(len * 0.5 - 5 * s, -3 * s);
+    ctx.lineTo(len * 0.5 - 5 * s, 3 * s);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -422,11 +557,11 @@ function drawTorusArrows(ox, oy, w, h) {
     drawArrowPair(ox + w + 6, midY, arrowLen, -Math.PI / 2, 'rgba(34, 211, 238, 0.5)');
 }
 
-function drawArrowPair(cx, cy, len, angle, color) {
+function drawArrowPair(cx, cy, len, angle, color, s = 1) {
     ctx.save();
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 * s;
     ctx.translate(cx, cy);
     ctx.rotate(angle);
     ctx.beginPath();
@@ -435,8 +570,8 @@ function drawArrowPair(cx, cy, len, angle, color) {
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(len, 0);
-    ctx.lineTo(len - 5, -3);
-    ctx.lineTo(len - 5, 3);
+    ctx.lineTo(len - 5 * s, -3 * s);
+    ctx.lineTo(len - 5 * s, 3 * s);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -454,10 +589,18 @@ function getEdgeInfo() {
     };
 }
 
-function drawMismatchesFlat(ox, oy, cs, n) {
+// Red dashes on every edge whose strand ends don't meet, for the cells in
+// `vis`; collected into one path and stroked once.
+function drawMismatchesFlat(ox, oy, cs, n, vis) {
     const edge = getEdgeInfo();
-    for (let r = 0; r < n; r++) {
-        for (let c = 0; c < n; c++) {
+    const surf = state.surface;
+    const freeN = surf === 'disk' || surf === 'cylinder' || surf === 'mobius';
+    const freeW = surf === 'disk';
+    const bad = new Path2D();
+    let any = false;
+    const mark = (x1, y1, x2, y2) => { bad.moveTo(x1, y1); bad.lineTo(x2, y2); any = true; };
+    for (let r = vis.r0; r < vis.r1; r++) {
+        for (let c = vis.c0; c < vis.c1; c++) {
             const ti = state.grid[r][c];
             const tile = TILE_TYPES[ti];
             if (!tile) continue;
@@ -465,77 +608,71 @@ function drawMismatchesFlat(ox, oy, cs, n) {
             // East
             if (c < n - 1) {
                 if (!connectionsMatch(ti, state.grid[r][c + 1], 'E')) {
-                    drawMismatchEdge(ox + (c + 1) * cs, oy + r * cs, ox + (c + 1) * cs, oy + (r + 1) * cs);
+                    mark(ox + (c + 1) * cs, oy + r * cs, ox + (c + 1) * cs, oy + (r + 1) * cs);
                 }
             } else if (edge.periodicLR) {
                 if (!connectionsMatch(ti, state.grid[r][0], 'E')) {
-                    drawMismatchEdge(ox + n * cs, oy + r * cs, ox + n * cs, oy + (r + 1) * cs);
+                    mark(ox + n * cs, oy + r * cs, ox + n * cs, oy + (r + 1) * cs);
                 }
             } else if (edge.reversedLR) {
                 // L/R reversed: right edge col n-1, row r matches left edge col 0, row (n-1-r)
                 const mirrorR = n - 1 - r;
                 if (!connectionsMatch(ti, state.grid[mirrorR]?.[0], 'E')) {
-                    drawMismatchEdge(ox + n * cs, oy + r * cs, ox + n * cs, oy + (r + 1) * cs);
+                    mark(ox + n * cs, oy + r * cs, ox + n * cs, oy + (r + 1) * cs);
                 }
             } else {
                 if (tile.connections.E) {
-                    drawMismatchEdge(ox + n * cs, oy + r * cs, ox + n * cs, oy + (r + 1) * cs);
+                    mark(ox + n * cs, oy + r * cs, ox + n * cs, oy + (r + 1) * cs);
                 }
             }
 
             // South
             if (r < n - 1) {
                 if (!connectionsMatch(ti, state.grid[r + 1][c], 'S')) {
-                    drawMismatchEdge(ox + c * cs, oy + (r + 1) * cs, ox + (c + 1) * cs, oy + (r + 1) * cs);
+                    mark(ox + c * cs, oy + (r + 1) * cs, ox + (c + 1) * cs, oy + (r + 1) * cs);
                 }
             } else if (edge.periodicTB) {
                 if (!connectionsMatch(ti, state.grid[0][c], 'S')) {
-                    drawMismatchEdge(ox + c * cs, oy + n * cs, ox + (c + 1) * cs, oy + n * cs);
+                    mark(ox + c * cs, oy + n * cs, ox + (c + 1) * cs, oy + n * cs);
                 }
             } else if (edge.reversedTB) {
                 const mirrorC = n - 1 - c;
                 if (!connectionsMatch(ti, state.grid[0]?.[mirrorC], 'S')) {
-                    drawMismatchEdge(ox + c * cs, oy + n * cs, ox + (c + 1) * cs, oy + n * cs);
+                    mark(ox + c * cs, oy + n * cs, ox + (c + 1) * cs, oy + n * cs);
                 }
             } else {
                 if (tile.connections.S) {
-                    drawMismatchEdge(ox + c * cs, oy + n * cs, ox + (c + 1) * cs, oy + n * cs);
+                    mark(ox + c * cs, oy + n * cs, ox + (c + 1) * cs, oy + n * cs);
                 }
             }
 
             // North and West boundaries (only for surfaces with free boundaries on those edges)
-            const surf = state.surface;
-            const freeN = surf === 'disk' || surf === 'cylinder' || surf === 'mobius';
-            const freeW = surf === 'disk';
             if (freeN && r === 0 && tile.connections.N) {
-                drawMismatchEdge(ox + c * cs, oy, ox + (c + 1) * cs, oy);
+                mark(ox + c * cs, oy, ox + (c + 1) * cs, oy);
             }
             if (freeW && c === 0 && tile.connections.W) {
-                drawMismatchEdge(ox, oy + r * cs, ox, oy + (r + 1) * cs);
+                mark(ox, oy + r * cs, ox, oy + (r + 1) * cs);
             }
         }
     }
+    if (any) strokeMismatches(bad, cs);
 }
 
-function drawMismatchEdge(x1, y1, x2, y2) {
+function strokeMismatches(path, cs) {
+    // Thicken when zoomed far out, but keep the glow within a third of a cell.
+    const k = Math.min(Math.max(1, 0.5 / state.zoom), cs / 24);
     ctx.save();
     ctx.strokeStyle = 'rgba(244, 63, 94, 0.65)';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 3 * k;
+    ctx.setLineDash([4 * k, 3 * k]);
     ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
+    ctx.stroke(path);
 
     // Glow
     ctx.strokeStyle = 'rgba(244, 63, 94, 0.2)';
-    ctx.lineWidth = 8;
+    ctx.lineWidth = 8 * k;
     ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
+    ctx.stroke(path);
 
     ctx.restore();
 }
@@ -571,30 +708,15 @@ function renderSphere() {
 
         // Grid
         if (state.showGrid) {
-            ctx.strokeStyle = state.bgMode === 'white' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
-            ctx.lineWidth = 0.5;
-            for (let i = 0; i <= fs; i++) {
-                ctx.beginPath();
-                ctx.moveTo(fOx + i * cs, fOy);
-                ctx.lineTo(fOx + i * cs, fOy + faceW);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(fOx, fOy + i * cs);
-                ctx.lineTo(fOx + faceW, fOy + i * cs);
-                ctx.stroke();
-            }
+            strokeGridLines(fOx, fOy, cs, fs, fs,
+                state.bgMode === 'white' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)');
         }
 
-        // Tiles
-        const lw = state.strandWidth;
-        for (let r = 0; r < fs; r++) {
-            for (let c = 0; c < fs; c++) {
-                const ti = state.grid[face][r][c];
-                if (ti > 0) {
-                    drawTile(ctx, ti, fOx + c * cs, fOy + r * cs, cs, state.strandColor, lw, bgColor());
-                }
-            }
-        }
+        // Tiles (only the ones on screen)
+        const fg = state.grid[face];
+        const vis = visibleRange(fOx, fOy, cs, fs, fs);
+        drawTilesBatched(ctx, (r, c) => fg[r][c], vis.r0, vis.r1, vis.c0, vis.c1,
+            fOx, fOy, cs, state.strandColor, strandLineWidth(), bgColor());
 
         // Selected cell highlight (sphere)
         state.selectedCells.forEach(sc => {
@@ -614,6 +736,7 @@ function drawSphereEdgeGluing(baseOx, baseOy, cs) {
     const fs = state.faceSize;
     const net = sphereNetLayout();
     const fW = fs * cs;
+    const s = decorScale();
 
     // Define gluing pairs with colors
     // Internal fold edges (adjacent in net) — subtle dashed
@@ -652,8 +775,8 @@ function drawSphereEdgeGluing(baseOx, baseOy, cs) {
     internalEdges.forEach(([o, side]) => {
         ctx.save();
         ctx.strokeStyle = foldColor;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = s;
+        ctx.setLineDash([4 * s, 4 * s]);
         if (side === 'N') {
             ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(o.x + fW, o.y); ctx.stroke();
         } else if (side === 'S') {
@@ -700,12 +823,12 @@ function drawSphereEdgeGluing(baseOx, baseOy, cs) {
     glueEdges.forEach(edge => {
         const o = faceOrigin(edge.face);
         const color = gluePairs[edge.pair].color;
-        drawGlueEdge(o, fW, edge.side, color);
+        drawGlueEdge(o, fW, edge.side, color, s);
     });
 
     extraGlueEdges.forEach(edge => {
         const o = faceOrigin(edge.face);
-        drawGlueEdge(o, fW, edge.side, edge.color);
+        drawGlueEdge(o, fW, edge.side, edge.color, s);
     });
 
     // Also draw remaining free external edges (non-glued boundary of the net)
@@ -715,10 +838,10 @@ function drawSphereEdgeGluing(baseOx, baseOy, cs) {
     // all external edges should be accounted for by the gluing
 }
 
-function drawGlueEdge(origin, fW, side, color) {
+function drawGlueEdge(origin, fW, side, color, s = 1) {
     ctx.save();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2.5 * s;
     ctx.lineCap = 'round';
     if (side === 'N') {
         ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(origin.x + fW, origin.y); ctx.stroke();
@@ -742,38 +865,76 @@ function screenToWorld(sx, sy) {
     };
 }
 
-function hitTest(sx, sy) {
-    const { x: wx, y: wy } = screenToWorld(sx, sy);
+// World position of the grid's top-left corner: the flat grid, or the
+// bounding box of the sphere's cube net.
+function gridOrigin() {
     const cs = cellSize();
+    const sz = state.surface === 'sphere' ? sphereNetSize() : { w: state.gridSize, h: state.gridSize };
+    return { ox: -(sz.w * cs) / 2, oy: -(sz.h * cs) / 2 };
+}
 
+// Screen point → grid units (1 per cell) from that corner.
+function screenToGrid(sx, sy) {
+    const { x, y } = screenToWorld(sx, sy);
+    const o = gridOrigin(), cs = cellSize();
+    return { x: (x - o.ox) / cs, y: (y - o.oy) / cs };
+}
+
+// The cell at integer grid position (ix, iy); null off the grid or in a gap
+// of the sphere net.
+function cellAtGridPos(ix, iy) {
     if (state.surface === 'sphere') {
         const fs = state.faceSize;
         const net = sphereNetLayout();
-        const netSz = sphereNetSize();
-        const baseOx = -(netSz.w * cs) / 2;
-        const baseOy = -(netSz.h * cs) / 2;
-
         for (const face of ['top', 'left', 'front', 'right', 'back', 'bottom']) {
-            const layout = net[face];
-            const fOx = baseOx + layout.ox * cs;
-            const fOy = baseOy + layout.oy * cs;
-            const lx = wx - fOx;
-            const ly = wy - fOy;
-            if (lx >= 0 && lx < fs * cs && ly >= 0 && ly < fs * cs) {
-                return { face, row: Math.floor(ly / cs), col: Math.floor(lx / cs) };
+            const l = net[face];
+            if (ix >= l.ox && ix < l.ox + fs && iy >= l.oy && iy < l.oy + fs) {
+                return { face, row: iy - l.oy, col: ix - l.ox };
             }
         }
         return null;
-    } else {
-        const n = state.gridSize;
-        const ox = -(n * cs) / 2;
-        const oy = -(n * cs) / 2;
-        const lx = wx - ox;
-        const ly = wy - oy;
-        if (lx >= 0 && lx < n * cs && ly >= 0 && ly < n * cs) {
-            return { row: Math.floor(ly / cs), col: Math.floor(lx / cs) };
-        }
-        return null;
+    }
+    const n = state.gridSize;
+    return (ix >= 0 && ix < n && iy >= 0 && iy < n) ? { row: iy, col: ix } : null;
+}
+
+function hitTest(sx, sy) {
+    const g = screenToGrid(sx, sy);
+    return cellAtGridPos(Math.floor(g.x), Math.floor(g.y));
+}
+
+// Cells a drag passes through between two pointer positions, in order and
+// edge to edge (never a diagonal jump), not counting the cell it starts in.
+// Without this a fast drag over small cells skips the cells between two
+// mousemove events. Grid walk of Amanatides & Woo.
+function cellsAlongDrag(from, to) {
+    const a = screenToGrid(from.x, from.y), b = screenToGrid(to.x, to.y);
+    let ix = Math.floor(a.x), iy = Math.floor(a.y);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const sx = Math.sign(dx), sy = Math.sign(dy);
+    const tdx = sx ? 1 / Math.abs(dx) : Infinity;
+    const tdy = sy ? 1 / Math.abs(dy) : Infinity;
+    let tx = sx > 0 ? (ix + 1 - a.x) * tdx : sx < 0 ? (a.x - ix) * tdx : Infinity;
+    let ty = sy > 0 ? (iy + 1 - a.y) * tdy : sy < 0 ? (a.y - iy) * tdy : Infinity;
+    const out = [];
+    while (Math.min(tx, ty) <= 1) {
+        if (tx < ty) { ix += sx; tx += tdx; } else { iy += sy; ty += tdy; }
+        const hit = cellAtGridPos(ix, iy);
+        if (hit) out.push(hit);
+    }
+    return out;
+}
+
+// Continue a paint or draw drag to the pointer at (x, y).
+function dragTo(x, y) {
+    const to = { x, y };
+    const cells = state.dragFrom ? cellsAlongDrag(state.dragFrom, to) : [hitTest(x, y)].filter(Boolean);
+    state.dragFrom = to;
+    const drawing = state.isDrawing;   // a stroke can close (and end) part-way
+    const ti = state.selectedTile === -1 ? 0 : state.selectedTile;
+    for (const hit of cells) {
+        if (drawing) strokeStep(hit);
+        else placeTile(hit, ti);
     }
 }
 
@@ -784,7 +945,7 @@ function placeTile(hit, tileIndex) {
     if (!hit) return;
     if (getTileAt(hit) === tileIndex) return;
     setTileAt(hit, tileIndex);
-    render();
+    scheduleRender();
 }
 
 // ============================================================
@@ -1018,7 +1179,7 @@ function restoreState(s) {
         surfaceSelect.value = s.surface;
         if (typeof populateExamples === 'function') populateExamples();
     }
-    syncSliderToSurface();
+    syncSizeControls();
     updateHud();
     render();
 }
@@ -1118,7 +1279,7 @@ function strokeStep(hit) {
         st.prevEntry = entry;
         st.cells.push(hit);
     }
-    render();
+    scheduleRender();
 }
 
 function endStroke() {
@@ -1164,6 +1325,7 @@ canvas.addEventListener('mousedown', (e) => {
         beginGesture();
         state.stroke = { cells: [hit], startExit: null, prevEntry: null };
         state.isDrawing = true;
+        state.dragFrom = { x: e.clientX, y: e.clientY };
         state.selectedCells = [];
         render();
         return;
@@ -1176,6 +1338,7 @@ canvas.addEventListener('mousedown', (e) => {
         state.selectedCells = [hit]; // reset selection to current cell
         state.isPainting = true;
         state.isPanning = false;
+        state.dragFrom = { x: e.clientX, y: e.clientY };
     } else {
         state.selectedCells = [];
         state.isPanning = true;
@@ -1190,16 +1353,9 @@ canvas.addEventListener('mousemove', (e) => {
         state.pan.x += e.clientX - state.lastMouse.x;
         state.pan.y += e.clientY - state.lastMouse.y;
         state.lastMouse = { x: e.clientX, y: e.clientY };
-        render();
-    } else if (state.isDrawing) {
-        const hit = hitTest(e.clientX, e.clientY);
-        if (hit) strokeStep(hit);
-    } else if (state.isPainting) {
-        const hit = hitTest(e.clientX, e.clientY);
-        if (hit) {
-            const ti = state.selectedTile === -1 ? 0 : state.selectedTile;
-            placeTile(hit, ti);
-        }
+        scheduleRender();
+    } else if (state.isDrawing || state.isPainting) {
+        dragTo(e.clientX, e.clientY);
     }
 });
 
@@ -1207,6 +1363,7 @@ canvas.addEventListener('mouseup', () => {
     state.isPanning = false;
     state.isPainting = false;
     state.lastMouse = null;
+    state.dragFrom = null;
     endStroke();
     canvas.style.cursor = state.drawMode ? 'crosshair' : 'grab';
 });
@@ -1215,6 +1372,7 @@ canvas.addEventListener('mouseleave', () => {
     state.isPanning = false;
     state.isPainting = false;
     state.lastMouse = null;
+    state.dragFrom = null;
     endStroke();
 });
 
@@ -1224,12 +1382,12 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = -e.deltaY * 0.001;
-    const newZoom = Math.max(0.15, Math.min(6, state.zoom * (1 + delta)));
+    const newZoom = Math.max(minZoom(), Math.min(6, state.zoom * (1 + delta)));
     const ratio = newZoom / state.zoom;
     state.pan.x = e.clientX - ratio * (e.clientX - state.pan.x);
     state.pan.y = e.clientY - ratio * (e.clientY - state.pan.y);
     state.zoom = newZoom;
-    render();
+    scheduleRender();
 }, { passive: false });
 
 // Touch
@@ -1245,11 +1403,13 @@ canvas.addEventListener('touchstart', (e) => {
             beginGesture();
             state.stroke = { cells: [hit], startExit: null, prevEntry: null };
             state.isDrawing = true;
+            state.dragFrom = { x: touches[0].clientX, y: touches[0].clientY };
         } else if (hit) {
             beginGesture();
             const ti = state.selectedTile === -1 ? 0 : state.selectedTile;
             placeTile(hit, ti);
             state.isPainting = true;
+            state.dragFrom = { x: touches[0].clientX, y: touches[0].clientY };
         } else {
             state.isPanning = true;
             state.lastMouse = { x: touches[0].clientX, y: touches[0].clientY };
@@ -1277,16 +1437,9 @@ canvas.addEventListener('touchmove', (e) => {
             state.pan.x += touches[0].clientX - state.lastMouse.x;
             state.pan.y += touches[0].clientY - state.lastMouse.y;
             state.lastMouse = { x: touches[0].clientX, y: touches[0].clientY };
-            render();
-        } else if (state.isDrawing) {
-            const hit = hitTest(touches[0].clientX, touches[0].clientY);
-            if (hit) strokeStep(hit);
-        } else if (state.isPainting) {
-            const hit = hitTest(touches[0].clientX, touches[0].clientY);
-            if (hit) {
-                const ti = state.selectedTile === -1 ? 0 : state.selectedTile;
-                placeTile(hit, ti);
-            }
+            scheduleRender();
+        } else if (state.isDrawing || state.isPainting) {
+            dragTo(touches[0].clientX, touches[0].clientY);
         }
     } else if (touches.length === 2) {
         const dist = Math.hypot(
@@ -1299,7 +1452,7 @@ canvas.addEventListener('touchmove', (e) => {
         };
         if (lastPinchDist > 0) {
             const scale = dist / lastPinchDist;
-            const newZoom = Math.max(0.15, Math.min(6, state.zoom * scale));
+            const newZoom = Math.max(minZoom(), Math.min(6, state.zoom * scale));
             const ratio = newZoom / state.zoom;
             state.pan.x = center.x - ratio * (center.x - state.pan.x);
             state.pan.y = center.y - ratio * (center.y - state.pan.y);
@@ -1311,7 +1464,7 @@ canvas.addEventListener('touchmove', (e) => {
         }
         lastPinchDist = dist;
         lastTouchCenter = center;
-        render();
+        scheduleRender();
     }
 }, { passive: false });
 
@@ -1324,6 +1477,7 @@ canvas.addEventListener('touchend', (e) => {
     if (touches.length === 0) {
         state.isPanning = false;
         state.isPainting = false;
+        state.dragFrom = null;
         endStroke();
     }
 });
@@ -1331,27 +1485,36 @@ canvas.addEventListener('touchend', (e) => {
 // ============================================================
 // Fit view
 // ============================================================
-function fitView() {
+// Width of the picture left of the floating panel, so the fit centres on the
+// free area like the tile palette does: the whole window when the panel is
+// collapsed, on small screens, or if too little room would be left.
+function freeWidth() {
     const w = window.innerWidth;
-    const h = window.innerHeight;
+    const panel = document.getElementById('control-panel');
+    if (!panel || w <= 860 || panel.classList.contains('collapsed')) return w;
+    const free = panel.getBoundingClientRect().left - (parseFloat(getComputedStyle(panel).right) || 0);
+    return free >= 320 ? free : w;
+}
+
+// Zoom at which the whole grid (or sphere net) fits the free area.
+function fitZoom() {
     const cs = cellSize();
-    let totalW, totalH;
-
-    if (state.surface === 'sphere') {
-        const netSz = sphereNetSize();
-        totalW = netSz.w * cs;
-        totalH = netSz.h * cs;
-    } else {
-        totalW = state.gridSize * cs;
-        totalH = state.gridSize * cs;
-    }
-
+    const sz = state.surface === 'sphere' ? sphereNetSize() : { w: state.gridSize, h: state.gridSize };
     const padding = 140;
-    const scaleX = (w - padding * 2) / totalW;
-    const scaleY = (h - padding * 2) / totalH;
-    state.zoom = Math.min(scaleX, scaleY, 2.5);
-    state.pan.x = w / 2;
-    state.pan.y = h / 2;
+    const scaleX = (freeWidth() - padding * 2) / (sz.w * cs);
+    const scaleY = (window.innerHeight - padding * 2) / (sz.h * cs);
+    return Math.min(scaleX, scaleY, 2.5);
+}
+
+// Zooming out stops at 0.15, or at half the fit zoom for grids too big for that.
+function minZoom() {
+    return Math.min(0.15, Math.max(fitZoom(), 0.004) / 2);
+}
+
+function fitView() {
+    state.zoom = fitZoom();
+    state.pan.x = freeWidth() / 2;
+    state.pan.y = window.innerHeight / 2;
     render();
 }
 
@@ -1375,7 +1538,7 @@ function onSurfaceChange() {
     state.surface = surfaceSelect.value;
     // "View in R³" is unified across all surfaces, so its visibility no
     // longer needs to be toggled here.
-    syncSliderToSurface();
+    syncSizeControls();
     initGrid();
     updateHud();
     if (typeof populateExamples === 'function') populateExamples();
@@ -1384,52 +1547,70 @@ function onSurfaceChange() {
 }
 surfaceSelect.addEventListener('change', onSurfaceChange);
 
-// Grid size / face size (unified slider + editable number input)
+// Grid size / face size (unified slider + editable number input). The slider
+// covers the everyday range; the number box takes custom sizes up to `input`.
 const gridSlider = document.getElementById('grid-size-slider');
 const gridInput = document.getElementById('grid-size-input');
+const gridHint = document.getElementById('grid-size-hint');
+const SIZE_LIMITS = {
+    flat:   { slider: [3, 25], input: [3, 200] },
+    sphere: { slider: [1, 16], input: [1, 80] },
+};
 
-function syncSliderToSurface() {
-    if (state.surface === 'sphere') {
-        gridSlider.min = 1;
-        gridSlider.max = 16;
-        gridInput.min = 1;
-        gridInput.max = 60;
-        gridSlider.value = Math.min(state.faceSize, 16);
-        gridInput.value = state.faceSize;
-    } else {
-        gridSlider.min = 3;
-        gridSlider.max = 25;
-        gridInput.min = 3;
-        gridInput.max = 60;
-        gridSlider.value = Math.min(state.gridSize, 25);
-        gridInput.value = state.gridSize;
+function sizeLimits() {
+    return SIZE_LIMITS[state.surface === 'sphere' ? 'sphere' : 'flat'];
+}
+
+// Slider, number box and hint all show the current size; past the slider's
+// range the thumb parks at the end, dimmed, and the hint says it is custom.
+function syncSizeControls() {
+    const lim = sizeLimits();
+    const val = state.surface === 'sphere' ? state.faceSize : state.gridSize;
+    [gridSlider.min, gridSlider.max] = lim.slider;
+    [gridInput.min, gridInput.max] = lim.input;
+    gridSlider.value = Math.min(val, lim.slider[1]);
+    gridInput.value = val;
+    const custom = val > lim.slider[1];
+    gridSlider.classList.toggle('beyond', custom);
+    if (gridHint) {
+        const what = state.surface === 'sphere' ? 'cells per side of each cube face' : 'cells per side';
+        gridHint.innerHTML = custom
+            ? `Custom size: <b>${val} × ${val}</b>${state.surface === 'sphere' ? ' per face' : ''}. ` +
+              `Drag the slider to return to ${lim.slider[0]}–${lim.slider[1]}.`
+            : `${what[0].toUpperCase() + what.slice(1)}. Type in the box for a custom size, ` +
+              `up to ${lim.input[1]}.`;
     }
 }
 
-function applyGridSize(val) {
-    const min = parseInt(gridInput.min) || 1;
-    const max = parseInt(gridInput.max) || 60;
+// Resize to val cells per side, keeping the drawing of `base` (a
+// captureState() snapshot on the current surface), centred.
+function applyGridSize(val, base = captureState()) {
+    const [min, max] = sizeLimits().input;
     val = Math.max(min, Math.min(max, val));
     if (state.surface === 'sphere') {
         state.faceSize = val;
+        state.grid = resizeSphereGrid(base.grid, base.faceSize, val);
     } else {
         state.gridSize = val;
+        state.grid = resizeFlatGrid(base.grid, base.gridSize, val, getEdgeInfo());
     }
-    gridSlider.value = Math.min(val, parseInt(gridSlider.max));
-    gridInput.value = val;
-    initGrid();
+    state.selectedCells = [];   // old cell coordinates no longer apply
+    exampleSelect.value = '';   // no longer the preset as loaded
+    syncSizeControls();
     updateHud();
     fitView();
 }
 
 // A slider drag fires many 'input' events; snapshot once per drag so the
-// whole resize undoes in one step.
-let sliderUndoCaptured = false;
+// whole resize undoes in one step, and resize every step from that snapshot:
+// growing one cell at a time would never centre the drawing (and would pile
+// up jogs on the Möbius band and RP²).
+let sliderBase = null;
 gridSlider.addEventListener('input', () => {
-    if (!sliderUndoCaptured) { pushUndo(); sliderUndoCaptured = true; }
-    applyGridSize(parseInt(gridSlider.value));
+    if (!sliderBase) { pushUndo(); sliderBase = captureState(); }
+    applyGridSize(parseInt(gridSlider.value), sliderBase);
 });
-gridSlider.addEventListener('change', () => { sliderUndoCaptured = false; });
+gridSlider.addEventListener('change', () => { sliderBase = null; });
 
 gridInput.addEventListener('change', () => {
     const val = parseInt(gridInput.value);
@@ -1468,8 +1649,6 @@ exampleSelect.addEventListener('change', () => {
 
     if (state.surface === 'sphere') {
         state.faceSize = ex.faceSize || state.faceSize;
-        gridSlider.value = Math.min(state.faceSize, parseInt(gridSlider.max));
-        gridInput.value = state.faceSize;
         // Deep copy face grids
         state.grid = {};
         for (const face of Object.keys(ex.grid)) {
@@ -1477,12 +1656,14 @@ exampleSelect.addEventListener('change', () => {
         }
     } else {
         state.gridSize = ex.gridSize || state.gridSize;
-        gridSlider.value = Math.min(state.gridSize, parseInt(gridSlider.max));
-        gridInput.value = state.gridSize;
         state.grid = ex.grid.map(row => [...row]);
     }
 
+    syncSizeControls();
     state.selectedCells = [];
+    // A preset may carry its own strand colour (skipped on the white
+    // background, where it may not show).
+    if (ex.strandColor && state.bgMode !== 'white') setStrandColor(ex.strandColor);
     updateHud();
     fitView();
 });
@@ -1614,15 +1795,18 @@ document.getElementById('cube-smooth-btn').addEventListener('click', () => {
 function syncSmoothButtonVisibility() {}
 syncSmoothButtonVisibility();
 
-// Panel toggle
-const panel = document.getElementById('ui-panel');
-document.getElementById('close-panel-btn').addEventListener('click', () => {
-    panel.classList.add('hidden');
-    document.getElementById('toggle-panel-btn').style.display = 'flex';
+// Panel collapse/expand (#collapse-btn) is wired by ../../assets/poincare-ui.js.
+
+// The header sun/moon (#theme-btn, toggled by poincare-ui.js) drives the
+// same Background option; picking Black/White keeps the header theme in step.
+document.addEventListener('themechange', (e) => {
+    const want = e.detail.theme === 'light' ? 'white' : 'black';
+    if (state.bgMode !== want) document.querySelector(`.bg-toggle[data-bg="${want}"]`)?.click();
 });
-document.getElementById('toggle-panel-btn').addEventListener('click', () => {
-    panel.classList.remove('hidden');
-    document.getElementById('toggle-panel-btn').style.display = 'none';
+document.querySelectorAll('.bg-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+        window.PoincareUI?.setTheme(btn.dataset.bg === 'white' ? 'light' : 'dark', { store: false });
+    });
 });
 
 // ============================================================
@@ -1694,9 +1878,15 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 // Face texture renderer (for 3D cube)
 // ============================================================
+// Texture pixels per cell: 96, shrunk so a big grid's texture stays within
+// maxPx (4096 is past what some GPUs accept; the cube has six of them).
+function textureCellSize(n, maxPx) {
+    return Math.max(12, Math.min(96, Math.floor(maxPx / n)));
+}
+
 window.renderFaceTexture = function (faceName, showGrid, strandsOnly) {
     const fs = state.faceSize;
-    const cs = 96;
+    const cs = textureCellSize(fs, 2048);
     const size = fs * cs;
     const c = document.createElement('canvas');
     c.width = size;
@@ -1727,16 +1917,10 @@ window.renderFaceTexture = function (faceName, showGrid, strandsOnly) {
     // else: leave canvas fully transparent
 
     // Tiles
-    const lw = state.strandWidth * (cs / 64);
+    const lw = Math.max(1.5, state.strandWidth * (cs / 64));
     const bg = strandsOnly ? 'rgba(0,0,0,0)' : bgColor();
-    for (let r = 0; r < fs; r++) {
-        for (let cc = 0; cc < fs; cc++) {
-            const ti = state.grid[faceName]?.[r]?.[cc] ?? 0;
-            if (ti > 0) {
-                drawTile(cx, ti, cc * cs, r * cs, cs, state.strandColor, lw, bg);
-            }
-        }
-    }
+    drawTilesBatched(cx, (r, cc) => state.grid[faceName]?.[r]?.[cc] ?? 0, 0, fs, 0, fs,
+        0, 0, cs, state.strandColor, lw, bg);
 
     return c;
 };
@@ -1746,7 +1930,7 @@ window.renderFaceTexture = function (faceName, showGrid, strandsOnly) {
 // ============================================================
 window.renderTorusTexture = function (showGrid, strandsOnly) {
     const gs = state.gridSize;
-    const cs = 96;
+    const cs = textureCellSize(gs, 4096);
     const size = gs * cs;
     const c = document.createElement('canvas');
     c.width = size;
@@ -1776,16 +1960,10 @@ window.renderTorusTexture = function (showGrid, strandsOnly) {
     }
 
     // Tiles
-    const lw = state.strandWidth * (cs / 64);
+    const lw = Math.max(1.5, state.strandWidth * (cs / 64));
     const bg = strandsOnly ? 'rgba(0,0,0,0)' : bgColor();
-    for (let r = 0; r < gs; r++) {
-        for (let cc = 0; cc < gs; cc++) {
-            const ti = state.grid[r]?.[cc] ?? 0;
-            if (ti > 0) {
-                drawTile(cx, ti, cc * cs, r * cs, cs, state.strandColor, lw, bg);
-            }
-        }
-    }
+    drawTilesBatched(cx, (r, cc) => state.grid[r]?.[cc] ?? 0, 0, gs, 0, gs,
+        0, 0, cs, state.strandColor, lw, bg);
 
     return c;
 };
@@ -1799,6 +1977,7 @@ initGrid();
 buildPalette();
 resizeCanvas();
 updateHud();
+syncSizeControls();
 requestAnimationFrame(() => fitView());
 
 document.getElementById('show-orientations-toggle')?.addEventListener('change', buildPalette);

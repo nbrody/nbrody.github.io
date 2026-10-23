@@ -7,8 +7,11 @@
     <title>Knot Mosaic Playground</title>
     <meta name="description"
         content="Interactive knot mosaic builder — place tiles on disk, sphere, or torus surfaces to create knot diagrams.">
-    <link rel="stylesheet" href="style.css?v=6">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../assets/poincare-ui.css?v=6">
+    <link rel="stylesheet" href="style.css?v=8">
+    <!-- Panel chrome: tabs, collapse, help modal, sun/moon theme. Classic script,
+         in <head> so it is ready before the app wires the background option. -->
+    <script src="../../assets/poincare-ui.js?v=6"></script>
 
     <!-- MathJax v3 (SVG output) for the "View in ℝ³" label. -->
     <script>
@@ -24,120 +27,149 @@
 <body>
     <canvas id="canvas"></canvas>
 
-    <!-- Header HUD -->
-    <div id="header-hud">
-        <span id="hud-label">Knot Mosaic</span>
-        <span id="hud-info">Disk</span>
+    <!-- Title chip (top-left) -->
+    <div id="header-hud" class="status-banner accent" role="status" aria-live="polite">
+        <div class="status-banner-text">
+            <span id="hud-label" class="kicker">Knot Mosaic</span>
+            <span id="hud-info" class="headline">Disk</span>
+        </div>
+        <button class="status-banner-close" title="Collapse" aria-label="Collapse the title">×</button>
     </div>
 
-    <!-- Toggle Panel Button -->
-    <button id="toggle-panel-btn" title="Toggle Controls">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        </svg>
-    </button>
-
     <!-- Control Panel -->
-    <div id="ui-panel" class="glass-panel">
-        <div class="panel-header">
-            <div>
-                <h1>Knot Mosaics</h1>
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <div class="panel-tabs" role="tablist" aria-label="Controls">
+                <button class="tab-btn active" data-tab="mosaic" role="tab" aria-selected="true">Mosaic</button>
+                <button class="tab-btn" data-tab="view" role="tab" aria-selected="false">View</button>
             </div>
-            <button id="close-panel-btn" class="icon-btn" title="Close Panel">&times;</button>
-        </div>
-
-        <!-- Surface Selector -->
-        <div class="control-group" style="padding: 0 20px; margin-bottom: 4px;">
-            <div class="surface-select-wrapper">
-                <select id="surface-select">
-                    <option value="disk" data-icon="⊙">Disk</option>
-                    <option value="sphere" data-icon="🌐">Sphere</option>
-                    <option value="torus" data-icon="🍩">Torus</option>
-                    <option value="projective" data-icon="⊕">Projective Plane</option>
-                    <option value="cylinder" data-icon="◎">Cylinder</option>
-                    <option value="mobius" data-icon="∞">Möbius Band</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Scrollable content area -->
-        <div class="panel-scroll-area">
-            <div class="control-group">
-                <label>Grid Size</label>
-                <div class="grid-size-row">
-                    <input type="range" id="grid-size-slider" min="3" max="25" value="5">
-                    <input type="number" id="grid-size-input" class="accent" min="1" max="60" value="5">
-                </div>
-            </div>
-
-
-            <div class="control-group">
-                <label>Examples</label>
-                <select id="example-select">
-                    <option value="">— Choose a preset —</option>
-                </select>
-            </div>
-
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="show-connections-checkbox" checked>
-                <label for="show-connections-checkbox">Highlight Mismatches</label>
-            </div>
-
-            <div class="control-group">
-                <label>Strand Color</label>
-                <button id="color-current" title="Change strand color" style="background: #6c8aff;"></button>
-            </div>
-
-            <div class="control-group">
-                <label>Background</label>
-                <div class="bg-toggle-row">
-                    <button class="bg-toggle active" data-bg="black" title="Dark background">
-                        <span class="bg-preview bg-preview-black"></span>
-                        Black
-                    </button>
-                    <button class="bg-toggle" data-bg="white" title="Light background">
-                        <span class="bg-preview bg-preview-white"></span>
-                        White
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="button-group">
-            <button id="clear-btn" class="btn btn-outline" style="flex:1">Clear</button>
-        </div>
-        <div class="button-group" id="view-r3-group">
-            <button id="view-r3-btn" class="btn btn-primary" style="flex:1"
-                    title="Embed this mosaic into R³">
-                View in \(\mathbb{R}^3\)
+            <button id="help-btn" class="collapse-btn" title="How it works" aria-label="How it works">
+                <span class="collapse-icon">?</span>
             </button>
+            <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+                <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- ======================== Mosaic -->
+            <div id="tab-mosaic" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">Knot Mosaics</h2>
+                    <p class="panel-subtitle">Lay tiles on a square grid to draw a knot diagram, on a disk or on a
+                        surface whose edges are glued.</p>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <label for="surface-select" class="control-label">Surface</label>
+                        <select id="surface-select" class="select-input">
+                            <option value="disk" data-icon="⊙">Disk</option>
+                            <option value="sphere" data-icon="🌐">Sphere</option>
+                            <option value="torus" data-icon="🍩">Torus</option>
+                            <option value="projective" data-icon="⊕">Projective Plane</option>
+                            <option value="cylinder" data-icon="◎">Cylinder</option>
+                            <option value="mobius" data-icon="∞">Möbius Band</option>
+                        </select>
+                    </div>
+                    <div class="control-row">
+                        <label for="example-select" class="control-label">Examples</label>
+                        <select id="example-select" class="select-input">
+                            <option value="">— Choose a preset —</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row spread">
+                        <label for="grid-size-input" class="control-label">Grid Size</label>
+                        <input type="number" id="grid-size-input" class="number-input" min="3" max="200" value="5"
+                            title="Type any size, then press Enter" aria-label="Grid size (custom)">
+                    </div>
+                    <input type="range" id="grid-size-slider" class="range" min="3" max="25" value="5"
+                        aria-label="Grid size">
+                    <p class="label-hint" id="grid-size-hint">Cells per side. Type in the box for a custom size, up
+                        to 200.</p>
+                </div>
+
+                <div class="control-group">
+                    <button id="view-r3-btn" class="btn btn-primary" title="Embed this mosaic into R³">
+                        View in \(\mathbb{R}^3\)
+                    </button>
+                    <button id="clear-btn" class="btn btn-danger" title="Empty every cell (C)">Clear</button>
+                </div>
+            </div>
+
+            <!-- ======================== View -->
+            <div id="tab-view" class="tab-content">
+                <div>
+                    <h2 class="panel-title">View</h2>
+                    <p class="panel-subtitle">How the mosaic is drawn. Scroll to zoom, drag empty space to pan,
+                        <kbd>F</kbd> to fit.</p>
+                </div>
+
+                <div class="control-group">
+                    <label class="check-row">
+                        <input type="checkbox" id="show-connections-checkbox" checked>
+                        Highlight Mismatches
+                    </label>
+                    <p class="label-hint">Red dashes mark tile edges whose strand ends do not meet.</p>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row spread">
+                        <span class="control-label">Strand Color</span>
+                        <button id="color-current" class="swatch" title="Change strand color"
+                            aria-label="Change strand color" style="background: #6c8aff;"></button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="seg-selector">
+                        <span class="seg-label">Background</span>
+                        <div class="seg-options" role="group" aria-label="Background">
+                            <button class="seg-opt bg-toggle active" data-bg="black" title="Dark background">
+                                <span class="bg-preview bg-preview-black"></span>
+                                Black
+                            </button>
+                            <button class="seg-opt bg-toggle" data-bg="white" title="Light background">
+                                <span class="bg-preview bg-preview-white"></span>
+                                White
+                            </button>
+                        </div>
+                    </div>
+                    <p class="label-hint">The sun/moon button in the header switches this too.</p>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Strand color popup (positioned next to #color-current when open) -->
     <div id="color-popup" class="hidden">
-        <button class="color-swatch active" data-color="#6c8aff" style="background: #6c8aff;"></button>
-        <button class="color-swatch" data-color="#f472b6" style="background: #f472b6;"></button>
-        <button class="color-swatch" data-color="#22d3ee" style="background: #22d3ee;"></button>
-        <button class="color-swatch" data-color="#a78bfa" style="background: #a78bfa;"></button>
-        <button class="color-swatch" data-color="#34d399" style="background: #34d399;"></button>
-        <button class="color-swatch" data-color="#fbbf24" style="background: #fbbf24;"></button>
-        <button class="color-swatch" data-color="#fb923c" style="background: #fb923c;"></button>
-        <button class="color-swatch" data-color="#e8ecf4" style="background: #e8ecf4;"></button>
-        <button class="color-swatch" data-color="#111111"
-            style="background: #111111; border: 1px solid rgba(255,255,255,0.15);"></button>
+        <button class="color-swatch swatch active" data-color="#6c8aff" style="--c: #6c8aff;" aria-label="Indigo"></button>
+        <button class="color-swatch swatch" data-color="#f472b6" style="--c: #f472b6;" aria-label="Pink"></button>
+        <button class="color-swatch swatch" data-color="#22d3ee" style="--c: #22d3ee;" aria-label="Cyan"></button>
+        <button class="color-swatch swatch" data-color="#a78bfa" style="--c: #a78bfa;" aria-label="Violet"></button>
+        <button class="color-swatch swatch" data-color="#34d399" style="--c: #34d399;" aria-label="Green"></button>
+        <button class="color-swatch swatch" data-color="#fbbf24" style="--c: #fbbf24;" aria-label="Amber"></button>
+        <button class="color-swatch swatch" data-color="#fb923c" style="--c: #fb923c;" aria-label="Orange"></button>
+        <button class="color-swatch swatch" data-color="#e8ecf4" style="--c: #e8ecf4;" aria-label="White"></button>
+        <button class="color-swatch swatch" data-color="#111111" style="--c: #111111;" aria-label="Black"></button>
     </div>
 
-    <!-- Tile Palette -->
-    <div id="tile-palette">
+    <!-- Tile Palette (bottom centre) -->
+    <div id="tile-palette" class="glass-card">
         <div class="palette-header">
-            <div class="palette-label">Tiles</div>
-            <label class="cube-toggle">
+            <span class="palette-label control-label">Tiles</span>
+            <label class="cube-toggle check-row" title="Drag across cells to draw a strand (D)">
                 <input type="checkbox" id="draw-mode-toggle">
-                <span>✏️ Draw</span>
+                <span>✎ Draw</span>
             </label>
-            <label class="cube-toggle">
+            <label class="cube-toggle check-row" title="Show every rotation of each tile">
                 <input type="checkbox" id="show-orientations-toggle">
                 <span>All orientations</span>
             </label>
@@ -147,17 +179,17 @@
     </div>
 
     <!-- 3D Cube Overlay -->
-    <div id="cube-overlay">
+    <div id="cube-overlay" class="scene-overlay">
         <canvas id="cube-canvas"></canvas>
-        <div id="cube-toolbar">
+        <div id="cube-toolbar" class="scene-toolbar glass-card">
             <div class="cube-toolbar-inner">
-                <label class="cube-toggle">
+                <label class="cube-toggle check-row">
                     <input type="checkbox" id="cube-hide-grid">
                     <span>Hide Grid</span>
                 </label>
-                <div class="render-mode-toggle">
-                    <button class="render-mode-btn" data-mode="tiles">Tiles</button>
-                    <button class="render-mode-btn active" data-mode="tubes">Tubes</button>
+                <div class="render-mode-toggle seg-options" role="group" aria-label="Render mode">
+                    <button class="render-mode-btn seg-opt" data-mode="tiles">Tiles</button>
+                    <button class="render-mode-btn seg-opt active" data-mode="tubes">Tubes</button>
                 </div>
                 <button id="cube-unfold-btn" class="btn btn-secondary">Unfold</button>
                 <button id="cube-smooth-btn" class="btn btn-primary"
@@ -170,17 +202,17 @@
     </div>
 
     <!-- Smooth (energy-minimisation) Overlay -->
-    <div id="smooth-overlay" style="display:none;">
+    <div id="smooth-overlay" class="scene-overlay" style="display:none;">
         <canvas id="smooth-canvas"></canvas>
-        <div id="smooth-toolbar">
+        <div id="smooth-toolbar" class="scene-toolbar glass-card">
             <div class="cube-toolbar-inner">
                 <span class="smooth-readout">
                     <span id="smooth-info">—</span>
                     · <span id="smooth-energy-label">E</span> = <span id="smooth-energy">—</span>
                 </span>
                 <label class="smooth-slider-label">
-                    energy
-                    <select id="smooth-energy-select">
+                    <span class="range-head"><span class="range-name">Energy</span></span>
+                    <select id="smooth-energy-select" class="select-input">
                         <option value="mobius" selected>Möbius (O’Hara)</option>
                         <option value="coulomb">Coulomb 1/r</option>
                         <option value="quartic">Steep 1/r⁴</option>
@@ -189,12 +221,12 @@
                     </select>
                 </label>
                 <label class="smooth-slider-label">
-                    speed <span id="smooth-speed-val">4</span>
-                    <input type="range" id="smooth-speed-slider" min="1" max="100" value="4">
+                    <span class="range-head"><span class="range-name">Speed</span><span id="smooth-speed-val" class="range-value">4</span></span>
+                    <input type="range" id="smooth-speed-slider" class="range" min="1" max="100" value="4">
                 </label>
                 <label class="smooth-slider-label">
-                    radius <span id="smooth-radius-val">0.18</span>
-                    <input type="range" id="smooth-radius-slider" min="0.04" max="0.5" step="0.01" value="0.18">
+                    <span class="range-head"><span class="range-name">Radius</span><span id="smooth-radius-val" class="range-value">0.18</span></span>
+                    <input type="range" id="smooth-radius-slider" class="range" min="0.04" max="0.5" step="0.01" value="0.18">
                 </label>
                 <button id="smooth-play-btn"  class="btn btn-primary">Smooth</button>
                 <button id="smooth-reset-btn" class="btn btn-secondary">Reset</button>
@@ -203,14 +235,61 @@
         </div>
     </div>
 
-    <script src="tiles.js?v=5"></script>
-    <script src="exampleLibrary.js?v=5"></script>
-    <script src="app.js?v=5"></script>
+    <!-- Help -->
+    <div id="help-modal" class="example-modal" hidden>
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel narrow" role="dialog" aria-modal="true" aria-labelledby="help-title">
+            <div class="example-modal-head">
+                <h3 id="help-title">Knot Mosaics</h3>
+                <button class="example-modal-close" title="Close (Esc)" aria-label="Close">×</button>
+            </div>
+            <div class="help-body">
+                <p>A <b>knot mosaic</b> (Lomonaco–Kauffman) is a square grid of tiles, each carrying arcs, a straight
+                    strand or a crossing. When every strand end meets a strand end in the neighbouring tile, the
+                    tiles join up into a knot or link diagram.</p>
+
+                <h4>Surfaces</h4>
+                <p>On the <b>disk</b> no strand may leave the grid. The other surfaces glue edges of the square,
+                    drawn dashed with arrows in matching colours. The <b>cylinder</b> glues left to right straight
+                    across, and the <b>torus</b> also glues top to bottom; the <b>Möbius band</b> glues left to right
+                    with a flip, and the <b>projective plane</b> flips both pairs. The <b>sphere</b> is an unfolded
+                    cube: edges of the same colour meet when it is folded up.</p>
+
+                <h4>Placing tiles</h4>
+                <ul>
+                    <li>Pick a tile in the palette (or press <kbd>0</kbd>–<kbd>9</kbd>, <kbd>V</kbd> for the virtual
+                        crossing), then click or drag across cells. Drag a palette tile onto a cell to drop it there.</li>
+                    <li><b>Right-click</b> a cell to erase it. <kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click toggles a cell in
+                        the selection; <kbd>←</kbd> <kbd>→</kbd> rotate the selected tiles, <kbd>Delete</kbd> empties them,
+                        <kbd>Esc</kbd> clears the selection.</li>
+                    <li><b>Draw mode</b> (<kbd>D</kbd>): drag across cells and the right tiles appear along the path.
+                        Crossing an existing strand makes a crossing with the new strand on top; closing the loop ends
+                        the stroke.</li>
+                    <li><b>Grid Size</b> keeps your drawing, centred. On a surface with glued edges, strands that
+                        cross a glued edge are carried straight through the new margin to stay joined; shrinking crops
+                        the edges evenly, and <kbd>⌘Z</kbd> brings them back.</li>
+                    <li><kbd>⌘Z</kbd> undo, <kbd>⇧⌘Z</kbd> redo, <kbd>C</kbd> clear, <kbd>F</kbd> fit the grid to the
+                        window.</li>
+                </ul>
+
+                <h4>View in ℝ³</h4>
+                <p>A disk mosaic opens straight in the 3D smoother. A sphere or torus mosaic is first folded up in 3D
+                    (<b>Unfold</b> flattens it again, <b>Tiles</b>/<b>Tubes</b> switch between the tile faces and
+                    strand tubes); <b>Smooth</b> then hands the folded strands to the smoother. There, <b>Smooth</b>
+                    starts lowering the chosen knot energy (Möbius, Coulomb, ropelength, …) and <b>Pause</b> stops it.
+                    The other surfaces have no 3D view yet. Drag to orbit, scroll to zoom.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="tiles.js?v=6"></script>
+    <script src="exampleLibrary.js?v=6"></script>
+    <script src="app.js?v=10"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="cube3d.js?v=4"></script>
     <script src="torus3d.js?v=4"></script>
-    <script src="smooth3d.js?v=6"></script>
+    <script src="smooth3d.js?v=31"></script>
 </body>
 
 </html>

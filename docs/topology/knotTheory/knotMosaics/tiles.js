@@ -278,6 +278,83 @@ function drawTile(ctx, tileIndex, x, y, size, color, lw, bgColor) {
 }
 
 /**
+ * Draw a rectangular block of tiles in four strokes instead of one per tile,
+ * so grids with tens of thousands of cells stay interactive. Same picture as
+ * calling drawTile on each cell: every strand, then the gaps under crossings
+ * (which never leave their cell), then the over-strands, then the virtual
+ * crossing circles.
+ *
+ *   tileAt(r, c) → tile index; rows r0..r1-1 and columns c0..c1-1 are drawn,
+ *   cell (r, c) having its top-left corner at (ox + c·size, oy + r·size).
+ */
+function drawTilesBatched(ctx, tileAt, r0, r1, c0, c1, ox, oy, size, color, lw, bgColor) {
+    const strands = new Path2D(), gaps = new Path2D(), overs = new Path2D(), rings = new Path2D();
+    const mid = size / 2, gap = lw * 2, ring = size * 0.16;
+    const H = (p, x, y) => { p.moveTo(x, y + mid); p.lineTo(x + size, y + mid); };
+    const V = (p, x, y) => { p.moveTo(x + mid, y); p.lineTo(x + mid, y + size); };
+    // Quarter arc of radius size/2 about the corner (cx, cy), from angle a0 to a1.
+    const A = (cx, cy, a0, a1) => {
+        strands.moveTo(cx + mid * Math.cos(a0), cy + mid * Math.sin(a0));
+        strands.arc(cx, cy, mid, a0, a1, false);
+    };
+    const PI = Math.PI;
+    let any = false, anyGap = false, anyRing = false;
+    for (let r = r0; r < r1; r++) {
+        const y = oy + r * size;
+        for (let c = c0; c < c1; c++) {
+            const t = tileAt(r, c);
+            if (!(t > 0)) continue;
+            const x = ox + c * size;
+            any = true;
+            switch (t) {
+                case 1: H(strands, x, y); break;
+                case 2: V(strands, x, y); break;
+                case 3: A(x + size, y, PI * 0.5, PI); break;
+                case 4: A(x, y, 0, PI * 0.5); break;
+                case 5: A(x + size, y + size, PI, PI * 1.5); break;
+                case 6: A(x, y + size, PI * 1.5, PI * 2); break;
+                case 7:
+                    V(strands, x, y);
+                    gaps.moveTo(x + mid - gap, y + mid); gaps.lineTo(x + mid + gap, y + mid);
+                    H(overs, x, y); anyGap = true; break;
+                case 8:
+                    H(strands, x, y);
+                    gaps.moveTo(x + mid, y + mid - gap); gaps.lineTo(x + mid, y + mid + gap);
+                    V(overs, x, y); anyGap = true; break;
+                case 9: A(x + size, y, PI * 0.5, PI); A(x, y + size, PI * 1.5, PI * 2); break;
+                case 10: A(x, y, 0, PI * 0.5); A(x + size, y + size, PI, PI * 1.5); break;
+                case 11:
+                    V(strands, x, y); H(strands, x, y);
+                    rings.moveTo(x + mid + ring, y + mid);
+                    rings.arc(x + mid, y + mid, ring, 0, PI * 2);
+                    anyRing = true; break;
+            }
+        }
+    }
+    if (!any) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.stroke(strands);
+    if (anyGap) {
+        ctx.strokeStyle = bgColor || '#0a0e1a';
+        ctx.lineWidth = lw + 4;
+        ctx.lineCap = 'butt';
+        ctx.stroke(gaps);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lw;
+        ctx.lineCap = 'round';
+        ctx.stroke(overs);
+    }
+    if (anyRing) {
+        ctx.lineWidth = Math.max(1, lw * 0.75);
+        ctx.stroke(rings);
+    }
+    ctx.restore();
+}
+
+/**
  * Check if two adjacent tiles have matching connections.
  */
 function connectionsMatch(tileA, tileB, sideFromA) {

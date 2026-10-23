@@ -1,6 +1,17 @@
 /**
  * exampleLibrary.js — Preset knot mosaic examples
  */
+
+// Box-drawing art → an n×n tile grid, the art centred. ┿ is a crossing with
+// the horizontal strand over (tile 7), ╂ the vertical strand over (tile 8).
+function mosaicFromArt(lines, n) {
+    const TILE = { ' ': 0, '─': 1, '│': 2, '╰': 3, '╯': 4, '╭': 5, '╮': 6, '┿': 7, '╂': 8, '⊗': 11 };
+    const w = Math.max(...lines.map(l => [...l].length));
+    const r0 = Math.floor((n - lines.length) / 2), c0 = Math.floor((n - w) / 2);
+    const grid = Array.from({ length: n }, () => new Array(n).fill(0));
+    lines.forEach((l, r) => [...l].forEach((ch, c) => { grid[r0 + r][c0 + c] = TILE[ch] ?? 0; }));
+    return grid;
+}
 const EXAMPLES = {
     disk: [
         {
@@ -46,6 +57,55 @@ const EXAMPLES = {
                 [0, 0, 0, 5, 6],
                 [0, 0, 0, 3, 4]
             ]
+        },
+        {
+            // Three disjoint strands, so a 3-component unlink, but each word is
+            // knotted on its own: the ribbon under it ties a knot. "Happy" is
+            // a trefoil, "30th" a figure-eight, "Bunner" a cinquefoil (3, 4
+            // and 5 crossings in the knots themselves).
+            name: 'Happy 30th, Bunner',
+            gridSize: 70,
+            strandColor: '#fbbf24',
+            grid: mosaicFromArt([
+                '                                        ╭──────────╮',
+                '                                        │          │',
+                '╭╮     ╭╮                               │╭───╮ ╭───╂─╮      ╭╮',
+                '││     ││                               ││   │ │   │ │ ╭─╮  ││',
+                '││     ││                               ╰╯   │ │   │ ╰─┿─╯  ││',
+                '╰╂─────┿╯                                 ╭──╯ │   │   │    ││',
+                ' │     │  ╭──╮  ╭──╮  ╭──╮  ╭╮  ╭╮        ╰──╮ │   │   │    ╰╂──╮',
+                ' │     │  │  │  │  │  │  │  ││  ││           │ │   │   │     │  │',
+                ' │     │  │  │  │  │  │  │  ││  ││           │ │   │   │     │  │',
+                ' │     │  ╰──╂╮ │  │  │  │  ││  ││           │ │   │   │     │  │',
+                ' │     ╰─────╯╰─┿──╯╭─┿──╯╭─╯╰──╯│     ╭─────╯ ╰───╯   ╰─────╯  ╰╮',
+                ' │              │   │ │   │      │     │                         │',
+                ' ╰───────╮  ╭───╂───┿─╂───┿───╮  │     ╰───────────╮ ╭───────────╯',
+                '        ╭┿╮ │   │   │ │   │   │  │                ╭┿╮│',
+                '        │╰┿╮│   ╰───╯ ╰───╯   ╰──╯                │╰┿╂╮',
+                '        │ ╰┿╯                                     ╰─╂╯│',
+                '        ╰──╯                                        ╰─╯',
+                '',
+                '',
+                '             ╭───╮',
+                '             │   │',
+                '             │   │',
+                '             │ ╭─╯',
+                '             │ ╰─╮  ╭╮  ╭╮ ╭──╮ ╭──╮  ╭──╮  ╭─────╮',
+                '             │   │  ││  ││ │  │ │  │  │  │  │     │',
+                '             │   │  ││  ││ │  │ │  │ ╭┿──╯  │     │',
+                '             │   │  ││  ││ │  │ │  │ ││     │     │',
+                '           ╭─┿───╯╭─╯╰──╯╰─╯  ╰─╯  ╰─╯╰─────╯     │',
+                '           │ │    │                               │',
+                '           │ ╰────╯                               │',
+                '           │                                      │',
+                '           ╰──────────────╮    ╭──────────────────╯',
+                '                         ╭┿╮   │',
+                '                         │╰┿╮  │',
+                '                         │ ╰┿╮ │',
+                '                         │  ╰┿╮│',
+                '                         │   ╰┿╯',
+                '                         ╰────╯'
+            ], 70)
         },
         // ── Virtual knots (tile 11 = virtual crossing ⊗) ──
         {
