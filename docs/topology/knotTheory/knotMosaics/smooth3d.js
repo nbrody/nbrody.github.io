@@ -188,6 +188,15 @@ function mosaicToPolygons(grid, topology, transform) {
 // Tube-barrier strength (scaled by 1/h² for the 'pair' models).
 const K_TUBE = 8.0;
 
+// A little bending stiffness under the 'pair' energies: μ·L·∫κ² ds, which is
+// dimensionless like them. On its own the discrete O'Hara flow at pinned
+// length slowly pulls a knot tight, shrinking the knotted part to a small
+// blob on a big round loop (its energy barely changes on the way, so it
+// creeps for minutes). The blob's curvature makes that costly, while an
+// open knot barely feels it: the trefoil settles in a couple of seconds as
+// the symmetric three-lobed curve and stays.
+const BEND_MU = 0.02;
+
 const ENERGY_MODELS = {
     mobius: {
         label: 'Möbius (O’Hara)',
@@ -406,6 +415,19 @@ class KnotChain {
             const stretch = len[k] - h;
             G[k] = kS * stretch;
             energy += 0.5 * kS * stretch * stretch;
+        }
+
+        // Bending stiffness (BEND_MU): Σ|p_{i−1} − 2p_i + p_{i+1}|²/h³ ≈ ∫κ² ds.
+        const kB = this.rampFactor * BEND_MU * (this.pinnedLength || L) / (h * h * h);
+        for (let i = 0; i < N; i++) {
+            const im = 3 * ((i - 1 + N) % N), ip = 3 * ((i + 1) % N), ic = 3 * i;
+            const lx = X[im] - 2 * X[ic] + X[ip];
+            const ly = X[im + 1] - 2 * X[ic + 1] + X[ip + 1];
+            const lz = X[im + 2] - 2 * X[ic + 2] + X[ip + 2];
+            energy += 0.5 * kB * (lx * lx + ly * ly + lz * lz);
+            FX[im] -= kB * lx; FX[im + 1] -= kB * ly; FX[im + 2] -= kB * lz;
+            FX[ip] -= kB * lx; FX[ip + 1] -= kB * ly; FX[ip + 2] -= kB * lz;
+            FX[ic] += 2 * kB * lx; FX[ic + 1] += 2 * kB * ly; FX[ic + 2] += 2 * kB * lz;
         }
 
         // The barrier skips pairs less than π·tubeR apart along the curve: a
@@ -1092,7 +1114,7 @@ let tubeMesh, tubeMaterial;
 let chains = [];                // multi-component support
 let animId = null;
 let running = false;
-let stepsPerFrame = 4;
+let stepsPerFrame = 25;
 let energyKey = 'mobius';
 let tubeRadius = 0.18;
 const MOSAIC_SCALE = 4.0;       // world units per tile of a disk mosaic
@@ -1449,15 +1471,20 @@ function buildChainsFromGrid(grid) {
     return buildChainsFromPolylines(polygons);
 }
 
+// Vertices per tile-walker point. 4 gave 488 vertices on the trefoil and a
+// flow that took minutes to settle; 2 settles about 8× faster, same shape.
+const SAMPLE_DENSITY = 2;
+
 function buildChainsFromPolylines(polygons) {
     if (!polygons || polygons.length === 0) {
         return { error: 'No closed loops found' };
     }
     // A step costs (Σ N)² — each component's own pairs plus the cross pairs
-    // between components — so big mosaics are resampled less densely: 4× the
-    // tile-walker points while (Σ N)² stays within the budget, else thinned
-    // evenly, but never below ~3 points per tile piece.
-    let targets = polygons.map(loop => Math.max(160, loop.length * 4));
+    // between components — and the flow's stiffness grows with N too, so the
+    // time to settle goes roughly as N³. Loops get SAMPLE_DENSITY× the
+    // tile-walker points (plenty: the tubes are drawn as splines), thinned
+    // evenly when (Σ N)² passes the budget, but never below ~3 per tile piece.
+    let targets = polygons.map(loop => Math.max(160, loop.length * SAMPLE_DENSITY));
     const sumN = targets.reduce((s, t) => s + t, 0);
     const cost = sumN * sumN;
     if (cost > PAIR_BUDGET) {
