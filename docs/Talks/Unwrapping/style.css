@@ -1,0 +1,151 @@
+/* ================================================================
+   Unwrapping an indiscrete group
+   reveal.js theme (the MathFest 2026 / SO₂(ℚ) design system) and the
+   two live stages: poincare and 2dimFields, in iframes behind the slides
+   ================================================================ */
+
+@import url('vendor/fonts/deck.css');
+
+:root {
+    --bg-deep:    #060a14;
+    --bg-surface: #0d1321;
+    --bg-card:    rgba(13, 19, 33, 0.86);
+    --text-primary:   #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted:     #64748b;
+    --accent:       #7c8aff;
+    --accent-warm:  #f59e0b;
+    --accent-rose:  #f472b6;
+    --accent-teal:  #2dd4bf;
+    --gold:         #fbbf24;
+    --border:       rgba(124, 138, 255, 0.15);
+    --glow:         rgba(124, 138, 255, 0.35);
+    --radius-sm:    8px;
+    --radius-md:    16px;
+    --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-display: 'Playfair Display', Georgia, serif;
+}
+
+/* ── Reveal theme ───────────────────────────────────── */
+.reveal-viewport {
+    background: radial-gradient(ellipse at 30% 20%, #0a1128 0%, var(--bg-deep) 60%);
+}
+.reveal {
+    font-family: var(--font-body);
+    font-size: 36px;
+    color: var(--text-primary);
+    z-index: 1;
+}
+.reveal h1, .reveal h2, .reveal h3 {
+    font-family: var(--font-display);
+    color: #ffffff;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+}
+.reveal h2 { font-size: 1.4em; margin-bottom: 0.45em; }
+.reveal p, .reveal li { color: var(--text-secondary); line-height: 1.5; }
+.reveal strong { color: var(--text-primary); }
+.reveal em { color: var(--accent); font-style: italic; }
+.reveal .progress, .reveal .controls { color: var(--accent); }
+
+.series-label {
+    font-size: 0.5em;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    margin-bottom: 0.2em;
+}
+.reveal .deck-title {
+    font-size: 2.7em;
+    line-height: 1.1;
+    margin: 0.15em 0 0.25em;
+    text-shadow: 0 0 60px rgba(124, 138, 255, 0.45);
+}
+.deck-subtitle {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.05em;
+    color: var(--text-secondary) !important;
+}
+.deck-byline { font-size: 0.55em; color: var(--text-muted) !important; margin-top: 2em; letter-spacing: 0.04em; }
+
+.lead { font-size: 0.72em; }
+.reveal p.lead { margin: 0.4em auto; max-width: 25em; }
+.subtle { color: var(--text-muted) !important; }
+
+.math-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.15em 0.9em;
+    margin: 0.4em auto;
+    box-shadow: 0 0 40px rgba(124, 138, 255, 0.07);
+    color: var(--text-primary);
+}
+.math-card.small { font-size: 0.78em; }
+.math-card.result { border-color: rgba(124, 138, 255, 0.5); box-shadow: 0 0 40px rgba(124, 138, 255, 0.18); }
+.reveal .math-card mjx-container[display="true"] { margin: 0.35em 0; }
+.math-card .key { font-size: 0.6em; color: var(--text-secondary); margin: -0.2em 0 0.45em; line-height: 1.5; }
+
+.q-box {
+    margin: 0.55em auto 0;
+    max-width: 25em;
+    font-size: 0.66em;
+    padding: 0.5em 1em;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(244, 114, 182, 0.4);
+    background: rgba(244, 114, 182, 0.06);
+    color: var(--text-secondary);
+    text-align: left;
+}
+.q-box strong { color: var(--accent-rose); }
+
+.steps { font-size: 0.66em; text-align: left; max-width: 26em; margin: 0.3em auto; }
+.reveal .steps p { margin: 0 0 0.55em; }
+.tag { color: var(--accent-teal); font-weight: 600; }
+
+/* ── Stage slides: the slide is a 960×700 frame of captions over a live app ── */
+.stage-frame { position: relative; width: 100%; height: 700px; text-align: left; }
+.stage-title {
+    position: absolute; top: 0; left: 0;
+    margin: 0 !important;
+    font-size: 1.05em !important;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9);
+}
+.caption-stack {
+    position: absolute; left: 0; bottom: 0;
+    width: 430px;
+    display: grid;
+}
+.caption-stack > .caption { grid-area: 1 / 1; align-self: end; }
+.caption {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.55em 0.85em;
+    font-size: 0.5em;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+.reveal .caption p { margin: 0 0 0.45em; }
+.reveal .caption p:last-child { margin-bottom: 0; }
+.caption .live { display: block; margin-top: 0.4em; font-size: 0.86em; color: var(--accent-teal); min-height: 1.4em; }
+.caption .live.bad { color: var(--accent-rose); }
+
+/* The live apps sit behind the slides. While one shows, the slide lets the pointer
+   through to it (except the captions), so it can be orbited and zoomed. */
+.stage {
+    position: fixed; inset: 0;
+    z-index: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.6s ease, visibility 0s linear 0.6s;
+}
+.stage.on { opacity: 1; visibility: visible; transition: opacity 0.6s ease; }
+.stage iframe { width: 100%; height: 100%; border: 0; display: block; background: transparent; }
+body.stage-live .reveal .slides, body.stage-live .reveal .slides section { pointer-events: none; }
+body.stage-live .reveal .caption, body.stage-live .reveal .controls, body.stage-live .reveal .progress { pointer-events: auto; }
