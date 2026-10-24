@@ -129,6 +129,17 @@ test('certificates at ∞: Galois conjugates', () => {
     assert.ok(Math.abs(sh.value - 0.25) < 1e-12);
 });
 
+test('a nearly real loxodromic or lattice is not a proof of non-discreteness', () => {
+    const lox = archCertificate(read({ mats: [['0', '-1', '1', '\\sqrt{2}+\\frac{i}{10^{12}}']] }));
+    assert.equal(lox.nondiscrete, false);
+    const lat = archCertificate(read({ mats: [['1', '1', '0', '1'], ['1', 'e^{2\\pi i/13}+e^{-2\\pi i/13}+\\frac{i}{10^{12}}', '0', '1']] }));
+    assert.equal(lat.nondiscrete, false);
+    // The same shape with the imaginary part removed is a real irrational ratio.
+    const real = archCertificate(read({ mats: [['1', '1', '0', '1'], ['1', '2^{1/8}', '0', '1']] }));
+    assert.equal(real.nondiscrete, true);
+    assert.equal(real.kind, 'cusp');
+});
+
 test('finite places: bounded everywhere for PSL₂(ℤ), and infinite', () => {
     const r = finite(curated('Modular group'));
     assert.equal(r.places.length, 0);
