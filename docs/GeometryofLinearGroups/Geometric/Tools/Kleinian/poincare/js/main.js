@@ -32,10 +32,11 @@ import {
     markOrbitDirty, recolorOrbit, refreshLayers, orbitRun, geodesicPoints, bisectorMesh
 } from './overlays.js';
 import { showIsometryAxis } from './isoAxis.js';
+import { setUnwrapHooks } from './unwrap.js';
 import {
     inspect, pickWall, rayFromEvent, pickVertex, selectVertex, handleFaceClick, clearFaceSelection,
     updateEdgeCycles, rebuildFaceLabels, updateFaceLabels, refreshInspectOverlays, fordPairingAt,
-    invalidateSkeleton, worldToBall, CYCLE_HUES
+    invalidateSkeleton, worldToBall, redrawSelection, CYCLE_HUES
 } from './inspector.js';
 import {
     setBanner, bannerForReport, renderCertificate, renderPresentation, renderStabilizer,
@@ -75,7 +76,7 @@ function makeTessMaterial(fragmentShader) {
 }
 const honeycombMaterial = makeTessMaterial(honeycombFragmentShader);
 const manifoldMaterial = makeTessMaterial(manifoldFragmentShader);
-const render = { honeycomb: false, manifold: false };
+const render = { honeycomb: false, manifold: false, tieDye: false, unwrapped: false };
 
 // Every frame is smoothed by FXAA (postfx.js), which is nearly free. "Smooth"
 // quality also renders 1.5× the pixels per side (about 2.25× the cost), and
@@ -106,7 +107,8 @@ const planar = { on: false, available: false, groupKey: null, keep3d: false };
 /** The raymarched domain and the plane share the polyhedron opacity. */
 function syncDomainVisibility() {
     const o = material.uniforms.u_opacity.value;
-    mesh.visible = !planar.on && o > 0;
+    // While unwrapped (unwrap.js) the domain is drawn among its neighbours as a mesh.
+    mesh.visible = !planar.on && o > 0 && !render.unwrapped;
     planarView.setVisible(planar.on && o > 0);
     planarView.setOpacity(o);
 }
@@ -179,13 +181,26 @@ function syncMaterial() {
 
 function setMirrorMode(on) {
     if (on && planar.on) setPlanar(false);
+    if (on && render.tieDye) setTieDye(false);
     mirrorMode = on;
     updateToggleBtn(document.getElementById('toggle-mirror'), on);
     syncMaterial();
 }
 
+/** Tie-Dye is a uniform of the domain shader; Mirror and Honeycomb replace
+    that shader, so they exclude it. */
+function setTieDye(on) {
+    if (on && planar.on) setPlanar(false);
+    if (on && mirrorMode) setMirrorMode(false);
+    if (on && render.honeycomb) setHoneycomb(false);
+    render.tieDye = on;
+    material.uniforms.u_tieDye.value = on;
+    updateToggleBtn(document.getElementById('toggle-tiedye'), on);
+}
+
 function setHoneycomb(on) {
     if (on && planar.on) setPlanar(false);
+    if (on && render.tieDye) setTieDye(false);
     render.honeycomb = on;
     updateToggleBtn(document.getElementById('toggle-honeycomb'), on);
     document.getElementById('honeycomb-walls-row')?.classList.toggle('disabled', !on);
@@ -220,6 +235,8 @@ function onSceneMoved({ fast = false } = {}) {
     if (!fast) {
         refreshInspectOverlays();
         updateHoroballs();
+    } else {
+        redrawSelection();
     }
     markOrbitDirty();
 }
@@ -587,6 +604,11 @@ function setTheme(mode) {
     onSceneMoved();
     document.getElementById('theme-dark')?.classList.toggle('active', mode === 'dark');
     document.getElementById('theme-light')?.classList.toggle('active', mode === 'light');
+    const themeBtn = document.getElementById('theme-btn');
+    if (themeBtn) {
+        themeBtn.title = mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+        themeBtn.setAttribute('aria-label', themeBtn.title);
+    }
 }
 
 // ---------------- the plane picture ----------------
@@ -810,6 +832,10 @@ window.addEventListener('poincare:geodesic', (e) => {
 });
 
 function initUI() {
+    setUnwrapHooks({
+        onSceneMoved,
+        setDomainHidden(on) { render.unwrapped = on; syncDomainVisibility(); },
+    });
     panelUI = setupControlPanel({
         onPolyhedronOpacity: (o) => { material.uniforms.u_opacity.value = o; syncDomainVisibility(); },
         onWallsOpacity: (o) => setWallsOpacity(o),
@@ -835,6 +861,7 @@ function initUI() {
 
     bindToggle('toggle-planar', () => setPlanar(!planar.on));
     bindToggle('toggle-mirror', () => setMirrorMode(!mirrorMode));
+    bindToggle('toggle-tiedye', () => setTieDye(!render.tieDye));
     bindToggle('toggle-honeycomb', () => setHoneycomb(!render.honeycomb));
     bindToggle('toggle-manifold', () => setManifold(!render.manifold));
     bindToggle('view-uhs', () => setViewModel(view.model === 'uhs' ? 'ball' : 'uhs'));
@@ -910,6 +937,7 @@ function initUI() {
     }
 
     document.querySelectorAll('.theme-opt').forEach(btn => btn.addEventListener('click', () => setTheme(btn.dataset.theme)));
+    document.getElementById('theme-btn')?.addEventListener('click', () => setTheme(view.theme === 'light' ? 'dark' : 'light'));
 
     // Stored elements
     const wordInput = document.getElementById('word-input');
@@ -1000,7 +1028,7 @@ function initUI() {
             if (v) { selectVertex(v, () => { if (layers.showTiling) updateTiling(); }); return; }
         }
         const hit = pickAt(e);
-        if (hit.index < 0) { clearFaceSelection(); if (layers.showTiling) updateTiling(); return; }
+        if (hit.index < 0) { clearFaceSelection({ animate: true }); if (layers.showTiling) updateTiling(); return; }
         handleFaceClick(hit.index, e.shiftKey, () => { if (layers.showTiling) updateTiling(); });
     });
     renderer.domElement.addEventListener('dblclick', (e) => {
@@ -1108,6 +1136,7 @@ window.PoincareAPI = {
         updateDual();
     },
     setMirror(on) { if (on !== mirrorMode) setMirrorMode(on); },
+    setTieDye(on) { if (on !== render.tieDye) setTieDye(on); },
     setTheme,
     getTheme: () => view.theme,
     setOrbit(on) {

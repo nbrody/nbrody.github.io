@@ -22,6 +22,7 @@ import {
 } from './presentation.js';
 import { lengthSpectrum, invariantTraceField, horoballPacking, domainVolume } from './invariants.js';
 import { findNondiscreteness } from './nondiscrete.js';
+import { classicalDiscreteness } from './classical.js';
 
 // ---------------- plain-data conversions ----------------
 
@@ -77,7 +78,8 @@ function serializeReport(rep) {
             } : null
         })),
         structure: rep.structure || null,
-        nondiscrete: rep.nondiscrete || null
+        nondiscrete: rep.nondiscrete || null,
+        classical: rep.classical || null
     };
 }
 
@@ -121,6 +123,25 @@ function attachNondiscreteness(rep, gens, exactData, D) {
     ];
     rep.log = rep.entries.map(e => e.text);
     if (nd.exact) rep.status = 'nondiscrete';
+}
+
+/**
+ * Poincaré's conditions are not all resolved (typically a cusp where two
+ * walls only touch, as for Γ(2)) and nothing proves the group non-discrete:
+ * a classical criterion may still prove it discrete (classical.js). The
+ * status stays as the certifier left it; the proof goes first in the log.
+ */
+function attachClassical(rep, exactCtx) {
+    let cl = null;
+    try { cl = classicalDiscreteness(exactCtx); } catch (e) { return; }
+    if (!cl) return;
+    rep.classical = { kind: cl.kind, headline: cl.headline, lines: cl.lines };
+    rep.entries = [
+        { kind: 'head', text: '— Discrete: a classical certificate —' },
+        ...cl.lines.map(text => ({ kind: 'ok', text })),
+        ...(rep.entries || [])
+    ];
+    rep.log = rep.entries.map(e => e.text);
 }
 
 // ---------------- invariants ----------------
@@ -292,6 +313,7 @@ export function runCompute(input) {
         }
         // input.skipNondiscrete: the caller knows the group is discrete (PresentationCalc's vertex stabilizers)
         if (rep.status !== 'verified' && !input.skipNondiscrete) attachNondiscreteness(rep, gens, input.exact, D);
+        if (rep.status !== 'verified' && !(rep.nondiscrete && rep.nondiscrete.exact)) attachClassical(rep, exactCtx);
     }
     const t2 = Date.now();
     const inv = rep.status === 'full' ? { finiteVolume: false } : computeInvariants(D, rep, gens.length, exactCtx);

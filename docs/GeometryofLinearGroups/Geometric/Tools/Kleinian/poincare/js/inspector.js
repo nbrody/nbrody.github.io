@@ -9,14 +9,17 @@ import {
     Matrix2x2, wallSD, projectToWall, applyMatrixToBall, invertWord, reduceWord,
     wallOutwardNormal, ballToMinkowski
 } from './math.js';
-import { edgeSamples, kleinToBall, ballToKlein } from './polyhedron.js';
+import { edgeSamples, kleinToBall } from './polyhedron.js';
 import { geodesicInDomain } from './invariants.js';
 import { app, sceneMatrix, fordSceneMatrix, sceneAction, wordToMatrix } from './app.js';
 import { displayedDomain, displayedHome, faceColors, faceClasses } from './domain.js';
 import { camera, renderer, view, toWorld, geomToWorld, disposeGroup, layer } from './scene.js';
 import { buildClippedFace, tubeGeometry, state as layerState } from './overlays.js';
-import { wordTex, matrixLatex, typeset, escapeHtml } from './format.js';
+import { wordTex, matrixLatex, typeset, escapeHtml, angleText, piText } from './format.js';
 import { planarEdgeMidpoints } from './planar.js';
+import { edgeClass, vertexClass, vertexStabilizer, edgeFlowSamples, fordPairingHome, faceCentreHome } from './gluing.js';
+import { glowEdge, glowBead, highlightStyle } from './highlight.js';
+import { startUnwrap, stopUnwrap, unwrapActive, unwrapInfo, refreshUnwrap } from './unwrap.js';
 
 const highlightGroup = layer(true);
 const cycleGroup = layer(false);
@@ -118,8 +121,8 @@ export function getSkeleton() {
         id: e.id, i: e.i, j: e.j, angle: e.angle,
         samples: edgeSamples(e, 40).map(p => applyMatrixToBall(S, p))
     }));
-    const vertices = poly.vertices.map(v => ({
-        p: applyMatrixToBall(S, kleinToBall(v.k.clone().multiplyScalar(v.ideal ? 0.999999 : 1))),
+    const vertices = poly.vertices.map((v, idx) => ({
+        idx, p: applyMatrixToBall(S, kleinToBall(v.k.clone().multiplyScalar(v.ideal ? 0.999999 : 1))),
         ideal: v.ideal, walls: v.walls
     }));
     skeleton = { key, home: H, edges, vertices };
@@ -128,8 +131,30 @@ export function getSkeleton() {
 
 // ---------------- highlights ----------------
 
-export function clearHighlights() {
+// Redraws the current selection's highlight; kept so that it follows the
+// domain when the view isometry moves.
+let drawSelection = null;
+
+/** Drop the selection's highlight (and end an unwrap, animated back unless `animate` is false). */
+export function clearHighlights({ animate = true } = {}) {
+    drawSelection = null;
     disposeGroup(highlightGroup);
+    stopUnwrap({ animate });
+}
+
+/** Show a selection: `draw` puts its highlight in the scene frame of the moment. */
+function setSelection(draw) {
+    clearHighlights();
+    drawSelection = draw;
+    draw();
+}
+
+/** Redraw the selection's highlight where the domain now is (also on each frame of a move). */
+export function redrawSelection() {
+    const draw = drawSelection;
+    if (!draw) return;
+    disposeGroup(highlightGroup);
+    draw();
 }
 
 export function highlightFace(idx, color, group = highlightGroup) {
@@ -157,15 +182,47 @@ export function highlightFace(idx, color, group = highlightGroup) {
     group.add(m);
 }
 
-export function highlightEdgePath(samples, color, group = highlightGroup, radius = 0.016) {
-    const g = tubeGeometry([samples], { radius, sides: 6, taper: false });
-    if (!g) return;
-    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
-        color, emissive: color, emissiveIntensity: 0.6, roughness: 0.3, metalness: 0.2,
-        transparent: true, depthTest: false, depthWrite: false
-    }));
-    mesh.renderOrder = 6;
-    group.add(mesh);
+export function highlightEdgePath(samples, group = highlightGroup) {
+    glowEdge(group, samples, null, highlightStyle('cert'), [false, false]);
+}
+
+/**
+ * An edge and the edges glued to it (its class under the face pairings, see
+ * gluing.js): the edge bright, the others fainter, with pulses running along
+ * all of them the way the gluing carries the edge. Returns the class.
+ */
+function highlightEdgeClass(id) {
+    const H = displayedHome();
+    const cls = edgeClass(H, id, { ford: !!(app.fordOn && app.fordHome) });
+    const poly = H.poly;
+    const draw = () => {
+        const S = displayedScene();
+        for (const c of cls) {
+            if (c.id !== id && unwrapActive()) continue;      // the cells show the gluing then
+            const e = poly.edges[c.id];
+            const { pts, s } = edgeFlowSamples(e, c.ref, c.dir);
+            glowEdge(highlightGroup, pts.map(p => applyMatrixToBall(S, p)), s,
+                highlightStyle(c.id === id ? 'edge' : 'edgeGlued'),
+                [!poly.vertices[e.a].ideal, !poly.vertices[e.b].ideal]);
+        }
+    };
+    return { cls, draw };
+}
+
+/** A vertex and the vertices glued to it. Returns the class. */
+function highlightVertexClass(idx) {
+    const H = displayedHome();
+    const cls = vertexClass(H, idx, { ford: !!(app.fordOn && app.fordHome) });
+    const draw = () => {
+        const S = displayedScene();
+        for (const u of cls) {
+            if (u !== idx && unwrapActive()) continue;
+            const v = H.poly.vertices[u];
+            glowBead(highlightGroup, applyMatrixToBall(S, kleinToBall(v.k.clone().multiplyScalar(v.ideal ? 0.999999 : 1))),
+                highlightStyle(u === idx ? 'vertex' : 'vertexGlued'));
+        }
+    };
+    return { cls, draw };
 }
 
 export function highlightPoint(p, color, group = highlightGroup, r = 0.03) {
@@ -196,11 +253,15 @@ export function hideFaceInfo() {
     if (info) info.style.display = 'none';
 }
 
-export function clearFaceSelection() {
+/**
+ * Deselect. An unwrap on show ends with it — animated back when the user
+ * clicked away, at once (the default) when the group or the view changes.
+ */
+export function clearFaceSelection({ animate = false } = {}) {
     inspect.selectedFace = -1;
     layerState.focusKind = 'none';
     layerState.focusPoint = null;
-    clearHighlights();
+    clearHighlights({ animate });
     hideFaceInfo();
 }
 
@@ -231,15 +292,74 @@ function cycleOfEdge(id) {
 
 export function selectVertex(v, onFocus) {
     layerState.focusKind = 'vertex';
-    layerState.focusPoint = v.p.clone();
     inspect.selectedFace = -1;
-    clearHighlights();
-    highlightPoint(v.p, 0xfbbf24);
+    const H = displayedHome();
+    const { cls, draw } = highlightVertexClass(v.idx);
+    setSelection(() => {
+        layerState.focusPoint = applyMatrixToBall(displayedScene(), kleinToBall(H.poly.vertices[v.idx].k));
+        draw();
+    });
+    // The links are spherical polygons; their areas add up to 4π/|Stab|.
+    const st = vertexStabilizer(H, cls);
+    const verified = !app.fordOn && app.report && app.report.status === 'verified';
+    const sum = st.order ? piText(4 / st.order) : null;
+    const angles = sum ? `the solid angles add up to ${sum}` +
+        (st.order > 1 && verified ? ` — its stabilizer has order ${st.order}` : '') : '';
+    const cycLine = cls.length > 1 || angles
+        ? `<div class="fi-sub">${cls.length > 1 ? `vertex cycle of ${cls.length} vertices` : 'glued to no other vertex'}${angles ? `; ${angles}` : ''}</div>` : '';
+    const hint = [cls.length > 1 ? 'fainter: the vertices glued to it' : '',
+        layerState.showTiling ? 'showing the cells around this vertex' : ''].filter(Boolean).join(' · ');
     showFaceInfo(
-        `<div class="fi-row"><span class="fi-key">Vertex</span><span>${v.walls.length} faces meet here</span></div>` +
-        `<div class="fi-hint">${layerState.showTiling ? 'showing the cells around this vertex' : 'enable Tiling to see the cells around it'}</div>`);
+        `<div class="fi-row"><span class="fi-key">Vertex</span><span>${v.walls.length} faces meet here</span></div>` + cycLine +
+        unwrapControls('vertex', v.idx) + (hint ? `<div class="fi-hint">${hint}</div>` : ''));
     if (onFocus) onFocus();
 }
+
+// ---------------- unwrap (see unwrap.js) ----------------
+
+/** The "Unwrap along …" button, with its note, for the info box of an edge or a vertex. */
+function unwrapControls(kind, index) {
+    if (inspect.planar) return '';
+    const on = isUnwrapped(kind, index);
+    return `<div class="fi-actions"><button type="button" class="fi-btn${on ? ' on' : ''}" data-unwrap="${kind}" data-index="${index}">` +
+        `${on ? 'Wrap back up' : `Unwrap along ${kind}`}</button><span class="fi-note" data-unwrap-note>${on ? unwrapNote() : ''}</span></div>`;
+}
+
+function isUnwrapped(kind, index) {
+    const u = unwrapInfo();
+    return !!u && u.kind === kind && u.index === index;
+}
+
+function unwrapNote() {
+    const u = unwrapInfo();
+    if (!u || !u.built) return '';
+    if (u.kind === 'vertex') return u.closed ? `${u.count} cells meet here` : `more than ${u.count} cells meet here`;
+    if (u.closed) return `${u.count} cells around this edge`;
+    return u.ford ? 'a chimney wall cuts a face of the tessellation here' : 'the cells do not close up around it';
+}
+
+function syncUnwrapControls() {
+    const box = document.getElementById('face-info');
+    const btn = box && box.querySelector('[data-unwrap]');
+    if (!btn) return;
+    const on = isUnwrapped(btn.dataset.unwrap, +btn.dataset.index);
+    btn.textContent = on ? 'Wrap back up' : `Unwrap along ${btn.dataset.unwrap}`;
+    btn.classList.toggle('on', on);
+    const note = box.querySelector('[data-unwrap-note]');
+    if (note) note.textContent = on ? unwrapNote() : '';
+}
+
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest && e.target.closest('#face-info [data-unwrap]');
+    if (!btn || app.animating) return;
+    if (unwrapActive()) {
+        stopUnwrap({ animate: true });
+        redrawSelection();
+    } else {
+        startUnwrap(btn.dataset.unwrap, +btn.dataset.index, () => { redrawSelection(); syncUnwrapControls(); });
+    }
+    syncUnwrapControls();
+});
 
 export function faceLabelText(i) {
     const P = app.report && app.report.presentation;
@@ -263,28 +383,46 @@ export function handleFaceClick(idx, shift, onFocus) {
         const sk = getSkeleton();
         const matching = sk.edges.filter(e => e.i === a && e.j === b);
         const wA = `\\(${wordTex(ref.word, 16)}\\)`, wB = `\\(${wordTex(wall.word, 16)}\\)`;
-        clearHighlights();
         if (matching.length) {
-            for (const e of matching) highlightEdgePath(e.samples, 0xfde047);
+            const id = matching[0].id;
+            const { cls, draw } = highlightEdgeClass(id);
             layerState.focusKind = 'edge';
-            layerState.focusPoint = matching[0].samples[Math.floor(matching[0].samples.length / 2)].clone();
-            const ang = matching[0].angle * 180 / Math.PI;
-            const cyc = cycleOfEdge(matching[0].id);
-            const cycLine = cyc && cyc.m ? `<div class="fi-sub">edge cycle of ${cyc.pairs.length} edge${cyc.pairs.length > 1 ? 's' : ''}; ` +
-                `angles sum to 2π/${cyc.m}${cyc.m > 1 ? ` — an order-${cyc.m} rotation axis` : ''}</div>` : '';
+            setSelection(() => {
+                const e = H.poly.edges[id];
+                layerState.focusPoint = applyMatrixToBall(displayedScene(), kleinToBall(e.p0.clone().addScaledVector(e.d, 0.5 * (e.lo + e.hi))));
+                draw();
+            });
+            const ang = angleText(matching[0].angle);
+            const cyc = cycleOfEdge(id);
+            const flips = cls.some(c => c.dir === 0);
+            let cycLine = '';
+            if (cyc && cyc.m) {
+                const n = cyc.edges.length;
+                cycLine = `edge cycle of ${n} edge${n > 1 ? 's' : ''}${flips ? ', each met twice (the cycle flips it)' : ''}; ` +
+                    `the angles add up to ${piText(2 / cyc.m)}${cyc.m > 1 ? ` — an order-${cyc.m} rotation axis` : ''}`;
+            } else if (cls.length > 1) {
+                cycLine = `glued to ${cls.length - 1} other edge${cls.length > 2 ? 's' : ''}`;
+            }
+            const hint = [cls.length > 1 ? 'fainter: the edges glued to it' : '',
+                cls.length > 1 || flips ? 'pulses follow the gluing' : '',
+                layerState.showTiling ? 'showing the cells around this edge' : ''].filter(Boolean).join(' · ');
             showFaceInfo(
                 `<div class="fi-row"><span class="fi-key">Edge</span><span>${wA} ∩ ${wB}</span></div>` +
-                `<div class="fi-angle">∠ = ${ang.toFixed(2)}°<span class="fi-sub"> = ${(ang / 180).toFixed(4)}π</span></div>` + cycLine +
-                (layerState.showTiling ? '<div class="fi-hint">showing the cells around this edge</div>' : ''));
+                `<div class="fi-angle">∠ = ${ang.main}<span class="fi-sub"> ${ang.exact ? '= ' : ''}${ang.sub}</span></div>` +
+                (cycLine ? `<div class="fi-sub">${cycLine}</div>` : '') +
+                unwrapControls('edge', id) + (hint ? `<div class="fi-hint">${hint}</div>` : ''));
         } else {
             layerState.focusKind = 'none'; layerState.focusPoint = null;
-            highlightFace(inspect.selectedFace, 0x38bdf8);
-            highlightFace(idx, 0xfbbf24);
+            const first = inspect.selectedFace;
+            setSelection(() => {
+                highlightFace(first, 0x38bdf8);
+                highlightFace(idx, 0xfbbf24);
+            });
             const c1 = ref.cov, c2 = wall.cov;
             const ip = c1.x * c2.x + c1.y * c2.y + c1.z * c2.z - c1.w * c2.w;
             const body = Math.abs(ip) > 1 + 1e-9
                 ? `<div class="fi-angle">ultraparallel — distance ${Math.acosh(Math.abs(ip)).toFixed(4)}</div>`
-                : `<div class="fi-angle">∠ = ${(Math.acos(Math.max(-1, Math.min(1, -ip))) * 180 / Math.PI).toFixed(2)}°<span class="fi-sub"> (planes, not adjacent)</span></div>`;
+                : `<div class="fi-angle">∠ = ${angleText(Math.acos(Math.max(-1, Math.min(1, -ip)))).main}<span class="fi-sub"> (planes, not adjacent)</span></div>`;
             showFaceInfo(`<div class="fi-row"><span class="fi-key">Faces</span><span>${wA} &amp; ${wB}</span></div>${body}`);
         }
         if (onFocus) onFocus();
@@ -292,9 +430,10 @@ export function handleFaceClick(idx, shift, onFocus) {
     }
     layerState.focusKind = 'none'; layerState.focusPoint = null;
     inspect.selectedFace = idx;
-    clearHighlights();
-    highlightFace(idx, 0x38bdf8);
-    if (wall.pairing && wall.pairing.partner >= 0 && wall.pairing.partner !== idx) highlightFace(wall.pairing.partner, 0xf472b6);
+    setSelection(() => {
+        highlightFace(idx, 0x38bdf8);
+        if (wall.pairing && wall.pairing.partner >= 0 && wall.pairing.partner !== idx) highlightFace(wall.pairing.partner, 0xf472b6);
+    });
     let typeLabel;
     if (app.fordOn) {
         const M = wall.elem.normalized();
@@ -330,27 +469,7 @@ export function fordPairingAt(i, pScene) {
     const K = app.fordFrame, Ki = K.inv().normalized();
     const Sf = fordSceneMatrix();
     const p = applyMatrixToBall(Sf.inv().normalized(), pScene);        // Ford home frame
-    const w = H.walls[i];
-    const vertical = H.walls.map((x, j) => (Math.sqrt(x.elem.normalized().c.normSq()) < 1e-9 ? j : -1)).filter(j => j >= 0);
-    let M = w.elem.inv().normalized();
-    let word = invertWord(w.word);
-    if (!vertical.includes(i)) {
-        let y = applyMatrixToBall(M, p);
-        for (let it = 0; it < 64; it++) {
-            const ky = ballToKlein(y);
-            let worst = 1e-9, k = -1;
-            for (const j of vertical) {
-                const W = H.walls[j].cov;
-                const r = (W.x * ky.x + W.y * ky.y + W.z * ky.z - W.w) / Math.hypot(W.x, W.y, W.z);
-                if (r > worst) { worst = r; k = j; }
-            }
-            if (k < 0) break;
-            const s = H.walls[k].elem.inv().normalized();
-            y = applyMatrixToBall(s, y);
-            M = s.mul(M).normalized();
-            word = [...invertWord(H.walls[k].word), ...word];
-        }
-    }
+    const { matrix: M, word } = fordPairingHome(H, i, p);
     return { matrix: Ki.mul(M).mul(K).normalized(), word: reduceWord(word) };
 }
 
@@ -387,20 +506,7 @@ export function updateEdgeCycles() {
 // ---------------- face labels ----------------
 
 function faceCenterHome(i, H = displayedHome()) {
-    const poly = H.poly;
-    const f = poly.faces[i];
-    const pts = f.vertices.map(v => poly.vertices[v].k.clone());
-    const fa = poly.freeArcs.find(x => x.wall === i);
-    if (fa) for (const [a, b] of fa.arcs) {
-        const t = 0.5 * (a + b);
-        pts.push(fa.center.clone().addScaledVector(fa.u, fa.rho * Math.cos(t)).addScaledVector(fa.v, fa.rho * Math.sin(t)));
-    }
-    if (!pts.length) return null;
-    const g = pts.reduce((acc, p) => acc.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length);
-    const P = poly.planes[i];
-    g.addScaledVector(P.n, (P.c - P.n.dot(g)) / P.n.lengthSq());
-    if (g.lengthSq() >= 1) g.multiplyScalar(0.999 / g.length());
-    return kleinToBall(g);
+    return faceCentreHome(H, i);
 }
 
 function faceCenterScene(i) {
@@ -479,7 +585,7 @@ export function showCertRef(ref) {
     for (const i of ref.walls || []) highlightFace(i, 0x38bdf8, certGroup);
     for (const id of ref.edges || []) {
         const e = sk.edges.find(x => x.id === id);
-        if (e) highlightEdgePath(e.samples, 0xfde047, certGroup, 0.018);
+        if (e) highlightEdgePath(e.samples, certGroup);
     }
     const S = displayedScene();
     for (const p of ref.points || []) {
@@ -531,6 +637,8 @@ export function updateGeodesic() {
 
 export function refreshInspectOverlays() {
     invalidateSkeleton();
+    redrawSelection();
+    refreshUnwrap();
     if (inspect.showCycles) updateEdgeCycles();
     updateGeodesic();
     if (certRef) { const r = certRef; certRef = null; showCertRef(r); }

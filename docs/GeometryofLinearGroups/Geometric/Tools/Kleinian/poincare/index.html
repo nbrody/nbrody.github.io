@@ -42,7 +42,8 @@
                 'insideView', 'limitSet', 'polyhedron', 'presentation', 'invariants',
                 'app', 'domain', 'scene', 'overlays', 'isoAxis', 'inspector', 'panels',
                 'invariantsPanel', 'horoballs', 'tessellation', 'permalink', 'domainService',
-                'compute', 'format', 'tower', 'expr', 'planar', 'nondiscrete', 'postfx'];
+                'compute', 'format', 'tower', 'expr', 'planar', 'welcome', 'nondiscrete', 'classical',
+                'gluing', 'highlight', 'unwrap', 'postfx'];
             for (const m of mods) {
                 im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             }
@@ -79,6 +80,13 @@
             <button class="tab-btn active" data-tab="group">Group</button>
             <button class="tab-btn" data-tab="graphics">View</button>
             <button class="tab-btn" data-tab="info">Info</button>
+            <button id="help-btn" class="collapse-btn" title="Show the tutorial" aria-label="Show the tutorial">
+                <span class="collapse-icon">?</span>
+            </button>
+            <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+                <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+            </button>
             <button id="refresh-btn" class="collapse-btn" title="Recompute the domain" aria-label="Recompute the domain">
                 <span class="collapse-icon">⟳</span>
             </button>
@@ -325,6 +333,8 @@
                             title="How many reductions a point may use before it counts as being in the limit set. More depth resolves finer structure and costs more.">
                     </div>
                     <button id="toggle-mirror" class="toggle-btn">Mirror</button>
+                    <button id="toggle-tiedye" class="toggle-btn"
+                        title="Fold every point of the view back into the domain by reflecting it in the walls, so the domain's mirror images fill the ball like a kaleidoscope. A picture, not the group: the reflections are in the walls, not in the face pairings.">Tie-Dye</button>
                     <button id="toggle-dust" class="toggle-btn"
                         title="Scatter a random dust of points, uniform with respect to hyperbolic volume.">Dust</button>
                     <button id="toggle-orbit" class="toggle-btn"

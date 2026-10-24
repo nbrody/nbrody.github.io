@@ -39,7 +39,7 @@ html.hosted-mode #tab-group > .control-group:has(#matrixInputs),
 html.hosted-mode #constants-group,
 html.hosted-mode #tab-group .control-row:has(#load-example-btn),
 html.hosted-mode #tab-group > .control-group:has(#copy-link),
-html.hosted-mode #wt-help,
+html.hosted-mode #help-btn,
 html.hosted-mode #wt-backdrop { display: none !important; }
 html.hosted-mode .da-hosted-note { margin: 0 0 4px; font-size: 12px; line-height: 1.5; color: var(--ink-dim, #9aa5bd); }
 `;

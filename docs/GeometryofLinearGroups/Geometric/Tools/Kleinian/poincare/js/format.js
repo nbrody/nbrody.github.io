@@ -57,6 +57,27 @@ export function exactReal(x) {
     return null;
 }
 
+/** x·π as text in lowest terms ("π/2", "2π/3", "π", "4π"), or null if x is no small fraction. */
+export function piText(x, maxDen = 24, tol = 1e-6) {
+    if (Math.abs(x) < tol) return '0';
+    const r = asRational(x, maxDen, tol);
+    if (!r) return null;
+    const sign = r.p < 0 ? '−' : '', p = Math.abs(r.p);
+    return `${sign}${p === 1 ? '' : p}π${r.q === 1 ? '' : `/${r.q}`}`;
+}
+
+/**
+ * An angle (radians) for display: { main, sub } — a fraction of π with its
+ * degrees beside it when it is one ("π/2", "90°"), else degrees with the
+ * multiple of π ("96.83°", "≈ 0.538π").
+ */
+export function angleText(theta) {
+    const deg = theta * 180 / Math.PI;
+    const frac = piText(theta / Math.PI);
+    if (frac) return { main: frac, sub: `${+deg.toFixed(4)}°`, exact: true };
+    return { main: `${deg.toFixed(2)}°`, sub: `≈ ${(theta / Math.PI).toFixed(4)}π`, exact: false };
+}
+
 const decReal = (x) => `${+x.toFixed(4)}`;
 
 export function exactComplex(z) {

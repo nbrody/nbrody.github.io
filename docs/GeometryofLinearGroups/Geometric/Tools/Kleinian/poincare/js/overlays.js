@@ -71,13 +71,15 @@ export function geodesicPoints(p1, p2, segments = 16) {
 
 /**
  * A tube swept along a polyline in ball coordinates (rotation-minimising
- * frame), tapered toward the ideal boundary unless `taper` is false. Returns
- * a BufferGeometry already mapped to the current model.
+ * frame), tapered toward the ideal boundary unless `taper` is false. A
+ * `profile(p, i, m)` overrides the radius factor at sample i of m, and
+ * `along` (one array of numbers per polyline) becomes the per-vertex
+ * attribute `a_s`. Returns a BufferGeometry already mapped to the current model.
  */
-export function tubeGeometry(polylines, { radius = 0.011, sides = 7, taper = true, minScale = 0.07 } = {}) {
-    const positions = [], normals = [], indices = [];
+export function tubeGeometry(polylines, { radius = 0.011, sides = 7, taper = true, minScale = 0.07, profile = null, along = null } = {}) {
+    const positions = [], normals = [], indices = [], attr = [];
     const perp = (t) => Math.abs(t.x) > 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-    for (const path of polylines) {
+    for (const [pi, path] of polylines.entries()) {
         const m = path.length;
         if (m < 2) continue;
         const base = positions.length / 3;
@@ -94,12 +96,13 @@ export function tubeGeometry(polylines, { radius = 0.011, sides = 7, taper = tru
             n.normalize();
             prevN = n;
             const b = new THREE.Vector3().crossVectors(tan, n);
-            const r = taper ? radius * Math.max(minScale, 1 - p.length()) : radius;
+            const r = profile ? radius * profile(p, i, m) : taper ? radius * Math.max(minScale, 1 - p.length()) : radius;
             for (let k = 0; k < sides; k++) {
                 const a = (k / sides) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
                 const nx = n.x * ca + b.x * sa, ny = n.y * ca + b.y * sa, nz = n.z * ca + b.z * sa;
                 positions.push(p.x + nx * r, p.y + ny * r, p.z + nz * r);
                 normals.push(nx, ny, nz);
+                if (along) attr.push(along[pi][i]);
             }
         }
         for (let i = 0; i < m - 1; i++) {
@@ -115,6 +118,7 @@ export function tubeGeometry(polylines, { radius = 0.011, sides = 7, taper = tru
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    if (along) g.setAttribute('a_s', new THREE.Float32BufferAttribute(attr, 1));
     g.setIndex(indices);
     return geomToWorld(g);
 }
@@ -316,9 +320,11 @@ const FACE_TOL = 1e-4;
  * Tessellate the convex face carved out of wall `geom` around the interior
  * pole `P`, bounded by the unit ball and the half-spaces `neighborCovs`
  * (covectors oriented domain-side F<0): march outward from P in `dirs`
- * directions to the face boundary, then fan `rings` radial bands.
+ * directions to the face boundary, then fan `rings` radial bands. Rays are
+ * also sent exactly at `corners` (the face's vertices, ball points), so the
+ * fan does not shave them off.
  */
-export function buildClippedFace(geom, P, neighborCovs, out, dirs, rings) {
+export function buildClippedFace(geom, P, neighborCovs, out, dirs, rings, corners = null) {
     if (P.lengthSq() >= 1) return;
     for (const Wq of neighborCovs) if (wallF(P, Wq) > FACE_TOL) return;
     const isSphere = geom.type === 'sphere';
@@ -340,9 +346,20 @@ export function buildClippedFace(geom, P, neighborCovs, out, dirs, rings) {
         return true;
     };
     const tMax = isSphere ? Math.acos(Math.max(-1, Math.min(1, geom.r / geom.c.length()))) : 2.0;
+    const angles = [];
+    for (let i = 0; i < dirs; i++) angles.push((i / dirs) * Math.PI * 2);
+    if (corners) {
+        for (const C of corners) {
+            const d = C.clone().sub(P);
+            const a = Math.atan2(d.dot(e2), d.dot(e1));
+            if (d.lengthSq() > 1e-14) angles.push(a < 0 ? a + 2 * Math.PI : a);
+        }
+        angles.sort((x, y) => x - y);
+    }
+    dirs = angles.length;
     const rim = [];
     for (let i = 0; i < dirs; i++) {
-        const th = (i / dirs) * Math.PI * 2;
+        const th = angles[i];
         const ct = Math.cos(th), st = Math.sin(th);
         let lo = 0, hi = tMax;
         if (inFace(at(hi, ct, st))) { rim.push({ ct, st, t: hi }); continue; }

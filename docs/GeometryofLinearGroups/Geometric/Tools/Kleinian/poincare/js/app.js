@@ -4,7 +4,7 @@
  * FRAMES. The domain is computed in a HOME frame where its centre sits at the
  * ball origin, and drawn through a scene isometry:
  *
- *     S = fly · F · viewMatrix · B
+ *     S = focus · fly · F · viewMatrix · B
  *
  *   B          basepoint isometry: the Dirichlet centre is B·j, and the home
  *              frame sees the conjugated generators B⁻¹·g·B;
@@ -12,10 +12,13 @@
  *              face pairings (what the "current element" reports);
  *   F          display frame: the identity, or in cusp view the map sending
  *              the chosen cusp to ∞ (so the upper half-space looks down it);
- *   fly        the inside-view observer's motion (never a group element).
+ *   fly        the inside-view observer's motion (never a group element);
+ *   focus      a camera move that brings a picked edge or vertex to the
+ *              middle while it is unwrapped (unwrap.js); null otherwise, and
+ *              never a group element either.
  *
  * The Ford domain has its own home frame (cusp at ∞, generators K·g·K⁻¹), so
- * its scene isometry is fly · F · viewMatrix · K⁻¹ with F = K.
+ * its scene isometry is focus · fly · F · viewMatrix · K⁻¹ with F = K.
  */
 import { Matrix2x2 } from './math.js';
 
@@ -33,6 +36,7 @@ export const app = {
     cumulativeWord: [],
     flyMatrix: I(),
     flying: false,
+    focus: null,
     basepoint: I(),
     basepointBall: [0, 0, 0],
     fordOn: false,
@@ -51,10 +55,11 @@ export function displayFrame() {
     return app.fordOn && app.fordFrame ? app.fordFrame : I();
 }
 
-/** P = fly · F · viewMatrix: how an actual group element appears in the scene. */
+/** P = focus · fly · F · viewMatrix: how an actual group element appears in the scene. */
 export function outerFrame() {
     let P = displayFrame().mul(app.viewMatrix);
     if (app.flying) P = app.flyMatrix.mul(P);
+    if (app.focus) P = app.focus.mul(P);
     return P.normalized();
 }
 

@@ -48,6 +48,36 @@ function cdiv(a, b) {
     return cx((a.re * b.re + a.im * b.im) / q, (a.im * b.re - a.re * b.im) / q);
 }
 
+// ---------------- high-precision complex values (BigInt fixed point, scale 2^bits) ----------------
+/* embed() evaluates in doubles, which is exact enough for the numbers users type, but an element
+   reached by a long word can have coordinates of 10²⁰ and more while its value is of size 1: the
+   double evaluation then cancels to nothing. embedHP evaluates with `bits` bits after the point,
+   the level values refined by Newton's method at that precision. */
+const hpFrac = (f, bits) => (f.p << BigInt(bits)) / f.q;
+const hpMul = (a, b, bits) => { const B = BigInt(bits); return { re: (a.re * b.re - a.im * b.im) >> B, im: (a.re * b.im + a.im * b.re) >> B }; };
+const hpAdd = (a, b) => ({ re: a.re + b.re, im: a.im + b.im });
+const hpSub = (a, b) => ({ re: a.re - b.re, im: a.im - b.im });
+function hpDiv(a, b, bits) {
+    const q = b.re * b.re + b.im * b.im;
+    const B = BigInt(bits);
+    return { re: ((a.re * b.re + a.im * b.im) << B) / q, im: ((a.im * b.re - a.re * b.im) << B) / q };
+}
+function hpFromDouble(z, bits) {
+    const S = 2 ** 52, sh = BigInt(bits) - 52n;
+    const f = (x) => { const m = BigInt(Math.round(x * S)); return sh >= 0n ? m << sh : m >> -sh; };
+    return { re: f(z.re), im: f(z.im) };
+}
+/** A fixed-point value back to a double (values of any size). */
+export function hpToDouble(z, bits) {
+    const f = (x) => {
+        const neg = x < 0n; let y = neg ? -x : x;
+        const len = y.toString(2).length, drop = Math.max(0, len - 60);
+        const v = Number(y >> BigInt(drop)) * 2 ** (drop - bits);
+        return neg ? -v : v;
+    };
+    return { re: f(z.re), im: f(z.im) };
+}
+
 /** A rational as a double, safe for numerators and denominators past 1e308. */
 export function fracNum(f) {
     let p = f.p, q = f.q;
@@ -129,6 +159,7 @@ class RatLevel {
     isZero(a) { return a.isZero(); }
     eq(a, b) { return a.equals(b); }
     embed(a) { return cx(fracNum(a)); }
+    embedHP(a, bits) { return { re: hpFrac(a, bits), im: 0n }; }
     flat(a, out) { out.push(a); }
     unflat(arr, off = 0) { return arr[off] || F0; }
     rational(a) { return a; }
@@ -197,6 +228,27 @@ class ExtLevel {
         const B = this.base;
         let acc = cx(0);
         for (let j = this.d - 1; j >= 0; j--) acc = cadd(cmul(acc, this.value), B.embed(a[j]));
+        return acc;
+    }
+    /** y_k's value with `bits` bits: Newton's method on P from the stored double. */
+    valueHP(bits) {
+        this._hp = this._hp || new Map();
+        if (this._hp.has(bits)) return this._hp.get(bits);
+        const B = this.base, P = this.P.map((c) => B.embedHP(c, bits));
+        const dP = P.slice(1).map((c, j) => ({ re: c.re * BigInt(j + 1), im: c.im * BigInt(j + 1) }));
+        const ev = (Q, z) => { let acc = { re: 0n, im: 0n }; for (let j = Q.length - 1; j >= 0; j--) acc = hpAdd(hpMul(acc, z, bits), Q[j]); return acc; };
+        let z = hpFromDouble(this.value, bits);
+        for (let it = 0, good = 50; it < 60 && good < 2 * bits + 20; it++, good *= 2) {
+            const step = hpDiv(ev(P, z), ev(dP, z), bits);
+            z = hpSub(z, step);
+        }
+        this._hp.set(bits, z);
+        return z;
+    }
+    embedHP(a, bits) {
+        const B = this.base, v = this.valueHP(bits);
+        let acc = { re: 0n, im: 0n };
+        for (let j = this.d - 1; j >= 0; j--) acc = hpAdd(hpMul(acc, v, bits), B.embedHP(a[j], bits));
         return acc;
     }
     flat(a, out) { for (const x of a) this.base.flat(x, out); }
@@ -275,6 +327,8 @@ export class TElem {
     isZero() { return this.level.isZero(this.v); }
     equals(o) { const [a, b, L] = this._pair(o); return L.eq(a, b); }
     embed() { return this.level.embed(this.v); }
+    /** The value at the chosen embedding, evaluated with `bits` bits (no cancellation), as doubles. */
+    embedHP(bits = 256) { return hpToDouble(this.level.embedHP(this.v, bits), bits); }
     /** The rational number this is, or null. */
     rational() { return this.level.rational(this.v); }
     /** Coordinates over ℚ in the monomial basis of the top level. */

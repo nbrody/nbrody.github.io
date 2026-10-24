@@ -49,6 +49,9 @@ import {
 
 const ANGLE_TOL = 0.02;        // radians, for 2π/m matching
 const MAX_CYCLE_LEN = 200;
+
+/** 2π/m in lowest terms: 2π, π, 2π/3, π/2, … */
+const twoPiOver = (m) => (m === 1 ? '2π' : m === 2 ? 'π' : m % 2 ? `2π/${m}` : `π/${m / 2}`);
 const LINE_TOL = 1e-7;         // Klein distance from a transported point to an edge line
 const POINT_TOL = 1e-7;        // Klein distance for "the same point"
 
@@ -534,8 +537,8 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
             }
         }
 
-        const desc = `${cyclePairs.length} edges, Σθ = ${(angleSum / Math.PI).toFixed(5)}π ` +
-            `(2π/${m}), cycle elt ${wordStr(reduceWord(words))}` +
+        const desc = `${cyclePairs.length} edges, Σθ = ${angleOk ? twoPiOver(m) : `${(angleSum / Math.PI).toFixed(5)}π`}, ` +
+            `cycle elt ${wordStr(reduceWord(words))}` +
             (m > 1 ? `, order ${m} residual ${orderRes.toExponential(1)}` : '');
         const cycleIdx = edgeCycles.length;
         if (angleOk && orderOk) {

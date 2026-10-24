@@ -237,6 +237,34 @@ button {
     transform: rotate(180deg);
 }
 
+/* ? opens the walkthrough; the sun (in dark) or moon (in light) switches theme */
+#help-btn .collapse-icon {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+#theme-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.45s var(--ease-spring);
+}
+
+#theme-btn:hover svg {
+    transform: rotate(20deg);
+}
+
+#theme-btn .icon-moon,
+html.light #theme-btn .icon-sun {
+    display: none;
+}
+
+html.light #theme-btn .icon-moon {
+    display: block;
+}
+
 .collapse-icon {
     line-height: 1;
     display: inline-block;
@@ -254,12 +282,16 @@ button {
 }
 
 .tab-btn,
+#help-btn,
+#theme-btn,
 #refresh-btn,
 .panel-content {
     transition: opacity 0.22s ease, display 0.22s allow-discrete;
 }
 
 #control-panel.collapsed .tab-btn,
+#control-panel.collapsed #help-btn,
+#control-panel.collapsed #theme-btn,
 #control-panel.collapsed #refresh-btn,
 #control-panel.collapsed .panel-content {
     opacity: 0;
@@ -279,6 +311,8 @@ button {
 
 @starting-style {
     #control-panel:not(.collapsed) .tab-btn,
+    #control-panel:not(.collapsed) #help-btn,
+    #control-panel:not(.collapsed) #theme-btn,
     #control-panel:not(.collapsed) #refresh-btn,
     #control-panel:not(.collapsed) .panel-content {
         opacity: 0;
@@ -1645,6 +1679,47 @@ button {
     color: var(--ink-faint);
 }
 
+/* "Unwrap along edge / vertex" (unwrap.js) */
+.face-info .fi-actions {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.face-info .fi-btn {
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
+    transition: background 0.15s ease, box-shadow 0.2s ease, transform 0.15s var(--ease-spring);
+}
+
+.face-info .fi-btn:hover {
+    box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.face-info .fi-btn:active {
+    transform: scale(0.97);
+}
+
+.face-info .fi-btn.on {
+    color: var(--ink);
+    background: transparent;
+    border-color: var(--hairline-strong);
+}
+
+.face-info .fi-note {
+    font-size: 11.5px;
+    color: var(--ink-dim);
+}
+
 /* ============================================================
    MathQuill dark-theme overrides
    ============================================================ */
@@ -2433,7 +2508,7 @@ html.light .face-label {
 }
 .inv-apply:hover { color: var(--ink); border-color: var(--accent-line); }
 
-/* the tabs share the header with two actions: tighten them a little */
+/* the tabs share the header with four actions: tighten them a little */
 .tab-navigation .tab-btn { font-size: 12.5px; padding: 7px 2px; }
 
 /* disabled rows (cut-away needs the half-space model, etc.) */

@@ -41,6 +41,11 @@ export const fragmentShader = `
     // the page rather than into a black halo.
     uniform float u_lightMode;
     uniform vec3 u_bgColor;
+    // Tie-Dye: fold each march point back into the domain by reflecting it
+    // in the walls, so the ray meets every mirror image of every wall and the
+    // ball fills with a kaleidoscope of the domain. A picture, not the group:
+    // the reflections are in the walls, not the face pairings.
+    uniform bool u_tieDye;
     uniform mat4 projectionMatrix;
     uniform mat4 modelViewMatrix;
 
@@ -75,6 +80,51 @@ export const fragmentShader = `
         return s * (length(p - c) - r);
     }
 
+    // Hyperbolic reflection in a wall: inversion in its sphere, or a mirror.
+    vec3 reflectThroughWall(vec3 p, vec4 W) {
+        if (u_uhs) {
+            float d = W.z - W.w;
+            if (abs(d) < 1e-4) {
+                float nl = length(W.xy);
+                vec2 n = W.xy / nl;
+                float off = 0.5 * (W.z + W.w) / nl;
+                float s = (p.x * n.x + p.z * n.y) - off;
+                return vec3(p.x - 2.0 * s * n.x, p.y, p.z - 2.0 * s * n.y);
+            }
+            vec3 c = vec3(-W.x / d, 0.0, -W.y / d);
+            float rr = dot(W.xy, W.xy) / (d * d) + (W.z + W.w) / d;
+            vec3 dd = p - c;
+            float l2 = dot(dd, dd);
+            if (l2 < 1e-6) return p;
+            return c + (rr / l2) * dd;
+        }
+        if (abs(W.w) < PLANE_EPS) {
+            vec3 n = normalize(W.xyz);
+            return p - 2.0 * dot(p, n) * n;
+        }
+        vec3 c = W.xyz / W.w;
+        float r = 1.0 / abs(W.w);
+        vec3 d = p - c;
+        float dist2 = dot(d, d);
+        if (dist2 < 0.0001) return p;
+        return c + (r * r / dist2) * d;
+    }
+
+    vec3 foldToDomain(vec3 p) {
+        for (int iter = 0; iter < 24; iter++) {
+            bool folded = false;
+            for (int i = 0; i < ${MAX_FACES}; i++) {
+                if (i >= u_faceCount) break;
+                if (sdWall(p, u_faces[i]) > 0.001) {
+                    p = reflectThroughWall(p, u_faces[i]);
+                    folded = true;
+                }
+            }
+            if (!folded) break;
+        }
+        return p;
+    }
+
     vec2 map(vec3 p) {
         // Ideal boundary: unit sphere (ball) or the floor y=0 (UHS, domain y>0).
         float d = u_uhs ? -p.y : length(p) - 1.0;
@@ -102,6 +152,17 @@ export const fragmentShader = `
         }
         if (abs(W.w) < PLANE_EPS) return normalize(W.xyz);
         return -sign(W.w) * normalize(p - W.xyz / W.w);
+    }
+
+    // Tie-Dye shades with the gradient of the UNFOLDED distance, as poincare2
+    // did: the swirls in the light come from the domain's own walls.
+    vec3 mapNormal(vec3 p) {
+        vec2 e = vec2(0.001, 0.0);
+        return normalize(vec3(
+            map(p + e.xyy).x - map(p - e.xyy).x,
+            map(p + e.yxy).x - map(p - e.yxy).x,
+            map(p + e.yyx).x - map(p - e.yyx).x
+        ));
     }
 
     vec3 faceColor(int idx) {
@@ -204,7 +265,7 @@ export const fragmentShader = `
         bool cap = false;
         for (int i = 0; i < MAX_STEPS; i++) {
             vec3 q = ro + rd * t;
-            res = map(q);
+            res = map(u_tieDye ? foldToDomain(q) : q);
             float d = res.x;
             if (clip && !inner) {
                 float dc = q.y - u_ceiling;
@@ -215,16 +276,18 @@ export const fragmentShader = `
                 cap = res.y < -1.5;
                 break;
             }
-            t += max(abs(d), EPSILON * 0.5);
+            // Folding is not an isometry of the Euclidean picture, so the
+            // folded distance only bounds the step loosely: halve it.
+            t += max(abs(d), EPSILON * 0.5) * (u_tieDye ? 0.5 : 1.0);
             if (t > MAX_DIST) break;
         }
 
         if (!hit) discard;
 
-        // Ball: the circles where walls meet the sphere at
+        // Ball, no Tie-Dye: the circles where walls meet the sphere at
         // infinity are silhouettes, smoothed by hand. A pixel there is part
         // wall, part view through the free face beside it.
-        bool ideal = !u_uhs && !cap && !inner;
+        bool ideal = !u_uhs && !u_tieDye && !cap && !inner;
         float bq = dot(ro, rd);
         float tFar = -bq + sqrt(max(0.0, bq * bq - dot(ro, ro) + 1.0));
 
@@ -266,7 +329,7 @@ export const fragmentShader = `
 
         vec3 p = ro + rd * t;
         int faceIdx = int(res.y);
-        vec3 n = cap ? vec3(0.0, 1.0, 0.0) : wallNormal(p, faceIdx);
+        vec3 n = cap ? vec3(0.0, 1.0, 0.0) : u_tieDye ? mapNormal(p) : wallNormal(p, faceIdx);
         if (inner) n = -n;                       // seen from inside the domain
 
         vec3 baseCol = faceIdx >= 0 ? faceColor(faceIdx) : mix(vec3(0.05), u_bgColor * 0.92, u_lightMode);

@@ -66,6 +66,10 @@ export function bannerForReport(rep, faces, exactNote) {
         setBanner('failed', `✗ Not discrete: ${nd.headline}. The proof is at the top of the certificate.`);
         return;
     }
+    if (rep.classical) {
+        setBanner('verified', `✓ Discrete: ${rep.classical.headline}. Poincaré's conditions are not all resolved for this domain; the proof is at the top of the certificate.`);
+        return;
+    }
     if (nd) {
         setBanner('failed', `✗ Discreteness NOT verified, and numerically ${nd.headline}: probably not discrete (floating-point entries, so evidence rather than proof).`);
         return;

@@ -48,6 +48,7 @@ export const material = new THREE.ShaderMaterial({
         u_ceiling: { value: 0 },           // UHS cutaway height (0 = off)
         u_lightMode: { value: 0 },
         u_bgColor: { value: new THREE.Color(0x05070f) },
+        u_tieDye: { value: false },
         u_maxBounces: { value: mirrorDefaults.maxBounces },
         u_edgeLightWidth: { value: mirrorDefaults.edgeLightWidth },
         u_lightIntensity: { value: mirrorDefaults.lightIntensity }

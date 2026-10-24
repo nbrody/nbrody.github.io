@@ -34,3 +34,12 @@ Uses the existing sibling `vendor/three` files; no dependency installation is re
   any preset, and the report's status `nondiscrete` with the proof first in the certificate.
 - `planar.test.mjs` — the plane picture: which presets lie in PGL₂(ℝ) (up to scalars, mirrors
   included), and that slicing the 3D domain by the plane over ℝ gives one polygon edge per face.
+- `gluing.test.mjs` — the gluing walk behind the edge and vertex highlights (`js/gluing.js`): edge
+  classes are exactly the certificate's edge cycles, a cycle that flips its edge is detected, the
+  carried pulse coordinate covers the same range on every edge of a cycle, vertex classes give the
+  stabilizer orders (1 for the Weeks manifold, 8 at the dodecahedron's corners, 6 and 12 for
+  PSL(2,ℤ[ω])), and in a Ford domain the classes still partition the edges and vertices. Also
+  the cells behind "Unwrap along edge / vertex" (`js/unwrap.js`): the walk round an edge closes
+  after (cycle length × m) cells and a full turn of 2π, the cells at a vertex number (cycle size ×
+  stabilizer order), and in a Ford domain only the chimney-cut edges fail to close; and the angle
+  text (π, π/2, 2π/3 rather than 4π/4 or 0.5000π).
