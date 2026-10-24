@@ -66,6 +66,7 @@ export function setupPanel({ onLayout }) {
     });
     new ResizeObserver(report).observe(panel);
     if (matchMedia('(max-width: 600px)').matches) panel.classList.add('collapsed');   // a phone sees the picture first
+    if (document.documentElement.classList.contains('embed')) panel.classList.add('collapsed');
     sync();
     report();
     return { activate: (name) => activate(tabBtns.find((b) => b.dataset.tab === name)) };

@@ -20,14 +20,15 @@ import { frameOf, vertexOf, localMap, classify, keyOf, cuspKey, isPrefix, toFloa
 import { HALF, attach, childFrame, standardChild, edgeGap, edgeSign, towardInf, rootFrame, frameAt, lerpFrame, scaleOf, toCF, lerpCF, cfPoint, cfDisk } from './layout.js';
 import { Q } from './rational.js';
 import { primitive } from './poly.js';
-import { specMat, qmul, qdet, latticeKey } from './specialize.js';
+import { specMat, specMatC, qmul, qdet, latticeKey } from './specialize.js';
+import { parseComplex } from './cparse.js';
 import * as UI from './panel.js';
 import { EXAMPLES } from './examples.js';
 import { FIELDS, cusps as kCusps, circles as kCircles, cuspName as kCuspName, planeThrough } from './fieldK.js';
 import { makeKEngine } from './kengine.js';
 import { startTutorial } from './tutorial.js';
 import { PALETTES, RULES, shades, swatch } from './coloring.js';
-import { cpath, cmul, cinv, capply, sphereOf } from './cmobius.js';
+import { cpath, cmul, cinv, cnorm, capply, sphereOf } from './cmobius.js';
 
 const $ = (id) => document.getElementById(id);
 const cv = $('cv');
@@ -142,6 +143,17 @@ ghosts.setColorAt(0, new THREE.Color());
 ghosts.count = 0;
 ghosts.frustumCulled = false;
 scene.add(ghosts);
+// and translucent balls, for the balls landing on the base ball over ℚ(i), ℚ(ω)
+const ghostBallMat = new THREE.MeshLambertMaterial({ transparent: true, depthWrite: false });
+ghostBallMat.onBeforeCompile = ghostMat.onBeforeCompile;
+const ghostBallGeo = new THREE.IcosahedronGeometry(1, 2);
+ghostBallGeo.setAttribute('aAlpha', new THREE.InstancedBufferAttribute(new Float32Array(BALLS), 1));
+const ghostBalls = new THREE.InstancedMesh(ghostBallGeo, ghostBallMat, BALLS);
+ghostBalls.setColorAt(0, new THREE.Color());
+ghostBalls.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+ghostBalls.count = 0;
+ghostBalls.frustumCulled = false;
+scene.add(ghostBalls);
 
 // The upper half-plane, truncated to [−X, X] × [0, Y] and faded out at the cut.
 const fade = (x, y) => {
@@ -542,14 +554,14 @@ function visit(F, gap, labels, parent, dep) {
 
 function build() {
     if (anim) return;
-    if (st.field !== 'Q') { buildBalls(); return; }
-    ballHi.count = ballLo.count = 0;
     if (spec.items) {                       // specialized: draw the collapse instead of the tree
         if (spec.run || spec.act) return;
         if (spec.sig !== settingsSig()) refreshItems();
         drawCollapse(ease(spec.s));
         return;
     }
+    if (st.field !== 'Q') { buildBalls(); return; }
+    ballHi.count = ballLo.count = ghostBalls.count = 0;
     const t0 = performance.now();
     setupCull();
     recs = []; truncated = false;
@@ -737,7 +749,7 @@ function buildBalls() {
 // Balls as lit instances, their edges, and on the big ones the circles, carried by rec.C.
 function drawBallRecs(list) {
     const K = KF(), L_ = new Segs(), S = new THREE.Matrix4();
-    diskHi.count = diskLo.count = ghosts.count = 0;
+    diskHi.count = diskLo.count = ghosts.count = ghostBalls.count = 0;
     halfMesh.visible = false;
     for (const k of morphMeshes) k.visible = false;
     let nHi = 0, nLo = 0;
@@ -767,9 +779,10 @@ function drawBallRecs(list) {
 }
 
 // The circles g(ℝ̂) through neighbouring cusps, drawn just outside the sphere (the far side is
-// hidden by it), carried by the Möbius map C when the ball shows a moved picture.
-function drawBallCircles(L_, K, F, rs, C) {
-    const Hc = Math.min(6, rs > 140 ? st.N : rs > 50 ? 4 : 2), R = F.R * 1.004;
+// hidden by it), carried by the Möbius map C when the ball shows a moved picture. The collapse
+// draws several pictures on one ball, each in its own colour, a little further out (lift).
+function drawBallCircles(L_, K, F, rs, C, col = P.ballLine, lift = 0.004, maxH = 6) {
+    const Hc = Math.min(maxH, rs > 140 ? st.N : rs > 50 ? 4 : 2), R = F.R * (1 + lift);
     for (const ci of kCircles(K, Hc)) {
         let { n, d, r } = ci;
         if (C) {
@@ -786,7 +799,7 @@ function drawBallCircles(L_, K, F, rs, C) {
             const t = 2 * Math.PI * j / k, ct = Math.cos(t) * r, stt = Math.sin(t) * r;
             const l = [n[0] * d + a[0] * ct + b[0] * stt, n[1] * d + a[1] * ct + b[1] * stt, n[2] * d + a[2] * ct + b[2] * stt];
             const p = v3.add(F.c, v3.sc(ballDir(F, l), R));
-            if (p0) L_.seg(p0[0], p0[1], p0[2], p[0], p[1], p[2], P.ballLine);
+            if (p0) L_.seg(p0[0], p0[1], p0[2], p[0], p[1], p[2], col);
             p0 = p;
         }
     }
@@ -1010,13 +1023,18 @@ function resetElement() {
 // the conformal frames of layout.js while its contents move from h to g(a)·g_v(a); collapsed,
 // the generators act on the one plane by γ(a). The planes landing as the same tessellation
 // (the same lattice g(a)·g_v(a)·ℤ² up to scale) are drawn once.
-const spec = { a: Q.ONE, s: 0, items: null, sources: null, sig: '', run: null, act: null };
+// Over K = ℚ(i), ℚ(ω), t may be set to any z ∈ ℂ^× (spec.z, in floating point): the balls fly onto
+// the base ball, each X(v) identified with it by z ↦ g(z)·g_v(z) ∈ PSL₂(ℂ), and once collapsed
+// the generators act on that one ℍ³ by γ(z). For a transcendental z this is faithful, so the
+// tree is the geometry of the group ⟨γ(z)⟩, however indiscrete it is.
+const spec = { a: Q.ONE, z: [Math.PI, 0], zSrc: 'π', s: 0, items: null, sources: null, sig: '', run: null, act: null };
 const specQueue = [];
 const OVERLAYS = 24, SPEC_MIN_PX = 2;
 const ID = [1, 0, 0, 1];
 const settingsSig = () => `${st.base}|${st.edges}|${st.h}|${st.lam}|${st.rule}|${st.carry}|${st.dep}|${st.N}`;
 
 function specItems(sources) {
+    if (st.field !== 'Q') return specItemsK(sources);
     const ga = specMat(g, spec.a), fc = new Map(), baseCF = toCF(rootFrame(st));
     return sources.map((v) => {
         let u = v, d = null;
@@ -1043,6 +1061,7 @@ function specItems(sources) {
 }
 // The planes with the biggest pictures keep their tessellations, one for each lattice.
 function chooseOverlays(items) {
+    if (st.field !== 'Q') { chooseOverlaysK(items); return; }
     setupCull();
     for (const it of items) it.rs = it.root ? Infinity : pxRadius(it.F0.cx, it.F0.z, it.F0.cy, it.F0.R);
     const seen = new Set();
@@ -1054,10 +1073,11 @@ function chooseOverlays(items) {
 }
 function prepareCollapse() {
     setupCull();
-    const seen = new Set(), sources = [];
+    const seen = new Set(), sources = [], k_ = st.field === 'Q' ? keyOf : kE().tree.keyOf;
     for (const r of recs) {
-        if (r.labels.length && (r.rs ?? 0) < SPEC_MIN_PX) continue;
-        const src = (decor.get(r.key) || {}).src || r.labels, k = keyOf(src);
+        const labels = st.field === 'Q' ? r.labels : labelsOf(r);
+        if (labels.length && (r.rs ?? 0) < SPEC_MIN_PX) continue;
+        const src = (decor.get(r.key) || {}).src || labels, k = k_(src);
         if (!seen.has(k)) { seen.add(k); sources.push(src); }
     }
     spec.sources = sources;
@@ -1078,6 +1098,8 @@ function refreshItems(rechoose = false) {
 
 // One frame of the collapse at amount e (0 the tree, 1 one plane), or of γ(a) acting once collapsed.
 function drawCollapse(e, act) {
+    if (st.field !== 'Q') { drawCollapseK(e, act); return; }
+    ballHi.count = ballLo.count = ghostBalls.count = 0;
     setupCull();
     const L_ = new Segs(), root = rootFrame(st), ga = ghosts.geometry.attributes.aAlpha;
     let nHi = 0, nLo = 0, nG = 0, rootDrawn = false;
@@ -1140,6 +1162,91 @@ function drawCollapse(e, act) {
     dirty = true;
 }
 
+// Over K: the balls fly from their places in the tree onto the base ball, each picture turning
+// from its local map h to M = g(z)·g_v(z) along the screw motion of M·h⁻¹, each colour fading
+// into the base's. Collapsed, the largest few keep their circles on the one sphere, each in its
+// own colour, so the pictures of many vertices are seen at once on a single ℍ³.
+const OVERLAYS_K = 10;
+function specItemsK(sources) {
+    const E = kE(), T = E.tree, ga = specMatC(g, spec.z), fc = new Map();
+    return sources.map((v) => {
+        let u = v, d = null;
+        if (!gIsId) { const lm = T.localMap(g, v); u = lm.labels; d = cnorm(E.toComplex(lm.h)); }
+        const { F, gap } = ballFrameAt(u, fc), M = cnorm(cmul(ga, specMatC(T.frameOf(v), spec.z)));
+        return {
+            key: T.keyOf(v), v, u, root: !u.length, dep: u.length, tc: shadeOf(cuspsOfK(u), cuspsOfK(v), LK),
+            F0: F, gap0: gap, d, M, P: cpath(d ? cmul(M, cinv(d)) : M),
+        };
+    });
+}
+function chooseOverlaysK(items) {
+    setupCull();
+    for (const it of items) { it.rs = it.root ? Infinity : ballPx(it.F0); it.overlay = false; }
+    items.filter((it) => !it.root).sort((a, b) => b.rs - a.rs).slice(0, OVERLAYS_K).forEach((it) => { it.overlay = true; });
+}
+function drawCollapseK(e, act) {
+    setupCull();
+    const K = KF(), L_ = new Segs(), S = new THREE.Matrix4(), base = baseBall();
+    diskHi.count = diskLo.count = ghosts.count = 0;
+    halfMesh.visible = false;
+    for (const k of morphMeshes) k.visible = false;
+    let nHi = 0, nLo = 0, nG = 0;
+    const gA = ghostBalls.geometry.attributes.aAlpha;
+    const put = (F, rec) => {
+        const rs = ballPx(F);
+        if (rs < MIN_PX) return rs;
+        const hi = rs > 40, m = hi ? ballHi : ballLo, i = hi ? nHi++ : nLo++;
+        if (i < BALLS) {
+            m.setMatrixAt(i, S.makeScale(F.R, F.R, F.R).setPosition(F.c[0], F.c[1], F.c[2]));
+            m.setColorAt(i, mixColor(P.ball, rec));
+        }
+        return rs;
+    };
+    const root = spec.items.find((it) => it.root), rootTc = root ? root.tc : NEUTRAL, baseRs = put(base, { tc: rootTc });
+    const tint = (col, a) => [col[0], col[1], col[2], col[3] * a];
+    let lift = 0.004;
+    for (const it of spec.items) {
+        let C = e >= 1 ? it.M : (it.d ? cmul(it.P(e), it.d) : it.P(e));
+        if (act) C = cmul(act.Hs, C);
+        if (it.root) { if (st.far) drawBallCircles(L_, K, base, baseRs, C); continue; }
+        const col = tint(P.str[it.tc], 0.8);
+        if (e >= 1) {                       // landed: only the overlays remain, on the base itself
+            if (it.overlay && st.far) drawBallCircles(L_, K, base, baseRs, C, col, (lift += 0.002), 3);
+            continue;
+        }
+        const fadeA = 1 - e;
+        if (!it.overlay) {                  // a speck in the tree: a fading ghost, small until it lands
+            if (fadeA < 0.02 || nG >= BALLS) continue;
+            const F = lerpBall(it.F0, base, e), R = Math.pow(it.F0.R, fadeA);
+            if (ballPx({ ...F, R }) < MIN_PX) continue;
+            ghostBalls.setMatrixAt(nG, S.makeScale(R, R, R).setPosition(F.c[0], F.c[1], F.c[2]));
+            ghostBalls.setColorAt(nG, P.ball[it.tc]);
+            gA.setX(nG++, 0.85 * fadeA * fadeA);
+            continue;
+        }
+        const F = lerpBall(it.F0, base, e), rs = put(F, { tc: it.tc, mix: mixOf(it.tc, rootTc, e) });
+        if (it.gap0 && fadeA > 0.01 && rs >= MIN_PX) {
+            const top = v3.add(F.c, v3.sc(F.u, F.R)), at = v3.add(top, v3.sc(F.u, it.gap0 * fadeA)), a = Math.min(1, rs / 8) * fadeA;
+            L_.seg(top[0], top[1], top[2], at[0], at[1], at[2], P.edge, a, a);
+        }
+        if (st.far && rs > DETAIL_PX) drawBallCircles(L_, K, F, rs, C, col, 0.004, 3);
+    }
+    ghostBalls.count = nG;
+    ghostBalls.instanceMatrix.needsUpdate = true;
+    if (ghostBalls.instanceColor) ghostBalls.instanceColor.needsUpdate = true;
+    gA.needsUpdate = true;
+    for (const [m, n] of [[ballHi, nHi], [ballLo, nLo]]) {
+        m.count = Math.min(n, BALLS);
+        m.instanceMatrix.needsUpdate = true;
+        if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    }
+    lines.geometry.dispose();
+    lines.geometry = L_.geometry();
+    hiLines.geometry.dispose();
+    hiLines.geometry = new THREE.BufferGeometry();
+    dirty = true;
+}
+
 function startSpecRun(to) {
     if (anim || spec.act || spec.run) return;
     if (!spec.items) { if (to <= 0) return; clearTimeout(buildTimer); prepareCollapse(); }
@@ -1150,6 +1257,7 @@ function startSpecRun(to) {
     syncSpecUI();
 }
 function collapsedView() {
+    if (st.field !== 'Q') return { target: new THREE.Vector3(0, 0, 0), dir: new THREE.Vector3(0.35, Math.cos(1.1), Math.sin(1.1)).normalize(), size: 1.55 };
     const half = st.base === 'half', dir = new THREE.Vector3(0, Math.cos(0.75), Math.sin(0.75));
     return { target: new THREE.Vector3(0, 0, half ? -0.9 : 0), dir, size: half ? 1.7 : 1.4 };
 }
@@ -1159,6 +1267,10 @@ function startSpecAct() {
     const [i, inverse] = next, G = gens[i];
     if (!G) return;
     const job = inverse ? { M: G.Minv, Minv: G.M, letter: [i, -1] } : { M: G.M, Minv: G.Minv, letter: [i, 1] };
+    if (st.field !== 'Q') {                 // γ(z) ∈ PSL₂(ℂ) moves the one ball along its screw motion
+        spec.act = { job, H: cpath(cnorm(specMatC(job.M, spec.z))), fl: false, t0: performance.now(), dur: st.dur * 1000 };
+        return;
+    }
     const Ma = specMat(job.M, spec.a);
     if (qdet(Ma).isZero()) { startSpecAct(); return; }
     const hf = fnorm(toFloat(Ma)), fl = fdet(hf) < 0;
@@ -1257,14 +1369,29 @@ function showElement() {
 }
 
 // ---------- the specialization panel ----------
-const aName = () => spec.a.toString().replace('-', '−');
+// t = a over ℚ; over K, z as it was typed, with π, ω and products prettied
+const prettyZ = (src) => src.trim().replace(/\\?pi/g, 'π').replace(/\\?omega/g, 'ω').replace(/\*|\\cdot/g, '·').replace(/-/g, '−');
+const aName = () => (st.field === 'Q' ? spec.a.toString().replace('-', '−') : prettyZ(spec.zSrc));
+const fmtC = ([x, y]) => {
+    const f = (v) => (Math.abs(v) < 5e-5 ? '0' : String(Number(v.toFixed(4))));
+    if (Math.abs(y) < 5e-5) return f(x);
+    const im = `${f(Math.abs(y))}i`;
+    return Math.abs(x) < 5e-5 ? (y < 0 ? '-' : '') + im : `${f(x)}${y < 0 ? '-' : '+'}${im}`;
+};
+const cMatTex = (M) => { const e = cnorm(M).map(fmtC); return `\\begin{pmatrix} ${e[0]} & ${e[1]} \\\\ ${e[2]} & ${e[3]} \\end{pmatrix}`; };
 function qMatTex(Mq) {
     const e = primitive(Mq.map((q) => (q.isZero() ? [] : [q]))).map((p) => (p.length ? p[0].toString() : '0'));
     return `\\begin{pmatrix} ${e[0]} & ${e[1]} \\\\ ${e[2]} & ${e[3]} \\end{pmatrix}`;
 }
 function showSpecList() {
     const el = $('spec-list'), a = aName();
-    if (st.field !== 'Q') { el.innerHTML = ''; return; }
+    if (st.field !== 'Q') {                 // floating point, scaled into SL₂(ℂ)
+        const rows = gens.map((G, i) => `<div><b>${gName(i)}</b>(${a}) ≈ \\(${cMatTex(specMatC(G.M, spec.z))}\\)</div>`);
+        rows.push(`<div>current element at t = ${a}: \\(${cMatTex(specMatC(g, spec.z))}\\)</div>`);
+        el.innerHTML = rows.join('');
+        UI.typeset([el]);
+        return;
+    }
     const rows = gens.map((G, i) => {
         const Ma = specMat(G.M, spec.a);
         return qdet(Ma).isZero() ? `<div><b>${gName(i)}</b>(${a}) is singular, so it does not act once t = ${a}</div>`
@@ -1284,11 +1411,22 @@ function syncSpecUI() {
         b.disabled = !!spec.items && (!collapsed || singular);
         b.title = !spec.items ? 'Apply this generator (⌘/Ctrl-click for its inverse)'
             : !collapsed ? 'Finish collapsing or expanding first'
-                : singular ? `Singular at t = ${aName()}` : `Act on the plane by its value at t = ${aName()} (⌘/Ctrl-click for the inverse)`;
+                : singular ? `Singular at t = ${aName()}` : `Act on the ${st.field === 'Q' ? 'plane' : 'ball'} by its value at t = ${aName()} (⌘/Ctrl-click for the inverse)`;
     });
 }
 function readSpecA() {
     try {
+        if (st.field !== 'Q') {
+            const src = $('spec-a').value, z = parseComplex(src);
+            if (Math.hypot(...z) < 1e-9) throw new Error('t = 0 is not allowed: frames and entries involve 1/t.');
+            spec.z = z;
+            spec.zSrc = src;
+            $('spec-err').textContent = '';
+            if (spec.items) { refreshItems(true); if (!spec.run && !spec.act) drawCollapse(ease(spec.s)); }
+            showSpecList();
+            syncSpecUI();
+            return;
+        }
         const { num, den } = parseRat($('spec-a').value);
         if (den.length !== 1 || num.length > 1) throw new Error('t can only be set to a number.');
         if (!num.length) throw new Error('t = 0 is not allowed: frames and entries involve 1/t.');
@@ -1561,7 +1699,9 @@ function setField(f) {
     document.documentElement.classList.toggle('field-k', k);
     $('denL').textContent = k ? 'Max height' : 'Max q';
     $('toggle-farey').textContent = k ? 'Circles through neighbours' : 'Farey geodesics';
-    for (const id of ['toggle-horo', 'spec-go', 'spec-s', 'spec-a']) $(id).disabled = k;
+    $('toggle-horo').disabled = k;
+    $('spec-a').value = k ? spec.zSrc : spec.a.toString();
+    $('spec-err').textContent = '';
     document.querySelectorAll('#seg-base button').forEach((b) => { b.disabled = k; });
     decor.clear();
     fillExamples();
@@ -1620,7 +1760,9 @@ function syncTheme() {
 }
 function setTheme(t) {
     document.documentElement.classList.toggle('light', t === 'light');
-    try { localStorage.setItem('twoDimFields-theme', t); } catch (e) { /* storage blocked */ }
+    if (!new URLSearchParams(location.search).has('theme')) {
+        try { localStorage.setItem('twoDimFields-theme', t); } catch (e) { /* storage blocked */ }
+    }
     syncTheme();
     setPalette();
     build();
@@ -1709,7 +1851,7 @@ function tutorialPrepare(s) {
     const ex = s.example ? list.findIndex((e) => e.name === s.example) : list.findIndex((e) => (e.field || 'Q') === st.field);
     loadExample(Math.max(0, ex));                   // resets the element and builds
     for (const [i, inv] of s.apply || []) actNow(i, inv);
-    if (s.specA && st.field === 'Q') { $('spec-a').value = s.specA; readSpecA(); }
+    if (s.specA) { $('spec-a').value = s.specA; readSpecA(); }
     if (s.collapsed) collapseNow();
     const v = tutorialView(s.view);
     if (fresh) { setView(v.target, v.dir, v.size); controls.update(); build(); } else flyTo(v.target, v.dir, v.size, 900);

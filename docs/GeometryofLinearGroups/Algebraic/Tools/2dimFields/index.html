@@ -10,11 +10,14 @@
 <script src="../../../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.min.js"></script>
 <script>
     window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }, options: { ignoreHtmlClass: 'tex2jax_ignore' } };
-    // dark is the default, as in poincare; a saved choice or a light system theme overrides it
+    // dark is the default, as in poincare; a saved choice or a light system theme overrides it.
+    // ?theme=dark|light sets it for this visit only, and ?embed (for a talk) hides the panel and buttons.
     (function () {
-        let t = null;
-        try { t = localStorage.getItem('twoDimFields-theme'); } catch (e) { /* storage blocked */ }
+        const q = new URLSearchParams(location.search);
+        let t = q.get('theme');
+        if (t !== 'dark' && t !== 'light') { t = null; try { t = localStorage.getItem('twoDimFields-theme'); } catch (e) { /* storage blocked */ } }
         if (t === 'light' || (!t && matchMedia('(prefers-color-scheme: light)').matches)) document.documentElement.classList.add('light');
+        if (q.has('embed')) document.documentElement.classList.add('embed');
     })();
 </script>
 <script src="../../../Geometric/Tools/Kleinian/vendor/mathjax/tex-mml-chtml.js" defer></script>
@@ -56,7 +59,7 @@
         <button id="addMatrixBtn" class="btn btn-add">+ Add Matrix</button>
       </div>
       <p id="matrix-error-message" class="error-message"></p>
-      <p class="label-hint field-k-only">Over ℚ(i) and ℚ(ω) the generators act on the tree of balls, and entries may use i or ω (type \omega). Specializing t is still ℚ-only.</p>
+      <p class="label-hint field-k-only">Over ℚ(i) and ℚ(ω) the generators act on the tree of balls, and entries may use i or ω (type \omega). There t can be specialized to any complex number, such as π, e^i or 2+i.</p>
 
       <div class="control-group">
         <div class="control-row">
@@ -82,6 +85,7 @@
         <p id="spec-err" class="error-message"></p>
         <div id="spec-list" class="gen-summary"></div>
         <p class="label-hint">Setting t = a sends PGL₂(ℚ[t, 1/t]) to PGL₂(ℚ), which acts on one hyperbolic plane. Every plane X(v) is laid onto it by its frame, z ↦ g_v(a)·z; collapsed, the generators act on it by their values at t = a. Planes that land as the same tessellation are drawn once.</p>
+        <p class="label-hint field-k-only">Over ℚ(i) and ℚ(ω), t = z may be any nonzero complex number, and the balls fly onto one ℍ³, each X(v) laid onto it by g_v(z). The largest keep their circles there, each in its own colour. For a transcendental z nothing is lost: the tree is the geometry of the group the matrices generate at t = z.</p>
       </div>
 
       <div class="control-group">
@@ -202,11 +206,17 @@
         <h3 class="info-title">Specializing t</h3>
         <p>Evaluating at $t = a \neq 0$ sends $\mathrm{PGL}_2(\mathbb{Q}[t, 1/t])$ to $\mathrm{PGL}_2(\mathbb{Q})$, which acts on a single plane $\mathbb{H}$. The frames specialize too, and $z \mapsto g_v(a)\cdot z$ identifies every plane $X(v)$ with $\mathbb{H}$; the collapse lays each plane onto the base that way, so the plane carried at $u = gv$ lands as $g(a)\,g_v(a)$. At $t = 1$ the planes at integer cusps land exactly on the base tessellation; at $t = 2$ the plane at $0$ lands scaled by $\tfrac12$.</p>
         <p>The tree is the other end of the same family: $g_{\gamma v}(T)^{-1}\,\gamma(T)\,g_v(T)$ tends to the local map as $T \to \infty$. So the collapse does not commute with the tree's action, and the collapsed plane carries its own: $\gamma$ acts there by $\gamma(a)$, rigidly.</p>
+        <p>Over $\mathbb{Q}(i)$ and $\mathbb{Q}(\omega)$, $t$ may be set to any $z \in \mathbb{C}^\times$, and every ball is laid onto one copy of $\mathbb{H}^3$ by $g_v(z) \in \mathrm{PGL}_2(\mathbb{C})$. When $z$ is transcendental, $t \mapsto z$ embeds $K(t)$ in $\mathbb{C}$, so the group $\langle \gamma(z) \rangle$ is isomorphic to $\langle \gamma \rangle$, which acts on the tree. Run backwards, the collapse unwraps a single $\mathbb{H}^3$, on which a group such as the figure-eight double acts indiscretely, into the tree of $\mathbb{H}^3$'s on which its structure can be read off.</p>
       </div>
       <div class="info-section">
         <h3 class="info-title">All of PGL₂(ℚ(t))</h3>
         <p>The whole of $\mathrm{PGL}_2(\mathbb{Q}((\pi)))$ acts, so every matrix over $\mathbb{Q}(t)$ does: entries are expanded in powers of $\pi = 1/t$, and since scaling changes nothing, each generator is cleared of denominators first. The local maps then lie in $\mathrm{PGL}_2(\mathbb{Q})$, which acts on $\mathbb{H}$ by isometries; those of negative determinant reverse orientation, and the animation turns such a plane over about its diameter through $\infty$ — in three dimensions a reflection is a half-turn.</p>
         <p>An element whose determinant has odd valuation, like $\operatorname{diag}(t, 1)$, swaps the two colour classes of the tree; the planes change colour as they move.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">Amalgams by a transcendental twist</h3>
+        <p>Shalen's way of putting amalgams into $\mathrm{PSL}_2$ (<em>Linear representations of certain amalgamated products</em>, 1979). Let $A, B \subset \mathrm{PGL}_2(k)$ share a subgroup $C$, and let $s \in \mathrm{PGL}_2(k(t))$ commute with $C$. Then $A$ fixes $v_0$, $sBs^{-1}$ fixes $sv_0$, and $C$ fixes the path between them. Because the link of $v_0$ is $\mathbb{P}^1(k)$ and reduction mod $\pi$ is the identity on $k$, the elements of $A$ fixing the first edge of that path are just those fixing a cusp. If on both ends that subgroup is exactly $C$, a reduced word $a_1 b_1 a_2 \cdots$ carries the path to a path that never backtracks, so $\langle A, sBs^{-1} \rangle \cong A *_C B$.</p>
+        <p>Since $s$ must centralize $C$, $C$ is elementary. When $C$ is the stabilizer of the cusp $\infty$ in both, $s = \begin{pmatrix} 1 & t \\ 0 & 1 \end{pmatrix}$ slides along the horosphere and the path runs through the plane at $\infty$ to $v_0 \to \infty \to -1$. When $C$ is the stabilizer of the axis from $0$ to $\infty$, $s = \operatorname{diag}(t, 1)$ dilates along it and the path is the edge to the plane at $\infty$. The examples marked Shalen do this for punctured torus groups over $\mathbb{Q}$ and for the figure-eight knot group over $\mathbb{Q}(\omega)$. Setting $t$ to any transcendental number keeps them faithful. For the figure-eight double the result contains a lattice of $\mathrm{PSL}_2(\mathbb{C})$ with infinite index, so it is never discrete; over $\mathbb{Q}$ a real transcendental $t$ gives an indiscrete subgroup of $\mathrm{PSL}_2(\mathbb{R})$. At rational $t$ the collapse can stop being injective.</p>
       </div>
       <div class="info-section">
         <h3 class="info-title">Using it</h3>

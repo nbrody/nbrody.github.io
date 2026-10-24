@@ -22,6 +22,24 @@ export function evalAt(x, a) {
     return s;
 }
 export const specMat = (M, a) => M.map((x) => evalAt(x, a));
+
+// Over K = ℚ(i), ℚ(ω), t may be set to any z ∈ ℂ^×, and the values are floating point: a Laurent
+// polynomial over K at π = 1/z, as [re, im], and a matrix of them (a Möbius map of ℂ̂ = ∂ℍ³).
+export function evalAtC(x, z) {
+    const n = z[0] * z[0] + z[1] * z[1], w = x.v < 0 ? z : [z[0] / n, -z[1] / n];   // z, or π = 1/z
+    let p = [1, 0];
+    for (let k = 0; k < Math.abs(x.v); k++) p = [p[0] * w[0] - p[1] * w[1], p[0] * w[1] + p[1] * w[0]];
+    const pi = [z[0] / n, -z[1] / n];
+    let re = 0, im = 0;
+    for (const c of x.c) {
+        const [a, b] = c.toC();
+        re += a * p[0] - b * p[1];
+        im += a * p[1] + b * p[0];
+        p = [p[0] * pi[0] - p[1] * pi[1], p[0] * pi[1] + p[1] * pi[0]];
+    }
+    return [re, im];
+}
+export const specMatC = (M, z) => M.map((x) => evalAtC(x, z));
 export const qdet = (A) => A[0].mul(A[3]).sub(A[1].mul(A[2]));
 export const qmul = (A, B) => [
     A[0].mul(B[0]).add(A[1].mul(B[2])), A[0].mul(B[1]).add(A[1].mul(B[3])),

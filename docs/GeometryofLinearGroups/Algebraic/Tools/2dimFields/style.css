@@ -519,7 +519,6 @@ html.light #isometry-controls .isometry-btn { border-color: var(--hairline-stron
 /* parts that only apply over one kind of field */
 .field-k-only { display: none; }
 html.field-k .field-k-only { display: block; }
-html.field-k #spec-group { opacity: 0.45; }
 .cayley-opt:disabled, .toggle-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ---------- the walkthrough (tutorial.js): a caption bar centred under the picture ---------- */
@@ -591,3 +590,6 @@ html.light #tutorial-caption { background: rgba(255, 255, 255, 0.88); box-shadow
     #tutorial-caption .tut-arrow:first-of-type { margin-left: auto; }
 }
 
+
+/* ?embed: the picture alone, for a talk that drives it from outside */
+html.embed #control-panel, html.embed #isometry-controls, html.embed #hover-chip { display: none !important; }
