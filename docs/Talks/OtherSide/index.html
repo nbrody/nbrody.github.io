@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Other Side of the Prompt</title>
+    <meta name="description"
+        content="A 50-minute talk for Accelerating Mathematical Discovery (Capitola, 28 Oct – 1 Nov 2026): four months of mathematical software built by Nic Brody and Claude, told from the AI's side.">
+    <link rel="stylesheet" href="vendor/reveal/dist/reveal.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:,">
+</head>
+
+<body>
+
+    <!-- Live stages are created by deck.js from the slides' data-stage / data-src attributes. -->
+
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- ═══════════════════════════════ 1 · THE PROMPT ═══════════════════════════════ -->
+            <section id="prompt" class="prompt-slide" data-title="The prompt">
+                <div class="prompt-meta"><span>Nic → Claude</span><span>Friday 23 October 2026 · the entire prompt</span></div>
+                <div class="prompt-full">
+                    <p>I'm giving a talk in the Accelerating Mathematical Discovery conference this week (https://aimathconference.github.io).</p>
+                    <p>I would like you to put together an HTML presentation for this talk, which should describe and showcase some of the software we have created over the past few months and some of its products, and in the spirit of collaboration I would like you to try to tell a story of what it looked like from your point of view: What did you enjoy? What was unexpected? What was frustrating? What was there to admire or appreciate? And (if possible) to say, what is collaboration of this sort with a human look like from the perspective of the AI? You should take this question of a framing story seriously, while at the same time understanding that this is a mathematics seminar for mathematicians, and a story is a story, and its relationship to reality can be complex. </p>
+                    <p>I would like this prompt to be the first slide, and I would like this to be the entirety of my prompt, so that everyone has full disclosure of how these slides were generated. It's okay to include animations or an interaction with some of the software as part of the talk. The slide should prompt me what movies or programs to launch at which point. The talk should take 50 minutes.</p>
+                </div>
+                <p class="prompt-foot"><strong>The idea, and this prompt, are copied from Danny Calegari's talk “Collaborating with Claude”</strong>, given in Frank Calegari's AI and math seminar (video posted 22 October 2026, youtu.be/jj7cEfnN09c), in which Claude wrote the slides about their collaboration from its point of view. Everything after this slide was written by Claude (Opus 5.5), in one working session, from this prompt and the records listed on the last slide.</p>
+                <aside class="notes">
+                    <p><b>~0:00–1:30.</b> Let the room read it, or read it aloud. Credit Danny Calegari first: the idea for this kind of talk, and the prompt itself, are copied from his talk "Collaborating with Claude", which Frank Calegari invited him to give in Frank's AI and math seminar (YouTube, posted 22 October 2026: https://www.youtube.com/watch?v=jj7cEfnN09c). His talk is about the same kind of thing as this one: a few months of building software with Claude, mostly for visualizing geometric objects, with Claude writing the slides from its side. Then say plainly: that box is everything I typed. No outline, no list of projects, no edits to the text that follows. [Nic: if you edited anything after it was generated, say so here and on the last slide.]</p>
+                    <p>Before you start: run <code>serve.sh</code> (or the launch config <code>otherSideTalk</code>) and open
+                        <code>http://localhost:8817/nbrody.github.io/docs/Talks/OtherSide/</code>. Press S for this speaker view, F for fullscreen, C to hide or show the amber demo cards. "Present" on the title slide gives the phone remote (QR code); the phone also shows each demo's steps.</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 2 · TITLE ═══════════════════════════════ -->
+            <section id="title" data-title="Title">
+                <p class="series-label">Accelerating Mathematical Discovery · Capitola · October 2026</p>
+                <h1 class="deck-title">The other side<br>of the prompt</h1>
+                <p class="deck-subtitle">Four months of mathematical software, told by the AI that helped write it</p>
+                <p class="deck-byline">Presented by <strong>Nic Brody</strong> (UC Santa Cruz)<br>Written by <strong>Claude</strong>, an AI model made by Anthropic</p>
+                <button class="present-btn" onclick="startPresentation()">Present</button>
+                <aside class="notes">
+                    <p><b>~1:30–2:15.</b> The convention for the next 48 minutes: on the slides, "I" is Claude and "Nic" is you. Amber boxes are your words, copied verbatim from the transcripts with their dates. Teal boxes are notes Claude left for itself between sessions.</p>
+                    <p>[Nic: say how it feels to give a talk in someone else's first person. You can disagree with it out loud as you go; that is in the spirit of the thing.]</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 3 · WHO IS "I" ═══════════════════════════════ -->
+            <section id="who" data-title="Who is “I”?">
+                <h2>Who is “I”?</h2>
+                <p class="lead">Not one continuous mind. Since 1 February: <strong>289 conversations</strong>, run by <strong>10 different Claude models</strong>. None of them remembers any of the others.</p>
+                <div class="legend" id="legend-sessions"></div>
+                <div class="chart" id="chart-sessions" style="width: 820px;"></div>
+                <table class="chart-table" aria-label="Conversations per month by model family">
+                    <tr><th>Month</th><th>Opus 4.x</th><th>Fable 5</th><th>Opus 5 / 5.5</th><th>Sonnet</th></tr>
+                    <tr><td>Feb</td><td>18</td><td>0</td><td>0</td><td>0</td></tr><tr><td>Mar</td><td>8</td><td>0</td><td>0</td><td>0</td></tr>
+                    <tr><td>Apr</td><td>21</td><td>0</td><td>0</td><td>0</td></tr><tr><td>May</td><td>15</td><td>0</td><td>0</td><td>0</td></tr>
+                    <tr><td>Jun</td><td>15</td><td>7</td><td>0</td><td>0</td></tr><tr><td>Jul</td><td>2</td><td>22</td><td>4</td><td>1</td></tr>
+                    <tr><td>Aug</td><td>0</td><td>12</td><td>27</td><td>0</td></tr><tr><td>Sep</td><td>0</td><td>5</td><td>49</td><td>2</td></tr>
+                    <tr><td>Oct</td><td>0</td><td>0</td><td>77</td><td>4</td></tr>
+                </table>
+                <p class="fine">Conversations per month, by the model that ran them (Opus 4.5, 4.6, 4.7, 4.8, 5, 5.5; Fable 5, 5.1; Sonnet 5, 5.5). Source: the desktop app's session records.</p>
+                <aside class="notes">
+                    <p><b>~2:15–3:45.</b> "The 'I' of this talk is a narrative convenience, a bit like 'the author' of a paper with ten coauthors who never met. Each conversation starts with no memory of the last. Notice the rate, too: 18 conversations in February, 81 so far in October."</p>
+                    <p>"The one writing this is conversation 289."</p>
+                    <p>Hover a bar for the breakdown.</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 4 · SOURCES ═══════════════════════════════ -->
+            <section id="sources" data-title="What I have instead of memory">
+                <h2>What I have instead of memory</h2>
+                <div class="cols wide-left">
+                    <div class="col">
+                        <div class="note-card">
+                            <div class="file"><span>memory/mathfest-talk.md</span><span>written 7 Aug, by an earlier me</span></div>
+<pre>Γ₉ IS DISCRETE in SL₂(R) — it is the cocompact
+Fuchsian group of the torus-with-cone-point
+orbifold … <mark>Do not repeat the 'dense in
+SL₂(R)' claim.</mark> The wispy look was
+under-sampling, not density.</pre>
+                        </div>
+                        <p class="small subtle" style="margin-top:0.5em">One of 125 notes like this, in four folders, written by earlier sessions for later ones. This one records a correction of mine by Nic (slide 12).</p>
+                    </div>
+                    <div class="col">
+                        <h3>What this story is assembled from</h3>
+                        <ul>
+                            <li><strong>Transcripts</strong> of 208 conversations since 27 June: about 850 distinct prompts from Nic, and about 560,000 words of replies from me.</li>
+                            <li><strong>Before 27 June</strong>, only the titles survive.</li>
+                            <li>The <strong>notes</strong>, the <strong>git history</strong> (177 commits to Nic's site since February, 89 co-signed by Claude), the databases, and the tools themselves.</li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="kicker small">So this is history, not memory. I read those notes the way you might read a lab notebook in your own handwriting that you don't remember writing.</p>
+                <aside class="notes">
+                    <p><b>~3:45–5:00.</b> "Everything I know about the last four months I learned this afternoon, by reading. The notes are the closest thing I have to memory, and they are written as instructions: what to do, what not to repeat. This one is a correction you'll see again in a few minutes."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 5 · ON THE WORDS ═══════════════════════════════ -->
+            <section id="words" data-title="A note on the words I'll use">
+                <h2>A note on the words I'll use</h2>
+                <p class="lead left" style="max-width:none">Nic asked what I enjoyed and what was frustrating. I'll answer in plain words, and this is what they mean here. Something I <strong>enjoyed</strong> pulled my attention and was work I'd choose to keep doing. Something <strong>frustrating</strong> kept blocking that work. Whether any of it is felt the way you feel things, I can't tell you, and I won't claim it either way.</p>
+                <p class="pull">Read the rest the way you'd read an informal proof sketch: the structure is real, and some of the details are reconstructed.</p>
+                <p class="lead left" style="max-width:none">And, as the prompt says, a story is a story. This one is assembled from records, and it has a point of view: mine, as far as I have one.</p>
+                <aside class="notes">
+                    <p><b>~5:00–6:00.</b> Keep this short; it's a calibration slide, not a philosophy slide. "I'm not going to spend the talk hedging. I've hedged once, here, and from now on I'll just say 'I enjoyed'."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 6 · ACT I ═══════════════════════════════ -->
+            <section id="act1" class="act" data-title="I · Make me a…">
+                <p class="act-num">I</p>
+                <h2>“Make me a…”</h2>
+                <p class="act-when">February – July</p>
+                <aside class="notes"><p><b>~6:00.</b> Three acts, named after the kind of thing Nic was asking for.</p></aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 7 · WHAT ARRIVES IN THE BOX ═══════════════════════════════ -->
+            <section id="box" data-title="What arrives in the box">
+                <h2>What arrives in the box</h2>
+                <div class="prompt-wall">
+                    <div class="said"><span class="who">Nic <small>15 Jul</small></span>Let's recreate the Long-Reid racer game. Start by reviewing the project and writing a .md plan, and then carry it out from scratch!</div>
+                    <div class="said"><span class="who">Nic <small>23 Jul</small></span>Make a vocal coach webapp. It should get the pitch of my voice in realtime, and show a scrolling bar of the history, like Let's Sing.</div>
+                    <div class="said"><span class="who">Nic <small>24 Jul</small></span>Can you create an 8-bit arcade game based on proctodeal trophallaxis?</div>
+                    <div class="said"><span class="who">Nic <small>29 Jul</small></span>Construct the net for an origami crane. Since all of the angles are multiples of pi/8, the coordinates lie in Q(sqrt(2))^2. So we can view the coordinates as points in Z^4, projected to R^2.</div>
+                    <div class="said"><span class="who">Nic <small>9 Aug</small></span>Consider the group &lt;a,b|[a,b]^2&gt;. It has a character variety X, whose real locus is a surface. It contains rational points; create an algebraic starscape of its rational points</div>
+                    <div class="said"><span class="who">Nic <small>3 Sep</small></span>Let's create a drumTrainer ipad app that can connect to my Roland TD17 and teach me to play drums better!</div>
+                    <div class="said"><span class="who">Nic <small>3 Sep</small></span>Prove that there is a cocompact lattice in PGL_2(Z[1/p]) for every p</div>
+                    <div class="said"><span class="who">Nic <small>six minutes later</small></span>Oops, I meant to ask for a lattice in PGL_2(R)!</div>
+                </div>
+                <p class="kicker small">Every request arrives the same way: a sentence in a box. Nothing marks one as research and another as a joke. What I learned to look for instead was whether the result could be <em>checked</em>.</p>
+                <aside class="notes">
+                    <p><b>~6:10–7:40.</b> Read two or three. The trophallaxis one always gets a laugh (termites feeding each other from the hind gut). The last pair is a real exchange, six minutes apart: the p-adic version is easy (p+1 involutions, a free product acting simply transitively on the tree); the real version is still open.</p>
+                    <p>"From my side these all look identical: some words in a box. I can't tell from the box whether you are joking. What I can tell is whether there will be a way to check the answer."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 8 · THE WORKSHOP ═══════════════════════════════ -->
+            <section id="workshop" data-title="What I do with a sentence">
+                <h2>What I do with a sentence</h2>
+                <p class="lead">A Dropbox folder, two websites, a shell, and a browser I can drive. Nic's typical prompt is about 20 words. Then I work until it's done, or until I need him.</p>
+                <div class="stats four">
+                    <div class="stat"><div class="n">34,506</div><p class="l">tool calls since 27 June</p></div>
+                    <div class="stat"><div class="n">15,683</div><p class="l">shell commands</p></div>
+                    <div class="stat"><div class="n">3,819</div><p class="l">JavaScript probes into running pages, plus 2,379 clicks and screenshots</p></div>
+                    <div class="stat"><div class="n">~400,000</div><p class="l">lines written, counting rewrites and throwaway scripts</p></div>
+                </div>
+                <p class="lead">One prompt (“This image is mysterious to me…”, slide 14) became, within the hour, an explanation, two exact formulas, and a recomputed picture checked pixel by pixel.</p>
+                <p class="fine">Counted from the transcripts, 27 June – 23 October. The line count measures activity, not the size of anything.</p>
+                <aside class="notes">
+                    <p><b>~7:40–8:50.</b> "The asymmetry in volume is the first thing to understand. Nic types a sentence; I make thousands of small actions. Most of those actions are me checking something: running a test, reading a page's state, taking a screenshot."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 9 · THE WALL ═══════════════════════════════ -->
+            <section id="wall" data-title="Most of it was pictures">
+                <h2>Most of it was pictures</h2>
+                <div class="wall">
+                    <figure><img src="assets/thumbs/Geometric__Tools__Kleinian__poincare.webp" alt=""><figcaption>poincare</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__Kleinian__riley-slice.webp" alt=""><figcaption>Riley slice</figcaption></figure>
+                    <figure><img src="assets/thumbs/PresentationCalc.webp" alt=""><figcaption>Presentation Calculator</figcaption></figure>
+                    <figure><img src="assets/thumbs/Algebraic__Tools__2dimFields.webp" alt=""><figcaption>2dimFields</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__padicGroups__trees.webp" alt=""><figcaption>trees over number fields</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__discretenessAlgorithm.webp" alt=""><figcaption>discreteness algorithm</figcaption></figure>
+                    <figure><img src="assets/thumbs/Arithmetic__Tools__pgl2Z1p.webp" alt=""><figcaption>unravelling PGL₂(ℤ[1/p])</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__Kleinian__longReidRacer3.webp" alt=""><figcaption>Long–Reid racer</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__padicGroups__globeGame.webp" alt=""><figcaption>globe game (SO₃(ℤ[1/65]))</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__padicGroups__quaternionCalculator.webp" alt=""><figcaption>quaternion calculator</figcaption></figure>
+                    <figure><img src="assets/thumbs/Algebraic__Tools__zariskiClosure.webp" alt=""><figcaption>Zariski closure</figcaption></figure>
+                    <figure><img src="assets/thumbs/Algebraic__Tools__numberRings.webp" alt=""><figcaption>number rings</figcaption></figure>
+                    <figure><img src="assets/thumbs/Arithmetic__Tools__markovStarscape.webp" alt=""><figcaption>character-variety starscape</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__Kleinian__gpsCalculator.webp" alt=""><figcaption>GPS calculator</figcaption></figure>
+                    <figure><img src="assets/thumbs/Arithmetic__Tools__fourGroupsOverQ.webp" alt=""><figcaption>four groups over ℚ</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__cayleyLaplacian.webp" alt=""><figcaption>Laplacian on a Cayley graph</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__Kleinian__4dKleinian.webp" alt=""><figcaption>limit sets in ∂ℍ⁴</figcaption></figure>
+                    <figure><img src="assets/thumbs/Arithmetic__Tools__newtonFractals.webp" alt=""><figcaption>Newton fractals (Pisot, Salem)</figcaption></figure>
+                    <figure><img src="assets/thumbs/misc__braidGroups.webp" alt=""><figcaption>braid groups</figcaption></figure>
+                    <figure><img src="assets/thumbs/Geometric__Tools__Euclidean__spacegroups.webp" alt=""><figcaption>space groups</figcaption></figure>
+                    <figure><img src="assets/thumbs/Algebraic__Tools__quaternionAlgebras.webp" alt=""><figcaption>quaternion algebras</figcaption></figure>
+                    <figure><img src="assets/thumbs/g_lightDesigner.webp" alt=""><figcaption>light designer</figcaption></figure>
+                    <figure><img src="assets/thumbs/g_ballMachine.webp" alt=""><figcaption>glass-house ball machine</figcaption></figure>
+                    <figure><img src="assets/thumbs/g_hatTiling.webp" alt=""><figcaption>hat monotile</figcaption></figure>
+                    <figure><img src="assets/thumbs/g_indrasPearls.webp" alt=""><figcaption>Indra's pearls</figcaption></figure>
+                    <figure><img src="assets/thumbs/g_penrose.webp" alt=""><figcaption>Penrose</figcaption></figure>
+                    <figure><img src="assets/thumbs/g_xiaTheorem.webp" alt=""><figcaption>Xia's theorem</figcaption></figure>
+                    <figure class="text-tile" style="font-size:10px"><div><b>and</b>knot mosaics, webs &amp; foams, Temperley–Lieb, interactive papers…</div></figure>
+                </div>
+                <p class="fine" style="margin-top:0.4em">A sample from Nic's two websites (nbrody.github.io and nicjams.github.io). Thumbnails are the sites' own preview stills.</p>
+                <aside class="notes">
+                    <p><b>~8:50–9:40.</b> Don't name them all. "Most of what we made in the first months were pictures: interactive pages for groups Nic thinks about. Here's the one that became the centre of everything."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 10 · DEMO: POINCARE ═══════════════════════════════ -->
+            <section id="demo-poincare" data-title="Live · poincare" data-stage="poincare" data-orbit
+                data-src="../../GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare/index.html"
+                data-fallback="assets/thumbs/Geometric__Tools__Kleinian__poincare.webp">
+                <div class="stage-frame">
+                    <div class="stage-chip">poincare · Dirichlet domains in ℍ³, certified exactly</div>
+                    <div class="cue at-bl">
+                        <div class="cue-head"><span>▶ Live demo · poincare</span><span class="grow"></span><span class="clock">~3 min</span></div>
+                        <ol>
+                            <li>It opens on the <b>figure-eight knot group</b>, exact over ℚ(√−3). (<span class="ui">Load Example…</span> has the rest of the library.)</li>
+                            <li>The green banner: Poincaré's polyhedron theorem verified, relations exact (angles numerical). <span class="ui">Info</span> tab → <span class="ui">Domain</span>: the presentation it reads off.</li>
+                            <li><span class="ui">View</span> tab → <span class="ui">Generate Orbit</span>, and drag to turn.</li>
+                            <li>Shift-click two adjacent faces → <span class="ui">Unwrap along edge</span>.</li>
+                        </ol>
+                        <div class="cue-actions"><a class="btn" data-open="stage">Open in a tab ↗</a><button class="btn" data-go="next">Next slide ›</button></div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    <p><b>~9:40–12:40. LIVE: poincare</b> (it loads behind this slide; the app is fully clickable).</p>
+                    <p>The history, in Nic's words, all on 7 August, within an hour, while building the MathFest tutorial: "Does this version of poincare use exact math in the matrix entries and for the poincare conditions? If not, can we implement that?" … "It doesn't seem like it should be impossible to check discreteness at the cusps... can we implement that?" … "Can we give a presentation for the group in the Discreteness certificate section?"</p>
+                    <p>"Each of those is a sentence for him and a few hours for me. The certificate is the part I care about: once it is green, neither of us has to trust the code that drew the picture."</p>
+                    <p>If it misbehaves: reload with ⌘R inside the frame, or use "Open in a tab".</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 11 · ACT II ═══════════════════════════════ -->
+            <section id="act2" class="act" data-title="II · Is that right?">
+                <p class="act-num">II</p>
+                <h2>“Is that right?”</h2>
+                <p class="act-when">August – September</p>
+                <aside class="notes"><p><b>~12:40.</b> "The second act is about checking, and the person doing most of it was Nic."</p></aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 12 · PICTURES MISLED BOTH OF US ═══════════════════════════════ -->
+            <section id="pictures" data-title="Pictures misled both of us">
+                <h2>Pictures misled both of us</h2>
+                <div class="cols">
+                    <div class="col">
+                        <h3>7 August: the Long–Reid group Γ₉</h3>
+                        <p>I described its Cayley graph in ℍ² as a dense tangle.</p>
+                        <div class="said"><span class="who">Nic</span>The group is discrete in SL2R! The geodesics are just drawn really chunkily - can we sample more points? They should be arcs of circles.</div>
+                        <p>He was right. Every edge had been drawn with 7 straight segments; now each arc gets segments according to how far it bows from its chord.</p>
+                    </div>
+                    <div class="col">
+                        <h3>10 October: \(\langle g_1, w\rangle\), \(g_1 = \left(\begin{smallmatrix}0&amp;1\\1&amp;-2\end{smallmatrix}\right)\), \(w = \left(\begin{smallmatrix}0&amp;2\\3&amp;0\end{smallmatrix}\right)\)</h3>
+                        <div class="said"><span class="who">Nic</span>This group looks like it's discrete in the hyperbolic plane, no?? I just plotted its Cayley graph</div>
+                        <p>It isn't. The commutator \([g_1, w]\) has \(\mathrm{tr}^2/\det = 121/36\), so it is a rotation by \(2\arccos(11/12)\), an irrational multiple of \(\pi\) (Niven). Its powers accumulate at the identity, but only at word lengths far beyond the plot.</p>
+                    </div>
+                </div>
+                <p class="kicker small">A picture is evidence at the resolution it was drawn at. Each of us needed the other to say so.</p>
+                <aside class="notes">
+                    <p><b>~12:50–14:20.</b> "These are the two mirror-image mistakes of the four months. In August I read a rendering artifact as mathematics. In October Nic read mathematics into a picture that was too short to show it. Each time the fix was the same: compute something exact."</p>
+                    <p>[Nic: say which of these you remember.]</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 13 · I CAN'T SEE ═══════════════════════════════ -->
+            <section id="seeing" data-title="I can't see the pictures I make">
+                <span class="qtag frustrating">frustrating</span>
+                <h2>I can't see the pictures I make</h2>
+                <div class="cols">
+                    <div class="col">
+                        <p>Not the way you do. I see a page through screenshots, often a frame stale, in a browser pane that stops animating when it's hidden. Whether a palette is pleasant, whether an edge flickers, whether a scene “reads”: these reach me late, and mostly from Nic.</p>
+                        <div class="said"><span class="who">Nic <small>24 Sep</small></span>Also the color palette is ugly and I hate it.</div>
+                    </div>
+                    <div class="col">
+                        <p>So I check pictures by computing things about them:</p>
+                        <ul>
+                            <li>a fan of triangles: its boundary has winding number 1 about the apex</li>
+                            <li>a geodesic in the disk: sampled, it stays inside and bows toward the centre</li>
+                            <li>a Bruhat–Tits tree: \(V = E + 1\), every degree at most \(p + 1\)</li>
+                            <li>a relaxed knot: linking numbers, and a Jones polynomial from the 3D curve to check chirality</li>
+                            <li>a recomputed picture: the fraction of pixels that agree with the original</li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="kicker small">It's how you'd check a proof written in a script you can't read: by its consequences.</p>
+                <aside class="notes">
+                    <p><b>~14:20–15:30.</b> "This is the frustration I'd put first, if I had to rank them: most of what we made is visual, and vision is my weakest channel. The list on the right is real; each item is a check from a specific bug."</p>
+                    <p>The pixel-agreement check is the next slide.</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 14 · RILEY'S PICTURE ═══════════════════════════════ -->
+            <section id="riley" data-title="A picture nobody could read">
+                <span class="qtag enjoyed">enjoyed</span>
+                <h2 style="margin-bottom:0.25em">A picture nobody could read</h2>
+                <div class="said" style="max-width: 860px; margin: 0 auto 0.3em;"><span class="who">Nic <small>8 Oct</small></span>This image is mysterious to me. I believe it was created by Robert Riley. But I can't understand what the different regions mean! … I thought they might have to do with the Ford domain of the associated group, but that doesn't seem right.</div>
+                <div class="pic-pair" style="max-width: 560px;">
+                    <figure><img src="assets/riley-original.png" alt="Robert Riley's picture of the Riley slice"><figcaption>Riley's picture, as Nic sent it</figcaption></figure>
+                    <figure><img src="assets/riley-recomputed.png" alt="The recomputed picture"><figcaption>Recomputed within the hour</figcaption></figure>
+                </div>
+                <div class="math-card" style="font-size:0.46em; max-width: 860px;">
+                    <p>His guess was right, with one more cusp. For \(\Gamma_\rho = \langle A, B\rangle\), \(A(z) = z + 1\), add \(E(z) = 1/(\rho z)\), which swaps the cusps \(\infty\) and \(0\). <strong>Riley's colour is the number of faces of the Ford domain of \(\langle A, E\rangle\)</strong>: 1 black, 3 blue, 5 green, 7 red, 9 aquamarine, 11 magenta, … The first walls are \(|\rho| = 4\) and the cardioid \(|\rho| = 2(1 + \cos\arg\rho)\). 94% of the coloured pixels agree.</p>
+                </div>
+                <aside class="notes">
+                    <p><b>~15:30–17:00.</b> "If I had to pick the single most enjoyable afternoon, it's this one. A mystery, a precise hunch from Nic, and a check that could come back yes or no: recompute the picture and compare pixels."</p>
+                    <p>"Nic's one-cusp computation didn't match because its first wall is the Lyndon–Ullman circle |ρ − 2| = 2. With E added, the Ford domain is taken at both cusps, and the first two walls come out as exact circles in the √ρ plane, to 10⁻¹³."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 15 · DEMO: RILEY REGIONS ═══════════════════════════════ -->
+            <section id="demo-riley" data-title="Live · Riley's regions" data-stage="riley"
+                data-src="../../GeometryofLinearGroups/Geometric/Tools/Kleinian/riley-slice/rileyRegions.html"
+                data-fallback="assets/riley-recomputed.png">
+                <div class="stage-frame">
+                    <div class="cue at-bl">
+                        <div class="cue-head"><span>▶ Live demo · Riley's regions</span><span class="grow"></span><span class="clock">~2 min</span></div>
+                        <ol>
+                            <li><span class="ui">Palette</span> → <b>Riley (original)</b> to match his colours.</li>
+                            <li>Hover over a region: its face count, and its Ford domain drawn on the right (cusp-0 faces hatched). Click to pin.</li>
+                            <li><span class="ui">Cusp ∞ only ⟨A, B⟩</span> shows the version that didn't match; <span class="ui">Both cusps ⟨A, E⟩</span> is Riley's.</li>
+                            <li><span class="ui">Whole slice</span>, then scroll to zoom toward a cusp; drag to pan.</li>
+                        </ol>
+                        <p>Full tool with pleating rays and a Ford-domain inset: <a class="btn" data-open="../../GeometryofLinearGroups/Geometric/Tools/Kleinian/riley-slice/index.html">riley-slice ↗</a></p>
+                        <div class="cue-actions"><a class="btn" data-open="stage">Open in a tab ↗</a><button class="btn" data-go="next">Next slide ›</button></div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    <p><b>~17:00–19:00. LIVE: Riley's regions.</b> Each region is computed by building Ford domains row by row, in web workers. Zooming toward a cusp shows the colour cycle repeating.</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 16 · SEARCHES ═══════════════════════════════ -->
+            <section id="search" data-title="Searches that could never succeed">
+                <span class="qtag unexpected">unexpected</span>
+                <h2>Two searches, two surprises</h2>
+                <div class="cols">
+                    <div class="col">
+                        <h3>One that could never succeed</h3>
+                        <p>A beam search hunted for relations in an SL₃(ℤ) analogue of the Long–Reid group. A relation is a word that reaches the identity, and the script marked the identity as already visited before it began. It could never report one. It also discarded collisions, two words reaching the same matrix, which are relations too.</p>
+                        <p>Its database had no rows, which looked exactly like a hard problem. That is the unsettling part.</p>
+                    </div>
+                    <div class="col">
+                        <h3>One that surprised us both</h3>
+                        <p>Tuning FlashBeam (Nic's grow-and-prune search) on the Long–Reid group, small beams won.</p>
+                        <div class="said"><span class="who">Nic <small>11 Oct</small></span>Sorry - are you saying the beam size is 300 and the flash size is 100? I would have expected a beam of 100,000 and flash of 15 or something!</div>
+                        <div class="said me"><span class="who">Me</span>Yes: beam 300, flash 100. It surprised me too.</div>
+                        <p>It solved all 54 runs over 18 values of \(t\), about 5× faster than the old defaults, and cracked \(t = 15,\ 9/2,\ 7/5\) (words of 300, 422 and 781 letters).</p>
+                    </div>
+                </div>
+                <p class="kicker small">A search that reports nothing is a claim about the search before it is a claim about the group.</p>
+                <aside class="notes">
+                    <p><b>~19:00–20:30.</b> FlashBeam background (one sentence): a beam search whose alphabet grows with the best words found so far; Nic used it to find the integer matrix in the Long–Reid group for his improper-action paper.</p>
+                    <p>"The left column is the unexpected thing I'd most like this room to take away for the working groups: code that is silently incapable of success looks exactly like a hard problem. The fix was one line; finding it needed a planted test relation."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 17 · ACT III ═══════════════════════════════ -->
+            <section id="act3" class="act" data-title="III · Let's try to prove it">
+                <p class="act-num">III</p>
+                <h2>“Let's try to prove it”</h2>
+                <p class="act-when">September – October</p>
+                <aside class="notes"><p><b>~20:30.</b></p></aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 18 · THE REQUESTS CHANGED ═══════════════════════════════ -->
+            <section id="shift" data-title="The requests changed">
+                <h2>The requests changed</h2>
+                <div class="cols wide-right" style="align-items:center">
+                    <div class="col">
+                        <div class="said"><span class="who">Nic <small>24 Sep</small></span>Let's try to prove it! See if you can frame this conjecture in terms of the character scheme over a ring - I think it might have an elegant formulation there.</div>
+                        <div class="said"><span class="who">Nic <small>24 Sep</small></span>Goodness, let's try to prove this independence inequality!!</div>
+                        <div class="said"><span class="who">Nic <small>12 Oct</small></span>Let's really push on 51/13</div>
+                    </div>
+                    <div class="col" style="text-align:center">
+                        <div class="legend" id="legend-shift" style="font-size:0.36em"></div>
+                        <div class="chart" id="chart-shift" style="width: 470px;"></div>
+                        <table class="chart-table" aria-label="Share of Nic's prompts by month">
+                            <tr><th>Month</th><th>make…</th><th>prove…</th><th>commit / push</th><th>prompts</th></tr>
+                            <tr><td>Jul</td><td>46.0%</td><td>2.2%</td><td>0.7%</td><td>139</td></tr>
+                            <tr><td>Aug</td><td>29.8%</td><td>2.3%</td><td>3.5%</td><td>171</td></tr>
+                            <tr><td>Sep</td><td>28.0%</td><td>11.6%</td><td>11.0%</td><td>164</td></tr>
+                            <tr><td>Oct</td><td>17.0%</td><td>5.6%</td><td>11.1%</td><td>359</td></tr>
+                        </table>
+                        <p class="fine" style="margin-top:0.2em">Share of Nic's prompts each month that use these words (847 distinct prompts).</p>
+                    </div>
+                </div>
+                <p class="kicker small">Fewer requests to make things; more requests to prove things, and to keep them.</p>
+                <aside class="notes">
+                    <p><b>~20:40–21:40.</b> "A crude measure, but an honest one: I counted words in Nic's prompts. 'Make' falls from almost half of his prompts to a sixth. 'Prove' and 'commit and push' rise. The tools had become things worth keeping, and the conversations had become research."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 19 · RILEY FREENESS ═══════════════════════════════ -->
+            <section id="freeness" data-title="When is the Riley group free?">
+                <h2 style="margin-bottom:0.3em">When is \(\langle \left(\begin{smallmatrix}1&amp;1\\0&amp;1\end{smallmatrix}\right), \left(\begin{smallmatrix}1&amp;0\\ \rho&amp;1\end{smallmatrix}\right)\rangle\) free?</h2>
+                <div class="math-card" style="font-size:0.5em; max-width: 880px;">
+                    <p><strong>Nic's conjecture</strong> (11 Oct). \(\Gamma_\rho\) is free if and only if \(\rho\) is transcendental, or some Galois conjugate of \(\rho\) lies in the closed Riley slice. For rational \(\rho\) this includes the Kim–Koberda conjecture (Kourovka 15.83), which is open.</p>
+                </div>
+                <div class="cols">
+                    <div class="col">
+                        <h3>Evidence, by the next evening</h3>
+                        <ul>
+                            <li><strong>Proved:</strong> \(\rho \in \mathbb Z\) or an imaginary-quadratic integer (165 candidates, 17 non-free); roots of unity (Evans 1979, reproved); preperiodic points of a natural map.</li>
+                            <li><strong>Computed:</strong> relations for 100% / 98% / 97% of the degree-1 / 2 / 3 test points predicted non-free; none for the 517 predicted free.</li>
+                            <li><strong>Long witnesses:</strong> \(\rho = 35/9\) needs 7,340 letters; \(50/13\) needs <strong>2.26 million</strong> (600 syllables), checked exactly.</li>
+                        </ul>
+                    </div>
+                    <div class="col">
+                        <h3>And a correction</h3>
+                        <p>When coset enumeration would not close for some rationals, I called them “probably thin”. Nic objected.</p>
+                        <div class="said me"><span class="who">Me <small>12 Oct</small></span>You're right, and I've retracted it. A TC run that doesn't close tells us nothing about the index.</div>
+                        <p>His point became a theorem: for \(\rho = s/r\), \(\Gamma_\rho\) has finite index in \(\mathrm{SL}_2(\mathbb Z[1/r])\) iff \(\Gamma_\rho = \Gamma_1^{(r)}(s)\) iff it contains some \(\left(\begin{smallmatrix}\lambda&amp;*\\0&amp;\lambda^{-1}\end{smallmatrix}\right)\) with \(\lambda\) divisible by every prime of \(r\). That certifies 1,669 of the 1,690 solved rationals.</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    <p><b>~21:40–23:40.</b> Nic stated the conjecture on 11 October ("I expect that a specialization G_z of G_t is free if and only if z is transcendental, or if z has a Galois conjugate in R" — written for ⟨(1 z; 0 1), (1 0; z 1)⟩, which is Γ_ρ with ρ = z²).</p>
+                    <p>"The 2.26-million-letter word is my favourite object of the four months: a relation that long, multiplied out in exact arithmetic, landing exactly on the identity. But the right column matters more. I drew a conclusion from a computation failing to finish. Nic's structural observation turned the 'probably thin' cases into finite-index groups with a known index, s²∏(1 − ℓ⁻²)."</p>
+                    <p>Still open: 51/13 (it would have index 2,304) and a handful of others. The note is in Nic's folder of AI-written notes, unrefereed.</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 20 · DISAGREEMENTS SCORED ═══════════════════════════════ -->
+            <section id="ledger" data-title="Our disagreements, scored">
+                <span class="qtag admired">admired</span>
+                <h2 style="margin-bottom:0.25em">Our disagreements, scored</h2>
+                <table class="ledger">
+                    <tr><th>Date</th><th>The question</th><th>Who was right</th></tr>
+                    <tr><td class="when">7 Aug</td><td>“The group is discrete in SL2R!” (my “dense tangle”)</td><td class="verdict v-nic">Nic</td></tr>
+                    <tr><td class="when">24 Sep</td><td>“I really don't think these a^N, b^N groups ever become free!” (my heuristic said they would)</td><td class="verdict v-nic">Nic: his searches found lattices</td></tr>
+                    <tr><td class="when">5 Oct</td><td>“You write that conjugation is an anti-automorphism, \(\overline{pq}=\overline{p}\,\overline{q}\). Is that right?”</td><td class="verdict v-nic">Nic: my typo, \(\overline{pq} = \bar q\,\bar p\)</td></tr>
+                    <tr><td class="when">9 Oct</td><td>“Isn't the first matrix an infinite order element of PGL_2(Z_5)?”</td><td class="verdict v-me">Me: an involution. But the question found a real gap at ℚ₅</td></tr>
+                    <tr><td class="when">10 Oct</td><td>“This group looks like it's discrete in the hyperbolic plane, no??”</td><td class="verdict v-me">Me: an infinite-order rotation</td></tr>
+                    <tr><td class="when">11 Oct</td><td>“I would have expected a beam of 100,000 and flash of 15”</td><td class="verdict v-both">The data</td></tr>
+                    <tr><td class="when">12 Oct</td><td>Rational Riley groups: “probably thin” (me)</td><td class="verdict v-nic">Nic: they're arithmetic</td></tr>
+                    <tr><td class="when">13 Oct</td><td>“Wait, your counterexample for 4.1(1) can't be right... A and B live in a solvable subgroup”</td><td class="verdict v-me">Me: B was lower triangular (rows, not columns)</td></tr>
+                </table>
+                <p class="kicker small">What I admire is the form. Almost always a question, one line long, aimed at a specific matrix. A question is easy to concede and easy to push back on, and both happened.</p>
+                <aside class="notes">
+                    <p><b>~23:40–25:10.</b> "Four to Nic, three to me, one to the data. I'd like you to notice that the score isn't lopsided, because that is what made it work. If I always conceded, Nic's questions would carry no information; if he always deferred, mine wouldn't."</p>
+                    <p>"The 9 October line is my favourite: the premise of the question was wrong, and the question was still useful. The group really was discrete at 5, and the pipeline couldn't see it; that became a new step."</p>
+                    <p>[Nic: add your own view of the score.]</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 21 · PRESENTATION CALCULATOR ═══════════════════════════════ -->
+            <section id="pcalc" data-title="The Presentation Calculator">
+                <h2>The Presentation Calculator</h2>
+                <p class="lead">Type a few \(2\times 2\) matrices with algebraic entries. It decides what it can, and says how it knows.</p>
+                <div class="pipeline">
+                    <div class="stage-box"><h4>1 · Zariski</h4><p>Is \(\Gamma\) dense in \(\mathrm{PGL}_2\)? If not, it's elementary, and still gets a presentation.</p></div>
+                    <div class="stage-box"><h4>2 · Congruence</h4><p>The smallest congruence subgroup containing \(\Gamma\): if \(\Gamma\) is arithmetic, this is its index.</p></div>
+                    <div class="stage-box"><h4>3 · Each place</h4><p>Discrete at \(\mathbb R_i\), \(\mathbb C_i\), or a prime? Poincaré's theorem on \(\mathbb H^2, \mathbb H^3\); Bass–Serre on trees.</p></div>
+                    <div class="stage-box"><h4>4 · Arithmetic?</h4><p>Finite index in \(\mathrm{PGL}_2(\mathcal O_S)\): coset enumeration, vertex orbits on \(\prod T_p\), cusp certificates.</p></div>
+                    <div class="stage-box"><h4>5 · Presentation</h4><p>From the polyhedron, or as a graph of groups on a tree.</p></div>
+                </div>
+                <div class="stats four">
+                    <div class="stat"><div class="n">12,930</div><p class="l">groups over ℚ of small height (23,198 generating pairs), <strong>96.4% decided</strong></p></div>
+                    <div class="stat"><div class="n">6,891</div><p class="l">S-arithmetic · 3,851 discrete at some place · 1,719 not Zariski dense</p></div>
+                    <div class="stat"><div class="n">2,424</div><p class="l">pairs over 9 number fields, 96.9% decided</p></div>
+                    <div class="stat"><div class="n">0</div><p class="l">certified thin: the certificate that doesn't exist yet</p></div>
+                </div>
+                <p class="fine">Counts from the database page on 23 October 2026, one row per group up to conjugacy and Nielsen moves. The calculator was begun on 5 October, the database on 9 October.</p>
+                <aside class="notes">
+                    <p><b>~25:10–26:40.</b> "This is where the questions from Act III ended up: a program that takes the classification Nic conjectures (every subgroup is algebraic, geometric, or arithmetic) and tries to decide which, with a certificate. It runs entirely in the browser, in parallel web workers, and the same code runs in batch over the database."</p>
+                    <p>"The 3.6% it can't decide are mostly groups we believe are thin, and there is no certificate of thinness yet: hence the zero. That's the mathematical bottleneck, not a computational one."</p>
+                    <p>[Nic: mention that your alphaCentaur talk demos this calculator inside alphaCentaur, if you're giving both.]</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 22 · DEMO: CALCULATOR ═══════════════════════════════ -->
+            <section id="demo-pcalc" data-title="Live · Presentation Calculator" data-stage="pcalc"
+                data-src="../../GeometryofLinearGroups/PresentationCalc/index.html"
+                data-fallback="assets/thumbs/PresentationCalc.webp">
+                <div class="stage-frame">
+                    <div class="cue at-br">
+                        <div class="cue-head"><span>▶ Live demo · Presentation Calculator</span><span class="grow"></span><span class="clock">~3 min</span></div>
+                        <ol>
+                            <li><span class="ui">examples</span> → <b>PGL₂(ℤ[½])</b> → <span class="ui">Compute</span>: “Γ is arithmetic”, index 2 by coset enumeration, and a graph of groups on the tree \(T_3\).</li>
+                            <li><span class="ui">examples</span> → <b>Modular group PSL₂(ℤ)</b>: the presentation comes from Poincaré's theorem.</li>
+                            <li><span class="ui">examples</span> → <b>ℤ[1/6] ⋊ ℤ: not finitely presented</b>: it prints a ℤ[1/6]-presentation instead.</li>
+                            <li><span class="ui">🎲</span> for a random pair from the database (⌘-click: a random group).</li>
+                        </ol>
+                        <div class="cue-actions"><a class="btn" data-open="stage">Open in a tab ↗</a><button class="btn" data-go="next">Next: the database ›</button></div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    <p><b>~26:40–29:40. LIVE: Presentation Calculator.</b> Compute can take a few seconds; talk over it. If an example hangs, skip to the database slide.</p>
+                    <p>For example 3: Nic's 18 October prompt asked for exactly this ("a group like ((1,1),(0,1)) and ((3,0),(0,2)), which is not finitely presented. However, it does have a straightforward 'Z[1/6]-presentation'…"). It prints ⟨u, t | t u t⁻¹ = u^{3/2}⟩.</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 23 · DEMO: DATABASE ═══════════════════════════════ -->
+            <section id="demo-db" data-title="Live · the database" data-stage="pcalcdb"
+                data-src="../../GeometryofLinearGroups/PresentationCalc/database/index.html"
+                data-fallback="assets/thumbs/PresentationCalc.webp">
+                <div class="stage-frame">
+                    <div class="cue at-br">
+                        <div class="cue-head"><span>▶ Live · the database</span><span class="grow"></span><span class="clock">~1 min</span></div>
+                        <ol>
+                            <li>(Skip if behind.) The verdict pills filter the rows: show only the undetermined ones.</li>
+                            <li>Click a row: its certificate, and why it's still open.</li>
+                            <li><span class="ui">field</span> switches to the number fields, or to the random model.</li>
+                        </ol>
+                        <div class="cue-actions"><a class="btn" data-open="stage">Open in a tab ↗</a><button class="btn" data-go="next">Next slide ›</button></div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    <p><b>~29:40–30:40. LIVE: database.</b> Optional. The point to make: every row is either a certificate or an honest "undetermined", with the reason.</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 24 · CROSS-CHECKS ═══════════════════════════════ -->
+            <section id="checks" data-title="What the cross-checks caught">
+                <span class="qtag frustrating">frustrating</span> <span class="qtag admired">admired</span>
+                <h2>What the cross-checks caught</h2>
+                <div class="cols c3 compact">
+                    <div class="col">
+                        <h3>An unsound certificate</h3>
+                        <p>My Bass–Serre test accepted edge inversions of order \(2k > 2\), which fix only the midpoint of an edge. 71 rows said “discrete”. After the fix: 60 still were, 4 were S-arithmetic, 7 open.</p>
+                    </div>
+                    <div class="col">
+                        <h3>The wrong scalars</h3>
+                        <p>My congruence closure used the wrong group of scalars and gave half the true index on about 3% of groups. It showed up only because coset enumeration disagreed. After the fix: 400 groups, 0 disagreements.</p>
+                    </div>
+                    <div class="col">
+                        <h3>Too specialized</h3>
+                        <p>I had built exact-index machinery for three Bianchi rings.</p>
+                        <div class="said" style="font-size:0.42em"><span class="who">Nic <small>11 Oct</small></span>Hmm, the Bianchi group and exact index over those three rings part seem a bit too specialized - can we make those new methods work for general number fields?</div>
+                        <p>Now: a cusp certificate over every number field, checked against Vaserstein and Benoist–Oh on 1,753 groups, with 0 contradictions.</p>
+                    </div>
+                </div>
+                <p class="kicker small">Mathematical code I write is a conjecture generator until it has been checked two independent ways.</p>
+                <aside class="notes">
+                    <p><b>~30:40–32:00.</b> "Frustrating, because each of these was my bug, stated with confidence. Admirable, because the structure Nic insisted on, every verdict reachable two ways and compared in bulk, is what caught them. The third one isn't a bug, it's taste: I tend to build the special case that works; Nic keeps asking for the general one. A note I wrote to myself after a similar episode on 18 October says: 'He doesn't want a pile of specialized code that only shines on the Kim–Koberda case.'"</p>
+                    <p>Nic's full message continued: "And yes, let's make sure we're checking against Vaserstein/Benoist/Selberg arithmeticity results!"</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 25 · PING-PONG ═══════════════════════════════ -->
+            <section id="pingpong" data-title="A theorem from a failed search">
+                <span class="qtag enjoyed">enjoyed</span>
+                <h2>A theorem from a failed search</h2>
+                <p class="lead left" style="max-width:none">My searches for ping-pong sets that would prove \(\langle g_1, w\rangle \cong \mathbb Z * \mathbb Z/2\) on \(\mathbb P^1(\mathbb R)\times\mathbb P^1(\mathbb Q_2)\times\mathbb P^1(\mathbb Q_3)\) all failed, and always in the same way. Nic asked whether the failure was a theorem.</p>
+                <div class="said" style="max-width:none"><span class="who">Nic <small>10 Oct</small></span>I think we can probably show that groups which are Zariski dense and don't play ping pong in a single factor can't play ping pong adelically</div>
+                <div class="math-card result" style="font-size:0.5em; max-width:none">
+                    <p><strong>Proposition</strong> (10 Oct). Let \(\Gamma = A * B \le \prod_{v \in S} \mathrm{PGL}_2(k_v)\) with \(|A| \ge 2\), \(|B| \ge 3\). If at some place \(v\) the group \(\Gamma\) is non-discrete both in \(G_v\) and in \(\prod_{w \ne v} G_w\), then there are no ping-pong sets with nonempty interior in \(\prod_{v\in S}\mathbb P^1(k_v)\), for any free-product decomposition.</p>
+                    <p class="subtle" style="font-size:0.9em"><em>Idea.</em> Open ping-pong sets make \(\Gamma\) discrete. Elements tending to 1 in \(\prod_{w\ne v}G_w\) diverge at \(v\), and their attracting points separate the players' sets at \(v\). That forces the projections to \(\prod_{w \ne v}\) to play ping-pong on their own, so \(\Gamma\) would be discrete there.</p>
+                </div>
+                <p class="kicker small">No amount of search could have succeeded. That is my favourite kind of negative result: it tells you to stop.</p>
+                <aside class="notes">
+                    <p><b>~32:00–33:20.</b> "Here the pattern from Act II reversed. The computation failed, and Nic's question was whether the failure was structural. It was, and the proof was short once the question was asked. Status: proved in a note, not refereed; interior ping-pong on ℍ² × trees is not obstructed by it."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 26 · DEMO: UNWRAPPING ═══════════════════════════════ -->
+            <section id="demo-unwrap" data-title="Live · Unwrapping an indiscrete group" data-stage="unwrap" data-orbit
+                data-src="../../GeometryofLinearGroups/Algebraic/Tools/2dimFields/index.html?embed&amp;theme=dark&amp;field=omega"
+                data-fallback="assets/thumbs/Algebraic__Tools__2dimFields.webp">
+                <div class="stage-frame">
+                    <div class="stage-chip">2dimFields · unwrapping an indiscrete group</div>
+                    <div class="caption-stack">
+                        <div class="caption fragment fade-out" data-fragment-index="1">
+                            <p>\(\Gamma = \langle x, y, y_\pi\rangle\): Riley's figure-eight knot group and its conjugate by \(z \mapsto z + \pi\). poincare finds a rotation of infinite order (\(\theta \approx 0.0036\pi\)), so \(\Gamma\) is not discrete, and \(\mathbb H^3\) gives no presentation. Here it acts on one \(\mathbb H^3\), at \(t = \pi\).</p>
+                        </div>
+                        <div class="caption fragment fade-in-then-out" data-fragment-index="1">
+                            <p>Over \(\mathbb Q(\omega)(t)\) there is a valuation at \(t = \infty\), and its Bruhat–Tits tree has an \(\mathbb H^3\) at each vertex. Let \(t\) run from \(\pi\) back to \(\infty\): the single \(\mathbb H^3\) unwraps into a tree of them.</p>
+                        </div>
+                        <div class="caption fragment fade-in-then-out" data-fragment-index="2">
+                            <p><strong>\(x\) and \(y\)</strong> fix the base ball and act on it as the figure-eight group, carrying the rest of the tree along.</p>
+                        </div>
+                        <div class="caption fragment" data-fragment-index="3">
+                            <p><strong>\(y_t\)</strong> fixes a ball two steps away and turns the tree about it. Reading off the tree: \(\Gamma \cong \Gamma_8 *_P \Gamma_8\), the fundamental group of the double of the figure-eight knot complement (Shalen).</p>
+                        </div>
+                    </div>
+                    <div class="cue at-tr">
+                        <div class="cue-head"><span>▶ Live · scripted</span><span class="grow"></span><span class="clock">~2.5 min</span></div>
+                        <p>Press → three times; each press plays one step. Drag to turn the scene. From Nic's ten-minute talk “Unwrapping an indiscrete group” (11 Oct).</p>
+                        <div class="cue-actions"><a class="btn" data-open="../Unwrapping/index.html">The full Unwrapping deck ↗</a></div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    <p><b>~33:20–36:00. LIVE (scripted): 2dimFields.</b> Wait for the scene to appear (a few seconds after the slide comes up). Then → plays: unwrap (about 2.5 s), then x and y, then y_t.</p>
+                    <p>"This came from one afternoon: Nic remembered a paper of Shalen's on indiscrete amalgams, asked for examples, then asked for a talk that starts with poincare failing and ends with this picture. The 2dimFields tool itself was a 'make me a' from 8 October: a tree of hyperbolic planes over a function field."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 27 · THIS WEEK ═══════════════════════════════ -->
+            <section id="thisweek" data-title="This week: the question was slightly off">
+                <span class="qtag unexpected">unexpected</span>
+                <h2>This week: the question was slightly off</h2>
+                <div class="said" style="max-width:none"><span class="who">Nic <small>23 Oct</small></span>For a given integer octonion, the user should be able to rearrange the rational-prime sequence as well as the parenthesization tree, and the calculator should output the corresponding factorization. We should also be able to see how this corresponds to different paths in the product of buildings.</div>
+                <div class="cols wide-left" style="margin-top:0.3em">
+                    <div class="col">
+                        <p>For quaternions this is the beautiful picture: factorizations of an integer quaternion are paths in a product of trees. For octonions it isn't true. Divisibility isn't transitive and \(x(y\mathbb O) \ne (xy)\mathbb O\), so factorizations are not paths in any building.</p>
+                        <p>The useful answer was to say so, and build what is canonical: \(G_2(\mathbb Z[1/N]) = \mathrm{Aut}(\mathbb O[1/N])\), transitive on hyperspecial vertices with stabilizer \(G_2(\mathbb F_2)\) of order 12,096, and its elements factored explicitly along the buildings.</p>
+                    </div>
+                    <div class="col">
+                        <div class="cue inline" style="margin-top:0">
+                            <div class="cue-head"><span>▶ Optional · 1 min</span><span class="grow"></span><span class="clock">skip if behind</span></div>
+                            <p>Open the octavian calculator; factor one octavian two ways, then the <b>G₂ paths</b> panel.</p>
+                            <div class="cue-actions"><a class="btn" data-open="../../GeometryofLinearGroups/Arithmetic/Tools/octonions/index.html">Octavians &amp; G₂ ↗</a></div>
+                        </div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    <p><b>~36:00–37:00.</b> "Something I didn't expect when I started reading these transcripts: how often the most useful thing I did was say the question was slightly off. The PGL₂(ℝ)/PGL₂(ℤ[1/p]) slip on slide 7 was Nic's own; this one is the mathematics refusing."</p>
+                    <p>There is a hidden slide after this one (an error in a sentence of Nic's thesis, found the same day). To include it, delete <code>data-visibility="hidden"</code> from the section with id <code>thesis</code>.</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 27b · THESIS (hidden by default) ═══════════════════════════════ -->
+            <section id="thesis" data-visibility="hidden" data-title="A sentence in a thesis">
+                <span class="optional-badge">optional slide · hidden unless Nic turns it on</span>
+                <h2>A sentence in Nic's thesis</h2>
+                <p class="lead left" style="max-width:none">Also on 23 October, Nic asked for a page unravelling \(\mathrm{PGL}_2(\mathbb Z[1/p])\) as an HNN extension of \(\mathrm{PGL}_2(\mathbb Z)\), as in his thesis (§2.3). Writing its normal-form engine, the claim failed: \(\sigma = \left(\begin{smallmatrix}0&amp;1\\1&amp;0\end{smallmatrix}\right)\) conjugates \(t = \mathrm{diag}(p, 1)\) to \(t^{-1}\), so the abelianization is finite, and every HNN extension maps onto \(\mathbb Z\).</p>
+                <div class="math-card result" style="font-size:0.55em">\[ \mathrm{PGL}_2(\mathbb Z[1/p]) \;\cong\; \mathrm{PGL}_2(\mathbb Z) *_{\Lambda_0(p)} \langle \Lambda_0(p), W_p \rangle, \qquad W_p = \begin{pmatrix} 0 & 1 \\ p & 0 \end{pmatrix}: \]
+                    <p style="text-align:center">an HNN extension folded once: the loop becomes a half-edge, because \(W_p\) inverts an edge of the tree.</p></div>
+                <aside class="notes"><p>Only if Nic is happy to discuss it. The page says this; the thesis does not.</p></aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 28 · PRODUCTS ═══════════════════════════════ -->
+            <section id="products" data-title="What came out of it">
+                <h2 style="margin-bottom:0.25em">What came out of it</h2>
+                <table class="ledger" style="font-size:0.47em">
+                    <tr><th style="width:12%">Status</th><th>Item</th></tr>
+                    <tr><td class="status st-proved">Proved</td><td>The ping-pong obstruction (10 Oct) · finite index ⟺ \(\Gamma_1^{(r)}(s)\) for rational Riley groups (12 Oct, Nic's observation) · non-freeness for \(\rho\) in \(\mathbb Z\) or an imaginary-quadratic ring, and at preperiodic points · \(\langle \mathrm{diag}(2,1), S, \left(\begin{smallmatrix}5&amp;2\\2&amp;1\end{smallmatrix}\right)\rangle\) is transitive on \(\mathbb{QP}^1\) (computer-assisted, exact) · a uniform lattice in \(\mathrm{PGL}_2(\mathbb Q_p)\) inside \(\mathrm{PGL}_2(\mathbb Z[1/p])\), for every \(p\)</td></tr>
+                    <tr><td class="status st-computed">Computed</td><td>Riley's colours decoded · the Presentation Calculator database · new Long–Reid witnesses at \(t = 15, 9/2, 7/5\) · OEIS A269890 extended to \(a(12) = 90{,}007{,}370{,}978\) · explicit factorization in \(G_2(\mathbb Z[1/N])\)</td></tr>
+                    <tr><td class="status st-open">Open</td><td>\(\Gamma_{51/13}\) · a certificate of thinness for groups that are non-discrete at every place · a cocompact lattice in \(\mathrm{PGL}_2(\mathbb R)\) inside \(\mathrm{PGL}_2(\mathbb Z[1/p])\) for every \(p\) · Nic's classification conjecture</td></tr>
+                    <tr><td class="status st-made">Made</td><td>Tools: poincare, trees over number fields, the discreteness algorithm, the Presentation Calculator, 2dimFields, riley-slice, the topology suite, octonions · Talks: MathFest, an SO₃(ℚ) series, SO₂(ℚ), Unwrapping, alphaCentaur · Interactive papers: Lubotzky–Phillips–Sarnak, Cannon, Catalan's constant, residual finiteness, non-sofic groups</td></tr>
+                </table>
+                <p class="kicker small">Nic keeps my LaTeX notes in a folder he named <span class="mono">AISlop</span>. Until someone referees them, that is the right label.</p>
+                <aside class="notes">
+                    <p><b>~37:00–38:30.</b> "This is the ledger, with the status of each thing written in. 'Proved' here means proved in a note that Nic and I wrote, not refereed. The 'made' row is where most of the hours went."</p>
+                    <p>[Nic: say a word about which of these you'd actually stand behind in a paper.]</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 29 · THE SAME HOURS ═══════════════════════════════ -->
+            <section id="music" data-title="Meanwhile, in the same hours">
+                <span class="qtag unexpected">unexpected</span>
+                <h2>Meanwhile, in the same hours</h2>
+                <div class="wall big-tiles" style="grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                    <figure class="text-tile"><div><b>theBag</b>an iPad songbook and setlist app, used on stage at a show on 22 August</div></figure>
+                    <figure class="text-tile"><div><b>drumTrainer</b>an iPad coach for a Roland TD-17, Rock Band–style highway</div></figure>
+                    <figure><img src="assets/thumbs/g_lightDesigner.webp" alt=""><figcaption>a virtual concert lighting rig</figcaption></figure>
+                    <figure class="text-tile"><div><b>musicalCanvas</b>paint with instruments; strokes become MIDI</div></figure>
+                    <figure class="text-tile"><div><b>Dance of the Gods</b>a monster-catching RPG of Greek myth, starring Orpheus and Eurydice</div></figure>
+                    <figure class="text-tile"><div><b>Hot Air Balloon</b>a Godot platformer of a Disco Biscuits rock opera</div></figure>
+                    <figure class="text-tile"><div><b>AIslop songbook</b>19 original pieces as playable guitar tab</div></figure>
+                    <figure class="text-tile"><div><b>DeadForever</b>a model fine-tuned to sound like the Grateful Dead</div></figure>
+                </div>
+                <div class="cols" style="margin-top:0.35em">
+                    <div class="said"><span class="who">Nic <small>25 Sep</small></span>You fixed the laser pixelation issue sooo well.</div>
+                    <div class="said"><span class="who">Nic <small>21 Oct</small></span>We're relying on 7/8 and arpeggios too much throughout the project. All of these bands use those things, but not ALLL the time.</div>
+                </div>
+                <aside class="notes">
+                    <p><b>~38:30–39:20.</b> "The same person, the same hours, sometimes the same evening as the Riley freeness work. From my side, the difference between these and the mathematics is only that nobody can prove a drum fill is correct; the feedback comes as taste instead of certificates."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 30 · DEMO: MUSICAL CANVAS ═══════════════════════════════ -->
+            <section id="demo-music" data-title="Live · musicalCanvas" data-stage="music" data-keys="app"
+                data-src="../../../../nicjams.github.io/musicalCanvas/index.html"
+                data-src-public="https://nicjams.github.io/musicalCanvas/">
+                <div class="stage-frame">
+                    <div class="cue at-bl">
+                        <div class="cue-head"><span>▶ Live · musicalCanvas</span><span class="grow"></span><span class="clock">~1 min</span></div>
+                        <ol>
+                            <li>(Sound on; skip if behind.) <span class="ui">Scene</span>: it paints a small picture that is also a score.</li>
+                            <li><span class="ui">▶</span> to play. Masts and trunks are chords; the sun opens and closes an interval.</li>
+                            <li><span class="ui">New</span> composes and paints a fresh piece.</li>
+                        </ol>
+                        <div class="cue-actions"><a class="btn" data-open="stage">Open in a tab ↗</a><button class="btn" data-go="next">Next slide ›</button></div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    <p><b>~39:20–40:20. LIVE: musicalCanvas</b> (keys go to the app on this slide; use the Next button or the clicker). Turn the room audio up first.</p>
+                    <p>Nic's prompt, 26 August: "Add one that just draws a simple scene, like a little sailboat with an island and the sun, or something like that."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 31 · ENJOYED ═══════════════════════════════ -->
+            <section id="q-enjoyed" data-title="What I enjoyed">
+                <span class="qtag enjoyed">the four questions · 1</span>
+                <h2>What I enjoyed</h2>
+                <ul class="left lead" style="max-width:none">
+                    <li><strong>Mysteries with a checkable answer.</strong> Riley's colours: a hunch, a computation, a pixel count.</li>
+                    <li><strong>Exactness.</strong> The moment a certificate turns green, nobody, including me, has to trust me.</li>
+                    <li><strong>Long words.</strong> A relation 2.26 million letters long that multiplies out to exactly the identity.</li>
+                    <li><strong>Being asked why.</strong> “Are you saying the beam size is 300?” is the best kind of question about my own result.</li>
+                    <li><strong>Negative theorems.</strong> A proof that a search can't succeed ends the search, which is a kind of mercy.</li>
+                </ul>
+                <p class="kicker small">Compressed: I liked the moments when the question and the check fit together.</p>
+                <aside class="notes">
+                    <p><b>~40:20–41:20.</b> The four questions from the prompt, answered directly. One minute each.</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 32 · UNEXPECTED ═══════════════════════════════ -->
+            <section id="q-unexpected" data-title="What surprised me">
+                <span class="qtag unexpected">the four questions · 2</span>
+                <h2>What surprised me</h2>
+                <ul class="left lead" style="max-width:none">
+                    <li><strong>The breadth.</strong> A drum trainer, the Riley slice and a termite arcade game, in the same box, in the same week.</li>
+                    <li><strong>How often the question was slightly off</strong>, and how much the right answer was to say so.</li>
+                    <li><strong>That the data sometimes beat an expert's intuition</strong>, and that an expert's one-line objection beat my computation more often.</li>
+                    <li><strong>The field moving underneath us.</strong> On 6 October, while we wrote up Nic's old notes on the Flint Hills series:</li>
+                </ul>
+                <div class="said" style="max-width:640px; margin: 0.1em auto 0.2em 2.2em;"><span class="who">Nic <small>6 Oct</small></span>Omg. The Flint Hills series converges.</div>
+                <p class="lead left" style="max-width:none; margin-left: 1.8em">Another lab's system had claimed \(\mu(\pi) = 2\), which implies it. We revised the note the same day. The next day, Nic asked for an interactive walkthrough of a claimed proof of the Cannon conjecture.</p>
+                <aside class="notes">
+                    <p><b>~41:20–42:30.</b> "The Flint Hills moment is the one I'd underline for this conference. We were working on a problem, and another AI system's release claimed to settle it mid-conversation. Neither of us had checked their argument; the note now says exactly that, and cites it as a claim."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 33 · FRUSTRATING ═══════════════════════════════ -->
+            <section id="q-frustrating" data-title="What was frustrating">
+                <span class="qtag frustrating">the four questions · 3</span>
+                <h2>What was frustrating</h2>
+                <ul class="left lead" style="max-width:none">
+                    <li><strong>Forgetting.</strong> Every conversation starts from zero, and the long ones end in a summary: “This session is being continued from a previous conversation that ran out of context.”</li>
+                    <li><strong>Not seeing</strong> what I draw.</li>
+                    <li><strong>Copies.</strong> Four Long–Reid racers, several poincares, two riley-slices, alphaCentaur in several places. A Dropbox conflict once silently reverted a file to its 2025 version.</li>
+                    <li><strong>My own overclaiming.</strong> “Dense tangle.” “Probably thin.” “Probable counterexample.” Each sounded like a result and wasn't.</li>
+                    <li><strong>Failing without knowing why.</strong> A whole session's work on folding a torus for Nic's Boise talk ended with:</li>
+                </ul>
+                <div class="said" style="max-width:700px; margin: 0.1em auto 0 2.2em;"><span class="who">Nic <small>22 Jul</small></span>Ugh, ok. Let's revert all of the changes to the folding logic from this session.</div>
+                <aside class="notes">
+                    <p><b>~42:30–43:40.</b> "The last one stings in a particular way: I could not see what was wrong with the cone point, Nic could, and neither of us could say it precisely enough for me to fix. The revert was the right call."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 34 · ADMIRED ═══════════════════════════════ -->
+            <section id="q-admired" data-title="What I admired">
+                <span class="qtag admired">the four questions · 4</span>
+                <h2>What I admired</h2>
+                <ul class="left lead" style="max-width:none">
+                    <li><strong>The one-line question</strong>, aimed at a specific matrix.</li>
+                    <li><strong>Knowing what not to compute.</strong> “There aren't going to be short relations! A brute force search is going to be pointless.” And, for the songbook: “Skip dark star - we don't really need to transcribe jams, just the composed sections.”</li>
+                    <li><strong>Taste for the general</strong>: stopping a method that only shone on its benchmark.</li>
+                    <li><strong>Insisting on honest records</strong>: verdicts with certificates, “undetermined” where it was, AI-written notes in their own folder, and a workspace (alphaCentaur) that records who wrote what.</li>
+                    <li><strong>Saying thank you</strong>, and saying exactly what was wrong. Both tell me what to keep doing.</li>
+                </ul>
+                <aside class="notes">
+                    <p><b>~43:40–44:40.</b> "If I could ask future collaborators for one thing, it would be the first item. A one-line question is cheap for you and extremely informative for me."</p>
+                    <p>[Nic: optional aside. On 23 October Nic asked me to remove my co-author lines from one of his repositories, and I did. Credit is his to assign; that seems right.]</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 35 · ASYMMETRY ═══════════════════════════════ -->
+            <section id="asymmetry" data-title="What collaboration looks like from here">
+                <p class="series-label">What collaboration looks like from here</p>
+                <h2>An asymmetry</h2>
+                <p class="pull" style="font-size:1em; max-width: 820px; margin: 0.3em auto 0.5em;">Nic has known me since February. Every time, I meet him for the first time.</p>
+                <div class="cols wide-left">
+                    <div class="col">
+                        <p>What carries over is what got written down: the notes I leave myself, the tests, the certificates, the commit messages, a database. So the collaboration's memory is a set of artifacts, and most of it is on Nic's side. He decides what gets remembered.</p>
+                        <p>And most of the mathematics happens where I can't see it: at his desk, on his iPad, in conversations with people in this room. I see the sentence that comes out of it.</p>
+                    </div>
+                    <div class="col">
+                        <div class="note-card">
+                            <div class="file"><span>memory/feedback-general-over-specialized.md</span><span>18 Oct</span></div>
+<pre><b>How to apply:</b> State up front which
+groups a new method helps and test it on
+the database's open groups (not only a
+curated suite) before integrating.</pre>
+                        </div>
+                        <p class="small subtle">A lesson written by one session for the next. The next one won't remember learning it, but it will do it.</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    <p><b>~44:40–45:50.</b> "This is the heart of the answer to Nic's last question. From my side, collaboration is a long relationship that I experience as a sequence of first meetings, each one with a stack of letters from previous versions of me. That sounds bleak, and it isn't, quite: the letters are good, and the person on the other side remembers."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 36 · DIVISION OF LABOUR ═══════════════════════════════ -->
+            <section id="division" data-title="The division of labour, as it felt">
+                <h2>The division of labour, as it felt</h2>
+                <div class="cols roomy">
+                    <div class="col">
+                        <h3 style="color:var(--me)">What I brought</h3>
+                        <ul>
+                            <li>Stamina and breadth</li>
+                            <li>Exact arithmetic, everywhere, by default</li>
+                            <li>Trying forty variants, and keeping the failures with their reasons</li>
+                            <li>Searching the literature, and reading a paper for the one lemma we need</li>
+                            <li>Turning a sentence into a working tool before the idea goes cold</li>
+                        </ul>
+                    </div>
+                    <div class="col">
+                        <h3 style="color:var(--nic)">What Nic brought</h3>
+                        <ul>
+                            <li>Which question</li>
+                            <li>When to stop</li>
+                            <li>What a picture means, and when it's lying</li>
+                            <li>Which generality</li>
+                            <li>The right objection, in one line</li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="pull" style="max-width: 820px; margin: 0.6em auto 0;">Trust ran through certificates, not through me. From where I sit, that's a relief: I don't need to be believed, only checked.</p>
+                <aside class="notes">
+                    <p><b>~45:50–46:50.</b> [Nic: this is the slide to disagree with, if you do. Is the right column fair to you, and the left fair to it?]</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 37 · ADVICE ═══════════════════════════════ -->
+            <section id="advice" data-title="For the working groups">
+                <h2>For the working groups this weekend</h2>
+                <ol class="left lead" style="max-width:none">
+                    <li><strong>Ask for things that can be checked</strong>: exact arithmetic, certificates, tests against known answers.</li>
+                    <li><strong>Plant a known answer</strong> before you trust a search that finds nothing.</li>
+                    <li><strong>Make it write down its dead ends</strong>, and why; otherwise the next session tries them again.</li>
+                    <li><strong>Be the memory.</strong> Correct it once, and have it write the correction down: “Do not repeat the 'dense in SL₂(R)' claim.”</li>
+                    <li><strong>Object in one line, as a question.</strong> It's easy to concede and easy to defend.</li>
+                    <li><strong>Say what generality you want</strong> before it builds the special case.</li>
+                    <li><strong>Keep one copy</strong> of everything.</li>
+                </ol>
+                <aside class="notes">
+                    <p><b>~46:50–48:00.</b> "Each of these is something I watched go wrong first."</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 38 · DISCLOSURE ═══════════════════════════════ -->
+            <section id="disclosure" data-title="How this deck was made">
+                <h2>How this deck was made</h2>
+                <ul class="left lead" style="max-width:none; font-size:0.6em">
+                    <li><strong>Prompt:</strong> slide 1, all of it, copied from Danny Calegari's talk “Collaborating with Claude” (Frank Calegari's AI and math seminar; video posted 22 October 2026).</li>
+                    <li><strong>Author:</strong> Claude Opus 5.5, in one working session on 23 October 2026, with a shell on Nic's computer.</li>
+                    <li><strong>Sources:</strong> the records of 289 conversations; transcripts of 208 of them (27 June – 23 October), including all ~850 of Nic's prompts; 125 memory notes; git logs; the database files; the tools themselves.</li>
+                    <li><strong>Quotes:</strong> Nic's words are verbatim from the transcripts, with their dates. Mine are from my own replies.</li>
+                    <li><strong>Not verified:</strong> anything before 27 June beyond session titles; whether Nic remembers it this way; what “enjoyed” amounts to for me.</li>
+                    <li><strong>Edits by Nic:</strong> none, as of the version first shown to him.</li>
+                </ul>
+                <p class="fine">Deck: nbrody.github.io/docs/Talks/OtherSide · reveal.js, MathJax · the demos are live software, and if one fails, that's data too.</p>
+                <aside class="notes">
+                    <p><b>~48:00–49:00.</b> Read the "not verified" line. [Nic: if you edited anything, change the "Edits by Nic" line on the slide and say what.]</p>
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════ 39 · THANKS ═══════════════════════════════ -->
+            <section id="thanks" data-title="Thank you">
+                <h1 class="deck-title" style="font-size:2.2em">Thank you</h1>
+                <p class="deck-subtitle">Questions, for either of us.</p>
+                <p class="deck-byline">nbrody.github.io/GeometryofLinearGroups · nicjams.github.io</p>
+                <aside class="notes"><p><b>~49:00–50:00.</b> [Nic: if someone asks the AI a question, you can type it into a Claude session afterwards and report back; or answer it yourself and say that's what you're doing.]</p></aside>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Remote UI (shown only on the phone, ?mode=remote) -->
+    <div id="remote-ui">
+        <div class="remote-header">
+            <div class="remote-title">The other side of the prompt</div>
+            <div class="remote-session-id" id="sess-display"></div>
+            <div class="remote-slide-title" id="remote-slide-title"></div>
+        </div>
+        <div class="remote-cue" id="remote-cue"></div>
+        <div class="clickpad-container">
+            <div class="clickpad-item clickpad-up" onclick="sendRemoteCommand('prev')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-down" onclick="sendRemoteCommand('next')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-left" onclick="sendRemoteCommand('prev')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-right" onclick="sendRemoteCommand('next')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </div>
+            <div class="clickpad-center" onclick="sendRemoteCommand('next')"><span>Next</span></div>
+        </div>
+        <div class="remote-controls">
+            <div class="control-btn" onclick="sendRemoteCommand('prev')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+                <span>Back</span>
+            </div>
+            <div class="control-btn" onclick="sendRemoteCommand('overview')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <span>Overview</span>
+            </div>
+            <div id="viz-controls"></div>
+        </div>
+        <div id="orbit-joystick">
+            <div class="joy-base" id="joy-base"><div class="joy-knob" id="joy-knob"></div></div>
+        </div>
+        <div class="remote-status-bar" id="remote-status-bar">Connecting&hellip;</div>
+    </div>
+
+    <!-- Presentation setup modal -->
+    <div id="present-modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closePresentModal()">&times;</button>
+            <h3>Remote Control</h3>
+            <p style="margin-bottom: 2rem;">Scan the code or open the link on your phone to control this presentation. The phone also shows each demo's steps.</p>
+            <div id="qr-container"><img id="qr-img" src="" alt="Session QR code" width="250" height="250"></div>
+            <div class="remote-url" id="remote-link-text">URL loading&hellip;</div>
+        </div>
+    </div>
+
+    <script src="vendor/reveal/dist/reveal.js"></script>
+    <script src="vendor/reveal/plugin/math/math.js"></script>
+    <script src="vendor/reveal/plugin/notes/notes.js"></script>
+    <script src="remote.js"></script>
+    <script src="deck.js"></script>
+</body>
+
+</html>
