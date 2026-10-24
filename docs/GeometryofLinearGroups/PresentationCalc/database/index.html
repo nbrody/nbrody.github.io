@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentation Database</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="db.css">
+</head>
+<body>
+<div class="page wide">
+    <header class="top">
+        <h1>Presentation Database</h1>
+        <a class="quiet" href="../">calculator ↗</a>
+    </header>
+
+    <p class="lead-in">Two-generator subgroups <span class="m">\Gamma = \langle g_1, g_2 \rangle \le \mathrm{PGL}_2(\mathbb{Q})</span> with both generators of height at most <span class="m">\log B</span>, run through the <a href="../">Presentation Calculator</a>’s four steps. The height is <span class="m">h(g) = \log \sigma_1(\tilde g)</span> for the primitive integral representative <span class="m">\tilde g</span>: half the displacement of the basepoint of <span class="m">\mathbb{H}^2 \times \prod_p T_p</span>, with a tree edge at <span class="m">p</span> counting <span class="m">\log p</span>. Each pair is listed once up to swapping, inverting either generator, and conjugating by the Klein four-group that fixes the basepoint.</p>
+    <p class="lead-in" id="lead-field"></p>
+
+    <section class="card" id="summary-card">
+        <h2>By height <span class="tag" id="db-meta"></span></h2>
+        <div class="filters"><label class="f">field <select id="field-select"><option value="Q">ℚ</option></select></label><label class="f">data set <select id="set-select"></select></label><label class="f" id="group-toggle" hidden><input type="checkbox" id="by-group"> one row per group (up to conjugacy and generators)</label><span class="note" id="set-note"></span></div>
+        <div id="summary"></div>
+    </section>
+
+    <section class="card" id="list-card">
+        <h2>Groups</h2>
+        <div class="filters">
+            <div class="pills" id="verdict-pills" role="group" aria-label="Verdicts shown"></div>
+            <label class="f">reason <select id="why-select"><option value="">any</option></select></label>
+            <label class="f"><span id="bound-label">σ₁ ≤</span> <select id="bound-select"></select></label>
+        </div>
+        <p class="note" id="count-line"></p>
+        <div id="rows"></div>
+        <button class="btn" id="more-btn" hidden>Show more</button>
+    </section>
+
+    <details class="syntax card" id="legend">
+        <summary>The verdicts and the reasons</summary>
+        <div>
+            <p><b>Not Zariski dense</b> — step 1: Γ is finite, virtually abelian, or reducible.</p>
+            <p><b>Discrete at a place</b> — step 2: poincare proves Γ discrete in <span class="m">\mathrm{PGL}_2(\mathbb{R})</span>, or the tree algorithm proves it discrete in <span class="m">\mathrm{PGL}_2(\mathbb{Q}_p)</span>. A presentation is recorded when poincare reads one off the domain.</p>
+            <p><b>S-arithmetic</b> — step 4: FlashBeam covers the trees, re-checked exactly, and the stabilizer of the basepoint is a lattice at ∞, so <span class="m">\Gamma^{(2)}</span> has finite index in <span class="m">\mathrm{PGL}_2(\mathbb{Z}[1/S])</span> (up to conjugation).</p>
+            <p><b>Undetermined</b> — no step settles Γ. The reasons:</p>
+            <dl class="why-list" id="why-list"></dl>
+        </div>
+    </details>
+</div>
+
+<script type="module" src="db.js"></script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>

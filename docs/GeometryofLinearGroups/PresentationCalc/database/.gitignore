@@ -1,0 +1,8 @@
+# The run logs stay on the machine that runs the batches (~120 MB, rewritten on every rerun).
+# The published page reads the slim exports in web/ instead: node database/export-web.mjs
+results.jsonl
+results-nf.jsonl
+results-random.jsonl
+presentations.jsonl
+presentations-nf.jsonl
+tuning.jsonl
