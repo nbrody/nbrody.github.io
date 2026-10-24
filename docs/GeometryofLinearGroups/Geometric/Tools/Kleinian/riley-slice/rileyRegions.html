@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riley's Regions</title>
+<meta name="description" content="Riley's picture of the Riley slice, recomputed: each colour counts the faces of the Ford domain of ⟨A,B⟩ taken at both cusps (the Ford domain of the extension by z ↦ 1/(ρz)).">
+<style>
+  :root {
+    --bg: #0b1020; --panel: #121a2e; --line: rgba(255,255,255,0.10);
+    --text: #e8edf6; --dim: #9aa6bd; --muted: #6b7790; --accent: #7cc4ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+  #app { display: grid; grid-template-columns: minmax(0, 1fr) 400px; height: 100%; }
+  #mapWrap { position: relative; min-height: 0; overflow: hidden; background: #fff; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+  #map.dragging { cursor: grabbing; }
+  #tools { position: absolute; top: 12px; left: 12px; display: flex; flex-wrap: wrap; gap: 8px; z-index: 2; }
+  .seg { display: inline-flex; background: rgba(18,26,46,0.92); border: 1px solid var(--line);
+    border-radius: 9px; overflow: hidden; backdrop-filter: blur(8px); }
+  .seg button, .btn { background: transparent; color: var(--dim); border: 0; padding: 6px 11px;
+    font: inherit; font-size: 12.5px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: rgba(124,196,255,0.16); color: var(--text); }
+  .chk { display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; color: var(--dim); font-size: 12.5px; }
+  #status { position: absolute; left: 12px; bottom: 10px; z-index: 2; font-size: 12px; color: var(--dim);
+    background: rgba(18,26,46,0.92); border: 1px solid var(--line); border-radius: 8px; padding: 3px 9px;
+    font-variant-numeric: tabular-nums; pointer-events: none; }
+  aside { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; padding: 18px 18px 28px; }
+  h1 { font-size: 19px; margin: 0 0 4px; letter-spacing: 0.01em; }
+  .lede { color: var(--dim); margin: 0 0 12px; font-size: 13px; }
+  .legend { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; margin: 6px 0 14px; }
+  .pal { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px 10px;
+    font-size: 12.5px; color: var(--dim); margin: 2px 0 4px; }
+  .pal select { grid-column: 2 / 4; background: #0b1222; color: var(--text); border: 1px solid var(--line);
+    border-radius: 7px; padding: 4px 6px; font: inherit; font-size: 12.5px; }
+  .pal input[type=range] { width: 100%; accent-color: var(--accent); }
+  .pal output { font-variant-numeric: tabular-nums; min-width: 2.6em; text-align: right; }
+  .pal .hide { display: none; }
+  .legend div { text-align: center; font-size: 11px; color: var(--dim); }
+  .legend span { display: block; height: 16px; border-radius: 3px; border: 1px solid var(--line); margin-bottom: 2px; }
+  #readout { font-variant-numeric: tabular-nums; margin: 4px 0 8px; min-height: 42px; }
+  #readout .big { font-size: 15px; }
+  #readout .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px;
+    border: 1px solid var(--line); margin-right: 6px; }
+  #ford { width: 100%; height: 300px; display: block; background: #070b16; border: 1px solid var(--line); border-radius: 10px; }
+  .key { display: flex; gap: 14px; color: var(--muted); font-size: 11.5px; margin: 6px 0 10px; }
+  .key i { display: inline-block; width: 18px; height: 11px; vertical-align: -1px; margin-right: 5px; border-radius: 2px; }
+  #faces { columns: 2; column-gap: 14px; font-size: 12.5px; margin: 0 0 14px; padding: 0; list-style: none; }
+  #faces li { break-inside: avoid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #faces li i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -0.5px; }
+  #faces li.cross { color: var(--dim); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 18px 0 6px; }
+  p { margin: 0 0 9px; }
+  aside p, aside li { font-size: 13px; }
+  .math { font-family: "STIX Two Math", "Cambria Math", Georgia, serif; font-size: 14.5px; }
+  .hint { color: var(--muted); font-size: 12px; }
+  @media (max-width: 860px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: 62vh auto; height: auto; }
+    aside { border-left: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="mapWrap">
+    <canvas id="map"></canvas>
+    <div id="tools">
+      <div class="seg" id="viewSeg">
+        <button data-view="riley" class="on">Riley's window</button>
+        <button data-view="full">Whole slice</button>
+      </div>
+      <div class="seg" id="groupSeg">
+        <button data-group="ext" class="on">Both cusps ⟨A, E⟩</button>
+        <button data-group="gamma">Cusp ∞ only ⟨A, B⟩</button>
+      </div>
+      <div class="seg"><label class="chk"><input type="checkbox" id="walls"> First walls</label></div>
+    </div>
+    <div id="status">starting…</div>
+  </section>
+
+  <aside>
+    <h1>Riley's regions</h1>
+    <p class="lede">Each colour counts the faces of the Ford domain of
+      ⟨A, B⟩, A = (1 1; 0 1), B = (1 0; ρ 1), <b>taken at both of its cusps</b>.
+      Hover over the slice to see that domain, click to pin it, scroll to zoom, drag to pan.</p>
+    <div class="pal">
+      <span>Palette</span><select id="palette"></select>
+      <span class="cyc">Cycle</span><input class="cyc" type="range" id="cycle" min="3" max="16" step="1"><output class="cyc" id="cycleOut"></output>
+      <span class="hue">Hue</span><input class="hue" type="range" id="hue" min="0" max="359" step="1"><output class="hue" id="hueOut"></output>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div id="readout"><span class="hint">Hover over the coloured region.</span></div>
+    <canvas id="ford"></canvas>
+    <div class="key">
+      <span><i style="background:#c9d4ea"></i>face of g ∈ Γ<sub>ρ</sub></span>
+      <span><i style="background:repeating-linear-gradient(135deg,#c9d4ea 0 3px,#7d889f 3px 5px)"></i>face of gE (cusp 0)</span>
+      <span>dashed: |Re z| = ½</span>
+    </div>
+    <ul id="faces"></ul>
+
+    <h2>What the colours are</h2>
+    <p>Γ<sub>ρ</sub> = ⟨A, B⟩ has two cusps, ∞ (fixed by A) and 0 (fixed by B).
+      The involution <span class="math">E(z) = 1/(ρz)</span> swaps them and conjugates
+      A to B, so Γ̂ = ⟨A, E⟩ contains Γ<sub>ρ</sub> with index 2. The Ford domain of Γ̂
+      at ∞ is the set of points in the slab |Re z| ≤ ½ that are at least as close to the
+      horoball at ∞ as to <em>every</em> horoball of either cusp orbit, with horoballs at ∞ and 0 swapped by E.
+      Its faces are the isometric spheres of the elements g ∈ Γ<sub>ρ</sub> (solid) and of gE (hatched).
+      A Ford domain of Γ<sub>ρ</sub> computed at ∞ alone only sees the solid ones. Switch to
+      “Cusp ∞ only” to see that picture: its first wall is the
+      Lyndon–Ullman circle |ρ − 2| = 2, not Riley's |ρ| = 4.</p>
+    <p>Riley's own palette (pick “Riley (original)”) indexes the face count, mod A-translation:
+      1 black, 3 blue, 5 green, 7 red, 9 aquamarine, 11 magenta, 13 azure, 15 yellow,
+      then it repeats. Recomputed this way, the picture matches Riley's original
+      pixel for pixel, up to the pleating rays drawn over it.</p>
+
+    <h2>The walls</h2>
+    <p><b>|ρ| = 4</b> (black | blue). The isometric circle of E is |z| = |ρ|<sup>−½</sup>.
+      For |ρ| ≥ 4 it misses its translates, and E is the only face. On the wall it touches its translate at ½.
+      Inside, the faces of B and B⁻¹ = EA<sup>±1</sup>E are born at E(∓½) = ∓2/ρ.</p>
+    <p><b>|ρ| = 2(1 + cos arg ρ)</b> (blue | green), a cardioid through the cusps 2i and 4.
+      On it, the circles of E, EA⁻¹ and B⁻¹ pass through the single point
+      ½(1 − i tan(arg ρ / 2)). Inside, the new faces B⁻¹AE and BA⁻¹E are born at that
+      point's images under B<sup>∓1</sup>.</p>
+    <p>Every wall works this way. A vertex of the Ford domain reaches the sphere at
+      infinity: there, three or more isometric circles are concurrent. Crossing the wall, Poincaré's cycle
+      condition at the new vertex forces new faces. Approaching a cusp ρ<sub>p/q</sub>
+      of the slice, the p/q Farey word turns parabolic and the face count goes to infinity.
+      That is why the walls pile up into scallops at every cusp.</p>
+    <p class="hint">Faces are computed exactly: power-diagram cells by half-plane clipping,
+      words grown by products f A<sup>±1</sup> g of faces until nothing new is visible.
+      Code: fordCore.js. The static picture: <code>node rileyRegions.js</code>.</p>
+  </aside>
+</div>
+
+<script src="fordCore.js?v=2026-10-11"></script>
+<script>
+"use strict";
+const F = FordCore;
+
+/* ---------------- workers (built from the factory, so file:// works) ------- */
+const workerSrc = `
+  const FordCore = (${fordCoreFactory.toString()})();
+  let inLens = () => false;
+  onmessage = (e) => {
+    const m = e.data;
+    if (m.type === "init") { inLens = FordCore.makeLensTest(m.boundary); return; }
+    const { gen, r, nx, x0, y, dx, group } = m;
+    // one Ford domain per region; walls in between from its certificate
+    const out = FordCore.scanRow(nx, c => [x0 + (c + 0.5) * dx, y], { skip: inLens, group }).counts;
+    postMessage({ gen, r, out }, [out.buffer]);
+  };`;
+const NW = Math.max(2, Math.min(16, (navigator.hardwareConcurrency || 4) - 1));
+const workers = [];
+const boundary = F.sliceBoundary(64);
+const inLens = F.makeLensTest(boundary);
+{
+  const url = URL.createObjectURL(new Blob([workerSrc], { type: "text/javascript" }));
+  for (let i = 0; i < NW; i++) {
+    const w = new Worker(url);
+    w.postMessage({ type: "init", boundary });
+    w.onmessage = onRow;
+    w.busy = false;
+    workers.push(w);
+  }
+}
+
+/* ---------------- view ------------------------------------------------------ */
+const mapCanvas = document.getElementById("map");
+const mctx = mapCanvas.getContext("2d");
+const statusEl = document.getElementById("status");
+let view = { cx: 2.1, cy: 2.1, s: 100 };        // s = CSS px per unit
+let group = "ext", showWalls = false;
+let pal = { name: "rainbow", cycle: 9, hue: 0 };
+try {
+  const saved = JSON.parse(localStorage.getItem("rileyRegions.palette"));
+  if (saved && F.PALETTES[saved.name]) pal = { ...pal, ...saved };
+} catch (e) {}
+const colorCache = new Map();
+function colorFor(n) {
+  let c = colorCache.get(n);
+  if (!c) { c = F.paletteColor(pal.name, n, pal); colorCache.set(n, c); }
+  return c;
+}
+const VIEWS = { riley: [-0.05, 4.25, -0.05, 4.25], full: [-4.5, 4.5, -4.5, 4.5] };
+function cssSize() { return [mapCanvas.clientWidth, mapCanvas.clientHeight]; }
+function fit(b) {
+  const [W, H] = cssSize();
+  view.cx = (b[0] + b[1]) / 2; view.cy = (b[2] + b[3]) / 2;
+  view.s = Math.min(W / (b[1] - b[0]), H / (b[3] - b[2]));
+}
+const toWorld = (px, py) => {
+  const [W, H] = cssSize();
+  return [view.cx + (px - W / 2) / view.s, view.cy - (py - H / 2) / view.s];
+};
+const toScreen = (x, y) => {
+  const [W, H] = cssSize();
+  return [W / 2 + (x - view.cx) * view.s, H / 2 - (y - view.cy) * view.s];
+};
+
+/* ---------------- progressive raster ----------------------------------------- */
+// one job = one row; rows are queued interlaced (every 8th first) so a coarse
+// picture appears at once and sharpens.
+let gen = 0, raster = null, queue = [], t0 = 0;
+function recompute() {
+  const [W, H] = cssSize();
+  if (!W || !H || !view.s) return;
+  gen++;
+  const cell = Math.max(1, Math.max(W, H) / 760);
+  const nx = Math.ceil(W / cell), ny = Math.ceil(H / cell);
+  const dx = W / nx / view.s;
+  const [x0, y1] = toWorld(0, 0);
+  const img = new ImageData(nx, ny);
+  const done = new Uint8Array(ny);
+  const counts = new Int16Array(nx * ny).fill(-1);
+  const cnv = document.createElement("canvas"); cnv.width = nx; cnv.height = ny;
+  raster = { gen, nx, ny, x0, y1, dx, img, done, ndone: 0, counts, cnv, ctx: cnv.getContext("2d"), dirty: true, group };
+  queue = [];
+  const seen = new Uint8Array(ny);
+  for (const step of [8, 4, 2, 1])
+    for (let r = 0; r < ny; r += step) if (!seen[r]) { seen[r] = 1; queue.push(r); }
+  t0 = performance.now();
+  for (const w of workers) w.busy = false;
+  feed();
+}
+function feed() {
+  for (const w of workers) {
+    if (w.busy || !queue.length) continue;
+    const r = queue.shift();
+    w.busy = true;
+    w.postMessage({ gen, r, nx: raster.nx, x0: raster.x0,
+                    y: raster.y1 - (r + 0.5) * raster.dx, dx: raster.dx, group: raster.group });
+  }
+}
+function onRow(e) {
+  const { gen: g, r, out } = e.data;
+  this.busy = false;
+  if (g !== gen) { feed(); return; }
+  const R = raster;
+  R.counts.set(out, r * R.nx);
+  if (!R.done[r]) { R.done[r] = 1; R.ndone++; }
+  R.dirty = true;
+  feed();
+  if (R.ndone === R.ny) {
+    statusEl.textContent = `${R.nx}×${R.ny} · ${((performance.now() - t0) / 1000).toFixed(1)} s · ` +
+      (group === "ext" ? "Ford domain of ⟨A, E⟩" : "Ford domain of ⟨A, B⟩ at ∞ only");
+  } else {
+    statusEl.textContent = `computing ${Math.round(100 * R.ndone / R.ny)}%`;
+  }
+}
+function paintRaster() {
+  const R = raster;
+  if (!R || !R.dirty) return;
+  R.dirty = false;
+  const { nx, ny, img, done, counts } = R;
+  const d = img.data;
+  let src = -1;
+  for (let r = 0; r < ny; r++) {
+    if (done[r]) src = r;
+    let s = src;
+    if (s < 0) { for (let k = r; k < ny; k++) if (done[k]) { s = k; break; } }
+    for (let c = 0; c < nx; c++) {
+      const o = 4 * (r * nx + c);
+      if (s < 0) { d[o + 3] = 0; continue; }
+      const v = counts[s * nx + c];
+      const col = v <= 0 ? [255, 255, 255] : colorFor(v);
+      d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255;
+    }
+  }
+  R.ctx.putImageData(img, 0, 0);
+}
+
+/* ---------------- drawing ------------------------------------------------------ */
+let hover = null, pinned = null;
+function drawMap() {
+  const dpr = window.devicePixelRatio || 1;
+  const [W, H] = cssSize();
+  if (mapCanvas.width !== Math.round(W * dpr) || mapCanvas.height !== Math.round(H * dpr)) {
+    mapCanvas.width = Math.round(W * dpr); mapCanvas.height = Math.round(H * dpr);
+  }
+  const g = mctx;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
+  paintRaster();
+  if (raster) {                                  // raster may lag the view while panning
+    const [sx, sy] = toScreen(raster.x0, raster.y1);
+    const k = raster.dx * view.s;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(raster.cnv, sx, sy, raster.nx * k, raster.ny * k);
+  }
+  // axes
+  g.strokeStyle = "rgba(120,120,120,0.55)"; g.lineWidth = 1;
+  const [ox, oy] = toScreen(0, 0);
+  g.beginPath(); g.moveTo(0, oy); g.lineTo(W, oy); g.moveTo(ox, 0); g.lineTo(ox, H); g.stroke();
+  if (showWalls) drawWalls(g);
+  const p = pinned || hover;
+  if (p) {
+    const [x, y] = toScreen(p[0], p[1]);
+    g.strokeStyle = "#fff"; g.lineWidth = 3;
+    g.beginPath(); g.arc(x, y, 6, 0, 2 * Math.PI); g.stroke();
+    g.strokeStyle = "#111"; g.lineWidth = 1.5;
+    g.beginPath(); g.arc(x, y, 6, 0, 2 * Math.PI); g.stroke();
+  }
+}
+function curve(g, f, t0, t1, n = 400) {
+  g.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const [x, y] = f(t0 + (t1 - t0) * i / n);
+    const [sx, sy] = toScreen(x, y);
+    i ? g.lineTo(sx, sy) : g.moveTo(sx, sy);
+  }
+  g.stroke();
+}
+function label(g, text, x, y) {
+  const [sx, sy] = toScreen(x, y);
+  g.font = "12px -apple-system, sans-serif";
+  const w = g.measureText(text).width;
+  g.fillStyle = "rgba(255,255,255,0.88)"; g.fillRect(sx - 3, sy - 13, w + 6, 17);
+  g.fillStyle = "#111"; g.fillText(text, sx, sy);
+}
+function drawWalls(g) {
+  g.lineWidth = 1.6;
+  g.setLineDash([]);
+  g.strokeStyle = "rgba(255,255,255,0.95)";
+  curve(g, t => [4 * Math.cos(t), 4 * Math.sin(t)], 0, 2 * Math.PI);
+  g.strokeStyle = "rgba(255,240,120,0.95)";
+  curve(g, t => { const r = 2 * (1 + Math.abs(Math.cos(t))); return [r * Math.cos(t), r * Math.sin(t)]; }, 0, 2 * Math.PI, 800);
+  g.setLineDash([6, 5]);
+  g.strokeStyle = "rgba(20,20,20,0.85)";
+  for (const s of [1, -1]) curve(g, t => [2 * s + 2 * Math.cos(t), 2 * Math.sin(t)], 0, 2 * Math.PI);
+  g.setLineDash([]);
+  label(g, "|ρ| = 4", 2.9, 2.95);
+  label(g, "|ρ| = 2(1 + cos arg ρ)", 1.45, 2.72);
+  label(g, "|ρ − 2| = 2  (one-cusp wall)", 2.15, 1.72);
+}
+
+/* ---------------- Ford domain panel ------------------------------------------- */
+const fordCanvas = document.getElementById("ford");
+const fctx = fordCanvas.getContext("2d");
+const readout = document.getElementById("readout");
+const faceList = document.getElementById("faces");
+const invWord = w => w.slice().reverse().map(n => -n);
+function hashStr(s) { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; }
+function faceHue(w) {                          // a face and its partner share a hue
+  const a = w.join(","), b = invWord(w).join(",");
+  const k = a < b ? a : b;
+  if (!w.length) return 215;
+  return (hashStr(k) * 0.618034 * 360) % 360;
+}
+function hsl(h, s, l) { return `hsl(${h.toFixed(0)} ${s}% ${l}%)`; }
+let hatch = null;
+function hatchPattern(g) {
+  if (hatch) return hatch;
+  const c = document.createElement("canvas"); c.width = c.height = 8;
+  const x = c.getContext("2d");
+  x.strokeStyle = "rgba(10,14,28,0.32)"; x.lineWidth = 1.6;
+  x.beginPath(); x.moveTo(-2, 10); x.lineTo(10, -2); x.moveTo(-2, 2); x.lineTo(2, -2); x.moveTo(6, 10); x.lineTo(10, 6); x.stroke();
+  return (hatch = g.createPattern(c, "repeat"));
+}
+function showFord(rho) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = fordCanvas.clientWidth, H = fordCanvas.clientHeight;
+  if (!W || !H) return;
+  fordCanvas.width = Math.round(W * dpr); fordCanvas.height = Math.round(H * dpr);
+  const g = fctx;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = "#070b16"; g.fillRect(0, 0, W, H);
+  faceList.innerHTML = "";
+  if (!rho) { readout.innerHTML = `<span class="hint">Hover over the coloured region.</span>`; return; }
+  const [x, y] = rho;
+  const mod = Math.hypot(x, y), arg = Math.atan2(y, x) * 180 / Math.PI;
+  const rhoStr = `ρ = ${x.toFixed(4)} ${y < 0 ? "−" : "+"} ${Math.abs(y).toFixed(4)}i`;
+  if (inLens(x, y) || mod < 1e-9) {
+    readout.innerHTML = `<div class="big">${rhoStr}</div><div class="hint">Inside the lens: Γ<sub>ρ</sub> is not free and discrete here, so there is no Ford domain to draw.</div>`;
+    return;
+  }
+  const fd = F.fordDomain(x, y, { polys: true, group });
+  if (fd.nondiscrete) {
+    const w = fd.nondiscrete.word;
+    let name = F.gammaName(w);
+    if (name.length > 60) name = name.slice(0, 60) + `… (${w.length} syllables)`;
+    readout.innerHTML = `<div class="big">${rhoStr}</div><div class="hint">Not discrete: <i>${name}</i> has an isometric circle of radius ${fd.nondiscrete.r.toFixed(4)} &gt; 1, so |c| &lt; 1 against A = z + 1 (Shimizu's lemma). ρ is outside the Riley slice, though outside the lens drawn from the cusps.</div>`;
+    return;
+  }
+  const faces = fd.faces;
+  const n = faces.length;
+  const col = colorFor(n);
+  readout.innerHTML =
+    `<div class="big">${rhoStr}</div>` +
+    `<div><span class="sw" style="background:rgb(${col})"></span>${n} face${n === 1 ? "" : "s"}` +
+    `<span class="hint"> · |ρ| = ${mod.toFixed(4)}, arg ρ = ${arg.toFixed(2)}°` +
+    (fd.complete ? "" : fd.capped ? " · undecided: faces need words past the length cap" : " · face cap reached") + `</span></div>`;
+  // frame the small faces, which crowd around the junction Re z = 1/2 of E and
+  // its translate; at least one period wide, at most two
+  let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+  for (const f of faces) {
+    if (!f.word.length) continue;
+    const k = Math.round(0.5 - f.x);
+    let px0 = Infinity, px1 = -Infinity, py0 = Infinity, py1 = -Infinity;
+    for (const [u, v] of f.poly) {
+      px0 = Math.min(px0, u); px1 = Math.max(px1, u); py0 = Math.min(py0, v); py1 = Math.max(py1, v);
+    }
+    bx0 = Math.min(bx0, Math.max(px0, f.x - f.r) + k); bx1 = Math.max(bx1, Math.min(px1, f.x + f.r) + k);
+    by0 = Math.min(by0, Math.max(py0, f.y - f.r)); by1 = Math.max(by1, Math.min(py1, f.y + f.r));
+  }
+  if (!isFinite(bx0)) { bx0 = -0.6; bx1 = 1.6; by0 = -0.6; by1 = 0.6; }
+  const ccx = (bx0 + bx1) / 2, ccy = (by0 + by1) / 2;
+  let vw = Math.max(1.1, 1.3 * (bx1 - bx0), 1.3 * (by1 - by0) * W / H);
+  vw = Math.min(vw, 2.2);
+  const s = W / vw;
+  const X = u => W / 2 + (u - ccx) * s, Y = v => H / 2 - (v - ccy) * s;
+  const xlo = ccx - vw / 2, xhi = ccx + vw / 2;
+  const area = p => { let a = 0; for (let i = 0; i < p.length; i++) { const q = p[i], r = p[(i + 1) % p.length]; a += q[0] * r[1] - r[0] * q[1]; } return a / 2; };
+  const labels = [];
+  faces.forEach(f => {
+    const hue = faceHue(f.word), cross = !F.inGamma(f.word);
+    const fill = f.word.length === 0 ? hsl(215, 30, 72) : hsl(hue, 70, cross ? 70 : 58);
+    for (let k = -2; k <= 2; k++) {
+      if (f.x + k + f.r < xlo - 0.05 || f.x + k - f.r > xhi + 0.05) continue;
+      g.save();
+      g.beginPath(); g.arc(X(f.x + k), Y(f.y), f.r * s, 0, 2 * Math.PI); g.clip();
+      g.beginPath();
+      f.poly.forEach(([u, v], i) => i ? g.lineTo(X(u + k), Y(v)) : g.moveTo(X(u + k), Y(v)));
+      g.closePath();
+      g.fillStyle = fill; g.fill();
+      if (cross) { g.fillStyle = hatchPattern(g); g.fill(); }
+      g.restore();
+      // label at the clipped cell's rough centroid
+      const A = Math.abs(area(f.poly)) * s * s;
+      if (A > 380) {
+        let cx = 0, cy = 0;
+        for (const [u, v] of f.poly) { cx += u; cy += v; }
+        cx /= f.poly.length; cy /= f.poly.length;
+        const dx = cx - f.x, dy = cy - f.y, d = Math.hypot(dx, dy);
+        if (d > 0.85 * f.r) { cx = f.x + dx * 0.85 * f.r / d; cy = f.y + dy * 0.85 * f.r / d; }
+        labels.push([F.gammaName(f.word), X(cx + k), Y(cy)]);
+      }
+    }
+  });
+  // circle outlines over the faces
+  g.lineWidth = 0.8; g.strokeStyle = "rgba(255,255,255,0.35)";
+  for (const f of faces) for (let k = -2; k <= 2; k++) {
+    if (f.x + k + f.r < xlo - 0.05 || f.x + k - f.r > xhi + 0.05) continue;
+    g.beginPath(); g.arc(X(f.x + k), Y(f.y), f.r * s, 0, 2 * Math.PI); g.stroke();
+  }
+  g.setLineDash([4, 4]); g.strokeStyle = "rgba(255,255,255,0.55)";
+  for (const u of [-0.5, 0.5, 1.5]) { g.beginPath(); g.moveTo(X(u), 0); g.lineTo(X(u), H); g.stroke(); }
+  g.setLineDash([]);
+  g.font = "600 11.5px -apple-system, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  for (const [t, lx, ly] of labels) {
+    if (lx < 10 || lx > W - 10) continue;
+    g.lineWidth = 3; g.strokeStyle = "rgba(7,11,22,0.85)"; g.strokeText(t, lx, ly);
+    g.fillStyle = "#fff"; g.fillText(t, lx, ly);
+  }
+  g.textAlign = "left"; g.textBaseline = "alphabetic";
+  // list: Gamma faces first, then the cross faces
+  const sorted = faces.slice().sort((a, b) =>
+    (F.inGamma(b.word) - F.inGamma(a.word)) || a.word.length - b.word.length);
+  const MAXL = 40;
+  for (const f of sorted.slice(0, MAXL)) {
+    const li = document.createElement("li");
+    const cross = !F.inGamma(f.word);
+    if (cross) li.className = "cross";
+    const hue = faceHue(f.word);
+    li.innerHTML = `<i style="background:${f.word.length ? hsl(hue, 70, cross ? 70 : 58) : hsl(215, 30, 72)}"></i>${F.gammaName(f.word)}`;
+    li.title = F.wordName(f.word);
+    faceList.appendChild(li);
+  }
+  if (faces.length > MAXL) {
+    const li = document.createElement("li");
+    li.className = "cross"; li.textContent = `+ ${faces.length - MAXL} more`;
+    faceList.appendChild(li);
+  }
+}
+
+/* ---------------- palette + legend ---------------------------------------------- */
+function buildLegend() {
+  const el = document.getElementById("legend");
+  el.innerHTML = "";
+  const odd = group === "ext" ? 1 : 0;            // the one-cusp counts are even
+  for (let i = 0; i < 10; i++) {
+    const n = 2 * i + 2 - odd;
+    const d = document.createElement("div");
+    d.innerHTML = `<span style="background:rgb(${colorFor(n)})"></span>${n}`;
+    el.appendChild(d);
+  }
+}
+function syncPaletteUI() {
+  const P = F.PALETTES[pal.name] || {};
+  document.querySelectorAll(".pal .cyc").forEach(e => e.classList.toggle("hide", !P.cyclic));
+  document.querySelectorAll(".pal .hue").forEach(e => e.classList.toggle("hide", !P.hue));
+  document.getElementById("cycleOut").textContent = pal.cycle;
+  document.getElementById("hueOut").textContent = pal.hue + "°";
+  colorCache.clear();
+  buildLegend();
+  if (raster) raster.dirty = true;
+  requestDraw();
+  requestFord(pinned || hover);
+  try { localStorage.setItem("rileyRegions.palette", JSON.stringify(pal)); } catch (e) {}
+}
+{
+  const sel = document.getElementById("palette");
+  for (const [k, v] of Object.entries(F.PALETTES)) sel.add(new Option(v.label, k));
+  sel.value = pal.name;
+  document.getElementById("cycle").value = pal.cycle;
+  document.getElementById("hue").value = pal.hue;
+  sel.addEventListener("change", () => { pal.name = sel.value; syncPaletteUI(); });
+  document.getElementById("cycle").addEventListener("input", e => { pal.cycle = +e.target.value; syncPaletteUI(); });
+  document.getElementById("hue").addEventListener("input", e => { pal.hue = +e.target.value; syncPaletteUI(); });
+}
+
+/* ---------------- interaction ------------------------------------------------------ */
+let frame = 0, recomputeTimer = 0, drag = null;
+function requestDraw() { if (!frame) frame = requestAnimationFrame(() => { frame = 0; drawMap(); }); }
+function scheduleRecompute(ms = 160) { clearTimeout(recomputeTimer); recomputeTimer = setTimeout(recompute, ms); }
+setInterval(() => { if (raster && raster.dirty) requestDraw(); }, 60);
+
+let fordFrame = 0, fordTarget = null;
+function requestFord(p) {
+  fordTarget = p;
+  if (!fordFrame) fordFrame = requestAnimationFrame(() => { fordFrame = 0; showFord(fordTarget); });
+}
+mapCanvas.addEventListener("pointerdown", e => {
+  drag = { x: e.clientX, y: e.clientY, cx: view.cx, cy: view.cy, moved: false };
+  mapCanvas.setPointerCapture(e.pointerId);
+});
+mapCanvas.addEventListener("pointermove", e => {
+  const rect = mapCanvas.getBoundingClientRect();
+  if (drag) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.hypot(dx, dy) > 3) drag.moved = true;
+    if (drag.moved) {
+      mapCanvas.classList.add("dragging");
+      view.cx = drag.cx - dx / view.s; view.cy = drag.cy + dy / view.s;
+      requestDraw();
+      return;
+    }
+  }
+  hover = toWorld(e.clientX - rect.left, e.clientY - rect.top);
+  if (!pinned) requestFord(hover);
+  requestDraw();
+});
+mapCanvas.addEventListener("pointerup", e => {
+  const rect = mapCanvas.getBoundingClientRect();
+  if (drag && drag.moved) scheduleRecompute(0);
+  else {
+    const p = toWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const same = pinned && Math.hypot(pinned[0] - p[0], pinned[1] - p[1]) * view.s < 8;
+    pinned = same ? null : p;                    // click pins; click it again to release
+    requestFord(p);
+  }
+  drag = null; mapCanvas.classList.remove("dragging");
+  requestDraw();
+});
+mapCanvas.addEventListener("pointerleave", () => { hover = null; if (!pinned) requestFord(null); requestDraw(); });
+mapCanvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const rect = mapCanvas.getBoundingClientRect();
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
+  const [wx, wy] = toWorld(px, py);
+  const f = Math.exp(-e.deltaY * 0.0015);
+  view.s = Math.min(2e6, Math.max(20, view.s * f));
+  const [W, H] = cssSize();
+  view.cx = wx - (px - W / 2) / view.s; view.cy = wy + (py - H / 2) / view.s;
+  requestDraw(); scheduleRecompute();
+}, { passive: false });
+window.addEventListener("keydown", e => { if (e.key === "Escape") { pinned = null; requestFord(hover); requestDraw(); } });
+
+function segment(id, attr, onPick) {
+  const el = document.getElementById(id);
+  el.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    el.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    onPick(b.dataset[attr]);
+  });
+}
+segment("viewSeg", "view", v => { fit(VIEWS[v]); requestDraw(); scheduleRecompute(0); });
+segment("groupSeg", "group", v => { group = v; buildLegend(); scheduleRecompute(0); requestFord(pinned || hover); });
+document.getElementById("walls").addEventListener("change", e => { showWalls = e.target.checked; requestDraw(); });
+
+// start once the map has a size (a hidden pane lays out at 0 x 0)
+let started = false;
+new ResizeObserver(() => {
+  const [W, H] = cssSize();
+  if (!W || !H) return;
+  if (!started) { started = true; fit(VIEWS.riley); recompute(); }
+  else scheduleRecompute();
+  requestDraw();
+}).observe(mapCanvas);
+new ResizeObserver(() => requestFord(pinned || hover)).observe(fordCanvas);
+pinned = [1.9, 2.05];
+syncPaletteUI();
+</script>
+</body>
+</html>
