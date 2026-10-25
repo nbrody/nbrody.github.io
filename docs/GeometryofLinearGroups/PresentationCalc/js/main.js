@@ -39,7 +39,7 @@ import { createInput, fromZariskiStyle } from './input.js';
 import { indexInPGL2Z } from './modularIndex.js';
 import { exactIndexCheck } from './sarithIndex.js';
 import { fuchsianPairTest } from './fuchsian2.js';
-import { bianchiRing, wordMatrices, indexInBianchi, indexInPGL2OS, unitDeterminants, RINGS } from './bianchi.js';
+import { bianchiRing, wordMatrices, indexInBianchi, indexInPGL2OS, unitDeterminants, squareClassIndex, RINGS } from './bianchi.js';
 import { descendToQ } from './descent.js';
 import { infiniteOrderWord } from './cusps.js';
 import { foldPGL2Z } from './stallings.js';
@@ -47,7 +47,7 @@ import { referenceMs } from './calibrate.js';
 import { randomGroup } from './randomGroup.js';
 import { elementarySection, elementaryTop } from './elementaryView.js';
 
-const VERSION = '2026-10-20a';          // busts the workers' module caches
+const VERSION = '2026-10-25a';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const ZARISKI_TIMEOUT = 120;
 const MAX_PRIMES = 12;
@@ -136,6 +136,7 @@ function setStep(name, status, head, detail = '') {
  */
 function startPresentation(R) {
     if (!R || R.presentation || !R.model || !R.zariski || !R.zariski.arith) return;
+    if (R.engineCong === 'running') { R.presentationWanted = true; return; }   // engineCongruenceDone calls back
     const ring = R.model.degree === 2 ? bianchiRing(R.model.polySrc) : null;
     if (R.model.degree !== 1 && !ring) return;
     const A = R.zariski.arith;
@@ -254,7 +255,51 @@ function startZariski() {
     const timer = setTimeout(() => done({ ok: false, error: `no answer after ${ZARISKI_TIMEOUT} s` }), ZARISKI_TIMEOUT * 1000);
     worker.onmessage = (ev) => done(ev.data.result);
     worker.onerror = (e) => { e.preventDefault?.(); done({ ok: false, error: e.message || 'the worker failed to load' }); };
+    // without the congruence closure, which can take far longer over a big field: it runs after step 1
+    // (startEngineCongruence), and steps 2 and 3 need only the density, k, A and S
+    worker.postMessage({ id: R.seq, state: zariskiState(R.model), opts: { congruence: false } });
+}
+
+/**
+ * The engine's congruence closure, prime by prime, once step 1 is done: the same analysis again with it
+ * (the rest is fast). Then the joint closure over ℚ (startCongruence), and a presentation that was waiting for it.
+ */
+const ENGINE_CONG_TIMEOUT = 240;
+function startEngineCongruence(R) {
+    R.engineCong = 'running';
+    setStep('congruence', 'running', 'Computing…', 'Prime by prime, at the primes where the closure can be smaller.');
+    let worker;
+    try {
+        worker = new Worker(new URL(`../../Algebraic/Tools/zariskiClosure/zariskiWorker.js?v=${VERSION}`, import.meta.url));
+    } catch (e) {
+        engineCongruenceDone(R, { error: 'workers are unavailable here' });
+        return;
+    }
+    R.workers.add(worker);
+    let answered = false;
+    const done = (res) => {
+        if (answered) return;
+        answered = true;
+        clearTimeout(timer);
+        try { worker.terminate(); } catch (e) { /* gone */ }
+        R.workers.delete(worker);
+        if (R !== run) return;
+        const C = res && res.ok && res.arith ? res.arith.congruence : null;
+        engineCongruenceDone(R, C || { error: res && res.error ? res.error : 'no congruence closure was returned' });
+    };
+    const timer = setTimeout(() => done({ ok: false, error: `no answer after ${ENGINE_CONG_TIMEOUT} s` }), ENGINE_CONG_TIMEOUT * 1000);
+    worker.onmessage = (ev) => done(ev.data.result);
+    worker.onerror = (e) => { e.preventDefault?.(); done({ ok: false, error: e.message || 'the worker failed to load' }); };
     worker.postMessage({ id: R.seq, state: zariskiState(R.model) });
+}
+
+function engineCongruenceDone(R, C) {
+    if (R !== run) return;
+    R.zariski.arith.congruence = C;
+    R.engineCong = 'done';
+    startCongruence();
+    renderVerdict();          // the status line: nothing else may be running now
+    if (R.presentationWanted) { R.presentationWanted = false; startPresentation(R); }
 }
 
 function zariskiDone(R, res) {
@@ -287,7 +332,7 @@ function zariskiDone(R, res) {
     applyIntegral(R);
     renderVerdict();
     refreshView('zariski');
-    startCongruence();
+    startEngineCongruence(R);
     placeChanged();          // the places settled so far, read with the closure: step 3 can start
 }
 
@@ -552,7 +597,7 @@ function integralVerdict(model, a) {
 function poincareLines(sm, { also = false } = {}) {
     const out = [`Poincaré’s conditions${also ? ' also' : ''} hold for a Dirichlet domain with ${sm.faces} faces${sm.exactUsed ? ', with the relations checked exactly' : ''}.`];
     if (sm.real) out.push(sm.finiteArea ? 'Its slice by the plane meets the circle at infinity only in cusps, so it has finite area.' : `Its slice by the plane has ${plural(sm.freeArcs, 'free side')} at infinity, so it has infinite area.`);
-    else out.push(sm.finiteVolume ? `It has finite volume${sm.volume != null ? ` $\\approx ${Number(sm.volume).toFixed(4)}$` : ''}.` : 'It has infinite volume.');
+    else out.push(sm.finiteVolume ? `It has finite volume${sm.volume != null ? ` $\\approx ${Number(Number(sm.volume).toPrecision(7))}$` : ''}.` : 'It has infinite volume.');
     if (sm.h1) out.push(`Its first homology is $H_1 = ${innerTex(sm.h1)}$.`);
     return out;
 }
@@ -602,7 +647,7 @@ function runArch(R, state, { certify = true, pool = null } = {}, cb) {
     });
 }
 
-const vol = (v) => (v == null ? '' : ` ${Number(v).toFixed(4)}`);
+const vol = (v) => (v == null ? '' : ` ≈ ${Number(Number(v).toPrecision(7))}`);   // Poincaré's volumes carry about 7 digits
 
 function setArch(R, pl, { cert = null, summary = null, error = null, timeout = false }) {
     if (R !== run || R.placesStopped) return;
@@ -914,7 +959,7 @@ function showRootTones(R) {
         const key = map.get(row) ? map.get(row)[i] : null, pl = key ? R.byKey.get(key) : null;
         if (!pl) return null;
         const tone = pl.status === 'discrete' ? 'yes' : pl.status === 'nondiscrete' ? 'no' : null;
-        return { tone, note: `${placeLabel(pl)}: ${pl.headline}` };
+        return { tone, note: `${placeLabel(pl)}: ${pl.headlinePlain || pl.headline}` };
     });
 }
 
@@ -1113,6 +1158,9 @@ function discreteArith(R) {
                 : `Every generator lies in $${ex.groupTex}$, and coset enumeration there closes: ${ex.sub === 'Γ' ? '$\\Gamma$ has' : `$\\Gamma \\cap ${ex.groupTex}$ has`} index $${ex.index}$ in $${ex.groupTex}$ (the table is re-checked).`,
             `So $\\Gamma$ is a lattice, and arithmetic.`,
         ], ex);
+        startCovolume(R, pl, ex.method === 'Stallings folding'
+            ? { r: [BigInt(ex.index), 2n], lead: (u) => `$\\mathrm{PSL}_2(\\mathbb{Z})$ has area $${u}$, so $\\mathrm{PGL}_2(\\mathbb{Z})$ has half that, and $\\Gamma$, of index $${ex.index}$ in it,` }
+            : { r: [BigInt(ex.index), BigInt(ex.c || 1)], lead: (u) => `By Humbert’s formula $${ex.groupTex}$ has covolume $${u}$. $\\Gamma \\cap ${ex.groupTex}$ has index $${ex.index}$ in it${ex.c === 2 ? ' and index $2$ in $\\Gamma$ (some determinant is not the square of a unit)' : ', and is all of $\\Gamma$'}, so $\\Gamma$` });
         return;
     }
     if (ex.infinite) {
@@ -1139,10 +1187,11 @@ function discreteArith(R) {
     if (finite) {
         latticeDone(R, 'arith', `$\\Gamma$ has finite ${what} at ${at}, by Poincaré.`, [
             ...intro, ...tried,
-            ok ? `Poincaré’s Dirichlet domain at ${at} has finite ${what}${f.kind === 'real' ? '' : sm.volume != null ? ` $\\approx ${Number(sm.volume).toFixed(4)}$` : ''}.`
+            ok ? `Poincaré’s Dirichlet domain at ${at} has finite ${what}${f.kind === 'real' ? '' : sm.volume != null ? ` $\\approx ${Number(Number(sm.volume).toPrecision(7))}$` : ''}.`
                 : `The ${sm.faces} walls Poincaré found at ${at} bound a region of finite area, meeting the circle at infinity only in cusps. It contains a Dirichlet domain of $\\Gamma$, which is discrete, so that domain has finite area too.`,
             'So $\\Gamma$ is a lattice, and arithmetic. As in Poincaré, the geometry is in floating point.',
         ]);
+        if (f.kind === 'complex' && ok && sm.volume != null) startCovolume(R, pl, { vol: Number(sm.volume) });
     } else if (infinite) {
         latticeDone(R, 'thin', `$\\Gamma$ has infinite ${what} at ${at}, by Poincaré.`, [
             ...intro, ...tried,
@@ -1196,7 +1245,7 @@ function latticeIndexExact(R, factor) {
     if (!gens || !unitDeterminants(d, gens)) return null;
     const r = indexInBianchi(d, gens, { seconds: 4, maxCosets: 400000 });
     const ringTex = { 1: '\\mathbb{Z}[i]', 2: '\\mathbb{Z}[\\sqrt{-2}]', 3: '\\mathbb{Z}[\\omega]' }[d];
-    const base = { group: `PSL₂(${RINGS[d].name})`, groupTex: `\\mathrm{PSL}_2(${ringTex})`, sub: 'Γ ∩ PSL₂', method: 'coset enumeration', ms: Date.now() - t0 };
+    const base = { group: `PSL₂(${RINGS[d].name})`, groupTex: `\\mathrm{PSL}_2(${ringTex})`, sub: 'Γ ∩ PSL₂', method: 'coset enumeration', ms: Date.now() - t0, c: squareClassIndex(d, gens) };
     return r.index ? { ...base, index: r.index } : { ...base, limit: r.limit || 'out of time' };
 }
 
@@ -1213,6 +1262,141 @@ function latticeDone(R, kind, detail, lines, exact = null) {
     setStep('sarith', status, head, detail);
     renderVerdict();
     refreshView('sarith');
+}
+
+// ───────────────────────── covolumes as zeta values ─────────────────────────
+
+/** |n| = a²·b with b squarefree (trial division: the discriminants here are small). */
+function squareSplit(n) {
+    let m = n < 0n ? -n : n, a = 1n, b = 1n;
+    for (let p = 2n; p * p <= m; p++) {
+        let e = 0;
+        while (m % p === 0n) { m /= p; e++; }
+        a *= p ** BigInt(e >> 1);
+        if (e & 1) b *= p;
+    }
+    return { a, b: b * m };
+}
+const bgcd = (x, y) => { x = x < 0n ? -x : x; y = y < 0n ? -y : y; while (y) [x, y] = [y, x % y]; return x; };
+
+/**
+ * Borel's formula (Maclachlan–Reid, Theorems 11.1.3 and 11.1.1) for P(O¹), O a maximal order of A over k:
+ *   at a complex place (k with one complex place, A ramified at every real one):
+ *       |Δ_k|^{3/2} ζ_k(2) ∏_{𝔭 | D}(N𝔭 − 1) / (4π²)^{[k:ℚ]−1};
+ *   at a real place (k totally real, A split at exactly one real place):
+ *       8π |Δ_k|^{3/2} ζ_k(2) ∏_{𝔭 | D}(N𝔭 − 1) / (4π²)^{[k:ℚ]}.
+ * As (num/den)·√b·ζ_k(2)/π^m: { num, den, b, m }, or null when neither shape applies.
+ */
+function borelShape(A, kind) {
+    const k = A.k, n = k.d;
+    if (!k.disc || !A.A.determined || A.A.ram.some((r) => r.kind === 'finite' && !r.p)) return null;
+    const realRam = A.A.ram.filter((r) => r.kind === 'real').length;
+    if (kind === 'complex' ? !(k.r2 === 1 && realRam === k.r1) : !(k.r2 === 0 && k.r1 - realRam === 1)) return null;
+    const D = BigInt(k.disc), { a, b } = squareSplit(D);
+    let num = (D < 0n ? -D : D) * a;
+    for (const r of A.A.ram) if (r.kind === 'finite') num *= BigInt(r.p) ** BigInt(r.f) - 1n;
+    if (kind === 'complex') return { num, den: 4n ** BigInt(n - 1), b, m: 2 * (n - 1) };
+    return { num: 8n * num, den: 4n ** BigInt(n), b, m: 2 * n - 1 };
+}
+
+/** r·(Borel's volume) as TeX, (num/den)·√b·ζ_k(2)/π^m, with its value; over ℚ also as a multiple of a power of π. */
+function zetaVolume(shape, r, zeta, k) {
+    let num = shape.num * r[0], den = shape.den * r[1];
+    const g = bgcd(num, den); num /= g; den /= g;
+    const value = (Number(num) / Number(den)) * Math.sqrt(Number(shape.b)) * zeta / Math.PI ** shape.m;
+    const zname = k.d === 1 ? '\\zeta(2)' : k.d === 2 ? `\\zeta_{${k.tex}}(2)` : '\\zeta_k(2)';
+    const sq = shape.b === 1n ? '' : `\\sqrt{${shape.b}}`;
+    const top = `${num === 1n && sq ? '' : num}${sq}`;
+    const pi = shape.m === 1 ? '\\pi' : `\\pi^{${shape.m}}`;
+    const tex = `\\frac{${top}}{${den === 1n ? '' : den}${pi}}\\,${zname}`;
+    let closed = null;
+    if (k.d === 1) {                      // ζ(2) = π²/6
+        let cn = num, cd = 6n * den;
+        const h = bgcd(cn, cd); cn /= h; cd /= h;
+        const pp = 2 - shape.m, piT = pp === 1 ? '\\pi' : pp === 0 ? '' : `\\pi^{${pp}}`;
+        closed = cd === 1n ? `${cn === 1n && piT ? '' : cn}${piT}` : `\\frac{${cn === 1n && piT ? '' : cn}${piT}}{${cd}}`;
+    }
+    return { tex, closed, value };
+}
+
+/** The simplest fraction a/b with b ≤ maxDen within rel·x of x (continued fractions), or null. */
+function recognize(x, maxDen, rel) {
+    let [h0, h1, k0, k1] = [0, 1, 1, 0], y = x;
+    for (let i = 0; i < 40; i++) {
+        const a = Math.floor(y);
+        [h0, h1] = [h1, a * h1 + h0];
+        [k0, k1] = [k1, a * k1 + k0];
+        if (k1 > maxDen) return null;
+        if (Math.abs(h1 / k1 - x) <= rel * x) return { num: h1, den: k1 };
+        if (y - a < 1e-12) return null;
+        y = 1 / (y - a);
+    }
+    return null;
+}
+
+/**
+ * The covolume (area) of an arithmetic lattice Γ at its place as a zeta value, by Borel's formula: exactly when its
+ * index r is known (how.r = [num, den] relative to P(O¹), how.lead the sentence before "has covolume …"), or
+ * numerically from Poincaré's volume (how.vol), when vol / Borel is a fraction with a small denominator.
+ * ζ_k(2) comes from covolumeWorker.js (zeta.js); over ℚ it is π²/6.
+ */
+const COVOL_SECONDS = 60;
+function startCovolume(R, pl, how) {
+    const A = R.zariski && R.zariski.arith, kind = pl.kind === 'real' ? 'real' : 'complex';
+    const shape = A ? borelShape(A, kind) : null;
+    if (!shape) return;
+    const done = (zeta) => applyCovolume(R, pl, how, shape, zeta, kind);
+    if (A.k.d === 1) { done({ value: Math.PI ** 2 / 6, digits: 15 }); return; }
+    let worker;
+    try { worker = new Worker(new URL(`./covolumeWorker.js?v=${VERSION}`, import.meta.url)); } catch (e) { return; }
+    R.workers.add(worker);
+    const stop = () => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); };
+    const timer = setTimeout(stop, COVOL_SECONDS * 1000);
+    worker.onmessage = (ev) => { stop(); if (R === run && ev.data.zeta) done(ev.data.zeta); };
+    worker.onerror = (e) => { e.preventDefault?.(); stop(); };
+    worker.postMessage({ id: R.seq, k: A.k });
+}
+
+function applyCovolume(R, pl, how, shape, zeta, kind) {
+    if (R !== run || !R.sarith || !R.sarith.lattice || R.sarith.lattice.kind !== 'arith') return;
+    const k = R.zariski.arith.k, what = kind === 'real' ? 'area' : 'covolume';
+    const approx = (v) => Number(v.toPrecision(8)).toString();
+    const unit = zetaVolume(shape, [1n, 1n], zeta.value, k);       // P(O¹) for a maximal order
+    let r = how.r, line;
+    if (!r) {
+        // Poincaré's volume, as a rational multiple of Borel's (the tolerance follows ζ_k(2)'s accuracy)
+        // Poincaré's volumes carry about 7 digits, the Euler product for ζ_k(2) about the same
+        const x = how.vol / unit.value, rel = zeta.digits >= 12 ? 1e-6 : 3e-6;
+        const q = recognize(x, 48, rel);
+        if (!q) return;
+        r = [BigInt(q.num), BigInt(q.den)];
+        const V = zetaVolume(shape, r, zeta.value, k);
+        const agree = Math.max(1, Math.floor(-Math.log10(Math.abs(x - q.num / q.den) / x + 1e-16)));
+        line = `By Borel’s formula, $P\\rho(\\mathcal{O}^1)$ for a maximal order $\\mathcal{O}$ of $A$ has covolume $${unit.tex} \\approx ${approx(unit.value)}$. Poincaré’s volume ${q.num === 1 && q.den === 1 ? 'equals that' : `is $${q.den === 1 ? q.num : `\\tfrac{${q.num}}{${q.den}}`}$ times that`}, to ${Math.min(agree, 12)} digits, so numerically the covolume of $\\Gamma$ is $${V.tex} \\approx ${approx(V.value)}$.`;
+        return finishCovolume(R, pl, V, line, what, kind, approx);
+    }
+    const V = zetaVolume(shape, r, zeta.value, k);
+    const ref = zetaVolume(shape, [1n, 1n], zeta.value, k);
+    line = `${how.lead(`${ref.tex}${ref.closed ? ` = ${ref.closed}` : ''}`)} has ${what} $${V.tex}${V.closed ? ` = ${V.closed}` : ''} \\approx ${approx(V.value)}$.`;
+    // a check against Poincaré's own volume, when it measured one
+    const sm = pl.summary;
+    if (kind === 'complex' && sm && sm.volume != null && Math.abs(Number(sm.volume) - V.value) > 1e-6 * V.value) {
+        line += ` Poincaré’s volume $\\approx ${approx(Number(sm.volume))}$ differs, so one of the two is wrong.`;
+    }
+    finishCovolume(R, pl, V, line, what, kind, approx);
+}
+
+function finishCovolume(R, pl, V, line, what, kind, approx) {
+    const where = kind === 'real' ? '\\mathrm{PGL}_2(\\mathbb{R})' : '\\mathrm{PSL}_2(\\mathbb{C})';
+    const short = `$${V.tex}${V.closed ? ` = ${V.closed}` : ''} \\approx ${approx(V.value)}$`;
+    pl.headlinePlain = pl.headlinePlain || pl.headline;
+    pl.headline = `Discrete in $${where}$ — ${kind === 'real' ? 'Fuchsian, area' : 'covolume'} ${short}`;
+    pl.lines = [...(pl.lines || []), line];
+    const L = R.sarith.lattice;
+    L.lines = [...L.lines, line];
+    placeChanged();
+    refreshView('sarith');
+    renderVerdict();
 }
 
 // ───────────────────────── step 3: arithmetic — coset enumeration, then FlashBeam ─────────────────────────
@@ -1780,7 +1964,7 @@ function stabilizerCheck(R, stab, attempt) {
                     ]
                     : [
                         `Their Dirichlet domain has ${plural(sm.faces, 'face')}, and it satisfies Poincaré's conditions${sm.exactUsed ? ', with the relations checked exactly' : ''}.`,
-                        `It has finite volume${sm.volume != null ? ` $\\approx ${Number(sm.volume).toFixed(4)}$` : ''}.`,
+                        `It has finite volume${sm.volume != null ? ` $\\approx ${Number(Number(sm.volume).toPrecision(7))}$` : ''}.`,
                         'As in Poincaré, the geometry is in floating point.',
                     ],
             };
@@ -2168,7 +2352,9 @@ function refreshView(step) {
             html = `<div class="banner" data-status="info"><span class="dot"></span><div>${mix(`The trace field is $\\mathbb{Q}$ and the quaternion algebra splits, so Γ is conjugate into $\\mathrm{PGL}_2(\\mathbb{Q})$ (Skolem–Noether, by a zero divisor of the reduced norm): `)}${R.descent.mats.map((m) => tex(`\\begin{pmatrix} ${m[0]} & ${m[1]} \\\\ ${m[2]} & ${m[3]} \\end{pmatrix}`)).join(', ')}. <a href="${link}" target="_blank" rel="noopener">Open the conjugate over ℚ ↗</a>, where the exact steps over ℚ apply.</div></div>` + html;
         }
         const cb = $('cong-body');
-        cb.innerHTML = R.zariski && R.zariski.ok && R.zariski.arith ? congruenceSection(R.congruence, R.zariski.arith) : '';
+        cb.innerHTML = !(R.zariski && R.zariski.ok && R.zariski.arith) ? ''
+            : R.engineCong === 'running' ? `<div class="vc-inner"><p class="lead">${mix('Computing the closure of $\\Gamma$ in the congruence topology, prime by prime…')}</p></div>`
+                : congruenceSection(R.congruence, R.zariski.arith);
         typeset(cb);
     } else if (step === 'places') html = placesCard(R);
     else if (step === 'sarith') {

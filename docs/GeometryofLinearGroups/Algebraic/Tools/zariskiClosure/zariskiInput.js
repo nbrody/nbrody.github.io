@@ -117,8 +117,9 @@ function readEntry(src, defs, hasField) {
 /**
  * state = { gens: [[e11, e12, e21, e22], …], consts?: [[name, value], …], field?: { gen, poly, rootIndex?, root? } }
  * → the pgl2Engine analysis, plus { fieldDef } or { ok: false, error, where }.
+ * opts: passed to the engine ({ congruence: false } skips the congruence closure).
  */
-function analyze(state) {
+function analyze(state, opts = {}) {
     const defs = new Map(), first = [];
     let fieldDef = null;
     const hasField = !!(state.field && (String(state.field.poly || '').trim()));
@@ -157,7 +158,7 @@ function analyze(state) {
     const usesGen = (a) => !!a && (a.t === 'gen' || ['a', 'b', 'e'].some((k) => a[k] && usesGen(a[k])));
     if (first.length && !asts.some((row) => row.some(usesGen))) { first.length = 0; if (fieldDef) fieldDef.unused = true; }
     let res;
-    try { res = PG.analyzeAsts(asts, first); }
+    try { res = PG.analyzeAsts(asts, first, opts); }
     catch (e) {
         const m = /^g(\S+) is singular/.exec(e.message);
         const g = m ? '₀₁₂₃₄₅₆₇₈₉'.indexOf(m[1].slice(-1)) - 1 : null;

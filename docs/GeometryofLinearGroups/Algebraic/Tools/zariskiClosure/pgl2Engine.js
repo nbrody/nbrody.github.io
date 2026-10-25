@@ -591,7 +591,7 @@ function analyze(src) { return analyzeAsts(parseGenerators(src)); }
  * (e.g. the generator of a user-defined number field) are adjoined before the entries' own
  * atoms, so the display basis of K is built on them.
  */
-function analyzeAsts(asts, first = []) {
+function analyzeAsts(asts, first = [], opts = {}) {
     if (!asts.length) throw new Error('enter at least one generator');
     if (asts.length > 8) throw new Error('at most 8 generators, please');
     const F = new FieldBuilder();
@@ -626,7 +626,7 @@ function analyzeAsts(asts, first = []) {
     const live = mats.filter((g) => !M.isScalar(g));
     const out = { ok: true, field, gens };
     out.closure = classify(F, M, live);
-    if (out.closure.kind === 'dense') out.arith = arithmetic(F, M, live);
+    if (out.closure.kind === 'dense') out.arith = arithmetic(F, M, live, opts);
     return out;
 }
 const sub = (k) => String(k).split('').map((ch) => '₀₁₂₃₄₅₆₇₈₉'[+ch]).join('');
@@ -751,7 +751,7 @@ function finiteName(F, M, elems, gens) {
 
 // ─────────────────────── arithmetic data of a Zariski-dense group ───────────────────────
 
-function arithmetic(F, M, gens) {
+function arithmetic(F, M, gens, opts = {}) {
     const K = F.alg, n = K.n;
     const fmt = (v) => F.tex(v);
     // Ad(g) on sl_2 with basis E, F, H (coordinates of [[h, e], [f, -h]] are (e, f, h))
@@ -855,16 +855,19 @@ function arithmetic(F, M, gens) {
     // places with unbounded orbits, and the congruence closure at the places where Γ is bounded
     const spaces = symmetricSpaces(d, ram, Splaces);
     const ctx = { F, M, K, n, d, gens, words, tauVals, sq, ksub, Ok, kAlg, toK, ram, Splaces, ringDesc, defects, fmt: toKTex, hilbert };
-    let congruence;
+    // opts.congruence === false skips it (null): it can take far longer than the rest over a big field
+    let congruence = null;
     if (api._internal.debug.keep) api._internal.debug.ctx = ctx;
-    try { congruence = congruenceClosure(ctx); } catch (err) { congruence = { error: err.message }; }
+    if (opts.congruence !== false) {
+        try { congruence = congruenceClosure(ctx); } catch (err) { congruence = { error: err.message }; }
+    }
     return {
         spaces, congruence,
         k: describeField(ksub, F, d, reals.length),
         A: {
             split, hamilton, determined: ram.determined,
             aTex: simplifySymbolEntry(aK, ksub, F), bTex: simplifySymbolEntry(bK, ksub, F),
-            ram: ramified.map((pl) => ({ kind: pl.kind, tex: pl.tex, approx: pl.approx, byParity: !!pl.byParity })),
+            ram: ramified.map((pl) => ({ kind: pl.kind, tex: pl.tex, approx: pl.approx, byParity: !!pl.byParity, ...(pl.kind === 'finite' ? { p: `${pl.p}`, f: pl.f } : {}) })),
             undetermined: ram.places.filter((pl) => pl.ramified === null).map((pl) => pl.tex),
         },
         G: { tex: Gtex, dim: 3 * d },
@@ -876,16 +879,18 @@ function arithmetic(F, M, gens) {
     };
 }
 
+/** k = ℚ(θ): TeX for display, and the minimal polynomial of θ (integer coefficients, low → high) and disc(k) as strings. */
 function describeField(ksub, F, d, r1) {
-    if (d === 1) return { d, tex: '\\mathbb{Q}', r1: 1, r2: 0 };
+    if (d === 1) return { d, tex: '\\mathbb{Q}', r1: 1, r2: 0, minpoly: ['0', '1'], disc: '1' };
     const g = ksub.g;
     const thetaTex = F.tex(ksub.theta);
+    const num = { minpoly: g.map((c) => `${c}`), disc: `${ksub.disc}` };
     if (d === 2) {
         const disc = g[1] * g[1] - 4n * g[0];
         const D = squarefreePart(disc);
-        return { d, tex: D === -1n ? '\\mathbb{Q}(i)' : `\\mathbb{Q}(\\sqrt{${D}})`, thetaTex, minpolyTex: X.polyTex(g), discTex: X.numTex(ksub.disc), r1, r2: (d - r1) / 2 };
+        return { d, tex: D === -1n ? '\\mathbb{Q}(i)' : `\\mathbb{Q}(\\sqrt{${D}})`, thetaTex, minpolyTex: X.polyTex(g), discTex: X.numTex(ksub.disc), r1, r2: (d - r1) / 2, ...num };
     }
-    return { d, tex: '\\mathbb{Q}(\\theta)', thetaTex, minpolyTex: X.polyTex(g), discTex: X.numTex(ksub.disc), r1, r2: (d - r1) / 2 };
+    return { d, tex: '\\mathbb{Q}(\\theta)', thetaTex, minpolyTex: X.polyTex(g), discTex: X.numTex(ksub.disc), r1, r2: (d - r1) / 2, ...num };
 }
 function squarefreePart(n) {
     if (n === 0n) return 0n;
@@ -1630,11 +1635,15 @@ function dicksonFull(spec, Ok, pr) {
 function level1KernelFull(spec, Ok, pr) { return levelKernelFull(spec, Ok, pr, 1, 3 * pr.f); }
 /**
  * Same at level i, for the part P (square reduced norm): does Γ̄ ∩ P ∩ Γ(𝔭^i) map onto (P ∩ Γ(𝔭^i))/Γ(𝔭^{i+1})
- * modulo scalars? `dim` is the F_p-dimension of that quotient.
+ * modulo scalars? `dim` is the F_p-dimension of that quotient. Residue fields up to KERNEL_MAX_Q elements: the
+ * residues of O/𝔭 are listed once, and the orders of words are found by fast powering.
  */
+const KERNEL_MAX_Q = 200000n;
 function levelKernelFull(spec, Ok, pr, lev, dim) {
     const R1 = residueRing(Ok, pr, 1), Ri = residueRing(Ok, pr, lev), R2 = residueRing(Ok, pr, lev + 1);
-    if (!R1.small) return false;
+    if (!R1.small && BigInt(R1.q) > KERNEL_MAX_Q) return false;
+    // the residues of O/𝔭: indices in a small ring, coordinate vectors in a large one
+    const reps = R1.small ? Array.from({ length: Number(R1.size) }, (_, a) => a) : residueReps(Ok, pr).map((x) => R1.fromK(x));
     const alg = (R) => {
         const S = spec.S ? spec.S.map((row) => row.map((c) => c.map(R.fromK))) : null;
         return algebraOps(R, S, spec.S ? spec.trCoef.map(R.fromK) : null, spec.S ? spec.unit.map(R.fromK) : null);
@@ -1655,11 +1664,10 @@ function levelKernelFull(spec, Ok, pr, lev, dim) {
         words.push(...layer);
     }
     const q = Number(R1.q), p = Number(pr.p), f = pr.f;
-    const maxOrd = (q + 1) * q ** (lev - 1) * p;
     // division by π^i: 𝔭^i/𝔭^{i+1} ≅ F_q
     let pi2 = R2.one; for (let t = 0; t < lev; t++) pi2 = R2.mul(pi2, R2.fromK(spec.pi));
     const divPi = new Map();
-    for (let a = 0; a < Number(R1.size); a++) {
+    for (const a of reps) {
         const lift = R2.fromK(Ok.fromCoords(R1.vec(a))); // canonical representative of a, as an element of O/𝔭²
         divPi.set(R2.key(R2.mul(pi2, lift)), a);
     }
@@ -1683,8 +1691,8 @@ function levelKernelFull(spec, Ok, pr, lev, dim) {
         if (parts.some((c) => c === undefined)) return null;
         return parts.flatMap(fp);
     };
-    // the scalar line π^i·F_q·1 (classes are taken modulo scalars)
-    for (let a = 0; a < Number(R1.size); a++) addVec(Ares.one.flatMap((o) => fp(R1.mul(a, o))));
+    // the scalar line π^i·F_q·1 (classes are taken modulo scalars): f dimensions
+    for (const a of reps) { addVec(Ares.one.flatMap((o) => fp(R1.mul(a, o)))); if (basis.length >= f) break; }
     // the Γ-submodule generated by the sampled classes: conjugate new kernel elements until nothing new appears
     const conjugators = [...g2, ...g2.map(inv2)];
     const queue = [];
@@ -1695,8 +1703,6 @@ function levelKernelFull(spec, Ok, pr, lev, dim) {
     let W = null;
     if (pr.p === 2n) {
         if (q ** 4 > 70000) return false;
-        const reps = [];
-        for (let a = 0; a < Number(R1.size); a++) reps.push(a);
         W = [];
         const lift = (a) => R2.fromK(Ok.fromCoords(R1.vec(a)));
         const idx = [0, 0, 0, 0];
@@ -1714,12 +1720,31 @@ function levelKernelFull(spec, Ok, pr, lev, dim) {
         return v.every((x) => x === 0);
     };
     const done = () => (W ? W.every(inSpan) : basis.length >= need);
+    // an N with w^N ≡ scalar mod 𝔭^i, by fast powering: N₁ ∈ {q − 1, q + 1, 1} (the orders of semisimple elements
+    // mod 𝔭, prime to p), then p-th powers (unipotent mod 𝔭, and the p-group Γ(𝔭)/Γ(𝔭^i)). A multiple of the order by
+    // a factor prime to p gives the same class up to that factor, so the span is unchanged.
+    const powA = (A, x, n) => { let r = A.one, b = x; while (n > 0n) { if (n & 1n) r = A.mul(r, b); n >>= 1n; if (n) b = A.mul(b, b); } return r; };
+    const pB = BigInt(p), maxP = 4 * lev * pr.e + 4;
+    // scalar modulo 𝔭 (A1 works modulo 𝔭^i)
+    const scalarMod1 = lev === 1 ? (x) => A1.isScalar(x) : (x) => Ares.isScalar(x.map((c) => R1.fromK(Ok.fromCoords(Ri.vec(c)))));
+    const exponentOf = (w1) => {
+        for (const n1 of [BigInt(q) - 1n, BigInt(q) + 1n, 1n]) {
+            let P = powA(A1, w1, n1), N = n1;
+            // In M₂(O_𝔭) (spec.S null), w^{q∓1} not scalar mod 𝔭 has order mod 𝔭 prime to p, and no p-th power
+            // helps. In another local order (A ramified at 𝔭), w^{q+1} is scalar only modulo the uniformizer of the
+            // division algebra, and the p-th powers are still needed: no shortcut there.
+            if (n1 !== 1n && !spec.S && !scalarMod1(P)) continue;
+            for (let k = 0; k <= maxP; k++) {
+                if (A1.isScalar(P)) return N;
+                P = powA(A1, P, pB); N *= pB;
+            }
+        }
+        return null;
+    };
     for (const [w1, w2] of words) {
-        let ord = 1, P = w1;
-        while (!A1.isScalar(P) && ord <= maxOrd) { P = A1.mul(P, w1); ord++; }
-        if (ord > maxOrd) continue;
-        let y = A2.one;
-        for (let i = 0; i < ord; i++) y = A2.mul(y, w2);
+        const N = exponentOf(w1);
+        if (N === null) continue;
+        const y = powA(A2, w2, N);
         offer(y);
         while (queue.length && basis.length < need) {
             const z = queue.pop();
@@ -1794,6 +1819,8 @@ function localClosure(ctx, pr, ramifiedA) {
     out.cosmetic = !!(ctx.defects && ctx.defects.has(`${p}`));
     const spec = localSpec(ctx, pr, ramifiedA);
     if (!spec) { out.status = 'unknown'; out.note = 'could not compute the order generated by Γ at 𝔭'; return out; }
+    const images = new Map();
+    const imageAt = (m) => { if (!images.has(m)) images.set(m, imageMod(spec, ctx.Ok, pr, m, 250000)); return images.get(m); };
     out.inverts = spec.inverts;
     if (spec.deficient) {
         out.status = 'deficient';
@@ -1825,11 +1852,11 @@ function localClosure(ctx, pr, ramifiedA) {
         const kernels = [];
         for (let lv = i0; lv <= lastLevel; lv++) { const sk = schreierKernel(spec, ctx.Ok, pr, lv, 250000); if (!sk) break; kernels.push(sk); }
         if (kernels.length === lastLevel - i0 + 1 && kernels.every((sk) => sk.full)) {
-            const img = i0 === 1 ? imageMod(spec, ctx.Ok, pr, 1, 250000) : null;
-            const sizeAt = i0 === 1 ? img : kernels[0];
+            const Gm = ramifiedA ? q ** BigInt(3 * i0 - 1) * (q + 1n) : q ** BigInt(3 * i0 - 2) * (q * q - 1n);
+            const Pm = Gm / residueRing(ctx.Ok, pr, i0).squareClasses;
+            // the image mod 𝔭: all of PSL₂(F_q) when Dickson says so (its square part is then P_1, nothing to list)
+            const sizeAt = i0 === 1 ? (fullMod1 ? { square: Pm } : imageAt(1)) : kernels[0];
             if (sizeAt) {
-                const Gm = ramifiedA ? q ** BigInt(3 * i0 - 1) * (q + 1n) : q ** BigInt(3 * i0 - 2) * (q * q - 1n);
-                const Pm = Gm / residueRing(ctx.Ok, pr, i0).squareClasses;
                 const index = Pm / BigInt(sizeAt.square);
                 out.index = `${index}`; out.status = index === 1n ? 'full' : 'deficient'; out.how = 'kernel';
                 out.levels = [{ m: i0, image: `${sizeAt.square}`, full: `${Pm}` }];
@@ -1837,7 +1864,7 @@ function localClosure(ctx, pr, ramifiedA) {
                 else if (i0 === 1) out.level = 1;
                 else { // find the least level with the final index, from the images below i0
                     let lvl = i0;
-                    for (let m = 1; m < i0; m++) { const im = imageMod(spec, ctx.Ok, pr, m, 250000); if (!im) break; const Pmm = (ramifiedA ? q ** BigInt(3 * m - 1) * (q + 1n) : q ** BigInt(3 * m - 2) * (q * q - 1n)) / residueRing(ctx.Ok, pr, m).squareClasses; if (Pmm / BigInt(im.square) === index) { lvl = m; break; } }
+                    for (let m = 1; m < i0; m++) { const im = imageAt(m); if (!im) break; const Pmm = (ramifiedA ? q ** BigInt(3 * m - 1) * (q + 1n) : q ** BigInt(3 * m - 2) * (q * q - 1n)) / residueRing(ctx.Ok, pr, m).squareClasses; if (Pmm / BigInt(im.square) === index) { lvl = m; break; } }
                     out.level = lvl;
                 }
                 return out;
@@ -1848,7 +1875,7 @@ function localClosure(ctx, pr, ramifiedA) {
     if (!ramifiedA && p !== 2n && level1KernelFull(spec, ctx.Ok, pr)) {
         let index = 1n;
         if (!fullMod1) {
-            const img = imageMod(spec, ctx.Ok, pr, 1, 250000);
+            const img = imageAt(1);
             if (img) { const P1 = q * (q * q - 1n) / img.R.squareClasses; index = P1 / BigInt(img.square); out.levels = [{ m: 1, image: `${img.square}`, full: `${P1}` }]; }
             else index = null;
         }
@@ -1871,9 +1898,15 @@ function localClosure(ctx, pr, ramifiedA) {
         const Gm = ramifiedA ? q ** BigInt(3 * m - 1) * (q + 1n) : q ** BigInt(3 * m - 2) * (q * q - 1n);
         // when everything so far is full, the next image is about as big as the whole group: skip if hopeless
         if (sizes.length && sizes.every((sz) => sz.H1 === sz.P) && Gm / 8n > BigInt(cap)) break;
-        const img = imageMod(spec, ctx.Ok, pr, m, cap);
-        if (!img) break;
-        sizes.push({ m, H: BigInt(img.size), H1: BigInt(img.square), P: Gm / img.R.squareClasses });
+        if (m === 1 && fullMod1) {
+            // Dickson: the image mod 𝔭 contains PSL₂(F_q), so its square part is all of P_1 (no enumeration)
+            const P1 = Gm / residueRing(ctx.Ok, pr, 1).squareClasses;
+            sizes.push({ m, H: null, H1: P1, P: P1 });
+        } else {
+            const img = imageAt(m);
+            if (!img) break;
+            sizes.push({ m, H: BigInt(img.size), H1: BigInt(img.square), P: Gm / img.R.squareClasses });
+        }
         const c = m - e; // candidate certification level
         if (c >= m0 && Array.from({ length: e }, (_, i) => c + i).every(fullStep)) certAt = c;
     }
