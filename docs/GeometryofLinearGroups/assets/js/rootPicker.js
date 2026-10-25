@@ -55,6 +55,7 @@
         if (parent) parent.appendChild(e);
         return e;
     };
+    const GREEK = /^(alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|phi|chi|psi|omega)$/;
     const num = (x) => { const s = (Math.abs(x) < 5e-10 ? 0 : x).toFixed(6).replace(/\.?0+$/, ''); return s === '-0' ? '0' : s.replace('-', '−'); };
     function fmt(z) {
         if (Math.abs(z.im) < 5e-10) return num(z.re);
@@ -142,7 +143,11 @@
             });
             caption.innerHTML = '';
             const b = document.createElement('b');
-            b.textContent = `${name} ≈ ${fmt(roots[state.sel])}`;
+            // in KaTeX when the page has it (w ≈ 0.48 − 1.43i as math), else as text
+            if (root.katex) {
+                const nm = /^[A-Za-z]$/.test(name) ? name : GREEK.test(name) ? `\\${name}` : `\\mathrm{${name}}`;
+                b.innerHTML = root.katex.renderToString(`${nm} \\approx ${fmt(roots[state.sel]).replace(/−/g, '-')}`, { throwOnError: false });
+            } else b.textContent = `${name} ≈ ${fmt(roots[state.sel])}`;
             caption.appendChild(b);
             caption.appendChild(document.createTextNode(roots.length > 1 ? ' · click a root to choose the embedding' : ''));
             if (focusIndex !== null) { const f = svg.querySelectorAll('.rp-root')[focusIndex]; if (f) f.focus(); focusIndex = null; }

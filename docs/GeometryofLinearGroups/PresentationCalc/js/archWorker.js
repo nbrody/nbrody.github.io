@@ -10,6 +10,7 @@
  * In:  { id, state, maxFaces, maxDepth, certify }   (state: poincare's input state;
  *      certify: false skips the non-discreteness search, for groups known to be discrete)
  * Out: { id, phase: 'cert', cert } then { id, phase: 'done', cert, summary }, or { id, error }.
+ * With deep = { maxLen, cap, budgetMs, maxEvals }: only the non-discreteness search, on longer words.
  */
 import { buildGroup } from '../../Geometric/Tools/Kleinian/poincare/js/matrixInput.js';
 import { runCompute, matToArr } from '../../Geometric/Tools/Kleinian/poincare/js/compute.js';
@@ -109,9 +110,18 @@ function basepointMatrix(bp) {
 }
 
 self.onmessage = (ev) => {
-    const { id, state, maxFaces = 96, maxDepth = 8, certify = true } = ev.data;
+    const { id, state, maxFaces = 96, maxDepth = 8, certify = true, deep = null } = ev.data;
     try {
         const { matrices, exactCtx } = buildGroup(state);
+        // deep: only the search for a proof of non-discreteness, on longer words ({ maxLen, cap, budgetMs, maxEvals })
+        if (deep) {
+            let cert = { nondiscrete: false, skipped: 'not exact' };
+            if (exactCtx && !(state.anti || []).some(Boolean)) {
+                try { cert = archCertificate(exactCtx, deep); } catch (e) { cert = { nondiscrete: false, error: e.message }; }
+            }
+            self.postMessage({ id, phase: 'done', cert, summary: null });
+            return;
+        }
         const exact = exactCtx ? serializeTowerContext(exactCtx) : null;
         const real = isRealGroup(matrices) && !(state.anti || []).some(Boolean);
         let cert = null;

@@ -7,10 +7,14 @@
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 import { patternTex, pointTex, powerName, modLConditionsTex, matrixTex } from './congruenceShape.js';
+import { mathLine } from './texText.js';
 
 export const tex = (s, display = false) => (display ? `\\[${s}\\]` : `\\(${s}\\)`);
-/** Text with $…$ math, escaped outside the math. */
-export const mix = (s) => String(s).split(/(\$[^$]*\$)/).map((part) => (part.startsWith('$') && part.endsWith('$') && part.length > 1 ? `\\(${part.slice(1, -1)}\\)` : esc(part))).join('');
+/**
+ * Text with $…$ math, as HTML for KaTeX: escaped outside the math. Unicode math left in the text
+ * (Γ, ℂ₁, PGL₂(ℤ), g₁g₂⁻¹, S-arithmetic, …) is put in $…$ first (texText.js), so none is shown raw.
+ */
+export const mix = (s) => mathLine(String(s ?? '')).split(/(\$[^$]*\$)/).map((part) => (part.startsWith('$') && part.endsWith('$') && part.length > 1 ? `\\(${part.slice(1, -1)}\\)` : esc(part))).join('');
 export const list = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 /** The Q-form of the closure of a dense Γ, as text with $…$. */
@@ -25,7 +29,39 @@ export function kName(A) {
     return A.k.d === 1 ? '$k = \\mathbb{Q}$' : `$k = ${A.k.tex}$`;
 }
 
-/** One line for the Verdict tab. */
+/** The Zariski engine's sentence (Unicode, with ⟨S⟩ for the group) as text with $…$ math. */
+export const summaryTex = (s) => mathLine(String(s ?? '').replace(/⟨S⟩/g, 'Γ'));
+
+/**
+ * Primes of a number field for one-line summaries: the ideal as the engine writes it when it is
+ * short, else 𝔭 ∣ p (numbered when several lie over one p). xs: [{ p, tex }]; returns TeX per entry.
+ */
+export function shortPrimes(xs) {
+    const long = (x) => String(x.tex).length > 28;
+    const over = new Map();
+    for (const x of xs) if (long(x)) over.set(String(x.p), (over.get(String(x.p)) || 0) + 1);
+    const seen = new Map();
+    return xs.map((x) => {
+        if (!long(x)) return x.tex;
+        const p = String(x.p), k = (seen.get(p) || 0) + 1;
+        seen.set(p, k);
+        return `${over.get(p) > 1 ? `\\mathfrak{p}_{${k}}` : '\\mathfrak{p}'} \\mid ${p}`;
+    });
+}
+
+/** The summary's line for step 1: { head, detail } as text with $…$ math. */
+export function zariskiLineTex(res) {
+    const C = res.closure;
+    if (C.kind !== 'dense') return { head: 'Not Zariski dense', detail: summaryTex(C.summary) };
+    const A = res.arith;
+    const S = A.ring.S;
+    return {
+        head: 'Zariski dense',
+        detail: `Closure over $\\mathbb{Q}$: ${qForm(A)}. ${S.length ? `Unbounded at ${list(shortPrimes(S).map((t) => `$${t}$`))}.` : 'Integral traces: bounded at every prime.'}`,
+    };
+}
+
+/** One line for the batch records (plain text; the page uses zariskiLineTex). */
 export function zariskiLine(res) {
     const C = res.closure;
     if (C.kind !== 'dense') return { head: 'Not Zariski dense', detail: C.summary.replace(/⟨S⟩/g, 'Γ') };
@@ -61,11 +97,11 @@ export function zariskiCard(res, model) {
 
     const facts = [];
     const gl = res.gens.map((g, i) => {
-        const kind = g.type === 'identity' ? 'scalar (trivial in PGL₂)' : g.order ? `${g.type}, order ${g.order}` : `${g.type}, infinite order`;
-        return `<div>${tex(`g_{${i + 1}}`)}: ${tex(`\\operatorname{tr}^2/\\det = ${g.tauTex}`)} <span class="note">— ${esc(kind)}</span></div>`;
+        const kind = g.type === 'identity' ? 'scalar (trivial in $\\mathrm{PGL}_2$)' : g.order ? `${g.type}, order $${g.order}$` : `${g.type}, infinite order`;
+        return `<div>${tex(`g_{${i + 1}}`)}: ${tex(`\\operatorname{tr}^2/\\det = ${g.tauTex}`)} <span class="note">— ${mix(kind)}</span></div>`;
     }).join('');
     facts.push(['Generators', gl]);
-    facts.push([mix('Closure over $\\overline{\\mathbb{Q}}$'), mix(`$${C.tex}$, of dimension $${C.dim}$${C.order ? `; $|\\Gamma| = ${C.order}$` : ''}`) + `<div class="note">${esc(C.summary.replace(/⟨S⟩/g, 'Γ'))}</div>`]);
+    facts.push([mix('Closure over $\\overline{\\mathbb{Q}}$'), mix(`$${C.tex}$, of dimension $${C.dim}$${C.order ? `; $|\\Gamma| = ${C.order}$` : ''}`) + `<div class="note">${mix(summaryTex(C.summary))}</div>`]);
     if (A) {
         const k = A.k;
         let kFact = mix(kName(A));
@@ -82,7 +118,7 @@ export function zariskiCard(res, model) {
             const sp = A.spaces;
             const parts = sp.factors.map((fct) => (fct.kind === 'tree' ? `$${fct.space}$ for $${fct.place}$`
                 : fct.kind === 'real' ? `$${fct.space}$ for ${k.d === 1 ? 'the real place' : `the real place $${fct.place}$`}` : `$${fct.space}$ for a complex place`));
-            let dd = mix(`$X = ${sp.productTex}$`) + `<div class="note">${mix(`Γ has an unbounded orbit in each factor: ${list(parts)}.`)}`;
+            let dd = mix(`$X = ${sp.productTex}$`) + `<div class="note">${mix(`$\\Gamma$ has an unbounded orbit in each factor: ${list(parts)}.`)}`;
             if (sp.bounded.length) dd += ' ' + mix(`It is bounded at $${sp.bounded.join(',\\ ')}$, where $A$ is ramified.`);
             dd += '</div>';
             facts.push(['Symmetric space', dd]);
@@ -92,7 +128,7 @@ export function zariskiCard(res, model) {
     }
     html += `<dl class="facts">${facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('')}</dl>`;
     if (C.kind !== 'dense') {
-        html += `<div class="banner" data-status="info"><span class="dot"></span><div>${mix('Γ is not Zariski dense, so it is virtually solvable or finite. Steps 2 and 3 are for dense groups; its presentation is below.')}</div></div>`;
+        html += `<div class="banner" data-status="info"><span class="dot"></span><div>${mix('$\\Gamma$ is not Zariski dense, so it is virtually solvable or finite. Steps 2 and 3 are for dense groups; its presentation is below.')}</div></div>`;
     }
     return html + '</div>';
 }
@@ -102,7 +138,7 @@ export function congruenceCard(A) {
     let html = '<div class="vc-inner">';
     if (!A || !A.congruence) return html + '<p class="lead">Not computed.</p></div>';
     const C = A.congruence, d = A.k.d;
-    if (C.error) return html + `<p class="lead">${esc('Could not compute: ' + C.error)}</p></div>`;
+    if (C.error) return html + `<p class="lead">${mix('Could not compute: ' + C.error)}</p></div>`;
     const levelTex = (c) => (d === 1 || /^\(\d+\)$/.test(c.tex) ? `${BigInt(c.p) ** BigInt(c.level)}` : `\\mathfrak{p}^{${c.level}}`);
     const closureCell = (c) => {
         if (c.status === 'full') return 'full';
@@ -113,10 +149,10 @@ export function congruenceCard(A) {
     };
     const notes = (c) => {
         const n = [];
-        if (c.cosmetic) n.push(c.vertexTex ? mix(`cosmetic: the matrices are not integral here, but $\\Gamma$ fixes the vertex $${c.vertexTex}$`) : 'cosmetic: the matrices are not integral here, but Γ is bounded');
+        if (c.cosmetic) n.push(c.vertexTex ? mix(`cosmetic: the matrices are not integral here, but $\\Gamma$ fixes the vertex $${c.vertexTex}$`) : mix('cosmetic: the matrices are not integral here, but $\\Gamma$ is bounded'));
         if (c.ramifiedA) n.push(mix('$A$ is ramified: the local group is compact'));
-        if (c.inverts) n.push('Γ inverts an edge; shown for its index-2 subgroup');
-        if (c.note && c.status !== 'full-partial') n.push(esc(c.note));
+        if (c.inverts) n.push(mix('$\\Gamma$ inverts an edge; shown for its index-$2$ subgroup'));
+        if (c.note && c.status !== 'full-partial') n.push(mix(c.note));
         return n.join('<br>');
     };
     const special = C.checked.filter((c) => c.status !== 'full' || c.cosmetic || c.ramifiedA);
@@ -136,13 +172,31 @@ export function congruenceCard(A) {
     }
     const others = full.map((c) => `$${c.tex}$`);
     const checkedPs = C.candidates.filter((p) => C.checked.some((c) => c.p === p));
-    html += `<p class="note">${mix(`Primes that needed checking: $${checkedPs.join(',\\ ') || '\\varnothing'}$${others.length ? `; full at ${list(others)}` : ''}. Every other prime ${A.ring.S.length ? 'outside $S$ ' : ''}is full by Dickson's classification of subgroups of $\\mathrm{PGL}_2(\\mathbb{F}_q)$ and Serre's lifting lemma.`)}${C.complete ? '' : ' ' + esc('(Some norms could not be fully factored, so the list of primes may be incomplete.)')}</p>`;
+    html += `<p class="note">${mix(`Primes that needed checking: $${checkedPs.join(',\\ ') || '\\varnothing'}$${others.length ? `; full at ${list(others)}` : ''}. Every other prime ${A.ring.S.length ? 'outside $S$ ' : ''}is full by Dickson's classification of subgroups of $\\mathrm{PGL}_2(\\mathbb{F}_q)$ and Serre's lifting lemma.`)}${C.complete ? '' : ' (Some norms could not be fully factored, so the list of primes may be incomplete.)'}</p>`;
     html += `<p class="note">${mix('Indices are for the part of $\\Gamma$ with square determinant, inside the image of $\\mathrm{SL}_1$; levels $\\Gamma(\\mathfrak{p}^m)$ are principal congruence subgroups at a vertex fixed by $\\Gamma$.')}</p>`;
     if (C.dets && C.dets.length) html += `<p class="note">${mix(`Determinants: those of $\\Gamma$ generate $\\langle ${C.dets.join(',\\ ')} \\rangle$ in $\\mathbb{Q}^\\times/(\\mathbb{Q}^\\times)^2$, so the indices are taken on the square-determinant part.`)}</p>`;
     return html + '</div>';
 }
 
-/** One line for the Verdict tab. */
+/** The summary's line for the congruence closure (from the engine): { head, detail } as text with $…$ math. */
+export function congruenceLineTex(A) {
+    if (!A || !A.congruence) return { head: 'Not computed', detail: '' };
+    const C = A.congruence;
+    if (C.error) return { head: 'Not computed', detail: C.error };
+    const bad = C.checked.filter((c) => c.status === 'deficient');
+    const undecided = C.checked.filter((c) => c.status === 'full-partial' || c.status === 'unknown');
+    if (!bad.length && !undecided.length) {
+        return { head: `Full at every prime${A.ring.S.length ? ' outside $S$' : ''}`, detail: '$\\Gamma^{(2)}$ is dense in the congruence completion of $\\Lambda$.' };
+    }
+    const names = shortPrimes(bad.concat(undecided)).map((t) => `$${t}$`);
+    const head = !bad.length ? 'Full where decided' : C.totalIndex ? `Index $\\ge ${C.totalIndex}$` : 'Deficient';
+    const parts = [];
+    if (bad.length) parts.push(`${head === 'Deficient' ? '' : 'deficient '}at ${list(names.slice(0, bad.length))}${C.totalIndex && !undecided.length ? ` (index $${C.totalIndex}$)` : ''}`);
+    if (undecided.length) parts.push(`not decided at ${list(names.slice(bad.length))}`);
+    return { head, detail: `${parts.join('; ')}.` };
+}
+
+/** One line for the batch records (plain text; the page uses congruenceLineTex). */
 export function congruenceLine(A) {
     if (!A || !A.congruence) return { head: 'Not computed', detail: '' };
     const C = A.congruence;
@@ -161,7 +215,6 @@ function lambdaName(A) {
     const ps = A.ring.S.map((s) => s.p);
     return { text: `PGL₂(ℤ[1/${ps.join('·')}])`, tex: `\\mathrm{PGL}_2(\\mathbb{Z}[1/${ps.join('\\cdot ')}])` };
 }
-const levelsText = (J) => (J.levels.length ? J.levels.join(' · ') : 'none');
 
 /**
  * The congruence closure written out (congruenceShape.js): one formula for Δ ∩ Λ₀ when it is cut
@@ -173,7 +226,7 @@ export function closureShapeHtml(cong, A) {
     const D = cong && cong.shape;
     if (!cong || cong.status !== 'done') return '';
     if (D === undefined) return `<p class="note">${mix('Writing out the closure prime by prime…')}</p>`;
-    if (!D || D.error) return D && D.error ? `<p class="note">${esc(`The closure could not be written out: ${D.error}.`)}</p>` : '';
+    if (!D || D.error) return D && D.error ? `<p class="note">${mix(`The closure could not be written out: ${D.error}.`)}</p>` : '';
     const ps = A.ring.S.map((x) => x.p), L0 = `\\mathrm{PSL}_2(\\mathbb{Z}[1/${ps.join('\\cdot ')}])`;
     let html = '<h3>The closure, written out</h3>';
     // cut out prime by prime: Δ ∩ Λ₀ is the intersection of the local conditions when the primes
@@ -344,19 +397,19 @@ export function jointCongruenceLine(cong, A) {
     const J = cong && cong.result;
     if (cong && cong.status === 'running') return { status: 'running', head: 'Computing…', detail: '' };
     if (!J || J.status === 'na' || J.status === 'too-large') {
-        const e = congruenceLine(A);
+        const e = congruenceLineTex(A);
         const why = J && J.reason ? J.reason : cong && cong.error ? cong.error : '';
         return { status: A && A.congruence && !A.congruence.error ? 'info' : 'open', head: e.head, detail: `${e.detail}${why && A.k.d === 1 && A.ring.S.length ? ` (The joint closure was not computed: ${why}.)` : ''}` };
     }
     const L = lambdaName(A);
-    const classes = `Γ meets ${J.classes.gamma} of the ${J.classes.lambda} determinant classes`;
+    const classes = `$\\Gamma$ meets ${J.classes.gamma} of the ${J.classes.lambda} determinant classes`;
     if (J.index === 1 && J.status === 'exact') {
-        return { status: 'info', head: 'Δ = Λ', detail: `Γ is dense in the congruence completion of Λ = ${L.text}, so it is S-arithmetic only if it is all of Λ.` };
+        return { status: 'info', head: '$\\Delta = \\Lambda$', detail: `$\\Gamma$ is dense in the congruence completion of $\\Lambda = ${L.tex}$, so it is $S$-arithmetic only if it is all of $\\Lambda$.` };
     }
-    const rel = J.status === 'exact' ? '=' : '≥';
+    const rel = J.status === 'exact' ? '=' : '\\ge';
     return {
-        status: 'info', head: `[Λ : Δ] ${rel} ${J.index.toLocaleString()}`,
-        detail: `Λ = ${L.text}; levels ${levelsText(J)}; ${classes}. Γ is S-arithmetic exactly when [Λ : Γ] = [Λ : Δ]${J.status === 'exact' ? '' : '; this is a lower bound'}.`,
+        status: 'info', head: `$[\\Lambda : \\Delta] ${rel} ${J.index.toLocaleString().replace(/,/g, '{,}')}$`,
+        detail: `$\\Lambda = ${L.tex}$; levels $${J.levels.length ? J.levels.join(' \\cdot ') : '\\text{none}'}$; ${classes}. $\\Gamma$ is $S$-arithmetic exactly when $[\\Lambda : \\Gamma] = [\\Lambda : \\Delta]$${J.status === 'exact' ? '' : '; this is a lower bound'}.`,
     };
 }
 
@@ -365,7 +418,7 @@ export function congruenceSection(cong, A) {
     if (!A || !A.congruence) return '<div class="vc-inner"><p class="lead">Not computed.</p></div>';
     let html = '';
     const J = cong && cong.result;
-    if (cong && cong.status === 'running') html += '<div class="vc-inner"><p class="lead">Computing the joint image of Γ…</p></div>';
+    if (cong && cong.status === 'running') html += `<div class="vc-inner"><p class="lead">${mix('Computing the joint image of $\\Gamma$…')}</p></div>`;
     else if (J && (J.status === 'exact' || J.status === 'lower')) {
         const L = lambdaName(A);
         const rel = J.status === 'exact' ? '=' : '\\ge';
@@ -377,11 +430,11 @@ export function congruenceSection(cong, A) {
             ['Determinant', mix(`$\\Gamma$ meets ${J.classes.gamma} of the ${J.classes.lambda} classes of $\\Lambda/\\Lambda_0$ (the sign of $\\det$ and the parities of its valuations at $S$), where $\\Lambda_0 = \\mathrm{PSL}_2(\\mathbb{Z}[1/S])$.`)],
             ['Image', mix(`$\\Gamma \\cap \\Lambda_0$ has ${J.image.toLocaleString()} elements modulo $N$, of ${J.ambient.toLocaleString()} in $\\mathrm{SL}_2(\\mathbb{Z}/N)/\\pm1$.`) + `<div class="note">${(J.ms / 1000).toFixed(1)} s</div>`],
         ];
-        if (J.notes && J.notes.length) facts.push(['Lower bound', J.notes.map((n) => `<div>${esc(n)}</div>`).join('')]);
+        if (J.notes && J.notes.length) facts.push(['Lower bound', J.notes.map((n) => `<div>${mix(n)}</div>`).join('')]);
         html += `<dl class="facts">${facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('')}</dl>`;
         html += closureShapeHtml(cong, A) + '</div>';
         html += '<p class="sub-note">Prime by prime, from the Zariski Closure engine:</p>';
-    } else if (J && J.reason) html += `<div class="vc-inner"><p class="note">${esc(`The joint closure was not computed: ${J.reason}.`)}</p>${closureShapeHtml(cong, A)}</div>`;
-    else if (cong && cong.error) html += `<div class="vc-inner"><p class="err">${esc(cong.error)}</p></div>`;
+    } else if (J && J.reason) html += `<div class="vc-inner"><p class="note">${mix(`The joint closure was not computed: ${J.reason}.`)}</p>${closureShapeHtml(cong, A)}</div>`;
+    else if (cong && cong.error) html += `<div class="vc-inner"><p class="err">${mix(cong.error)}</p></div>`;
     return html + congruenceCard(A);
 }

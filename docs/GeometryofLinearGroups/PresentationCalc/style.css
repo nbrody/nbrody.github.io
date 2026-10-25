@@ -38,6 +38,7 @@ header.top { display: flex; align-items: baseline; justify-content: space-betwee
 .ex-pop { position: absolute; right: 0; top: 100%; z-index: 20; margin-top: 6px; width: min(340px, 86vw); max-height: 60vh; overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12); padding: 6px 0; }
 .ex-pop[hidden] { display: none; }
 .ex-pop .ex-cat { font-family: var(--sans); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); padding: 8px 14px 3px; }
+.ex-pop .ex-cat .katex { text-transform: none; letter-spacing: 0; }
 .ex-pop button { display: block; width: 100%; text-align: left; font: inherit; font-size: 0.92rem; color: var(--ink); background: none; border: none; padding: 4px 14px; cursor: pointer; }
 .ex-pop button:hover, .ex-pop button:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
 
@@ -66,15 +67,16 @@ input.cell, input.dname, input.dsrc { font: inherit; padding: 4px 8px; border: 1
 .mq-editable-field .mq-selection, .mq-editable-field .mq-selection .mq-non-leaf, .mq-math-mode .mq-selection .mq-scaled { background: var(--accent-soft) !important; color: var(--ink) !important; }
 .add-mat { font-size: 1.15rem; margin: 6px 0 0 2.6em; padding: 0 8px; }
 
-/* the top of the page as a presentation: ⟨ generators | relations ⟩ */
-.pres-top { display: flex; align-items: stretch; gap: 8px; margin-bottom: 22px; }
+/* the top of the page as a presentation: ⟨ generators | relations ⟩. Long entries (a big number field)
+   make it wider than the page: then it scrolls sideways, and the relations keep at least 18rem. */
+.pres-top { display: flex; align-items: stretch; gap: 8px; margin-bottom: 22px; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
 .angle { flex: 0 0 20px; display: flex; color: var(--muted); }
 .angle svg { width: 100%; height: 100%; min-height: 90px; overflow: visible; }
 .angle polyline { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
-.pres-inner { flex: 1; min-width: 0; display: flex; align-items: stretch; gap: 16px; }
+.pres-inner { flex: 1 0 auto; min-width: 0; display: flex; align-items: stretch; gap: 16px; }
 .pres-gens { flex: 0 0 auto; padding: 8px 0; }
 .pres-bar { flex: 0 0 1.6px; background: var(--muted); border-radius: 1px; }
-.pres-rels { flex: 1; min-width: 0; overflow-y: auto; padding: 8px 4px 8px 0; align-self: flex-start; }
+#pres-rels { flex: 1 0 18rem; width: 18rem; min-width: 18rem; overflow-y: auto; padding: 8px 4px 8px 0; align-self: flex-start; }
 .rels-head { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); margin-bottom: 8px; position: sticky; top: 0; background: var(--bg); padding-bottom: 2px; }
 .rels-head .katex, .step-body h3 .katex, .card h2 .katex { text-transform: none; }
 .rels-head .partial { text-transform: none; letter-spacing: 0; color: var(--warn); }
@@ -87,7 +89,7 @@ input.cell, input.dname, input.dsrc { font: inherit; padding: 4px 8px; border: 1
 @media (max-width: 640px) {
     .pres-inner { flex-direction: column; gap: 10px; }
     .pres-bar { flex-basis: 1.6px; }
-    .pres-rels { align-self: stretch; }
+    #pres-rels { flex: none; width: auto; min-width: 0; align-self: stretch; }
 }
 .btn { font-family: var(--sans); font-size: 0.88rem; color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 .btn:hover { border-color: var(--accent); }
@@ -133,6 +135,8 @@ details.syntax code { font-family: var(--mono); font-size: 0.85em; color: var(--
 [data-status="no"], [data-status="nondiscrete"] { --tone: var(--bad); --tone-soft: var(--bad-soft); }
 [data-status="open"], [data-status="unknown"] { --tone: var(--warn); --tone-soft: var(--warn-soft); }
 [data-status="info"] { --tone: var(--info); --tone-soft: var(--info-soft); }
+/* Zariski dense: a fact about Γ, not a verdict, so neither green nor red */
+[data-status="dense"] { --tone: var(--ink); --tone-soft: var(--line); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); flex: none; display: inline-block; }
 [data-status="running"] .dot, [data-status="pending"] .dot { animation: pc-pulse 1.1s ease-in-out infinite; }
 @keyframes pc-pulse { 50% { opacity: 0.25; } }
@@ -250,7 +254,9 @@ td.st-deficient { color: var(--warn); }
 .key-self { color: var(--good); } .key-other { color: var(--info); } .key-rep { color: var(--accent); } .key-open { color: var(--bad); }
 .dir-scatter { max-width: 620px; margin: 6px 0 10px; }
 .dir-scatter .axis { stroke: var(--line); }
-.dir-scatter .lbl { fill: var(--faint); font-family: var(--sans); font-size: 11px; }
+/* KaTeX labels in SVG figures (sarithView.js svgTex) */
+foreignObject > .svg-tex { display: flex; align-items: flex-end; height: 100%; white-space: nowrap; line-height: 1.2; overflow: visible; }
+.dir-scatter .lbl .svg-tex { color: var(--faint); font-size: 12px; }
 .dir-scatter .pt { fill: var(--faint); fill-opacity: 0.55; }
 .dir-scatter .gen { fill: var(--good); stroke: var(--card); stroke-width: 1; }
 .cov-words { max-height: 340px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; margin: 6px 0 10px; }
@@ -280,11 +286,11 @@ details.syntax div { margin-top: 8px; display: grid; gap: 8px; }
     .settings-grid { grid-template-columns: 1fr 7em; }
 }
 
-/* the presentation of an S-arithmetic Γ (sarithView.js presentationSection) */
+/* the presentation of an S-arithmetic Γ (sarithView.js presentationSection); the top box's #pres-rels is another thing */
 .pres-block { overflow-x: auto; overflow-y: hidden; padding: 6px 0 10px; font-size: 1.02rem; }
-.pres-rels { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 18px; margin: 0 0 10px 1.6em; font-size: 0.98rem; }
-.pres-rels li { overflow-x: auto; overflow-y: hidden; white-space: nowrap; }
-.pres-rels li::marker { color: var(--faint); font-size: 0.8rem; }
+ol.pres-rels { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 18px; margin: 0 0 10px 1.6em; font-size: 0.98rem; }
+ol.pres-rels li { overflow-x: auto; overflow-y: hidden; white-space: nowrap; }
+ol.pres-rels li::marker { color: var(--faint); font-size: 0.8rem; }
 .pres-more summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
 .rels-extra { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
 .rels-on { color: var(--muted); font-size: 0.9rem; margin: -2px 0 6px; }
@@ -295,8 +301,8 @@ details.syntax div { margin-top: 8px; display: grid; gap: 8px; }
 .gg-svg .gg-edge.hnn { stroke: var(--accent); }
 .gg-svg .gg-mid { fill: var(--bg); stroke: var(--muted); stroke-width: 1.4; }
 .gg-svg .gg-vtx { fill: var(--accent-soft, #eef); stroke: var(--accent); stroke-width: 1.6; }
-.gg-svg .gg-vlab { font: 600 12px var(--sans); fill: var(--ink); }
-.gg-svg .gg-lab { font: italic 13px var(--serif, serif); fill: var(--muted); }
+.gg-svg .gg-vlab .svg-tex { color: var(--ink); font-size: 12px; }
+.gg-svg .gg-lab .svg-tex { color: var(--muted); font-size: 13px; }
 .gg-list { margin: 4px 0 12px 1.2em; display: grid; gap: 4px; }
 .gg-level.nested { margin: 6px 0 4px 0.6em; padding-left: 10px; border-left: 2px solid var(--line); }
 .nice-gens { list-style: none; display: grid; gap: 6px; margin: 4px 0 10px; padding: 0; }

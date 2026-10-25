@@ -30,17 +30,18 @@ export const wordText = (w) => (w.length ? w.map((x) => `g${String(Math.abs(x)).
  * ctx = { field, gens } (no orientation-reversing generators).
  * Returns { nondiscrete: true, kind, word(s), text, tex } or { nondiscrete: false, checked }.
  */
-export function archCertificate(ctx, { maxLen = null, cap = 600 } = {}) {
+export function archCertificate(ctx, { maxLen = null, cap = 600, budgetMs = undefined, maxEvals = undefined } = {}) {
     const gens = ctx.gens;
     if (!gens.length || gens.some((g) => g.anti)) return { nondiscrete: false, checked: 0, skipped: 'mirrors' };
     const r = gens.length;
     const len = maxLen ?? (r <= 2 ? 4 : r <= 3 ? 3 : 2);
     // The search screens in floating point at σ and confirms over K.
     const num = gens.map((E) => new Matrix2x2(E.a.embed(), E.b.embed(), E.c.embed(), E.d.embed()));
-    const res = findNondiscreteness(num, ctx, { maxLen: len, cap });
-    if (!res.found || !res.exact) return { nondiscrete: false, checked: res.checked, length: len };
+    // a deeper search (longer words, more time) passes budgetMs and maxEvals; the defaults are findNondiscreteness's
+    const res = findNondiscreteness(num, ctx, { maxLen: len, cap, ...(budgetMs ? { budgetMs } : {}), ...(maxEvals ? { maxEvals } : {}) });
+    if (!res.found || !res.exact) return { nondiscrete: false, checked: res.checked, length: len, timedOut: !!res.timedOut };
     return {
-        nondiscrete: true, kind: res.kind, word: res.words[0], words: res.words,
+        nondiscrete: true, kind: res.kind, word: res.words[0], words: res.words, length: len, checked: res.checked,
         angle: res.angle, value: res.value, text: res.text, tex: res.tex || null,
     };
 }

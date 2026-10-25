@@ -14,6 +14,18 @@
  * }
  */
 import { esc, tex, mix } from './zariskiView.js';
+
+/** TeX rendered now (for SVG labels, which are patched in without a typesetting pass), or the source as text. */
+const ktx = (t) => (typeof window !== 'undefined' && window.katex ? window.katex.renderToString(t, { throwOnError: false }) : esc(t));
+/**
+ * A KaTeX label in an SVG, anchored at (x, y) like an SVG text: anchor 'start' | 'middle' | 'end',
+ * y the baseline. A foreignObject box of w × h user units holds it.
+ */
+function svgTex(x, y, t, { anchor = 'start', cls = '', w = 200, h = 24 } = {}) {
+    const x0 = anchor === 'end' ? x - w : anchor === 'middle' ? x - w / 2 : x;
+    const justify = anchor === 'end' ? 'flex-end' : anchor === 'middle' ? 'center' : 'flex-start';
+    return `<foreignObject x="${x0.toFixed(1)}" y="${(y - h + 6).toFixed(1)}" width="${w}" height="${h}"${cls ? ` class="${cls}"` : ''}><div xmlns="http://www.w3.org/1999/xhtml" class="svg-tex" style="justify-content:${justify}">${ktx(t)}</div></foreignObject>`;
+}
 import { powerReduce } from './presentation.js';
 
 const SUBS = '₀₁₂₃₄₅₆₇₈₉', SUPS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
@@ -89,23 +101,24 @@ export function spaceTex(S, model) {
 }
 
 /** Orbit points found: Dirichlet generators in colour, the rest grey. */
-function scatter(points, weights, nArch, archNames = ['the first place at ∞', 'the second']) {
+function scatter(points, weights, nArch, archNames = ['\\sigma_1', '\\sigma_2']) {
     if (!points || points.length < 2) return '';
     const nTree = weights.length;
     const treeL2 = (p) => Math.sqrt(p.tree.reduce((acc, d, i) => acc + (weights[i] * d) ** 2, 0));
+    // axis labels in TeX
     let fx, fy, xl, yl;
-    if (nArch && nTree) { fx = (p) => p.arch[0]; fy = treeL2; xl = 'd at ∞'; yl = 'd in the trees'; }
-    else if (nArch >= 2) { fx = (p) => p.arch[0]; fy = (p) => p.arch[1]; xl = `d at ${archNames[0]}`; yl = `d at ${archNames[1]}`; }
-    else if (nTree >= 2) { fx = (p) => weights[0] * p.tree[0]; fy = (p) => Math.sqrt(p.tree.slice(1).reduce((acc, d, i) => acc + (weights[i + 1] * d) ** 2, 0)); xl = 'd in the first tree'; yl = 'd in the others'; }
-    else { fx = (p) => p.h; fy = (p, i) => (i * 0.618) % 1; xl = 'd(o, g·o)'; yl = ''; }
+    if (nArch && nTree) { fx = (p) => p.arch[0]; fy = treeL2; xl = 'd \\text{ at } \\infty'; yl = 'd \\text{ in the trees}'; }
+    else if (nArch >= 2) { fx = (p) => p.arch[0]; fy = (p) => p.arch[1]; xl = `d \\text{ at } ${archNames[0]}`; yl = `d \\text{ at } ${archNames[1]}`; }
+    else if (nTree >= 2) { fx = (p) => weights[0] * p.tree[0]; fy = (p) => Math.sqrt(p.tree.slice(1).reduce((acc, d, i) => acc + (weights[i + 1] * d) ** 2, 0)); xl = 'd \\text{ in the first tree}'; yl = 'd \\text{ in the others}'; }
+    else { fx = (p) => p.h; fy = (p, i) => (i * 0.618) % 1; xl = 'd(o, g\\cdot o)'; yl = ''; }
     const pts = points.map((p, i) => ({ x: fx(p, i), y: fy(p, i), a: p.active }));
     const X = Math.max(1e-9, ...pts.map((p) => p.x)), Y = Math.max(1e-9, ...pts.map((p) => p.y));
     const W = 560, H = 220, m = 30;
     const sx = (x) => m + (W - 2 * m) * x / X, sy = (y) => H - m - (H - 2 * m) * y / Y;
     let svg = `<svg class="dir-scatter" viewBox="0 0 ${W} ${H}" aria-label="Orbit points found">`;
     svg += `<line class="axis" x1="${m}" y1="${H - m}" x2="${W - m}" y2="${H - m}"/><line class="axis" x1="${m}" y1="${m}" x2="${m}" y2="${H - m}"/>`;
-    svg += `<text class="lbl" x="${W - m}" y="${H - 9}" text-anchor="end">${esc(xl)} →</text>`;
-    if (yl) svg += `<text class="lbl" x="${m + 4}" y="${m - 10}">↑ ${esc(yl)}</text>`;
+    svg += svgTex(W - m, H - 7, `${xl} \\;\\rightarrow`, { anchor: 'end', cls: 'lbl' });
+    if (yl) svg += svgTex(m + 4, m - 8, `\\uparrow\\; ${yl}`, { cls: 'lbl' });
     for (const p of pts.filter((q) => !q.a)) svg += `<circle class="pt" cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="2.2"/>`;
     for (const p of pts.filter((q) => q.a)) svg += `<circle class="gen" cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="4"/>`;
     return svg + '</svg>';
@@ -180,7 +193,7 @@ export function sarithCard(S, model, nGens) {
         return html + banner('yes', S.head) + '</div>';
     }
     const trees = (S.places || []).length > 0;
-    const metric = S.metric === 'unit' ? 'in which a tree edge has length $1$, as in the SO(3) project' : 'in which a tree edge has length $\\log q$';
+    const metric = S.metric === 'unit' ? 'in which a tree edge has length $1$, as in the $\\mathrm{SO}(3)$ project' : 'in which a tree edge has length $\\log q$';
     html += para([
         `$\\Gamma$ is discrete in the product of $\\mathrm{PGL}_2$ over the places where it is unbounded, and it acts on $X = ${spaceTex(S, model)}$ with the $\\ell^2$ product metric, ${metric}.`,
         'FlashBeam multiplies a beam of words by a persistent flash of the lowest elements found, scored by the height $d(o, g\\cdot o)$.',
@@ -220,9 +233,9 @@ export function sarithCard(S, model, nGens) {
         html += `<h3>${mix('Dirichlet generators in $X$')}</h3>`;
         html += para([
             `There ${D.pairs.length === 1 ? 'is one Dirichlet generator' : `are ${D.pairs.length} Dirichlet generators`} up to inverses, ${D.active} elements in all, since $g^{-1}$ is one exactly when $g$ is; ${D.tied} of them are tied.`,
-            `They are measured only against the ${D.considered} lowest orbit points found, as in the SO(3) project, so they are the facets of the partial Dirichlet domain those points cut out.`,
+            `They are measured only against the ${D.considered} lowest orbit points found, as in the $\\mathrm{SO}(3)$ project, so they are the facets of the partial Dirichlet domain those points cut out.`,
         ]);
-        html += scatter(D.points, r.weights || [], nArch, (S.archFactors || []).map((a) => a.label));
+        html += scatter(D.points, r.weights || [], nArch, (S.archFactors || []).map((a) => a.labelTex));
         if (D.pairs.length) {
             const head = ['Generator $g$', '$d(o, g\\cdot o)$'];
             for (let i = 0; i < nArch; i++) head.push(nArch > 1 ? `$\\mathbb{H}$ at $${S.archFactors && S.archFactors[i] ? S.archFactors[i].labelTex : `\\sigma_{${i + 1}}`}$` : '$\\mathbb{H}$');
@@ -250,7 +263,7 @@ export function sarithCard(S, model, nGens) {
                 'The list need not be complete, so the presentation it suggests is one to test, not one proved.',
             ]);
             html += `<div class="cov-words"><table><tbody>${r.relations.slice(0, 40).map((w) => `<tr><td>${wordCell(w, 60)}</td><td class="note">${w.length} letters</td></tr>`).join('')}</tbody></table></div>`;
-            html += `<p><button class="btn btn-add-alt" id="copy-gap">Copy ⟨g | relations⟩ for GAP</button></p>`;
+            html += `<p><button class="btn btn-add-alt" id="copy-gap">Copy the relations for GAP</button></p>`;
         }
     }
 
@@ -262,7 +275,7 @@ export function sarithCard(S, model, nGens) {
         html += `<p class="note">${mix('The certificate is a finite set $R$ of vertices of the trees such that every neighbour of every $r \\in R$ is $w \\cdot r\'$ for a word $w$ and some $r\' \\in R$. Then $\\Gamma R$ is every vertex. Each star below is the link of a representative in one tree, with the parent at the top. Its neighbours are marked')} <span class="key-self">●</span> when reached from the same representative, <span class="key-other">●</span> when reached from another, <span class="key-rep">●</span> when they are representatives themselves, and <span class="key-open">○</span> when still open.</p>`;
         html += '<div class="cov-reps">';
         links.forEach((perPlace, i) => {
-            const label = repTex ? ` = ${repTex[i].map((t) => tex(t)).join(' × ')}` : '';
+            const label = repTex ? ` = ${tex(repTex[i].join(' \\times '))}` : '';
             html += `<div class="cov-rep"><div class="cov-rep-head">\\(${repName(i)}\\)${label}</div>`;
             html += `<div class="cov-stars">${perPlace.map((st) => `<div>${star(st)}</div>`).join('')}</div></div>`;
         });
@@ -271,7 +284,7 @@ export function sarithCard(S, model, nGens) {
     if (r && r.status === 'covered' && r.witnesses) {
         html += r.verify && r.verify.ok
             ? para([`All ${r.verify.checked} neighbours were checked again from scratch.`, 'Each word below, multiplied out exactly, carries its representative onto the neighbour.'])
-            : `<p class="note">The re-check failed: ${esc((r.verify && r.verify.failures || []).slice(0, 3).join('; '))}.</p>`;
+            : `<p class="note">${mix(`The re-check failed: ${(r.verify && r.verify.failures || []).slice(0, 3).join('; ')}.`)}</p>`;
         const rows = r.witnesses.slice().sort((a, b) => a.from - b.from || a.place - b.place || a.nbr - b.nbr);
         html += '<div class="cov-words"><table><thead><tr><th>Neighbour</th><th>Word</th></tr></thead><tbody>';
         for (const w of rows.slice(0, 400)) {
@@ -507,7 +520,7 @@ function graphSvg(node, G) {
     const xs = node.vertices.map((_, v) => (V === 1 ? W / 2 : 90 + (v * (W - 180)) / (V - 1)));
     const ys = node.vertices.map((_, v) => (V <= 2 ? cy : cy + (v % 2 ? 34 : -34)));
     const invCount = node.vertices.map((_, v) => node.edges.filter((e) => e.kind === 'inversion' && e.from === v).length);
-    const name = (k) => G.gens[k - 1].name.replace(/\\sigma/g, 'σ').replace(/_\{(\d+)\}/g, (_, d) => d.split('').map((c) => '₀₁₂₃₄₅₆₇₈₉'[+c]).join(''));
+    const name = (k) => G.gens[k - 1].name;
     let out = '';
     const loops = new Map();
     node.edges.forEach((e) => {
@@ -518,23 +531,23 @@ function graphSvg(node, G) {
             const ang = (up ? -Math.PI / 2 : Math.PI / 2) + (k - (invCount[a] - 1) / 2) * 0.8;
             const x2 = xs[a] + 50 * Math.cos(ang), y2 = ys[a] + 50 * Math.sin(ang);
             out += `<line x1="${xs[a]}" y1="${ys[a]}" x2="${x2}" y2="${y2}" class="gg-edge"/><rect x="${x2 - 5}" y="${y2 - 5}" width="10" height="10" class="gg-mid"/>`;
-            out += `<text x="${x2 + (Math.cos(ang) < -0.2 ? -9 : 9)}" y="${y2 + 4}" class="gg-lab" text-anchor="${Math.cos(ang) < -0.2 ? 'end' : 'start'}">${name(e.gen)}</text>`;
+            out += svgTex(x2 + (Math.cos(ang) < -0.2 ? -9 : 9), y2 + 5, name(e.gen), { anchor: Math.cos(ang) < -0.2 ? 'end' : 'start', cls: 'gg-lab', w: 90 });
         } else if (a === b) {
             const k = loops.get(a) || 0; loops.set(a, k + 1);
             const r = 26 + 10 * k, up = a % 2 ? 1 : -1;
             out += `<path d="M ${xs[a] - 10} ${ys[a] + up * 8} C ${xs[a] - r * 1.6} ${ys[a] + up * r * 2.2}, ${xs[a] + r * 1.6} ${ys[a] + up * r * 2.2}, ${xs[a] + 10} ${ys[a] + up * 8}" class="gg-edge${e.kind === 'stable' ? ' hnn' : ''}"/>`;
-            if (e.gen) out += `<text x="${xs[a]}" y="${ys[a] + up * (r * 1.65 + 8) + 4}" class="gg-lab" text-anchor="middle">${name(e.gen)}</text>`;
+            if (e.gen) out += svgTex(xs[a], ys[a] + up * (r * 1.65 + 8) + 5, name(e.gen), { anchor: 'middle', cls: 'gg-lab', w: 90 });
         } else {
             const mx = (xs[a] + xs[b]) / 2, my = (ys[a] + ys[b]) / 2;
             const key = [Math.min(a, b), Math.max(a, b)].join('-');
             const k = loops.get(key) || 0; loops.set(key, k + 1);
             const off = k ? (k % 2 ? 1 : -1) * 22 * Math.ceil(k / 2) : 0;
             out += `<path d="M ${xs[a]} ${ys[a]} Q ${mx} ${my + 2 * off} ${xs[b]} ${ys[b]}" class="gg-edge${e.kind === 'stable' ? ' hnn' : ''}"/>`;
-            if (e.gen) out += `<text x="${mx}" y="${my + off - 6}" class="gg-lab" text-anchor="middle">${name(e.gen)}</text>`;
+            if (e.gen) out += svgTex(mx, my + off - 5, name(e.gen), { anchor: 'middle', cls: 'gg-lab', w: 90 });
         }
     });
     node.vertices.forEach((v, i) => {
-        out += `<circle cx="${xs[i]}" cy="${ys[i]}" r="15" class="gg-vtx"/><text x="${xs[i]}" y="${ys[i] + 4}" class="gg-vlab" text-anchor="middle">G${'₁₂₃₄₅₆₇₈₉'[i] || i + 1}</text>`;
+        out += `<circle cx="${xs[i]}" cy="${ys[i]}" r="15" class="gg-vtx"/>${svgTex(xs[i], ys[i] + 5, `G_{${i + 1}}`, { anchor: 'middle', cls: 'gg-vlab', w: 30, h: 20 })}`;
     });
     return `<svg class="gg-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="The quotient graph of groups">${out}</svg>`;
 }

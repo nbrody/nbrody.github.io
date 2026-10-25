@@ -22,7 +22,7 @@ export function elementarySection(P) {
     if (P.status === 'error' || !P.result) return html + banner('open', `No presentation was found: ${String(P.error || 'unknown error').replace(/\$/g, '')}.`);
     const E = P.result;
     const names = E.gens.map((g) => g.name);
-    html += `<p class="lead">${esc(E.summary)}</p>`;
+    html += `<p class="lead">${mix(E.summary)}</p>`;
     if (E.structure && E.structure !== '1') html += `<div class="head-math">${tex(`\\Gamma \\cong ${E.structure}`, true)}</div>`;
     if (!E.complete) {
         html += banner('open', 'The presentation is incomplete: the relations of the module of translations were not computed for multipliers that are not rational.');
@@ -47,7 +47,7 @@ export function elementarySection(P) {
     if (E.given && E.given.length) html += `<p class="note">${mix('Conversely: ')}${E.given.map((t) => tex(t)).join(', ')}.</p>`;
     const checks = ['Every relation was checked exactly on the matrices.'];
     if (E.unitGap) checks.push(`The units among the multipliers were separated numerically (the smallest independent log-vector has length ${E.unitGap.toPrecision(3)}); every relation found among them was checked exactly.`);
-    html += `<p class="note">${esc(checks.join(' '))} ${esc(`(${E.ms} ms.)`)}</p>`;
+    html += `<p class="note">${mix(checks.join(' '))} ${esc(`(${E.ms} ms.)`)}</p>`;
     return html;
 }
 
@@ -57,7 +57,7 @@ export function elementaryTop(E) {
     const rels = ordinary ? ordinary.relators : E.relations;
     const ringPres = !ordinary && E.module && E.D && E.D.free;
     return {
-        source: E.structure && E.structure !== '1' ? `Γ ≅ $${E.structure}$` : 'Γ is trivial',
+        source: E.structure && E.structure !== '1' ? `$\\Gamma \\cong ${E.structure}$` : '$\\Gamma$ is trivial',
         rels, complete: !!E.complete, free: E.complete && !rels.length && E.gens.length === 1,
         names: E.gens.map((g) => g.name),
         defs: E.gens.map((g) => `${g.name} = ${g.wordTex.length > 300 ? `\\text{(length ${g.length})}` : g.wordTex}`),

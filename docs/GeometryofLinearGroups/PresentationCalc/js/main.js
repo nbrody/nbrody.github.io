@@ -32,8 +32,8 @@ import { fieldModel, poincareStateFor } from '../../Geometric/Tools/discreteness
 import { ToolFrames } from '../../Geometric/Tools/discretenessAlgorithm/js/frames.js';
 import { CURATED, CAT_ORDER, allExamples } from './examples.js';
 import { archClasses, sameTaus, tauValuesOf } from './archPlaces.js';
-import { mathLines, mathLine, innerTex } from './texText.js';
-import { zariskiCard, congruenceSection, zariskiLine, congruenceLine, jointCongruenceLine, texToText, esc, mix } from './zariskiView.js';
+import { mathLines, innerTex } from './texText.js';
+import { zariskiCard, congruenceSection, zariskiLineTex, jointCongruenceLine, summaryTex, esc, mix } from './zariskiView.js';
 import { sarithCard, liveNumbers, wordText, gapText, presentationSection, presentationGap, relatorTexNamed, ordersFrom, orientRelator, graphTop } from './sarithView.js';
 import { createInput, fromZariskiStyle } from './input.js';
 import { indexInPGL2Z } from './modularIndex.js';
@@ -81,6 +81,8 @@ const fmtC = (z, digits = 4) => {
     const ip = `${f(Math.abs(im)) === '1' ? '' : f(Math.abs(im))}i`;
     return re ? `${f(re)} ${im < 0 ? '−' : '+'} ${ip}` : `${im < 0 ? '−' : ''}${ip}`;
 };
+/** The same complex number in TeX. */
+const fmtCTex = (z, digits = 4) => fmtC(z, digits).replace(/−/g, '-');
 
 // ───────────────────────── settings ─────────────────────────
 
@@ -194,6 +196,9 @@ function compute() {
     const settings = readSettings();
     run = {
         seq: ++seq, input: r.pstate, state: r.pstate, settings, exact: r.exactCtx, model: null, workers: new Set(),
+        // step 2's workers (stopped when Γ is not Zariski dense) and step 3's (stopped, with arithEpoch
+        // bumped so that no late callback lands, when a place found discrete settles step 3 instead)
+        placeWorkers: new Set(), placesStopped: false, arithWorkers: new Set(), arithEpoch: 0, arithStarted: false,
         steps: Object.fromEntries(STEPS.map((s) => [s, newStep()])),
         zariski: null,
         places: [], byKey: new Map(), finiteDone: false, primes: null, generic: null, standard: [], finiteError: null,
@@ -219,7 +224,10 @@ function compute() {
     setStageStatus('Computing…');
     renderVerdict();
     refreshView('zariski');
+    // steps 1 and 2 run side by side: discreteness at each place needs only the field of definition,
+    // and the Zariski closure can be slow (minutes over a big field) where Poincaré is quick
     startZariski();
+    startPlaces();
 }
 
 // ───────────────────────── step 1: Zariski closure ─────────────────────────
@@ -253,30 +261,140 @@ function zariskiDone(R, res) {
     if (R !== run) return;
     R.zariski = res;
     if (!res || !res.ok) {
+        // step 2 goes on; step 3 needs the closure
         setStep('zariski', 'open', 'Could not compute', res && res.error ? res.error : 'unknown error');
         renderVerdict();
         refreshView('zariski');
         return;
     }
-    const line = zariskiLine(res);
+    const line = zariskiLineTex(res);
     if (res.closure.kind !== 'dense') {
+        stopPlaces(R);
         setStep('zariski', 'info', line.head, line.detail);
-        for (const s of ['places', 'congruence', 'sarith']) setStep(s, 'skipped', 'Not needed', 'Γ is not Zariski dense.');
+        for (const s of ['places', 'congruence', 'sarith']) setStep(s, 'skipped', 'Not needed', '$\\Gamma$ is not Zariski dense.');
         startElementary(R, res.closure.kind);
         renderVerdict();
         refreshView('zariski');
         return;
     }
-    setStep('zariski', 'yes', line.head, line.detail);
+    // 'dense', not 'yes': being Zariski dense is a fact about Γ, not a verdict to show in green
+    setStep('zariski', 'dense', line.head, line.detail);
     // trace field ℚ and a split algebra over a bigger field: Γ is conjugate into PGL₂(ℚ) (descent.js)
     const A = res.arith;
     if (R.model.degree > 1 && A && A.k.d === 1 && A.A && A.A.split) {
         try { R.descent = descendToQ(R.model.mats.map((row) => row.map((e) => e.src)), R.model.poly); } catch (e) { R.descent = { error: e.message }; }
     }
+    applyIntegral(R);
     renderVerdict();
     refreshView('zariski');
     startCongruence();
-    startPlaces();
+    placeChanged();          // the places settled so far, read with the closure: step 3 can start
+}
+
+/** Γ is not Zariski dense: step 2 is not needed, so its workers stop and its places are dropped. */
+function stopPlaces(R) {
+    R.placesStopped = true;
+    for (const w of R.placeWorkers) { try { w.terminate(); } catch (e) { /* gone */ } R.workers.delete(w); }
+    R.placeWorkers.clear();
+    R.places = [];
+    R.byKey.clear();
+    placeFrames.hide();
+    $('places-frame-wrap').hidden = true;
+    input.showTones(null);
+}
+
+/**
+ * Step 1 done, with step 2 under way: the places where Γ is discrete by integrality (integralPlaces,
+ * integralPrime). A place Poincaré or the trees already found discrete keeps that verdict; Poincaré's
+ * domain is kept as for an integral place (setArch), now or when it answers.
+ */
+function applyIntegral(R) {
+    const A = R.zariski.arith;
+    if (!A) return;
+    const keys = integralPlaces(R.model, A);
+    if (keys) {
+        for (const pl of R.places) {
+            if (pl.tool !== 'poincare' || pl.status === 'discrete' || !(pl.members || []).some((x) => keys.has(x.key))) continue;
+            const answered = pl.summary !== undefined, sm = pl.summary;
+            Object.assign(pl, { ...integralVerdict(R.model, pl), integral: true });
+            if (answered) {
+                pl.rawSummary = sm;
+                pl.summary = sm && sm.status === 'verified' ? sm : null;
+                if (pl.summary) pl.lines = [...pl.lines, ...poincareLines(sm, { also: true })];
+            }
+        }
+    }
+    R.integralPrime = integralPrime(A);
+    if (R.integralPrime) {
+        for (const pl of R.places) {
+            if (pl.kind === 'finite' && String(pl.p) === R.integralPrime && pl.status !== 'discrete') {
+                Object.assign(pl, integralPrimeVerdict(R.integralPrime, A.ring.d ?? 1), { integral: true });
+            }
+        }
+    }
+    // the places where Γ is bounded: not discrete (setArch and finitePlace keep this when they answer later)
+    for (const pl of R.places) {
+        if (pl.status === 'discrete' || pl.status === 'nondiscrete') continue;
+        const v = boundedVerdict(R, pl);
+        if (v) Object.assign(pl, v, { bounded: true });
+    }
+}
+
+/**
+ * A place where step 1 shows Γ bounded. Γ is Zariski dense, hence infinite, so it is not discrete there.
+ *   · At ∞: over a real place of k where A is ramified, Γ⁽²⁾ lies in PGL₁(ℍ) ≅ SO(3). Places of F are
+ *     matched with places of k by their values of tr²/det (archPlaces.js, numerical), which is trusted only
+ *     when the matching is forced (boundedArchKeys).
+ *   · At a prime over p: when no prime of S lies over p (S, the primes where tr²/det is not integral, is exact).
+ * Returns { status, headline, lines } or null.
+ */
+function boundedVerdict(R, pl) {
+    const z = R.zariski;
+    if (!z || !z.ok || z.closure.kind !== 'dense' || !z.arith) return null;
+    const A = z.arith;
+    const infinite = '$\\Gamma$ is Zariski dense, so it is infinite, and an infinite subgroup of a compact group is not discrete.';
+    if (pl.tool === 'poincare') {
+        if (!boundedArchKeys(R).has(pl.key)) return null;
+        const ram = A.A.ram.filter((r) => r.kind === 'real');
+        const below = A.k.d === 1 ? 'the real place of $\\mathbb{Q}$' : ram.length === 1 ? `the real place $${ram[0].tex}$ of $k$` : 'a real place of $k$';
+        return {
+            status: 'nondiscrete', headline: 'Not discrete — bounded and infinite',
+            lines: [
+                `This place lies over ${below}, where the quaternion algebra $A$ is ramified (step 1).`,
+                'There $\\Gamma^{(2)}$, of finite index in $\\Gamma$, lies in the compact group $\\mathrm{PGL}_1(\\mathbb{H}) \\cong \\mathrm{SO}(3)$, so $\\Gamma$ is bounded.',
+                infinite,
+            ],
+        };
+    }
+    if (pl.kind === 'finite') {
+        if (A.ring.S.some((x) => String(x.p) === String(pl.p))) return null;
+        return {
+            status: 'nondiscrete', headline: 'Not discrete — bounded and infinite',
+            lines: [
+                `Step 1 finds $\\Gamma$ bounded at every prime over $${pl.p}$: the values of $\\operatorname{tr}^2/\\det$ are integral there.`,
+                'So $\\Gamma$ fixes a vertex of the tree, and lies in its stabilizer, which is compact.',
+                infinite,
+            ],
+        };
+    }
+    return null;
+}
+
+/**
+ * The keys of the places at ∞ (classes of embeddings of F, archGroups) lying over a ramified real place
+ * of k. Bounded there means compact: every t = tr²/det real in [0, 4] (archClasses' noncompact = false).
+ * This is used only when it is forced: as many classes as places of k at ∞ (so one class per place of k),
+ * and as many compact classes as ramified real places of k (each of which gives a compact class).
+ */
+function boundedArchKeys(R) {
+    if (R.boundedArch) return R.boundedArch;
+    const A = R.zariski.arith, k = A.k;
+    const arch = R.places.filter((p) => p.tool === 'poincare');
+    const compact = arch.filter((p) => (p.members || [p]).every((x) => x.noncompact === false));
+    const nRam = A.A.ram.filter((r) => r.kind === 'real').length;
+    const forced = nRam > 0 && arch.length === k.r1 + k.r2 && compact.length === nRam && A.spaces.bounded.length === nRam;
+    R.boundedArch = new Set(forced ? compact.map((p) => p.key) : []);
+    return R.boundedArch;
 }
 
 /**
@@ -353,9 +471,7 @@ function treesState(model, p, index, primeOf) {
 function startPlaces() {
     const R = run;
     setStep('places', 'running', 'Deciding…', 'Every place of the field of definition.');
-    // bounded at every prime, with one place at ∞ where A splits: discrete there by integrality
-    // (Poincaré still runs, for a presentation)
-    const integralKeys = R.zariski.arith ? integralPlaces(R.model, R.zariski.arith) : null;
+    // (once step 1 is done, applyIntegral marks the places discrete by integrality; Poincaré still runs, for a presentation)
     const groups = archGroups(R.model);
     const count = { real: 0, complex: 0 };
     for (const g of groups) count[g.rep.kind]++;
@@ -365,10 +481,8 @@ function startPlaces() {
         // ℝ₁, ℝ₂, … and ℂ₁, ℂ₂, …, numbered within each kind (ℝ or ℂ alone when it is the only one)
         const kn = ++seen[g.rep.kind];
         Object.assign(pl, { key: `inf${i + 1}`, n: i + 1, kn, only: count[g.rep.kind] === 1, members: g.members, yours: g.members.some((x) => x.isDefault) });
-        if (integralKeys && g.members.some((x) => integralKeys.has(x.key))) Object.assign(pl, { ...integralVerdict(R.model, pl), integral: true });
         addPlace(pl);
     });
-    R.integralPrime = R.zariski.arith ? integralPrime(R.zariski.arith) : null;
     startFinite();
     startArchJobs();
     R.placeSel = R.places[0].key;
@@ -449,18 +563,21 @@ function startArchJobs() {
     const max = Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 4) - 1));
     let active = 0;
     const next = () => {
-        if (R.cancelled) return;
+        if (R.cancelled || R.placesStopped) return;
         while (active < max && queue.length) {
             const pl = queue.shift();
             active++;
-            runArch(R, pl.state, { certify: true }, (out) => setArch(R, pl, out)).finally(() => { active--; next(); });
+            runArch(R, pl.state, { certify: true, pool: R.placeWorkers }, (out) => setArch(R, pl, out)).finally(() => { active--; next(); });
         }
     };
     next();
 }
 
-/** poincare (and the certificates) on one state; calls back with { cert, summary } or { error } / { timeout }. */
-function runArch(R, state, { certify = true } = {}, cb) {
+/**
+ * poincare (and the certificates) on one state; calls back with { cert, summary } or { error } / { timeout }.
+ * pool: the step's set of workers (R.placeWorkers or R.arithWorkers), so that the step can be stopped.
+ */
+function runArch(R, state, { certify = true, pool = null } = {}, cb) {
     return new Promise((resolve) => {
         let worker;
         try {
@@ -470,7 +587,8 @@ function runArch(R, state, { certify = true } = {}, cb) {
             resolve(); return;
         }
         R.workers.add(worker);
-        const done = () => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); resolve(); };
+        if (pool) pool.add(worker);
+        const done = () => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); if (pool) pool.delete(worker); resolve(); };
         const timer = setTimeout(() => { cb({ timeout: true }); done(); }, ARCH_TIMEOUT * 1000);
         worker.onmessage = (ev) => {
             const m = ev.data;
@@ -487,7 +605,8 @@ function runArch(R, state, { certify = true } = {}, cb) {
 const vol = (v) => (v == null ? '' : ` ${Number(v).toFixed(4)}`);
 
 function setArch(R, pl, { cert = null, summary = null, error = null, timeout = false }) {
-    if (R !== run) return;
+    if (R !== run || R.placesStopped) return;
+    if (pl.bounded) { pl.summary = summary; placeChanged(); return; }   // settled by step 1 (boundedVerdict)
     if (pl.integral) {
         // already decided; keep Poincaré's domain and presentation when it verifies
         if (summary && summary.status === 'verified') {
@@ -528,7 +647,80 @@ function setArch(R, pl, { cert = null, summary = null, error = null, timeout = f
         if (f && f.status === 'nondiscrete') Object.assign(pl, { status: 'nondiscrete', headline: 'Not discrete', lines: mathLines(`${f.reason}.`) });
     }
     pl.summary = summary;
+    if (pl.status === 'unknown') startDeep(R, pl);
     placeChanged();
+}
+
+/**
+ * Poincaré left a place at ∞ undecided: the exact search for a proof of non-discreteness (an elliptic
+ * of infinite order, a cusp group, Jørgensen's inequality, …; certificates.js) again, on longer words
+ * than the first pass (4 letters for two generators). The place counts as pending meanwhile.
+ */
+const DEEP_SECONDS = 8;
+function startDeep(R, pl) {
+    if (pl.deep) return;
+    const n = R.model.mats.length;
+    const maxLen = n <= 2 ? 7 : n <= 3 ? 5 : 4;
+    pl.deep = 'running';
+    pl.before = { headline: pl.headline, lines: pl.lines };
+    Object.assign(pl, { status: 'pending', headline: 'Undecided by Poincaré — searching longer words…' });
+    let worker;
+    try { worker = new Worker(new URL(`./archWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
+    catch (e) { deepDone(R, pl, null, maxLen); return; }
+    R.workers.add(worker);
+    R.placeWorkers.add(worker);
+    let answered = false;
+    const done = (cert) => {
+        if (answered) return;
+        answered = true;
+        clearTimeout(timer);
+        try { worker.terminate(); } catch (e) { /* gone */ }
+        R.workers.delete(worker);
+        R.placeWorkers.delete(worker);
+        if (R === run && !R.placesStopped) deepDone(R, pl, cert, maxLen);
+    };
+    const timer = setTimeout(() => done(null), (DEEP_SECONDS + 30) * 1000);
+    worker.onmessage = (ev) => done(ev.data.error ? null : ev.data.cert);
+    worker.onerror = (e) => { e.preventDefault?.(); done(null); };
+    worker.postMessage({ id: 1, state: pl.state, deep: { maxLen, cap: 4000, budgetMs: DEEP_SECONDS * 1000, maxEvals: 20000 } });
+}
+
+function deepDone(R, pl, cert, maxLen) {
+    pl.deep = 'done';
+    if (pl.status !== 'pending') { placeChanged(); return; }       // settled meanwhile (step 1: bounded)
+    if (cert && cert.nondiscrete) {
+        const lines = cert.tex && cert.tex.length ? cert.tex : mathLines(cert.text);
+        Object.assign(pl, { status: 'nondiscrete', headline: 'Not discrete', lines: [`Poincaré did not settle this place; the search over words of up to $${maxLen}$ letters finds a proof.`, ...lines] });
+    } else {
+        Object.assign(pl, { status: 'unknown', ...pl.before });
+        pl.lines = [...pl.lines, `No proof of non-discreteness among words of up to $${maxLen}$ letters either${cert && cert.checked ? ` (${cert.checked} elements)` : ''}.`];
+    }
+    placeChanged();
+}
+
+/**
+ * Mostow rigidity, where the deeper search found nothing: Γ is a cocompact lattice at a place v at ∞
+ * (Poincaré verified: finite volume, no cusps). At another place w at ∞ (other values of tr²/det, even
+ * up to complex conjugation), Galois conjugation is a faithful representation ρ. If ρ(Γ) were discrete,
+ * a torsion-free subgroup Γ′ of finite index (Selberg) has cohomological dimension 3, so ℍ³/ρ(Γ′) is a
+ * closed manifold and ρ(Γ) a lattice; Mostow makes ρ conjugation by an isometry of ℍ³, which keeps
+ * tr²/det up to complex conjugation. So Γ is not discrete at w. (Cusped lattices are not covered here.)
+ */
+function rigidityVerdict(R, pl) {
+    if (pl.tool !== 'poincare') return null;
+    const v = R.places.find((q) => q !== pl && q.tool === 'poincare' && q.kind === 'complex' && q.status === 'discrete'
+        && q.summary && q.summary.status === 'verified' && !q.summary.real && q.summary.finiteVolume && !q.summary.cusps);
+    if (!v) return null;
+    const V = `$${placeTexLabel(v)}$`, W = `$${placeTexLabel(pl)}$`;
+    return {
+        status: 'nondiscrete', headline: 'Not discrete — by Mostow rigidity',
+        lines: [
+            `$\\Gamma$ is a cocompact lattice at ${V}: Poincaré’s domain there has finite volume and no cusps.`,
+            `Galois conjugation carries $\\Gamma$ at ${V} isomorphically onto $\\Gamma$ at ${W}, where the values of $\\operatorname{tr}^2/\\det$ are different, even up to complex conjugation.`,
+            `If $\\Gamma$ were discrete at ${W}, a torsion-free subgroup of finite index (Selberg) would have cohomological dimension $3$, so its quotient of $\\mathbb{H}^3$ would be a closed manifold, and $\\Gamma$ would be a lattice at ${W} too.`,
+            'By Mostow rigidity, the isomorphism would then be conjugation by an isometry of $\\mathbb{H}^3$, which keeps $\\operatorname{tr}^2/\\det$ up to complex conjugation. So $\\Gamma$ is not discrete here.',
+        ],
+    };
 }
 
 function startFinite() {
@@ -546,12 +738,14 @@ function startFinite() {
         return;
     }
     R.workers.add(worker);
+    R.placeWorkers.add(worker);
     let watchdog = null;
     const finish = (err) => {
         clearTimeout(watchdog);
         try { worker.terminate(); } catch (e) { /* gone */ }
         R.workers.delete(worker);
-        if (R !== run) return;
+        R.placeWorkers.delete(worker);
+        if (R !== run || R.placesStopped) return;
         R.finiteDone = true;
         if (err) R.finiteError = err;
         placeChanged();
@@ -562,7 +756,7 @@ function startFinite() {
     };
     arm();
     worker.onmessage = (ev) => {
-        if (R !== run) return;
+        if (R !== run || R.placesStopped) return;
         const { msg, error } = ev.data;
         if (error) { finish(error); return; }
         arm();
@@ -594,6 +788,9 @@ function finitePlace(R, msg) {
     let v = msg.status === 'decided' ? decisionVerdict(msg.decision)
         : { status: 'unknown', headline: 'Undecided', lines: mathLines(msg.reason || '') };
     if (R.integralPrime && String(msg.p) === R.integralPrime && v.status !== 'discrete') v = { ...integralPrimeVerdict(R.integralPrime, R.zariski.arith.ring.d ?? 1), integral: true };
+    // bounded here by step 1 (when it is done): not discrete
+    const b = v.status !== 'discrete' && v.status !== 'nondiscrete' ? boundedVerdict(R, { kind: 'finite', p: msg.p }) : null;
+    if (b) v = { ...b, bounded: true };
     return {
         key: msg.key, kind: 'finite', tool: 'trees', p: msg.p, index: msg.index, count: msg.count,
         e: msg.e, f: msg.f, q: msg.q, primeTex: msg.primeTex, primeOf: msg.primeOf,
@@ -632,7 +829,7 @@ function placeLabel(pl) {
     if (pl.tool === 'poincare') return `${pl.kind === 'real' ? 'ℝ' : 'ℂ'}${pl.only ? '' : sub(pl.kn)}`;
     if (pl.kind === 'generic') return 'every other prime';
     if (!run.model || run.model.degree === 1) return `ℚ${sub(pl.p)}`;
-    return `${pl.count > 1 ? `𝔭${sub(pl.index + 1)}` : '𝔭'} | ${pl.p}`;
+    return `${pl.count > 1 ? `𝔭${sub(pl.index + 1)}` : '𝔭'} ∣ ${pl.p}`;
 }
 /** The same in TeX. */
 function placeTexLabel(pl) {
@@ -641,23 +838,32 @@ function placeTexLabel(pl) {
     return `${pl.count > 1 ? `\\mathfrak{p}_{${pl.index + 1}}` : '\\mathfrak{p}'} \\mid ${pl.p}`;
 }
 
-function placeList(ps) { return ps.map(placeLabel).join(', '); }
+/** Places as text with $…$ math: $\mathbb{C}_1$, $\mathbb{Q}_5$ and $\mathfrak{p} \mid 7$. */
+function placeList(ps) {
+    const t = ps.map((pl) => (pl.kind === 'generic' ? placeLabel(pl) : `$${placeTexLabel(pl)}$`));
+    return t.length <= 1 ? t.join('') : `${t.slice(0, -1).join(', ')} and ${t[t.length - 1]}`;
+}
 
 function placeChanged() {
     const R = run;
-    if (!R || R.cancelled) return;
+    if (!R || R.cancelled || R.placesStopped) return;
+    // Mostow rigidity, at the places the deeper search left undecided
+    for (const pl of R.places) {
+        if (pl.status !== 'unknown' || pl.deep !== 'done' || pl.rigid) continue;
+        const v = rigidityVerdict(R, pl);
+        if (v) Object.assign(pl, v, { rigid: true });
+    }
     const order = placeOrder(R);
     const yes = order.filter((p) => p.status === 'discrete');
     const pending = order.some((p) => p.status === 'pending') || !R.finiteDone;
     const finite = R.generic && R.generic.decision && R.generic.decision.kind === 'finite';
     if (yes.length) {
         const best = yes[0];
-        setStep('places', 'yes', finite ? `Γ is finite (order ${R.generic.decision.order})` : `Discrete at ${placeList(yes)}`, best.headline);
+        setStep('places', 'yes', finite ? `$\\Gamma$ is finite (order $${R.generic.decision.order}$)` : `Discrete at ${placeList(yes)}`, best.headline);
         if (!R.placesDone) {
             R.placesDone = true;
             if (!R.userPicked) { R.placeSel = best.key; showView('places', best.key, { auto: true }); }
         }
-        discreteArith(R);
     } else if (pending) {
         setStep('places', 'running', 'Deciding…', `${order.filter((p) => p.status !== 'pending').length} of ${order.length}${R.finiteDone ? '' : '+'} places settled.`);
     } else if (!R.placesDone) {
@@ -666,8 +872,8 @@ function placeChanged() {
         const open = order.filter((p) => p.status !== 'nondiscrete');
         setStep('places', open.length ? 'open' : 'no', open.length ? 'No place proved discrete' : 'Not discrete at any place',
             open.length ? `Not discrete at ${placeList(no) || 'no place'}; undecided at ${placeList(open)}.` : `Not discrete at ${placeList(no)}.`);
-        startSarith();
     }
+    maybeStartArith(R);
     renderSteps();
     renderVerdict();
     renderSubBar();
@@ -772,6 +978,63 @@ const listTex = (xs) => { const t = xs.map((x) => `$${x}$`); return t.length <= 
 /** Text that may start with a lowercase word, as the start of a sentence. */
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
+// ───────────────────────── step 3: when it starts ─────────────────────────
+
+/**
+ * Step 3 needs step 1 (Λ, and the factors of X where Γ is unbounded), but not all of step 2:
+ *   · a place found discrete: discreteArith;
+ *   · otherwise the search for a certificate starts as soon as step 1 is done when its answer cannot
+ *     hang on step 2: with two or more factors (a place found discrete later makes Γ thin, and stops
+ *     the search, unless it has already proved Γ S-arithmetic), or one factor, a prime (the search is
+ *     the same whether or not Γ is discrete there);
+ *   · with one factor at ∞, it waits until every place is settled.
+ * Called whenever a place changes, and when step 1 is done.
+ */
+function maybeStartArith(R) {
+    if (R !== run || R.cancelled) return;
+    const A = R.zariski && R.zariski.ok && R.zariski.closure.kind === 'dense' ? R.zariski.arith : null;
+    if (!A || !A.spaces) return;
+    if (R.places.some((p) => p.status === 'discrete')) { discreteArith(R); return; }
+    if (R.arithStarted) return;
+    const f = A.spaces.factors;
+    const settled = R.finiteDone && !R.places.some((p) => p.status === 'pending');
+    if (f.length >= 2 || (f.length === 1 && f[0].kind === 'tree') || settled) launchArith(R);
+}
+
+/**
+ * Start the search, once. A frame later: it opens with coset enumeration on this thread, which can
+ * take seconds, and the results of steps 1 and 2 should be on screen first.
+ */
+function launchArith(R) {
+    if (R.arithStarted) return;
+    R.arithStarted = true;
+    const ep = R.arithEpoch;
+    setStep('sarith', 'running', 'Starting…', 'Coset enumeration first, then the search.');
+    setTimeout(() => { if (R === run && !R.cancelled && R.arithEpoch === ep) startSarith(); }, 20);
+}
+
+/** Stop step 3's search: its workers, and (by the epoch) every callback of it still to come. */
+function stopArith(R) {
+    R.arithEpoch++;
+    for (const w of R.arithWorkers) { try { w.terminate(); } catch (e) { /* gone */ } R.workers.delete(w); }
+    R.arithWorkers.clear();
+    if (R.sarith) R.sarith.worker = null;
+    stabFrames.hide();
+    $('stab-frame-wrap').hidden = true;
+}
+
+/** A worker of step 3: stopped with it (stopArith) as well as with the run. */
+function arithWorker(R, worker) {
+    R.workers.add(worker);
+    R.arithWorkers.add(worker);
+    return worker;
+}
+function dropWorker(R, worker) {
+    try { worker.terminate(); } catch (e) { /* gone */ }
+    R.workers.delete(worker);
+    R.arithWorkers.delete(worker);
+}
+
 // ───────────────────────── step 3 for a discrete Γ: is it a lattice? ─────────────────────────
 
 /**
@@ -798,25 +1061,39 @@ function discreteArith(R) {
     const pl = disc.find((p) => p.tool === 'poincare') || disc[0];
     const at = `$${placeTexLabel(pl)}$`;
     const Ltex = A.head.replace(/^.*\\le /, '');
-    if (factors.length >= 2) {
-        R.discArith = 'thin';
-        // a lattice at v all the same (Poincaré verified, finite area or volume): a non-arithmetic one
-        const sm = pl.summary && pl.summary.status === 'verified' ? pl.summary : null;
-        const lattice = !!sm && (sm.real ? sm.finiteArea : sm.finiteVolume);
-        latticeDone(R, 'thin', lattice
-            ? `$\\Gamma$ is a lattice at ${at} but not arithmetic, since no subgroup of finite index in $\\Lambda$ is discrete there.`
-            : `$\\Gamma$ is discrete at ${at}, where no subgroup of finite index in $\\Lambda$ is.`, [
-            `$\\Gamma$ is discrete at ${at}.`,
-            `$\\Gamma^{(2)}$ lies in $\\Lambda = ${Ltex}$, which is a lattice in the product of the ${factors.length} factors where $\\Gamma$ is unbounded, $X = ${A.spaces.productTex}$.`,
-            'This lattice is irreducible, so by strong approximation its image in each factor is dense, and so is the image of each of its subgroups of finite index.',
-            `So no subgroup of finite index in $\\Lambda$ is discrete at ${at}, and $[\\Lambda : \\Gamma^{(2)}] = \\infty$: $\\Gamma$ is thin.`,
-            ...(lattice ? [`Poincaré’s domain shows that $\\Gamma$ is a lattice at ${at} all the same, so it is a non-arithmetic lattice: an arithmetic one is unbounded only at the one place where it is a lattice (Takeuchi), and $\\Gamma$ is unbounded at ${factors.length}.`] : []),
-        ]);
+    if (pl.tool === 'trees' && factors.length < 2) {
+        // one factor, this prime: the search (perhaps already running) decides
+        R.discArith = 'search';
+        launchArith(R);
         return;
     }
-    if (pl.tool === 'trees') {
-        R.discArith = 'search';
-        startSarith();
+    // the search may have started before this place was found discrete: this settles step 3 instead,
+    // unless the search has already proved Γ S-arithmetic (then it is kept)
+    if (R.arithStarted) {
+        if (R.steps.sarith.status === 'yes') { R.discArith = 'kept'; return; }
+        stopArith(R);
+    }
+    if (factors.length >= 2) {
+        R.discArith = 'thin';
+        // a lattice at v all the same (Poincaré verified, finite area or volume): a non-arithmetic lattice,
+        // "thin" only as a subgroup of Λ (and of its congruence closure), so it is not called thin
+        const sm = pl.summary && pl.summary.status === 'verified' ? pl.summary : null;
+        const lattice = !!sm && (sm.real ? sm.finiteArea : sm.finiteVolume);
+        const where = pl.kind === 'real' ? '\\mathrm{PGL}_2(\\mathbb{R})' : '\\mathrm{PSL}_2(\\mathbb{C})';
+        const X = `$${A.spaces.productTex}$`;
+        latticeDone(R, lattice ? 'nonarith' : 'thin', lattice
+            ? `$\\Gamma$ is a lattice at ${at}, but it has infinite index in $\\Lambda$, which is a lattice in ${X}, not at ${at} alone. So it is not arithmetic; it is thin only as a subgroup of $\\Lambda$, or of its congruence closure.`
+            : `$\\Gamma$ is discrete at ${at}, where no subgroup of finite index in $\\Lambda$ is.`, [
+            lattice ? `$\\Gamma$ is a lattice at ${at}: Poincaré’s domain there has finite ${sm.real ? 'area' : 'volume'}.` : `$\\Gamma$ is discrete at ${at}.`,
+            `$\\Gamma^{(2)}$ lies in $\\Lambda = ${Ltex}$, which is a lattice in the product of the ${factors.length} factors where $\\Gamma$ is unbounded, $X = ${A.spaces.productTex}$.`,
+            'This lattice is irreducible, so by strong approximation its image in each factor is dense, and so is the image of each of its subgroups of finite index.',
+            lattice ? `So no subgroup of finite index in $\\Lambda$ is discrete at ${at}, and $[\\Lambda : \\Gamma^{(2)}] = \\infty$.`
+                : `So no subgroup of finite index in $\\Lambda$ is discrete at ${at}, and $[\\Lambda : \\Gamma^{(2)}] = \\infty$: $\\Gamma$ is thin.`,
+            ...(lattice ? [
+                `Hence $\\Gamma$ is a non-arithmetic lattice in $${where}$: an arithmetic one is unbounded only at the one place where it is a lattice (Takeuchi), and $\\Gamma$ is unbounded at ${factors.length}.`,
+                `It is thin only in this sense: Zariski dense, with infinite index in $\\Lambda$, and so in its congruence closure. At ${at} it has finite covolume.`,
+            ] : []),
+        ]);
         return;
     }
     const f = factors[0], what = f.kind === 'real' ? 'area' : 'volume';
@@ -923,13 +1200,17 @@ function latticeIndexExact(R, factor) {
     return r.index ? { ...base, index: r.index } : { ...base, limit: r.limit || 'out of time' };
 }
 
-/** Step 3's answer for a discrete Γ: kind 'arith' | 'thin' | 'open', the summary line and the proof. */
+/**
+ * Step 3's answer for a discrete Γ: kind 'arith' | 'thin' | 'nonarith' (a lattice at its place, of
+ * infinite index in Λ) | 'open', the summary line and the proof.
+ */
 function latticeDone(R, kind, detail, lines, exact = null) {
     if (R !== run) return;
     const A = R.zariski.arith;
     const status = kind === 'open' ? 'open' : 'yes';
-    R.sarith = { phase: 'done', status, lattice: { kind, lines, exact }, thin: kind === 'thin', places: [], history: [], metric: R.settings.metric, head: '' };
-    setStep('sarith', status, kind === 'thin' ? 'Thin' : kind === 'arith' ? (A.ring.S.length ? 'S-arithmetic' : 'Arithmetic') : 'Undecided', detail);
+    R.sarith = { phase: 'done', status, lattice: { kind, lines, exact }, thin: kind === 'thin' || kind === 'nonarith', places: [], history: [], metric: R.settings.metric, head: '' };
+    const head = { thin: 'Thin', nonarith: 'Not arithmetic', arith: A.ring.S.length ? 'S-arithmetic' : 'Arithmetic' }[kind] || 'Undecided';
+    setStep('sarith', status, head, detail);
     renderVerdict();
     refreshView('sarith');
 }
@@ -944,7 +1225,7 @@ function archFactors(R) {
     // over ℚ there is one place at ∞, and A splits there: Γ is unbounded there (short words may all be elliptic)
     if (R.model.degree === 1 && archF.length === 1) {
         const a = R.model.arch[0];
-        return [{ re: a.root.re, im: a.root.im, kind: a.kind, n: a.n, key: a.key, label: 'ℝ', labelTex: '\\mathbb{R}' }];
+        return [{ re: a.root.re, im: a.root.im, kind: a.kind, n: a.n, key: a.key, labelTex: '\\mathbb{R}' }];
     }
     const byClass = new Map();
     for (const a of archClasses(R.model).filter((x) => x.noncompact)) {
@@ -954,7 +1235,7 @@ function archFactors(R) {
     // named as the places of step 2 (ℝ₁, ℂ₁, …: embeddings giving conjugate groups are one place)
     const named = (a) => {
         const pl = R.places.find((p) => p.tool === 'poincare' && (p.members || []).some((x) => x.key === a.key));
-        return pl ? { label: placeLabel(pl), labelTex: placeTexLabel(pl) } : { label: a.kind === 'real' ? 'ℝ' : 'ℂ', labelTex: a.kind === 'real' ? '\\mathbb{R}' : '\\mathbb{C}' };
+        return pl ? { labelTex: placeTexLabel(pl) } : { labelTex: a.kind === 'real' ? '\\mathbb{R}' : '\\mathbb{C}' };
     };
     return [...byClass.values()].map((g) => {
         const a = g.find((x) => x.kind === 'real' && x.isDefault) || g.find((x) => x.kind === 'real') || g.find((x) => x.isDefault) || g[0];
@@ -1058,12 +1339,13 @@ function startSarith(afterCusps = false) {
         sarithError(R, 'module workers are unavailable here');
         return;
     }
-    R.workers.add(worker);
+    arithWorker(R, worker);
     R.sarith.worker = worker;
-    const stop = () => { try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); R.sarith.worker = null; };
-    const timer = setTimeout(() => { sarithError(R, 'the search did not stop in time'); stop(); }, (st.beamSeconds * MAX_STRETCH + 60) * 1000);
+    const ep = R.arithEpoch, live = () => R === run && R.arithEpoch === ep;
+    const stop = () => { dropWorker(R, worker); if (live()) R.sarith.worker = null; };
+    const timer = setTimeout(() => { if (!live()) return; sarithError(R, 'the search did not stop in time'); stop(); }, (st.beamSeconds * MAX_STRETCH + 60) * 1000);
     worker.onmessage = (ev) => {
-        if (R !== run) return;
+        if (!live()) return;
         const msg = ev.data.msg;
         if (msg.type === 'places') { R.sarith.places = msg.places; R.sarith.notes = msg.notes; refreshView('sarith'); }
         else if (msg.type === 'progress') {
@@ -1101,7 +1383,7 @@ function startSarith(afterCusps = false) {
             if (h) h(msg);
         }
     };
-    worker.onerror = (e) => { e.preventDefault?.(); clearTimeout(timer); sarithError(R, e.message || 'the worker failed to load'); };
+    worker.onerror = (e) => { e.preventDefault?.(); clearTimeout(timer); if (live()) sarithError(R, e.message || 'the worker failed to load'); };
     worker.postMessage({
         id: R.seq,
         job: {
@@ -1181,8 +1463,9 @@ function cuspJob(R, extra, cb) {
     let worker;
     try { worker = new Worker(new URL(`./cuspWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
     catch (e) { cb(null); return; }
-    R.workers.add(worker);
-    const done = (msg) => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); if (R === run) cb(msg && msg.result ? msg.result : null); };
+    arithWorker(R, worker);
+    const ep = R.arithEpoch;
+    const done = (msg) => { clearTimeout(timer); dropWorker(R, worker); if (R === run && R.arithEpoch === ep) cb(msg && msg.result ? msg.result : null); };
     const timer = setTimeout(() => done(null), (CUSP_SECONDS + 20) * 1000);
     worker.onmessage = (ev) => done(ev.data);
     worker.onerror = (e) => { e.preventDefault?.(); done(null); };
@@ -1207,7 +1490,7 @@ function archiveCusps(R, onFail) {
     S.archiveTried = true;
     setStep('sarith', 'running', 'Cusps…', 'Looking for a lattice of unipotents at a cusp among FlashBeam’s lowest elements.');
     S.elementsWaiting = (msg) => {
-        if (S.worker) { try { S.worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(S.worker); S.worker = null; }
+        if (S.worker) { dropWorker(R, S.worker); S.worker = null; }
         cuspJob(R, { pool: msg.words || [] }, (c) => { if (c && c.found) cuspFound(R, c, 'FlashBeam’s lowest elements'); else onFail(); });
     };
     S.worker.postMessage({ id: R.seq, cmd: 'elements', count: 20000 });
@@ -1237,7 +1520,7 @@ function runOrbits(R, msg) {
         if (R !== run) return;
         S.orbits = o;
         S.orbitsDone = true;
-        const stopWorker = () => { if (S.worker) { try { S.worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(S.worker); S.worker = null; } };
+        const stopWorker = () => { if (S.worker) { dropWorker(R, S.worker); S.worker = null; } };
         const Ltex = `\\mathrm{PGL}_2(\\mathbb{Z}[1/${R.zariski.arith.ring.S.map((x) => x.p).join('\\cdot ')}])`;
         const sub = o.kernelIndex > 1 ? `the subgroup of index $${o.kernelIndex}$ in $\\Gamma$ of elements with even valuations at the other primes` : '$\\Gamma$';
         const secs = `${(o.ms / 1000).toFixed(1)} s`;
@@ -1437,7 +1720,7 @@ function requestHarvest(R, attempt) {
     const S = R.sarith;
     if (!S.worker) { finishStab(R, false); return; }
     S.stab = { ...(S.stab || {}), status: 'running', harvesting: true };
-    setStep('sarith', 'running', 'Collecting more of Γ_o…', `FlashBeam continues, weighted towards elements that fix $o$ (round ${attempt}).`);
+    setStep('sarith', 'running', 'Collecting more of $\\Gamma_o$…', `FlashBeam continues, weighted towards elements that fix $o$ (round ${attempt}).`);
     refreshView('sarith');
     S.harvestWaiting = (msg) => {
         if (R !== run) return;
@@ -1481,8 +1764,9 @@ function stabilizerCheck(R, stab, attempt) {
     const state = { mats: used.map((e) => e.tex), anti: used.map(() => false), consts };
     S.stab = { status: 'running', used, state };
     refreshView('sarith');
-    runArch(R, state, { certify: false }, (out) => {
-        if (R !== run) return;
+    const ep = R.arithEpoch;
+    runArch(R, state, { certify: false, pool: R.arithWorkers }, (out) => {
+        if (R !== run || R.arithEpoch !== ep) return;
         const sm = out.summary;
         const ok = sm && sm.status === 'verified' && (S.arch.kind === 'real' ? sm.finiteArea : sm.finiteVolume);
         if (ok) {
@@ -1526,10 +1810,11 @@ function cuspStabCheck(R, stab, attempt) {
     let worker;
     try { worker = new Worker(new URL(`./cuspWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
     catch (e) { next(); return; }
-    R.workers.add(worker);
+    arithWorker(R, worker);
+    const ep = R.arithEpoch;
     const done = (msg) => {
-        clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker);
-        if (R !== run) return;
+        clearTimeout(timer); dropWorker(R, worker);
+        if (R !== run || R.arithEpoch !== ep) return;
         const c = msg && msg.result;
         if (c && c.found) {
             S.stab = { status: 'yes', cusp: true, used: stab, rank: c.rank, lines: [
@@ -1549,7 +1834,7 @@ function cuspStabCheck(R, stab, attempt) {
 function finishStab(R, ok) {
     const S = R.sarith;
     if (!ok && !S.archiveTried && vasersteinApplies(R) && S.worker) { archiveCusps(R, () => finishStab(R, false)); return; }
-    if (S.worker) { try { S.worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(S.worker); S.worker = null; }
+    if (S.worker) { dropWorker(R, S.worker); S.worker = null; }
     const nR = S.result.reps.length;
     S.phase = 'done';
     if (ok) {
@@ -1587,49 +1872,56 @@ function finishStab(R, ok) {
 
 // ───────────────────────── the verdict ─────────────────────────
 
+/**
+ * The summary's first line names what Γ is shown to be: algebraic (not Zariski dense), geometric
+ * (discrete at some place), arithmetic; "undecided" when none is shown, and "thin" when step 3 proves
+ * infinite index with no place discrete. While steps run and nothing is shown yet, it says what is
+ * running. The line under it says how, and what is still open.
+ */
 function verdict() {
     const R = run;
     if (!R) return null;
     if (R.error) return { cls: 'open', head: R.error };
     const z = R.steps.zariski, p = R.steps.places, s = R.steps.sarith;
-    if (z.status === 'running') return { cls: '', head: 'Computing the Zariski closure…' };
-    if (z.status === 'open') return { cls: 'open', head: `Step 1 failed: ${z.detail}` };
     if (z.status === 'info') {
         const C = R.zariski.closure;
         const E = R.elementary && R.elementary.status === 'done' ? R.elementary.result : null;
         const iso = E && !E.finite && E.structure && E.structure !== '1' ? ` $\\Gamma \\cong ${E.structure}$${E.finitelyPresented === false ? ', not finitely presented' : ''}.` : '';
-        return { cls: 'info', head: `Γ is not Zariski dense: its closure is $${C.tex}$.${iso}`, sub: C.summary.replace(/⟨S⟩/g, 'Γ') };
+        return { cls: 'info', head: '$\\Gamma$ is algebraic.', sub: `Its Zariski closure is $${C.tex}$.${iso} ${summaryTex(C.summary)}` };
     }
-    if (p.status === 'yes') {
-        const order = placeOrder(R).filter((x) => x.status === 'discrete');
-        const best = order[0];
-        const at = `Γ is discrete at ${placeList(order)}`;
-        const hl = best ? best.headline : '';
-        if (s.status === 'yes') {
-            const what = R.sarith && R.sarith.thin ? 'thin' : 'arithmetic';
-            return { cls: 'yes', head: `${at}, and ${what}.`, sub: `${hl}. ${s.detail}`, place: best };
-        }
-        if (s.status === 'running') return { cls: 'yes', head: `${at}.`, sub: `${hl}. Deciding whether it is arithmetic…`, place: best };
-        if (s.status === 'open') return { cls: 'yes', head: `${at}.`, sub: `${hl}. Whether $\\Gamma$ is arithmetic is undecided. ${s.detail}`, place: best };
-        return { cls: 'yes', head: `${at}.`, sub: hl, place: best };
+    const A = R.zariski && R.zariski.ok ? R.zariski.arith : null;
+    const Ltex = A ? A.head.replace(/^.*\\le /, '') : '';
+    const placesBusy = p.status === 'running' || p.status === 'idle';
+    const zNote = z.status === 'running' ? ' Computing the Zariski closure, which step 3 needs…'
+        : z.status === 'open' ? ` Step 1 failed (${z.detail}), so whether $\\Gamma$ is arithmetic is not decided.` : '';
+    const still = placesBusy ? ' Discreteness at each place is still being decided.' : '';
+    const order = placeOrder(R).filter((x) => x.status === 'discrete');
+    const arithmetic = s.status === 'yes' && !(R.sarith && R.sarith.thin);
+    if (order.length) {
+        const [best, ...rest] = order;
+        const where = `At $${placeTexLabel(best)}$: ${best.headline}.${rest.length ? ` Also discrete at ${placeList(rest)}.` : ''}`;
+        const head = arithmetic ? '$\\Gamma$ is geometric and arithmetic.' : '$\\Gamma$ is geometric.';
+        const sub = s.status === 'yes' ? `${where} ${s.detail}`
+            : s.status === 'running' ? `${where} Deciding whether it is arithmetic…`
+                : s.status === 'open' ? `${where} Whether $\\Gamma$ is arithmetic is undecided. ${s.detail}`
+                    : `${where}${zNote}`;
+        return { cls: 'yes', head, sub, place: best };
     }
-    if (p.status === 'running' || p.status === 'idle') return { cls: '', head: 'Deciding discreteness at every place…' };
-    if (s.status === 'yes' && R.sarith && R.sarith.thin) {
-        const A = R.zariski.arith;
-        return { cls: 'yes', head: 'Γ is thin.', sub: `Zariski dense, with infinite index in $${A.head.replace(/^.*\\le /, '')}$. ${s.detail}` };
-    }
-    if (s.status === 'yes') {
-        const A = R.zariski.arith;
-        return { cls: 'yes', head: 'Γ is arithmetic.', sub: `$\\Gamma^{(2)}$ has finite index in $${A.head.replace(/^.*\\le /, '')}$ (up to conjugation). ${s.detail}` };
-    }
-    if (s.status === 'running') return { cls: '', head: 'Not discrete at any one place. Deciding whether it is arithmetic…' };
-    return { cls: 'open', head: 'No certificate.', sub: `${p.head}. ${s.detail}` };
+    if (arithmetic) return { cls: 'yes', head: '$\\Gamma$ is arithmetic.', sub: `$\\Gamma^{(2)}$ has finite index in $${Ltex}$ (up to conjugation). ${s.detail}${still}` };
+    if (s.status === 'yes') return { cls: 'yes', head: '$\\Gamma$ is thin.', sub: `It is Zariski dense, with infinite index in $${Ltex}$, and no place is known where it is discrete. ${s.detail}${still}` };
+    // nothing shown yet: what is running
+    if (z.status === 'running') return { cls: '', head: placesBusy ? 'Computing the Zariski closure, and deciding discreteness at every place…' : 'Computing the Zariski closure…', sub: placesBusy ? '' : `${p.head}. ${p.detail}` };
+    if (s.status === 'running') return { cls: '', head: placesBusy ? 'Deciding discreteness at every place, and whether $\\Gamma$ is arithmetic…' : 'Not discrete at any one place. Deciding whether it is arithmetic…' };
+    if (placesBusy) return { cls: '', head: 'Deciding discreteness at every place…', sub: s.status === 'open' ? `The search for an arithmetic certificate stopped: ${s.detail}` : '' };
+    if (s.status === 'idle' && z.status !== 'open') return { cls: '', head: 'Deciding whether $\\Gamma$ is arithmetic…' };
+    // nothing shown, and nothing left running
+    return { cls: 'open', head: '$\\Gamma$ is undecided.', sub: z.status === 'open' ? `Step 1 failed: ${z.detail}. ${p.head}. ${p.detail}` : `${p.head}. ${p.detail} ${s.detail}` };
 }
 
 
 // ───────────────────────── the result cards ─────────────────────────
 
-function setStageStatus(text) { $('compute-status').textContent = text; }
+function setStageStatus(text) { const el = $('compute-status'); el.innerHTML = mix(text); typeset(el); }
 
 // ───────────────────────── the presentation at the top ─────────────────────────
 
@@ -1670,7 +1962,7 @@ function presentationData() {
         if (sm && sm.presentation) {
             const orders = new Map(sm.presentation.relators.filter((r) => r.enc.length === 1).map((r) => [Math.abs(r.enc[0]), r.m]));
             const complete = sm.presentationComplete !== false;
-            return { source: `Geometric at ${placeLabel(pl)}`, rels: sm.presentation.relators.map((r) => relatorTex(r, orders)), complete, free: complete && !sm.presentation.relators.length };
+            return { source: `Geometric at $${placeTexLabel(pl)}$`, rels: sm.presentation.relators.map((r) => relatorTex(r, orders)), complete, free: complete && !sm.presentation.relators.length };
         }
     }
     const Pr = R.presentation && R.presentation.result && R.presentation.result.pres;
@@ -1678,7 +1970,7 @@ function presentationData() {
     // prime (for K = Γ ∩ Λ and coset representatives when Γ ⊄ Λ), or Reidemeister–Schreier on the given generators
     const Gg = R.presentation && R.presentation.result && R.presentation.result.graph;
     const hasGraph = !!(Gg && !Gg.error && Gg.gens);
-    if (hasGraph && R.presView !== 'given') return { ...graphTop(Gg), toggle: { to: 'given', label: 'on g₁, g₂, …' } };
+    if (hasGraph && R.presView !== 'given') return { ...graphTop(Gg), toggle: { to: 'given', label: 'on $g_1, g_2, \\ldots$' } };
     if (Pr && !Pr.error && Pr.gens) {
         const names = Pr.gens.map((g) => g.name.replace(/^g(\d+)$/, 'g_{$1}').replace(/^h(\d+)$/, 'h_{$1}'));
         const d = R.presentation.result.ring, ent = (x) => (d ? ringEltTex(d, x) : x);
@@ -1688,9 +1980,9 @@ function presentationData() {
     }
     for (const pl of disc) {
         const d = pl.decision;
-        if (d && d.kind === 'free' && d.freeRank === nGens) return { source: `Geometric at ${placeLabel(pl)}`, rels: [], complete: true, free: true };
+        if (d && d.kind === 'free' && d.freeRank === nGens) return { source: `Geometric at $${placeTexLabel(pl)}$`, rels: [], complete: true, free: true };
         if (d && d.presentation && d.presentation.n === nGens) {
-            return { source: `Geometric at ${placeLabel(pl)}`, rels: d.presentation.relators.map((r) => relatorTex(r)), complete: true };
+            return { source: `Geometric at $${placeTexLabel(pl)}$`, rels: d.presentation.relators.map((r) => relatorTex(r)), complete: true };
         }
     }
     const res = R.sarith && R.sarith.result;
@@ -1712,11 +2004,11 @@ function renderPresentation() {
         return;
     }
     const n = d.rels.length;
-    const head = `${mix(d.source)} · ${n} relation${n === 1 ? '' : 's'}${d.toggle ? ` <button class="quiet rels-toggle" id="rels-toggle" data-to="${d.toggle.to}">${esc(d.toggle.label)}</button>` : ''}${d.note ? ` <span class="rels-note">— ${mix(d.note)}</span>` : ''}${d.complete ? '' : ` <span class="partial">— ${d.source === 'FlashBeam' ? 'found, not known to be a presentation' : 'some may be missing'}</span>`}`;
+    const head = `${mix(d.source)} · ${n} relation${n === 1 ? '' : 's'}${d.toggle ? ` <button class="quiet rels-toggle" id="rels-toggle" data-to="${d.toggle.to}">${mix(d.toggle.label)}</button>` : ''}${d.note ? ` <span class="rels-note">— ${mix(d.note)}</span>` : ''}${d.complete ? '' : ` <span class="partial">— ${d.source === 'FlashBeam' ? 'found, not known to be a presentation' : 'some may be missing'}</span>`}`;
     el.innerHTML = `<div class="rels-head">${head}</div>`
         + (d.names ? `<p class="rels-on">on \\(${d.names.join(', ')}\\)</p>` : '')
         + (d.free
-            ? `<p class="rels-free">No relations: Γ is free on ${d.names ? 'this generator' : 'these generators'}.</p>`
+            ? `<p class="rels-free">${mix(`No relations: $\\Gamma$ is free on ${d.names ? 'this generator' : 'these generators'}.`)}</p>`
             : `<ol class="rels-list">${d.rels.map((t) => `<li>\\(${t}\\)</li>`).join('')}</ol>`)
         + (d.extra && d.extra.length ? `<p class="rels-extra">with ${d.extra.map((t) => `\\(${t}\\)`).join(', ')}</p>` : '')
         + (d.defs && d.defs.length ? `<p class="rels-extra">where ${d.defs.map((t) => `\\(${t}\\)`).join(', ')}</p>` : '');
@@ -1738,7 +2030,7 @@ if (window.ResizeObserver && $('pres-gens')) new ResizeObserver(syncRelsHeight).
  * capitalized at the start of a sentence.
  */
 function plainArith(t) {
-    return String(t ?? '').replace(/(^|[.!?]\s+)S-arithmetic/g, '$1Arithmetic').replace(/S-arithmetic/g, 'arithmetic');
+    return String(t ?? '').replace(/(^|[.!?]\s+)(?:\$S\$|S)-arithmetic/g, '$1Arithmetic').replace(/(?:\$S\$|S)-arithmetic/g, 'arithmetic');
 }
 
 function renderVerdict() {
@@ -1813,18 +2105,19 @@ function renderSteps() {
     const name = (n, v) => `<span class="sum-name"${v ? ` data-verdict="${v}"` : ''}>${esc(n)}</span>`;
     const row = (step, n, st, cls = '', v = null) => `<div class="sum-row${cls}" data-step="${step}" data-status="${st.status}">
             ${name(n, v)}
-            <span class="sum-text"><b>${esc(plainArith(st.head || (st.status === 'idle' ? 'Waiting' : '')))}</b>${st.detail ? ` <span>— ${mix(plainArith(st.detail))}</span>` : ''}</span>
+            <span class="sum-text"><b>${mix(plainArith(st.head || (st.status === 'idle' ? 'Waiting' : '')))}</b>${st.detail ? ` <span>— ${mix(plainArith(st.detail))}</span>` : ''}</span>
         </div>`;
     const z = R.steps.zariski, p = R.steps.places, a = R.steps.sarith;
-    const algebraic = z.status === 'yes' ? 'no' : z.status === 'info' ? 'yes' : null;
+    const algebraic = z.status === 'dense' ? 'no' : z.status === 'info' ? 'yes' : null;
     const geometric = p.status === 'yes' ? 'yes' : p.status === 'no' ? 'no' : null;
     const arithmetic = a.status === 'yes' ? (R.sarith && R.sarith.thin ? 'no' : 'yes') : null;
     let html = row('zariski', 'Algebraic', z, '', algebraic);
     const dense = !!(R.zariski && R.zariski.ok && R.zariski.closure.kind === 'dense');
-    if (dense) {
+    // the places as they are decided, from the start: step 2 runs alongside step 1
+    if (R.places.length && z.status !== 'info') {
         html += `<div class="sum-group" data-step="places" data-status="${p.status}">${name('Geometric', geometric)}<div class="sum-places">`;
         for (const pl of placeOrder(R)) {
-            html += `<div class="sum-place" data-place="${esc(pl.key)}" data-status="${placeTone(pl)}"><span class="dot"></span><span class="sp-name">${tex(placeTexLabel(pl))}</span><span class="sp-text">${mix(mathLine(pl.headline))}</span></div>`;
+            html += `<div class="sum-place" data-place="${esc(pl.key)}" data-status="${placeTone(pl)}"><span class="dot"></span><span class="sp-name">${tex(placeTexLabel(pl))}</span><span class="sp-text">${mix(pl.headline)}</span></div>`;
         }
         if (!R.finiteDone) html += '<div class="sum-place" data-status="pending"><span class="dot"></span><span class="sp-name">primes</span><span class="sp-text">Deciding…</span></div>';
         html += '</div></div>';
@@ -1838,10 +2131,13 @@ function renderSteps() {
         const card = $(`card-${s}`), st = R.steps[s];
         card.dataset.status = st.status;
         card.hidden = st.status === 'idle' || st.status === 'skipped';
-        card.querySelector('[data-tag]').textContent = st.status === 'idle' ? '' : st.head;
+        const tag = card.querySelector('[data-tag]');
+        tag.innerHTML = st.status === 'idle' ? '' : mix(st.head);
+        typeset(tag);
     }
     const c = R.steps.congruence;
-    $('cong-tag').textContent = c.status === 'idle' ? '' : c.head;
+    $('cong-tag').innerHTML = c.status === 'idle' ? '' : mix(c.head);
+    typeset($('cong-tag'));
     $('cong-h').dataset.status = c.status;
     $('cong-h').hidden = $('cong-body').hidden = !dense;
 }
@@ -1862,8 +2158,8 @@ function refreshView(step) {
     const body = $(`card-${step}`).querySelector('.step-body');
     let html = '';
     if (step === 'zariski') {
-        if (!R.zariski) html = `<p class="lead">${esc(R.error || 'Computing…')}</p>`;
-        else if (!R.zariski.ok) html = `<div class="banner" data-status="open"><span class="dot"></span><div>${esc(R.zariski.error)}</div></div>`;
+        if (!R.zariski) html = `<p class="lead">${mix(R.error || 'Computing…')}</p>`;
+        else if (!R.zariski.ok) html = `<div class="banner" data-status="open"><span class="dot"></span><div>${mix(R.zariski.error)}</div></div>`;
         else html = zariskiCard(R.zariski, R.model);
         if (R.elementary) html = html.replace(/<\/div>$/, `${elementarySection(R.elementary)}</div>`);
         if (R.descent && R.descent.mats) {
@@ -1906,14 +2202,14 @@ function placeName(pl) {
     if (pl.tool === 'poincare') {
         const ms = pl.members || [pl];
         const parts = [];
-        if (m && m.degree > 1) parts.push(`w ↦ ${ms.map((a) => fmtC(a.root)).join(' or ')}`);
+        if (m && m.degree > 1) parts.push(ms.map((a) => `$w \\mapsto ${fmtCTex(a.root)}$`).join(' or '));
         if (new Set(ms.map((a) => a.kind)).size > 1) parts.push('real and complex embeddings');
         if (ms.length > 1) parts.push('conjugate groups');
         if (pl.yours) parts.push('yours');
         return { name: `\\(${placeTexLabel(pl)}\\)`, sub: parts.join(' · ') };
     }
-    if (m && m.degree > 1 && pl.primeTex) return { name: `\\(${pl.count > 1 ? `\\mathfrak p_{${pl.index + 1}}` : '\\mathfrak p'} = ${pl.primeTex}\\)`, sub: `above ${pl.p} · e=${pl.e} f=${pl.f}` };
-    return { name: `\\(p = ${pl.p}\\)`, sub: `ℚ${sub(pl.p)}` };
+    if (m && m.degree > 1 && pl.primeTex) return { name: `\\(${pl.count > 1 ? `\\mathfrak p_{${pl.index + 1}}` : '\\mathfrak p'} = ${pl.primeTex}\\)`, sub: `above $${pl.p}$ · $e = ${pl.e}$, $f = ${pl.f}$` };
+    return { name: `\\(p = ${pl.p}\\)`, sub: `$\\mathbb{Q}_{${pl.p}}$` };
 }
 
 function placesCard(R) {
@@ -1926,33 +2222,34 @@ function placesCard(R) {
         : '';
     let html = `<p class="lead">${m.degree === 1
         ? mix('The field of definition is $F = \\mathbb{Q}$, with one place at ∞.')
-        : mix(`The field of definition is $F = \\mathbb{Q}(w)$ with $${m.polyTex} = 0$, of degree ${m.degree}, with ${r1} real and ${r2} complex place${r2 === 1 ? '' : 's'} at ∞.${merged}`)} ${mix('The primes listed are those where $\\Gamma$ is unbounded; at every other prime it fixes a vertex of the tree.')} A discrete place is shown below, live.</p>`;
+        : mix(`The field of definition is $F = \\mathbb{Q}(w)$ with $${m.polyTex} = 0$, of degree ${m.degree}, with ${r1} real and ${r2} complex place${r2 === 1 ? '' : 's'} at ∞.${merged}`)} ${mix('The primes listed are those where the generators do not all fix the standard vertex of the tree; at every other prime, $\\Gamma$ fixes it.')} A discrete place is shown below, live.</p>`;
     html += '<div class="place-list">';
     for (const pl of placeOrder(R)) {
         const nm = placeName(pl);
         const lines = pl.lines || [];
         html += `<div class="place-row${pl.key === R.placeSel && !$('places-frame-wrap').hidden ? ' selected' : ''}" data-status="${pl.status}">
             <span class="dot"></span>
-            <span class="p-name">${nm.name}<span class="p-sub">${esc(nm.sub)}</span></span>
-            <span class="p-verdict">${mix(mathLine(pl.headline))}</span>
+            <span class="p-name">${nm.name}<span class="p-sub">${mix(nm.sub)}</span></span>
+            <span class="p-verdict">${mix(pl.headline)}</span>
             <button class="view-btn" data-place="${pl.key}">View in ${pl.tool === 'poincare' ? 'Poincaré' : 'Trees'}</button>
             ${lines.length ? `<div class="p-detail">${lines.map((l) => `<p>${mix(l)}</p>`).join('')}</div>` : ''}
         </div>`;
     }
     html += '</div>';
     if (!R.finiteDone) html += '<p class="note" style="margin-top:8px">Deciding at the primes…</p>';
-    if (R.finiteError) html += `<p class="err">${esc(R.finiteError)}</p>`;
+    if (R.finiteError) html += `<p class="err">${mix(R.finiteError)}</p>`;
     if (R.primes && R.primes.capped) html += `<p class="note">Only the first ${MAX_PRIMES} of ${R.primes.capped} candidate primes were tested.</p>`;
     return html;
 }
 
+/** The caption under a place's live view, as text with $…$ math. */
 function placeCaption(pl) {
     const m = run.model;
     if (pl.tool === 'poincare') {
-        const at = m && m.degree > 1 ? `w ↦ ${fmtC(pl.root)}` : 'the only embedding';
-        return `${placeLabel(pl)}: ${at} — ${pl.headline} — in Poincaré${pl.isDefault ? ' (your embedding)' : ''}`;
+        const at = m && m.degree > 1 ? `$w \\mapsto ${fmtCTex(pl.root)}$` : 'the only embedding';
+        return `$${placeTexLabel(pl)}$: ${at} — ${pl.headline} — in Poincaré${pl.isDefault ? ' (your embedding)' : ''}`;
     }
-    return `${placeLabel(pl)}: the ${Number(pl.q) + 1}-regular tree — ${pl.headline} — in Trees`;
+    return `$${placeTexLabel(pl)}$: the $${Number(pl.q) + 1}$-regular tree — ${pl.headline} — in Trees`;
 }
 
 function showPlaceFrame(pl) {
@@ -1960,7 +2257,8 @@ function showPlaceFrame(pl) {
     const state = pl.tool === 'poincare' ? { ...pl.state, depth: st.depth, faces: st.faces } : pl.state;
     const url = placeFrames.show(pl.tool, state);
     $('places-frame-wrap').hidden = false;
-    $('places-caption').textContent = placeCaption(pl);
+    $('places-caption').innerHTML = mix(placeCaption(pl));
+    typeset($('places-caption'));
     $('places-open').href = url;
 }
 
@@ -1971,7 +2269,8 @@ function showStabFrame() {
     if (!S || !S.stab || !S.stab.state) return;
     const url = stabFrames.show('poincare', { ...S.stab.state, depth: run.settings.depth, faces: run.settings.faces });
     $('stab-frame-wrap').hidden = false;
-    $('stab-caption').textContent = `The elements of Γ fixing o, at ${S.arch.kind === 'real' ? 'the real place' : 'the complex place'} — in Poincaré`;
+    $('stab-caption').innerHTML = mix(`The elements of $\\Gamma$ fixing $o$, at ${S.arch.kind === 'real' ? 'the real place' : 'the complex place'} — in Poincaré`);
+    typeset($('stab-caption'));
     $('stab-open').href = url;
 }
 
@@ -2039,7 +2338,7 @@ function wireSarithButtons() {
         const r = run.sarith.result;
         try { await navigator.clipboard.writeText(gapText(run.model.mats.length, r.relations)); gap.textContent = 'Copied'; }
         catch (e) { gap.textContent = 'Copy failed'; }
-        setTimeout(() => { gap.textContent = 'Copy ⟨g | relations⟩ for GAP'; }, 1600);
+        setTimeout(() => { gap.textContent = 'Copy the relations for GAP'; }, 1600);
     });
     const show = $('show-stab');
     if (show) show.addEventListener('click', () => showView('sarith', 'stabilizer'));
@@ -2050,7 +2349,7 @@ function wireSarithButtons() {
 /** The line under the matrices: the field the entries generate ("over ℚ(w)"), or what is wrong. */
 function showFieldStatus(r) {
     const el = $('field-status');
-    if (r.error && !r.blank) { el.innerHTML = `<span class="err">${esc(r.error)}</span>`; return; }
+    if (r.error && !r.blank) { el.innerHTML = `<span class="err">${mix(r.error)}</span>`; typeset(el); return; }
     if (!r.exactCtx) {
         el.innerHTML = `<span class="err">${esc(`not exact${r.read && r.read.reason ? `: ${r.read.reason}` : ''}`)}</span>`;
         return;
@@ -2132,7 +2431,8 @@ async function buildExamples() {
     const cats = new Map();
     list.forEach((ex, i) => { if (!cats.has(ex.cat)) cats.set(ex.cat, []); cats.get(ex.cat).push(i); });
     const order = [...CAT_ORDER.filter((c) => cats.has(c)), ...[...cats.keys()].filter((c) => !CAT_ORDER.includes(c))];
-    pop.innerHTML = order.map((c) => `<div class="ex-cat">${esc(c)}</div>${cats.get(c).map((i) => `<button data-ex="${i}" title="${esc(list[i].desc || '')}">${esc(list[i].name)}</button>`).join('')}`).join('');
+    pop.innerHTML = order.map((c) => `<div class="ex-cat">${mix(c)}</div>${cats.get(c).map((i) => `<button data-ex="${i}" title="${esc(list[i].desc || '')}">${mix(list[i].name)}</button>`).join('')}`).join('');
+    typeset(pop);
     pop.addEventListener('click', (e) => { const b = e.target.closest('[data-ex]'); if (b) loadExample(list[+b.dataset.ex]); });
 }
 function closeExamples() { $('ex-pop').hidden = true; $('examples-btn').setAttribute('aria-expanded', 'false'); }
