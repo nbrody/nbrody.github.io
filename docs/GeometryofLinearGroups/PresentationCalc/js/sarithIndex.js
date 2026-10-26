@@ -19,6 +19,8 @@
  * [Λ : Γ] is exactly its size; one that hits its limits claims nothing.
  */
 import { coxeterWord, enumerateInvolutions } from './modularIndex.js';
+import { expressGenerators } from './felsch.js';
+import { makeShortener } from './shortenWord.js';
 
 const babs = (x) => (x < 0n ? -x : x);
 const bgcd = (a, b) => { a = babs(a); b = babs(b); while (b) [a, b] = [b, a % b]; return a; };
@@ -197,13 +199,73 @@ export function indexInPGL2ZS(mats, S, opts = {}) {
  * Returns null when this does not apply, else
  *   { index | limit | error, S, kernelIndex, ms }   (index = [PGL₂(ℤ[1/S]) : K]).
  */
-export function exactIndexCheck(rows, Sin, { seconds = 2, maxCosets = 1000000 } = {}) {
+export function exactIndexCheck(rows, Sin, { seconds = 2, maxCosets = 1000000, express = false } = {}) {
     if (!Sin.length) return null;
     const R = reduceToLambda(rows, Sin);
     if (!R) return null;
     const t0 = Date.now();
     const r = indexInPGL2ZS(R.kernelGens, R.S, { seconds, maxCosets });
-    return { index: r.index ?? null, limit: r.limit ?? null, error: r.error ?? null, S: R.S.map(String), kernelIndex: R.reps.size, bad: R.bad.map(String), conjugatedAt: R.conjugatedAt, ms: Date.now() - t0 };
+    const out = { index: r.index ?? null, limit: r.limit ?? null, error: r.error ?? null, S: R.S.map(String), kernelIndex: R.reps.size, bad: R.bad.map(String), conjugatedAt: R.conjugatedAt, ms: Date.now() - t0 };
+    if (express && out.index === 1) {
+        try { out.express = expressLambda(R, r.words, { seconds: Math.max(5, seconds) }); } catch (e) { out.express = { error: e.message }; }
+    }
+    return out;
+}
+
+/**
+ * When K = Γ ∩ Λ is all of Λ = PGL₂(ℤ[1/S]) (index 1): Λ's letters in terms of the generators of Γ
+ * (the page's T, w, J, D_p, and the reflections a, b, c with w_q of the presentation enumerated), by augmented coset enumeration (felsch.js) on the subgroup words of K, then the
+ * words of K's generators in Γ's, and a shortening checked in PGL₂(ℚ). When Γ was conjugated by C
+ * to meet Λ, the words are for C·x·C⁻¹. Returns { letters (T, w, J, D_p), coxeter (a, b, c, w_q):
+ * [{ name, matrix, word }], conjugator, nodes, ms } (word: letters ±(i+1) in Γ's generators; null
+ * when longer than maxLength).
+ */
+export function expressLambda(R, subWords, { seconds = 5, maxLength = 200000 } = {}) {
+    const t0 = Date.now();
+    const P = presentationPGL2ZS(R.S);
+    const n = P.gens.length;
+    // involutions as generators with inverses: letter x ↦ 2x, and the relators x²
+    const relators = P.relators.map((w) => w.map((x) => 2 * x)).concat(Array.from({ length: n }, (_, k) => [2 * k, 2 * k]));
+    const E = expressGenerators(n, relators, subWords.map((w) => w.map((x) => 2 * x)), { seconds, maxLength });
+    if (E.index !== 1) throw new Error(E.limit ? `augmented enumeration: ${E.limit}` : `index ${E.index}`);
+    const inverse = (w) => w.slice().reverse().map((x) => -x);
+    const freeReduce = (w) => { const o = []; for (const x of w) { if (o.length && o[o.length - 1] === -x) o.pop(); else o.push(x); } return o; };
+    const ops = { mul: (X, Y) => primitive(mul(X, Y)), inv: (X) => primitive(adj(X)), one: [1n, 0n, 0n, 1n], key: (X) => projKey(X) };
+    const shortener = makeShortener(R.mats, ops, { maxElements: 20000, seconds: 0.5 });
+    const names = ['a', 'b', 'c', ...P.primes.map((q) => `w_{${q}}`)];
+    const C = R.C, Ci = adj(C);
+    const letters = E.words.map((w, k) => {
+        if (!w) return { name: names[k], matrix: P.gens[k].map(String), word: null };
+        let u = freeReduce([].concat(...w.map((x) => (x > 0 ? R.kernelWords[x - 1] : inverse(R.kernelWords[-x - 1])))));
+        u = shortener.shorten(u, { seconds: 0.5 });
+        // check: the word in Γ's generators is C·x·C⁻¹
+        const M = u.reduce((X, x) => ops.mul(X, x > 0 ? R.mats[x - 1] : ops.inv(R.mats[-x - 1])), ops.one);
+        if (!projEq(M, primitive(mul(mul(C, P.gens[k]), Ci)))) throw new Error('internal: an expressed letter does not evaluate to it');
+        return { name: names[k], matrix: P.gens[k].map(String), word: u };
+    });
+    // the page's letters for Λ (sarithPresentation.js standardLambdaQ): J = a, w = ab, T = ca, D_p = b·w_p
+    const Wd = Object.fromEntries(letters.map((L) => [L.name, L.word]));
+    const std = [
+        { name: 'T', matrix: [1n, 1n, 0n, 1n], from: [['c', 1], ['a', -1]] },
+        { name: 'w', matrix: [0n, -1n, 1n, 0n], from: [['a', -1], ['b', 1]] },
+        { name: 'J', matrix: [-1n, 0n, 0n, 1n], from: [['a', 1]] },
+        ...P.primes.map((q) => ({ name: `D_{${q}}`, matrix: [q, 0n, 0n, 1n], from: [['b', -1], [`w_{${q}}`, 1]] })),
+    ].map(({ name, matrix, from }) => {
+        if (from.some(([nm]) => !Wd[nm])) return { name, matrix: matrix.map(String), word: null };
+        let u = freeReduce([].concat(...from.map(([nm, e]) => (e > 0 ? Wd[nm] : inverse(Wd[nm])))));
+        u = shortener.shorten(u, { seconds: 0.5 });
+        const M = u.reduce((X, x) => ops.mul(X, x > 0 ? R.mats[x - 1] : ops.inv(R.mats[-x - 1])), ops.one);
+        if (!projEq(M, primitive(mul(mul(C, matrix), Ci)))) throw new Error('internal: a letter of Λ does not evaluate to it');
+        return { name, matrix: matrix.map(String), word: u };
+    });
+    const conj = !projEq(C, [1n, 0n, 0n, 1n]);
+    return { letters: std, coxeter: letters, conjugator: conj ? C.map(String) : null, nodes: E.nodes, ms: Date.now() - t0 };
+}
+/** a key equal for projectively equal integer matrices */
+function projKey(X) {
+    const P = primitive(X);
+    const i = P.findIndex((x) => x !== 0n);
+    return (P[i] < 0n ? P.map((x) => -x) : P).join(',');
 }
 
 /**
@@ -239,22 +301,26 @@ export function reduceToLambda(rows, Sin) {
     const parity = (M) => bad.map((l) => vp(det(M), l) & 1);
     // a transversal of K in Γ: words for the parity classes reached
     const key = (c) => c.join('');
-    const reps = new Map([[key(bad.map(() => 0)), { c: bad.map(() => 0), M: [1n, 0n, 0n, 1n] }]]);
+    const reps = new Map([[key(bad.map(() => 0)), { c: bad.map(() => 0), M: [1n, 0n, 0n, 1n], w: [] }]]);
     const queue = [...reps.values()];
     while (queue.length) {
         const r = queue.shift();
-        for (const G of mats) {
+        mats.forEach((G, gi) => {
             const c = r.c.map((x, i) => x ^ parity(G)[i]);
-            if (!reps.has(key(c))) { const n = { c, M: primitive(mul(r.M, G)) }; reps.set(key(c), n); queue.push(n); }
-        }
+            if (!reps.has(key(c))) { const n = { c, M: primitive(mul(r.M, G)), w: r.w.concat([gi + 1]) }; reps.set(key(c), n); queue.push(n); }
+        });
     }
-    const gens = [];
-    for (const r of reps.values()) for (const G of mats) {
+    // the Schreier generators of K, with their words in Γ's generators (letters ±(i+1))
+    const gens = [], kernelWords = [];
+    const freeRed = (w) => { const o = []; for (const x of w) { if (o.length && o[o.length - 1] === -x) o.pop(); else o.push(x); } return o; };
+    for (const r of reps.values()) for (let gi = 0; gi < mats.length; gi++) {
+        const G = mats[gi];
         const c = r.c.map((x, i) => x ^ parity(G)[i]);
-        const U = reps.get(key(c)).M;
-        const sch = primitive(mul(mul(r.M, G), adj(U)));
+        const U = reps.get(key(c));
+        const sch = primitive(mul(mul(r.M, G), adj(U.M)));
         if (bad.some((l) => vp(det(sch), l) % 2)) return null;                // internal: K has even valuations
         gens.push(sch);
+        kernelWords.push(freeRed(r.w.concat([gi + 1], U.w.slice().reverse().map((x) => -x))));
     }
     // at each prime ℓ with even valuations, conjugate a common fixed vertex to o; also at a prime with
     // odd valuations whose inverted edge is not at o (K fixes both its ends, not o)
@@ -269,7 +335,7 @@ export function reduceToLambda(rows, Sin) {
         C = primitive(mul(C, c));
         conj.push(String(l));
     }
-    return { S, mats, bad, parity, key, reps, kernelGens: gens, C, conjugatedAt: conj };
+    return { S, mats, bad, parity, key, reps, kernelGens: gens, kernelWords, C, conjugatedAt: conj };
 }
 
 /**

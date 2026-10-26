@@ -392,6 +392,12 @@ function headline(r) {
         }
         case 'sarith': {
             const S = r.sarith;
+            if (S.status === 'index' && S.method && S.method.startsWith('coset enumeration in') && S.method.includes('O_k')) {
+                const L = `${S.conjugated ? 'a conjugate of ' : ''}PGL₂(𝒪_K)`;
+                return { vh: 'Arithmetic', vd: S.kernelIndex > 1
+                    ? `its subgroup of index ${S.kernelIndex} fixing a vertex of every tree has index ${S.index} in ${L} (coset enumeration on the Voronoi presentation, exact)`
+                    : `index ${S.index} in ${L} (coset enumeration on the Voronoi presentation, exact)` };
+            }
             if (S.status === 'index') {
                 const L = S.ring ? `PGL₂(𝒪_K[1/${S.S.join(', ')}])` : `PGL₂(ℤ[1/${S.S.join('·')}])`;
                 return { vh: 'S-arithmetic', vd: S.kernelIndex > 1
@@ -432,6 +438,7 @@ function stabText(st, r) {
     if (!st) return '';
     if (st.method === 'cusp') return `; Γₒ: ${st.used} elements with a lattice of unipotents of rank ${st.rank} at a cusp (Vaserstein)`;
     if (st.method === 'coset enumeration') return `; Γₒ ⊇ a subgroup of index ${st.index} in ${r && r.degree === 2 ? 'the Bianchi group PSL₂(𝒪_K)' : 'PGL₂(ℤ)'} (${st.used} elements, coset enumeration)`;
+    if (st.method === 'coset enumeration in PGL₂(O_k)') return `; Γₒ ⊇ a subgroup of index ${st.index} in (a conjugate of) PGL₂(𝒪_K) (${st.used} elements, coset enumeration on the Voronoi presentation)`;
     return `; Γₒ: Poincaré on ${st.used} elements, ${st.faces} sides`;
 }
 
@@ -500,7 +507,10 @@ function detail(r) {
     if (r.closure) rows.push(['closure', `${tex(r.closure.tex)}${r.arith ? ` · ${tex(r.arith.head.replace('\\langle S \\rangle', '\\Gamma'))}` : ''}`]);
     if (r.places) rows.push(['places', r.places.map((p) => `<div><span class="st st-${p.status}">${esc(p.status)}</span> ${placeName(p)} — ${esc(p.headline)}${p.detail ? `<div class="note">${esc(p.detail)}</div>` : ''}${p.presentation ? `<div class="mono">${esc(presText(p.presentation))}</div>` : ''}</div>`).join('')]);
     if (r.congruence) rows.push(['congruence', `${esc(r.congruence.head)}${r.congruence.detail ? ` — ${esc(r.congruence.detail)}` : ''}`]);
-    if (r.sarith && r.sarith.status === 'index') {
+    if (r.sarith && r.sarith.status === 'index' && r.sarith.method && r.sarith.method.includes('O_k')) {
+        const S = r.sarith;
+        rows.push(['exact index', `[${S.conjugated ? 'g PGL₂(𝒪_K) g⁻¹' : 'PGL₂(𝒪_K)'} : ${S.kernelIndex > 1 ? 'Γ⁺' : 'Γ'}] = ${S.index}${S.kernelIndex > 1 ? `, Γ⁺ the subgroup of index ${S.kernelIndex} fixing a vertex of every tree` : ''} — Todd–Coxeter on the presentation of PGL₂(𝒪_K) from Voronoi's algorithm (${S.cells} cell orbits), ${S.ms} ms`]);
+    } else if (r.sarith && r.sarith.status === 'index') {
         const S = r.sarith;
         rows.push(['exact index', `[${S.ring ? `PGL₂(𝒪_K[1/${S.S.join(', ')}])` : `PGL₂(ℤ[1/${S.S.join('·')}])`} : Γ${S.kernelIndex > 1 ? ' ∩ PGL₂(ℤ[1/S])' : ''}] = ${S.index}${S.kernelIndex > 1 ? `, and that subgroup has index ${S.kernelIndex} in Γ (parities at ${(S.bad || []).join(', ')})` : ''} — Todd–Coxeter in the Bass–Serre presentation${S.ring ? ' (built on Poincaré’s presentation of the Bianchi group)' : ''}, ${S.ms} ms`]);
     } else if (r.exactIndex) {

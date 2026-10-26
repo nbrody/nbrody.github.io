@@ -33,6 +33,9 @@ const OVERRIDES = {
     'Geometric/Tools/Kleinian/fuchsianDiscreteness/index.html': { js: `${click('#check-btn')}; setTimeout(() => ${clickText('Poincaré disk')}, 2500)`, after: 5000 },
     'Geometric/Tools/discretenessAlgorithm/index.html': { js: click('#decide-btn'), after: 9000 },
     'Algebraic/Tools/2dimFields/index.html': { js: "document.documentElement.classList.contains('light') && document.getElementById('theme-btn').click()", after: 1200 },
+    // the presentation of PGL_2(O_k) for Q(sqrt -5) (page mode: the math is KaTeX in HTML)
+    // (the presentation section lifted to the top, everything else hidden)
+    'Arithmetic/Tools/numberRingGroups/index.html': { mode: 'page', wait: 6000, js: "const p = document.getElementById('sec-pres'), w = document.querySelector('.wrap'); w.prepend(p); [...w.children].forEach((c) => { if (c !== p) c.style.display = 'none'; }); scrollTo(0, 0)", after: 800 },
     // nothing to show: broken, empty, blank until drawn on, or never finishing a picture headless
     'Arithmetic/Tools/convexCocompactPSL2Z/compact_surface.html': { skip: 'fails to load: bare "react" import' },
     'Arithmetic/Tools/orthogonal.html': { skip: 'fails to load: mathjs@14.0.1 ESM build 404s on jsDelivr' },

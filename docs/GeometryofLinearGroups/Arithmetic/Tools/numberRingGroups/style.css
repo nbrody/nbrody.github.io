@@ -1,0 +1,207 @@
+/* Presentations of PGL_2(O_k). Tokens follow pgl2Z1p / fourGroupsOverQ (the same section of the site).
+   Type is LaTeX throughout: KaTeX for the mathematics, its Computer Modern (KaTeX_Main) for the prose,
+   MathQuill restyled to the same fonts for input. No other web fonts. */
+:root {
+  --paper: #f4f5f1;
+  --sheet: #fbfbf8;
+  --ink: #181b1f;
+  --ink-soft: #565c63;
+  --ink-faint: #9aa0a6;
+  --rule: #d8dbd2;
+  --rule-strong: #b9bdb2;
+  --accent: #2c5b8c;
+  --accent-wash: #e3ecf6;
+  --fin: #2f7068;
+  --fin-wash: #e0eeeb;
+  --edge: #9b3567;
+  --edge-wash: #f3e4ec;
+  --warm: #a8650f;
+  --warm-wash: #f6ead6;
+  --hl: #eef0e6;
+  --err: #a83232;
+  --f-body: KaTeX_Main, "Latin Modern Roman", "Computer Modern Serif", "Times New Roman", serif;
+  --f-mono: KaTeX_Typewriter, ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111316; --sheet: #171a1e; --ink: #e5e6e1; --ink-soft: #9ba1a8; --ink-faint: #5d636a;
+    --rule: #2b3036; --rule-strong: #3d434b;
+    --accent: #86aedb; --accent-wash: #1a2532; --fin: #7cc4b8; --fin-wash: #172a27;
+    --edge: #e08ab4; --edge-wash: #2e1b26; --warm: #e6ad5c; --warm-wash: #2d2416; --hl: #20242a; --err: #e88a8a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111316; --sheet: #171a1e; --ink: #e5e6e1; --ink-soft: #9ba1a8; --ink-faint: #5d636a;
+  --rule: #2b3036; --rule-strong: #3d434b;
+  --accent: #86aedb; --accent-wash: #1a2532; --fin: #7cc4b8; --fin-wash: #172a27;
+  --edge: #e08ab4; --edge-wash: #2e1b26; --warm: #e6ad5c; --warm-wash: #2d2416; --hl: #20242a; --err: #e88a8a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { overflow-x: clip; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 17px; line-height: 1.5; }
+.katex { font-size: 1.08em; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 40px 24px 80px; display: grid; gap: 48px; }
+@media (max-width: 640px) { .wrap { padding: 24px 16px 56px; gap: 36px; } body { font-size: 16px; } }
+main { display: grid; gap: 52px; }
+code { font-family: var(--f-mono); font-size: .86em; background: var(--hl); padding: 1px 4px; border-radius: 4px; }
+
+/* ---------------------------------------------------------------- header */
+header.top { display: grid; gap: 14px; }
+.eyebrow { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+h1 { font-weight: 700; font-size: clamp(32px, 4.6vw, 50px); line-height: 1.06; margin: 0; }
+h1 .katex { font-size: .92em; }
+.lede { font-size: 19px; margin: 0; max-width: 78ch; }
+h2 { font-weight: 700; font-size: 28px; line-height: 1.15; margin: 0; }
+.ctl-label { font-size: 14px; color: var(--ink-soft); white-space: nowrap; }
+.ctl-label .katex { color: var(--ink); }
+
+.field-bar { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--rule); }
+.field-in { display: flex; align-items: center; gap: 10px; flex: 1 1 380px; min-width: 0; }
+.mq-poly.mq-editable-field { flex: 1 1 auto; min-width: 180px; }
+.status { min-height: 1.5em; font-size: 15px; color: var(--ink-soft); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.status .katex { color: var(--ink); }
+.status.is-error { color: var(--err); }
+.spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--rule-strong); border-top-color: var(--ink); animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+/* buttons, segmented controls, menus */
+.btn { font: 500 14px var(--f-body); border-radius: 7px; padding: 7px 13px; cursor: pointer; border: 1px solid var(--rule-strong); background: var(--sheet); color: var(--ink); }
+.btn:hover { background: var(--hl); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn-primary { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.btn-primary:hover { background: var(--ink-soft); }
+.btn:focus-visible, .seg button:focus-visible, .tabs button:focus-visible, input:focus-visible, summary:focus-visible, tr:focus-visible { outline: 2px solid var(--warm); outline-offset: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 8px; overflow: hidden; background: var(--sheet); }
+.seg button { font: 500 14px var(--f-body); color: var(--ink-soft); background: transparent; border: 0; padding: 7px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+.seg button:hover:not([aria-pressed="true"]) { background: var(--hl); color: var(--ink); }
+.seg-small button { padding: 6px 10px; font-size: 13px; }
+
+.menu { position: relative; }
+.menu summary { list-style: none; cursor: pointer; font: 400 15px var(--f-body); border: 1px solid var(--rule-strong); border-radius: 7px; padding: 6px 12px; background: var(--sheet); color: var(--ink); }
+.menu summary::-webkit-details-marker { display: none; }
+.menu summary::after { content: ""; display: inline-block; margin-left: 8px; border: 4px solid transparent; border-top-color: currentColor; transform: translateY(2px); }
+.menu[open] summary { background: var(--hl); }
+.menu-list { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: min(560px, calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; display: grid; gap: 2px; padding: 8px; background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 9px; box-shadow: 0 8px 24px rgba(0,0,0,.14); }
+.menu-group { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); padding: 8px 10px 2px; }
+.menu-list button { display: flex; justify-content: space-between; gap: 12px; text-align: left; font: 400 15px var(--f-body); color: var(--ink); background: transparent; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.menu-list button:hover, .menu-list button:focus-visible { background: var(--hl); }
+.menu-list .pr-poly { color: var(--ink-soft); }
+@media (max-width: 640px) { .field-bar { position: relative; } .menu { position: static; } .menu-list { left: 0; right: 0; width: auto; } }
+
+/* MathQuill in KaTeX's fonts */
+.mq-field.mq-editable-field { display: inline-block; min-width: 60px; border: 1px solid var(--rule-strong); border-radius: 7px; padding: 6px 10px; background: var(--sheet); color: var(--ink); font-size: 19px; }
+.mq-field.mq-editable-field.mq-focused { border-color: var(--ink-soft); box-shadow: 0 0 0 2px var(--warm-wash); }
+.mq-math-mode, .mq-math-mode .mq-root-block, .mq-math-mode .mq-nonSymbola, .mq-math-mode .mq-binary-operator,
+.mq-math-mode .mq-text-mode, .mq-math-mode .mq-paren, .mq-math-mode .mq-digit { font-family: KaTeX_Main, "Times New Roman", serif !important; }
+.mq-math-mode var, .mq-math-mode i, .mq-math-mode .mq-greek, .mq-math-mode var.mq-operator-name { font-family: KaTeX_Math, "Times New Roman", serif !important; }
+.mq-math-mode var.mq-operator-name { font-family: KaTeX_Main, serif !important; font-style: normal; }
+.mq-editable-field .mq-cursor { border-left-color: var(--ink) !important; }
+.mq-math-mode .mq-selection, .mq-editable-field .mq-selection .mq-non-leaf { background: var(--accent-wash) !important; color: var(--ink) !important; }
+
+/* ---------------------------------------------------------------- sections */
+.sec { display: grid; gap: 20px; }
+.sec-head { display: flex; align-items: baseline; gap: 14px; }
+.sec-num { font-size: 13px; font-weight: 600; color: var(--ink-soft); border: 1px solid var(--rule-strong); border-radius: 50%; width: 28px; height: 28px; display: grid; place-items: center; flex: none; transform: translateY(-3px); }
+.prose { max-width: 80ch; display: grid; gap: 12px; }
+.prose p { margin: 0; }
+.display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+.display .katex-display { margin: .3em 0; }
+.aside { font-size: 15px; color: var(--ink-soft); }
+.rel-kinds { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px 14px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.panel-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.panel-note { font-size: 13px; color: var(--ink-soft); }
+
+/* §1 cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 16px 14px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.card h3 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.card .big { font-size: 19px; overflow-x: auto; overflow-y: hidden; }
+.card .row { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; }
+.card .row > :first-child { color: var(--ink-soft); }
+.card .note { font-size: 14px; color: var(--ink-soft); }
+.card .katex-display { margin: .2em 0; }
+
+/* §2 presentation */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button { font: 500 16px var(--f-body); color: var(--ink-soft); background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.tabs button[aria-selected="true"] .katex { color: var(--sheet); }
+.tabs button:hover:not([aria-selected="true"]) { background: var(--hl); }
+.tabs .tab-meta { font-size: 13px; opacity: .8; margin-left: 6px; }
+.pres-box { background: var(--sheet); border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 18px; overflow-x: auto; max-height: 360px; overflow-y: auto; }
+.pres-box .katex-display { margin: .4em 0; text-align: left; }
+.pres-box .katex-display > .katex { text-align: left; }
+.pres-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 900px) { .pres-grid { grid-template-columns: minmax(0, 1fr); } }
+.gen-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; max-height: 520px; overflow-y: auto; }
+.gen { display: grid; gap: 2px; padding: 6px 10px; border-radius: 8px; background: var(--paper); overflow-x: auto; }
+.gen .gname { font-size: 14px; color: var(--ink-soft); display: flex; justify-content: space-between; gap: 6px; }
+.gen .gname .katex { color: var(--ink); }
+.gen .gmat { font-size: 15px; }
+.badge { display: inline-block; font-size: 12px; padding: 0 7px; border-radius: 10px; border: 1px solid var(--rule-strong); color: var(--ink-soft); white-space: nowrap; }
+.badge.fin { border-color: var(--fin); color: var(--fin); background: var(--fin-wash); }
+.badge.inf { border-color: var(--edge); color: var(--edge); background: var(--edge-wash); }
+.rel-list { margin: 0; padding-left: 2.4em; display: grid; gap: 3px; max-height: 520px; overflow: auto; font-size: 15.5px; }
+.rel-list li::marker { color: var(--ink-faint); font-size: 13px; }
+.rel-list li { padding: 1px 0; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 15.5px; align-items: baseline; }
+.facts .fact { display: flex; gap: 8px; align-items: baseline; }
+.facts .fact > span:first-child { color: var(--ink-soft); }
+.ok { color: var(--fin); font-weight: 600; }
+.export { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.copied { font-size: 14px; color: var(--fin); }
+
+/* §3 cells */
+.cells-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 14px; align-items: start; }
+@media (max-width: 960px) { .cells-grid { grid-template-columns: minmax(0, 1fr); } }
+.graph-host { position: relative; }
+.graph-svg { width: 100%; height: 420px; display: block; }
+.g-edge { stroke: var(--rule-strong); stroke-width: 1.6; fill: none; }
+.g-edge.is-hl { stroke: var(--edge); stroke-width: 2.4; }
+.g-node { fill: var(--sheet); stroke: var(--ink-soft); stroke-width: 1.5; cursor: pointer; }
+.g-node.is-hl { stroke: var(--edge); stroke-width: 2.6; fill: var(--edge-wash); }
+.g-node.is-first { stroke: var(--ink); stroke-width: 2.2; }
+.tex-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.tex-lab { position: absolute; white-space: nowrap; line-height: 1; font-size: 12px; color: var(--ink);
+  text-shadow: 0 0 2px var(--sheet), 0 0 2px var(--sheet), 0 0 3px var(--sheet), 0 0 4px var(--sheet); }
+.tex-lab .katex { font-size: 1.15em; }
+.tex-lab.g-mult { color: var(--ink-soft); font-size: 11px; }
+.tex-lab.g-idx { font-size: 11px; color: var(--ink-soft); }
+.table-wrap { overflow-x: auto; max-height: 440px; overflow-y: auto; }
+.cell-table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.cell-table th { position: sticky; top: 0; background: var(--sheet); font-weight: 600; font-size: 13px; color: var(--ink-soft); text-align: right; padding: 4px 10px; border-bottom: 1px solid var(--rule-strong); white-space: nowrap; }
+.cell-table th:first-child, .cell-table td:first-child { text-align: left; }
+.cell-table td { text-align: right; padding: 3px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.cell-table tbody tr { cursor: pointer; }
+.cell-table tbody tr:hover, .cell-table tbody tr.is-hl { background: var(--edge-wash); }
+.minvecs { display: flex; flex-wrap: wrap; gap: 4px 12px; padding-top: 6px; border-top: 1px solid var(--rule); font-size: 15px; max-height: 240px; overflow-y: auto; }
+.minvecs .mv-head { flex-basis: 100%; font-size: 14px; color: var(--ink-soft); }
+
+/* §4 words */
+.bench { display: grid; gap: 10px; }
+.bench-input { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; }
+.mat-in { display: grid; grid-template-columns: minmax(110px, auto) minmax(110px, auto); gap: 6px; padding: 4px 10px; border-left: 2px solid var(--ink-soft); border-right: 2px solid var(--ink-soft); border-radius: 12px; }
+.mat-in .mq-field.mq-editable-field { text-align: center; font-size: 18px; }
+.bench-side { display: grid; gap: 8px; }
+.bench-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.hint { font-size: 14px; color: var(--ink-soft); }
+.err { margin: 0; min-height: 1.2em; font-size: 14px; color: var(--err); }
+.word-out { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 8px 16px; overflow-x: auto; min-height: 56px; display: grid; gap: 4px; }
+.word-out:empty { display: none; }
+.word-out .katex-display { margin: .3em 0; text-align: left; }
+.word-out .katex-display > .katex { text-align: left; white-space: normal; }
+.word-out .note { font-size: 14px; color: var(--ink-soft); }
+
+.foot { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 14px; color: var(--ink-soft); }
+.foot p { margin: 0; max-width: 110ch; }

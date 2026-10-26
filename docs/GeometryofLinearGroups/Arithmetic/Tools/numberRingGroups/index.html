@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Presentations of PGL₂(O_k)</title>
+<meta name="description" content="Presentations of GL₂, SL₂, PGL₂ and PSL₂ over the ring of integers of a number field, from Voronoi's algorithm for perfect binary forms (Koecher) and Brown's theorem, with every relator checked in exact arithmetic.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<link rel="stylesheet" href="../../../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.css">
+<script defer src="../../../Geometric/Tools/Kleinian/vendor/jquery/jquery-3.7.1.min.js"></script>
+<script defer src="../../../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">Arithmetic · arithmetic groups over number rings · Voronoi's algorithm</div>
+  <h1>Presentations of <span class="tex">$\PGL_2(\O_k)$</span></h1>
+  <p class="lede">
+    Choose a number field <span class="tex">$k$</span>. The calculator finds the perfect binary forms over
+    <span class="tex">$\O_k$</span> up to <span class="tex">$\GL_2(\O_k)$</span> (Voronoi's algorithm in Koecher's form), reads a presentation
+    off the cells they span (Brown's theorem), and passes to <span class="tex">$\PGL_2$</span>, <span class="tex">$\PSL_2$</span> and <span class="tex">$\SL_2$</span>.
+    Every relator is multiplied out in exact arithmetic.
+  </p>
+
+  <div class="field-bar" id="field-bar">
+    <div class="field-in">
+      <span class="ctl-label tex">$k = \Q(a)$, where $f(a) = 0$ and $f(x) =$</span>
+      <span class="mq-field mq-poly" id="in-poly" aria-label="Minimal polynomial f(x)"></span>
+    </div>
+    <details class="menu" id="presets">
+      <summary>Examples</summary>
+      <div class="menu-list" id="presets-list"></div>
+    </details>
+    <div class="seg seg-small" id="budget" role="radiogroup" aria-label="Time budget">
+      <button type="button" data-s="30" aria-pressed="false">30 s</button>
+      <button type="button" data-s="120" aria-pressed="true">2 min</button>
+      <button type="button" data-s="600" aria-pressed="false">10 min</button>
+    </div>
+    <button class="btn btn-primary" id="run" type="button">Compute</button>
+    <button class="btn" id="stop" type="button" hidden>Stop</button>
+  </div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+</header>
+
+<main id="results" hidden>
+
+<!-- ======================================================== 1 -->
+<section class="sec" id="sec-ring">
+  <div class="sec-head"><div class="sec-num">1</div><h2>The ring of integers</h2></div>
+  <div class="cards" id="ring-cards"></div>
+</section>
+
+<!-- ======================================================== 2 -->
+<section class="sec" id="sec-pres">
+  <div class="sec-head"><div class="sec-num">2</div><h2>The presentation</h2></div>
+  <div class="tabs" id="group-tabs" role="tablist"></div>
+  <div class="pres-box" id="pres-box"></div>
+  <div class="pres-grid">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Generators</span><span class="panel-note" id="gens-note"></span></div>
+      <div class="gen-list" id="gen-list"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Relators</span><span class="panel-note" id="rels-note"></span></div>
+      <ol class="rel-list" id="rel-list"></ol>
+    </div>
+  </div>
+  <div class="facts" id="group-facts"></div>
+  <div class="export">
+    <span class="ctl-label">Copy as</span>
+    <button class="btn" type="button" data-export="gap">GAP</button>
+    <button class="btn" type="button" data-export="magma">Magma</button>
+    <button class="btn" type="button" data-export="json">JSON (with matrices)</button>
+    <span class="copied" id="copied" aria-live="polite"></span>
+  </div>
+</section>
+
+<!-- ======================================================== 3 -->
+<section class="sec" id="sec-cells">
+  <div class="sec-head"><div class="sec-num">3</div><h2>Perfect forms and their cells</h2></div>
+  <div class="prose" id="cells-intro"></div>
+  <div class="cells-grid">
+    <div class="panel panel-graph">
+      <div class="panel-head"><span class="panel-title">The cells modulo <span class="tex">$\GL_2(\O_k)$</span></span><span class="panel-note">vertices: perfect forms, edges: facet orbits</span></div>
+      <div class="graph-host" id="graph-host"><svg id="graph" class="graph-svg" role="img" aria-label="Adjacency of the perfect form classes"></svg></div>
+    </div>
+    <div class="panel panel-table">
+      <div class="panel-head"><span class="panel-title">One perfect form per orbit</span><span class="panel-note">click a row for its minimal vectors</span></div>
+      <div class="table-wrap"><table class="cell-table" id="cell-table"></table></div>
+      <div class="minvecs" id="minvecs"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================== 4 -->
+<section class="sec" id="sec-word">
+  <div class="sec-head"><div class="sec-num">4</div><h2>Words for matrices</h2></div>
+  <div class="prose">
+    <p>
+      Enter a matrix with entries in <span class="tex">$\O_k$</span> and unit determinant. The calculator walks along a segment from a cell
+      to its image, crossing one facet at a time, and records the crossings as a word in the generators of <span class="tex">$\PGL_2(\O_k)$</span>
+      above. The word is multiplied out again and compared with the matrix.
+    </p>
+  </div>
+  <div class="bench">
+    <div class="bench-input">
+      <div class="mat-in" id="mat-in">
+        <span class="mq-field" id="m-a" aria-label="top left entry"></span><span class="mq-field" id="m-b" aria-label="top right entry"></span>
+        <span class="mq-field" id="m-c" aria-label="bottom left entry"></span><span class="mq-field" id="m-d" aria-label="bottom right entry"></span>
+      </div>
+      <div class="bench-side">
+        <span class="hint" id="word-hint"></span>
+        <div class="bench-btns">
+          <button class="btn btn-primary" id="word-run" type="button">Write as a word</button>
+          <button class="btn" id="word-random" type="button">Random element</button>
+        </div>
+      </div>
+    </div>
+    <p class="err" id="word-err" role="status" aria-live="polite"></p>
+    <div class="word-out" id="word-out"></div>
+  </div>
+</section>
+
+<!-- ======================================================== 5 -->
+<section class="sec" id="sec-method">
+  <div class="sec-head"><div class="sec-num">5</div><h2>How it works</h2></div>
+  <div class="prose">
+    <p>
+      <strong>Forms.</strong> Let <span class="tex">$V$</span> be the real vector space of Hermitian forms on <span class="tex">$(k\otimes\R)^2$</span>, one
+      <span class="tex">$2\times 2$</span> Hermitian matrix <span class="tex">$A_\sigma$</span> for each place <span class="tex">$\sigma$</span> of <span class="tex">$k$</span> at infinity, with the trace pairing
+      <span class="tex">$\langle A, B\rangle = \sum_\sigma c_\sigma \tr(A_\sigma B_\sigma)$</span> (<span class="tex">$c_\sigma = 2$</span> at complex places, <span class="tex">$1$</span> at real ones). For
+      <span class="tex">$v\in\O_k^2$</span> put <span class="tex">$q(v) = vv^*$</span>, so that <span class="tex">$\langle A, q(v)\rangle = A[v]$</span>. A positive definite form <span class="tex">$P$</span> is
+      <em>perfect</em> if it is determined by its minimum and the set <span class="tex">$\Min P$</span> of vectors attaining it. Its Voronoi cone is
+    </p>
+    <div class="display tex">$$\sigma(P) = \cone\{\, q(v) : v \in \Min P \,\}.$$</div>
+    <p>
+      Koecher's theorem: these cones and their faces tile the cone <span class="tex">$C$</span> of positive definite forms (together with its rational boundary),
+      <span class="tex">$\GL_2(\O_k)$</span> permutes them with finitely many orbits, and the cones meeting the interior have finite stabilizers. The interior modulo scaling,
+      <span class="tex">$C^\circ/\R_{>0} \cong (\H^2)^{r_1}\times(\H^3)^{r_2}\times\R^{r_1+r_2-1}$</span>, is contractible.
+    </p>
+    <p>
+      <strong>Voronoi's algorithm.</strong> Start from the trace form and move it, keeping its minimal vectors, until they span <span class="tex">$V$</span>: a perfect form.
+      For each facet of <span class="tex">$\sigma(P)$</span> with inner normal <span class="tex">$D$</span>, the neighbor is <span class="tex">$P + tD$</span> for the largest <span class="tex">$t$</span> that keeps the minimum.
+      Two perfect forms are equivalent when some <span class="tex">$g\in\GL_2(\O_k)$</span> carries one set of minimal vectors onto the other, found by matching a pair of minimal vectors.
+      The stabilizer of a cone is the set of such <span class="tex">$g$</span> from the form to itself. The convex geometry (minimal vectors, facets, faces of codimension two) is exact.
+      For totally real fields the coordinates are symmetric matrices over <span class="tex">$k$</span>, for CM fields Hermitian matrices over <span class="tex">$k$</span>, and for cubic fields
+      with a complex place all coordinates of <span class="tex">$q(v)$</span> lie in the real cubic field <span class="tex">$\tau(k)$</span>, since
+      <span class="tex">$|\sigma(x)|^2 = N(x)/\tau(x)$</span>.
+    </p>
+    <p>
+      <strong>Brown's theorem.</strong> Pick one cell <span class="tex">$C_i$</span> per orbit, with stabilizer <span class="tex">$S_i$</span>, and for each <span class="tex">$S_i$</span>-orbit of facets <span class="tex">$F$</span>
+      an element <span class="tex">$g_F$</span> with <span class="tex">$g_F C_j$</span> the cell across <span class="tex">$F$</span>. Then <span class="tex">$\GL_2(\O_k)$</span> is generated by the <span class="tex">$S_i$</span> and the
+      <span class="tex">$g_F$</span>, with relations
+    </p>
+    <ul class="rel-kinds">
+      <li><span class="tex">$g_F = 1$</span> when <span class="tex">$C_j$</span> was first reached across <span class="tex">$F$</span> (a spanning tree of the cell orbits);</li>
+      <li>a presentation of each finite group <span class="tex">$S_i$</span>, certified by coset enumeration;</li>
+      <li><span class="tex">$h\, g_F = g_F\, h'$</span> for <span class="tex">$h$</span> in the stabilizer of <span class="tex">$F$</span> in <span class="tex">$S_i$</span>, with <span class="tex">$h' = g_F^{-1} h g_F \in S_j$</span>;</li>
+      <li><span class="tex">$g_F\, t\, g_{F'}\, r = 1$</span>, crossing <span class="tex">$F$</span> and coming back (<span class="tex">$t\in S_j$</span>, <span class="tex">$r\in S_i$</span>);</li>
+      <li>for each orbit of faces of codimension two meeting <span class="tex">$C^\circ$</span>, the product of the crossings around it lies in <span class="tex">$S_i$</span>.</li>
+    </ul>
+    <p>
+      <strong>The other groups.</strong> The center of <span class="tex">$\GL_2(\O_k)$</span> is <span class="tex">$\O_k^\times = \mu_k\times\langle\varepsilon_1,\dots,\varepsilon_{r-1}\rangle$</span>, computed by the same
+      algorithm in rank one (Voronoi's algorithm for units). Adding <span class="tex">$\zeta I = \varepsilon_j I = 1$</span> presents <span class="tex">$\PGL_2(\O_k) = \GL_2(\O_k)/\O_k^\times$</span>. The words for
+      <span class="tex">$\varepsilon_j I$</span> come from walking along a segment from a cell to its image, as in section 4. <span class="tex">$\PSL_2(\O_k)$</span> is the kernel of the determinant
+      <span class="tex">$\PGL_2(\O_k)\to\O_k^\times/\O_k^{\times 2}$</span> and <span class="tex">$\SL_2(\O_k)$</span> that of <span class="tex">$\GL_2(\O_k)/\langle\varepsilon_j I\rangle\to\O_k^\times/\langle\varepsilon_j^2\rangle$</span>,
+      both by Reidemeister–Schreier. Tietze moves shorten the results, and every relator is checked as a matrix identity in exact arithmetic.
+    </p>
+    <p class="aside">
+      <strong>Scope.</strong> Totally real fields, CM fields, and cubic fields with one complex place. Other fields with complex places would need coordinates in the Galois closure.
+      The number of perfect forms grows quickly with the degree and the discriminant. Here <span class="tex">$\PGL_2(\O_k)$</span> means <span class="tex">$\GL_2(\O_k)/\O_k^\times$</span>. When the class group has
+      <span class="tex">$2$</span>-torsion, the normalizer of <span class="tex">$M_2(\O_k)$</span> in <span class="tex">$\PGL_2(k)$</span> is larger; it is not computed here.
+    </p>
+    <p class="aside">
+      <strong>Checks.</strong> <code>node --test tests/*.test.mjs</code> compares the presentations over <span class="tex">$\Z[i]$</span>, <span class="tex">$\Z[\sqrt{-2}]$</span> and <span class="tex">$\Z[\omega]$</span> with the
+      Presentation Calculator's, read off Dirichlet domains by Poincaré's theorem: the abelianizations of the stabilizers of <span class="tex">$\pm(1,0)$</span> mod <span class="tex">$N$</span> agree for <span class="tex">$N\le 5$</span>.
+      The abelianizations of <span class="tex">$\PSL_2(\O_{-d})$</span> agree with Swan's for <span class="tex">$d = 1, 2, 3, 7, 11, 19$</span>, and those of <span class="tex">$\SL_2(\Z)$</span>, <span class="tex">$\GL_2(\Z)$</span> are
+      <span class="tex">$\Z/12$</span>, <span class="tex">$(\Z/2)^2$</span>.
+    </p>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <p>
+    G. Voronoi, <em>Nouvelles applications des paramètres continus à la théorie des formes quadratiques</em> (1908); M. Koecher, <em>Beiträge zu einer Reduktionstheorie in Positivitätsbereichen</em> (1960);
+    A. Ash, <em>Small-dimensional classifying spaces for arithmetic subgroups of general linear groups</em> (1984); K. S. Brown, <em>Presentations for groups acting on simply-connected complexes</em> (1984);
+    R. Swan, <em>Generators and relations for certain special linear groups</em> (1971); O. Braun, R. Coulangeon, G. Nebe, S. Schönnenbeck, <em>Computing in arithmetic groups with Voronoi's algorithm</em> (2015);
+    P. Gunnells and D. Yasaki on the Voronoi polyhedra of <span class="tex">$\GL_2$</span> over number fields. Integral bases come from the site's exact ring engine (Round 2); Tietze moves and Reidemeister–Schreier from the Presentation Calculator.
+  </p>
+</footer>
+</div>
+
+<script type="module" src="js/main.js"></script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>

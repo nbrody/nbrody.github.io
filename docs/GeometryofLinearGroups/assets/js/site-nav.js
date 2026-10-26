@@ -57,6 +57,7 @@
       { t: 'Integer Matrices',                      u: 'Arithmetic/Tools/integralElements/index.html' },
       { t: 'Finite Groups',                         u: 'Arithmetic/Tools/finite.html' },
       { t: 'Four Groups over ℚ',                    u: 'Arithmetic/Tools/fourGroupsOverQ/index.html' },
+      { t: 'Presentations of PGL₂(𝒪ₖ)',             u: 'Arithmetic/Tools/numberRingGroups/index.html' },
     ]},
     { section: 'Geometric · Kleinian', icon: '𝕏', items: [
       { t: 'Geometric — Overview',          u: 'Geometric/index.html' },
