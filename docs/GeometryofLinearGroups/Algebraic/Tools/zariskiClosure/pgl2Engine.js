@@ -1628,6 +1628,66 @@ function dicksonFull(spec, Ok, pr) {
 }
 
 /**
+ * What the image of Γ mod 𝔭 preserves, by linear algebra over F_q, when Dickson's search found no irreducible pair
+ * (A split at 𝔭, so Λ/𝔭Λ ≅ M₂(F_q)). The F_q-algebra the image generates is smaller than M₂(F_q) exactly when the
+ * image is absolutely reducible (Burnside): dimension 3, or 2 with a nilpotent, gives an invariant line over F_q (a
+ * Borel subgroup); dimension 2 otherwise a torus. When it is all of M₂(F_q), the image lies in the normalizer of a
+ * torus T exactly when every generator normalizes F_q[s] for a non-scalar square s (elements of N(T) ∖ T have order 2,
+ * so a non-scalar square lies in T). If no generator does, the squares are absolutely irreducible: Dickson's (a) holds.
+ * Returns { kind, bound, note } with bound ≤ [PSL₂(F_q) : image ∩ PSL₂(F_q)], or { kind: 'irreducible' }, or null.
+ */
+function imageShapeMod(spec, Ok, pr) {
+    const R = residueRing(Ok, pr, 1), q = BigInt(R.q), odd = pr.p !== 2n;
+    const S = spec.S ? spec.S.map((row) => row.map((c) => c.map(R.fromK))) : null;
+    const A = algebraOps(R, S, spec.S ? spec.trCoef.map(R.fromK) : null, spec.S ? spec.unit.map(R.fromK) : null);
+    const gens = spec.gens.map((g) => g.map(R.fromK));
+    const echelon = () => {
+        const rows = [];
+        const reduce = (v) => {
+            let w = v.slice();
+            for (const r of rows) { const t = w[r.piv]; if (!R.isZero(t)) { const k = R.mul(t, R.inv(r.v[r.piv])); w = w.map((x, i) => R.sub(x, R.mul(k, r.v[i]))); } }
+            return w;
+        };
+        const add = (v) => { const w = reduce(v); const piv = w.findIndex((x) => !R.isZero(x)); if (piv < 0) return false; rows.push({ v: w, piv }); return true; };
+        return { rows, reduce, add };
+    };
+    // the algebra generated: the span of 1 closed under right multiplication by the generators
+    const E = echelon(), span = [A.one];
+    E.add(A.one);
+    for (let i = 0; i < span.length && E.rows.length < 4; i++) for (const g of gens) { const y = A.mul(span[i], g); if (E.add(y)) span.push(y); }
+    const dim = E.rows.length;
+    const disc = (x) => { const t = A.tr(x); return R.sub(R.mul(t, t), R.mul(R.fromInt(4), A.nrd(x))); };
+    const repeated = (x) => (odd ? R.isZero(disc(x)) : R.isZero(A.tr(x)));      // one eigenvalue (char 2: trace 0)
+    const P1 = (q * (q * q - 1n)) / BigInt(R.squareClasses);
+    const borel = { kind: 'borel', bound: q + 1n, note: 'modulo $\\mathfrak{p}$ the image of $\\Gamma$ fixes a point of $\\mathbb{P}^1(\\mathbb{F}_q)$, so its closure lies in an Iwahori subgroup' };
+    if (dim === 1) return { kind: 'scalar', bound: P1, note: 'modulo $\\mathfrak{p}$ the image of $\\Gamma$ is trivial' };
+    if (dim === 3) return borel;
+    if (dim === 2) {
+        const s = span[1];
+        if (repeated(s)) return borel;
+        if (!odd) return { kind: 'torus', bound: q * (q - 1n), note: 'modulo $\\mathfrak{p}$ the image of $\\Gamma$ lies in a Cartan subgroup' };
+        return R.isSquare(disc(s))
+            ? { kind: 'split', bound: q * (q + 1n), note: 'modulo $\\mathfrak{p}$ the image of $\\Gamma$ lies in a split Cartan subgroup' }
+            : { kind: 'nonsplit', bound: q * (q - 1n), note: 'modulo $\\mathfrak{p}$ the image of $\\Gamma$ lies in a non-split Cartan subgroup' };
+    }
+    // all of M₂(F_q): a non-scalar square, and whether every generator normalizes F_q[s]
+    const letters = gens.concat(gens.map((g) => A.conj(g)));
+    const words = letters.slice();
+    for (const a of letters) for (const b of letters) words.push(A.mul(a, b));
+    const s = words.map((w) => A.mul(w, w)).find((x) => !A.isScalar(x));
+    if (!s) return null;
+    const F = echelon();
+    F.add(A.one); F.add(s);
+    const normalizes = gens.every((g) => F.reduce(A.mul(A.mul(g, s), A.conj(g))).every((x) => R.isZero(x)));
+    if (!normalizes) return { kind: 'irreducible' };
+    if (repeated(s)) return borel;
+    if (!odd) return null;
+    return R.isSquare(disc(s))
+        ? { kind: 'split-normalizer', bound: (q * (q + 1n)) / 2n, note: 'modulo $\\mathfrak{p}$ the image of $\\Gamma$ lies in the normalizer of a split Cartan subgroup' }
+        : { kind: 'nonsplit-normalizer', bound: (q * (q - 1n)) / 2n, note: 'modulo $\\mathfrak{p}$ the image of $\\Gamma$ lies in the normalizer of a non-split Cartan subgroup' };
+}
+
+/**
  * Is the level-1 kernel of the closure full, i.e. does Γ̄ ∩ Γ(𝔭) map onto Γ(𝔭)/Γ(𝔭²) (modulo scalars)?
  * Sampled from w^{ord(w)} for short words w and their conjugates; split 𝔭, p odd, small residue rings only.
  * For p odd the bracket [L_1, L_i] = L_{i+1} then fills every deeper level, so Γ̄ ⊇ Γ(𝔭).
@@ -1703,16 +1763,34 @@ function levelKernelFull(spec, Ok, pr, lev, dim) {
     let W = null;
     if (pr.p === 2n) {
         if (q ** 4 > 70000) return false;
+        // W, as a spanning set. nrd(1 + π^i X) = 1 + π^i tr X + π^{2i} nrd X ≡ 1 + π^i tr X (mod 𝔭^{i+1}), so whether
+        // the class of X has square reduced norm depends only on t = tr X mod 𝔭: W = tr⁻¹(T), T = {t : 1 + π^i t is a
+        // square}, an additive subgroup. It is spanned by the kernel of tr and by preimages of a basis of T: about 4f
+        // vectors, where listing W tests all q⁴ classes.
+        const liftR2 = (a) => R2.fromK(Ok.fromCoords(R1.vec(a)));
+        const unit = (j, a) => [0, 1, 2, 3].map((i) => (i === j ? a : R1.zero));
+        const c = [0, 1, 2, 3].map((j) => Ares.tr(unit(j, R1.one)));
+        const j0 = c.findIndex((x) => !R1.isZero(x));
+        if (j0 < 0) return false;
+        const cInv = R1.inv(c[j0]);
+        const independent = (elems) => {          // residues whose F_p-coordinates are independent (at most f)
+            const rows = [], out = [];
+            for (const a of elems) {
+                let v = fp(a);
+                for (const r of rows) { const t = v[r.piv]; if (t) { let iv = 1; while ((iv * r.v[r.piv]) % p !== 1) iv++; const k = (t * iv) % p; v = v.map((x, i) => ((x - k * r.v[i]) % p + p) % p); } }
+                const piv = v.findIndex((x) => x !== 0);
+                if (piv >= 0) { rows.push({ v, piv }); out.push(a); if (out.length === f) break; }
+            }
+            return out;
+        };
+        const Fq = independent(reps);
+        const T = independent(reps.filter((t) => R2.isSquare(R2.add(R2.one, R2.mul(pi2, liftR2(t))))));
         W = [];
-        const lift = (a) => R2.fromK(Ok.fromCoords(R1.vec(a)));
-        const idx = [0, 0, 0, 0];
-        for (;;) {
-            const y = A2.one.map((o, i) => R2.add(o, R2.mul(pi2, lift(idx[i]))));
-            if (R2.isSquare(A2.nrd(y))) W.push(idx.flatMap((a) => fp(a)));
-            let t = 0; while (t < 4 && idx[t] === reps.length - 1) { idx[t] = 0; t++; }
-            if (t === 4) break;
-            idx[t]++;
+        for (let j = 0; j < 4; j++) {
+            if (j === j0) continue;
+            for (const a of Fq) { const x = unit(j, a); x[j0] = R1.neg(R1.mul(R1.mul(c[j], a), cInv)); W.push(x.flatMap((y) => fp(y))); }
         }
+        for (const t of T) W.push(unit(j0, R1.mul(t, cInv)).flatMap((y) => fp(y)));
     }
     const inSpan = (v) => {
         v = v.slice();
@@ -1841,6 +1919,20 @@ function localClosure(ctx, pr, ramifiedA) {
     if (!ramifiedA && q >= 7n && q !== 9n) {
         const dk = dicksonFull(spec, ctx.Ok, pr);
         out.mod1 = dk;
+        if (!dk.irreducible) {
+            // no irreducible pair among the short words: decide what the image mod 𝔭 preserves
+            const shape = imageShapeMod(spec, ctx.Ok, pr);
+            if (shape && shape.kind === 'irreducible') { dk.irreducible = true; dk.full = dk.nonExceptional && dk.generates; }
+            else if (shape) {
+                out.shapeMod1 = shape;
+                // a Borel image with an invariant line generating that algebra is non-abelian (or has a non-scalar
+                // unipotent), so it has at least p elements: past the enumeration cap the bound is all there is
+                if (shape.kind === 'borel' && p > 250000n) {
+                    out.status = 'deficient'; out.indexAtLeast = `${shape.bound}`; out.note = shape.note; out.how = 'shape';
+                    return out;
+                }
+            }
+        }
         fullMod1 = dk.full;
         if (dk.full && p >= 5n && e === 1) { out.status = 'full'; out.index = '1'; out.level = 0; out.how = 'dickson'; return out; }
     }
@@ -1911,7 +2003,11 @@ function localClosure(ctx, pr, ramifiedA) {
         if (c >= m0 && Array.from({ length: e }, (_, i) => c + i).every(fullStep)) certAt = c;
     }
     out.levels = sizes.map((s) => ({ m: s.m, image: `${s.H1}`, full: `${s.P}` }));
-    if (!sizes.length) { out.status = 'unknown'; out.note = 'the image mod 𝔭 is too large to enumerate'; return out; }
+    if (!sizes.length) {
+        // too large to list; if its shape is known, that bounds the index
+        if (out.shapeMod1) { out.status = 'deficient'; out.indexAtLeast = `${out.shapeMod1.bound}`; out.note = out.shapeMod1.note; out.how = 'shape'; return out; }
+        out.status = 'unknown'; out.note = 'the image mod 𝔭 is too large to enumerate'; return out;
+    }
     // sampling instead of enumeration: if the kernels at every level from M up to m0+e−1 are full, the index is the one at M
     if (certAt === null && sizes.length) {
         const M = sizes.length;
