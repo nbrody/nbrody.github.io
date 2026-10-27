@@ -47,7 +47,7 @@ import { referenceMs } from './calibrate.js';
 import { randomGroup } from './randomGroup.js';
 import { elementarySection, elementaryTop } from './elementaryView.js';
 
-const VERSION = '2026-10-25a';          // busts the workers' module caches
+const VERSION = '2026-10-26b';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const ZARISKI_TIMEOUT = 120;
 const MAX_PRIMES = 12;
@@ -137,6 +137,8 @@ function setStep(name, status, head, detail = '') {
 function startPresentation(R) {
     if (!R || R.presentation || !R.model || !R.zariski || !R.zariski.arith) return;
     if (R.engineCong === 'running') { R.presentationWanted = true; return; }   // engineCongruenceDone calls back
+    // (a definite algebra: Γ is not in a Bianchi group, and no presentation is computed yet)
+    if (R.sarith && R.sarith.exact && R.sarith.exact.quaternion) return;
     const ring = R.model.degree === 2 ? bianchiRing(R.model.polySrc) : null;
     if (R.model.degree !== 1 && !ring) return;
     const A = R.zariski.arith;
@@ -300,6 +302,7 @@ function engineCongruenceDone(R, C) {
     startCongruence();
     renderVerdict();          // the status line: nothing else may be running now
     if (R.presentationWanted) { R.presentationWanted = false; startPresentation(R); }
+    if (R.sarithWanted) { R.sarithWanted = false; clearTimeout(R.sarithWait); if (!R.cancelled) startSarith(false, true); }
 }
 
 function zariskiDone(R, res) {
@@ -1455,10 +1458,22 @@ function sarithApplicable(R, factors) {
 
 
 
-function startSarith(afterCusps = false) {
+function startSarith(afterCusps = false, noWait = false, definiteResult = undefined) {
     const R = run, A = R.zariski.arith, m = R.model, st = R.settings;
-    // exact first: coset enumeration in PGL₂(ℤ[1/S])
-    const ex = m.degree === 1 ? exactIndexCheck(m.mats.map((row) => row.map((e) => e.src)), A.ring.S.map((x) => x.p)) : bianchiExact(m, A);
+    // a definite quaternion algebra over ℚ: coset enumeration in N(𝒪[1/S])/ℚ^× once step 1's congruence
+    // closure has named the primes where Γ is deficient (the candidate levels), or after a few seconds
+    const definite = definiteApplies(A, m);
+    if (definite && !noWait && R.engineCong === 'running') {
+        R.sarithWanted = true;
+        R.sarithWait = setTimeout(() => { if (R === run && R.sarithWanted && !R.cancelled) { R.sarithWanted = false; startSarith(false, true); } }, DEFINITE_WAIT * 1000);
+        setStep('sarith', 'running', 'Waiting…', 'Coset enumeration starts once the congruence closure has named the candidate levels.');
+        return;
+    }
+    // over a definite algebra, coset enumeration runs in a worker, and comes back here with its result
+    if (definite && definiteResult === undefined) { definiteJob(R); return; }
+    // exact first: coset enumeration in PGL₂(ℤ[1/S]), N(𝒪[1/S])/k^× or PGL₂(O[1/S])
+    const ex = m.degree === 1 ? exactIndexCheck(m.mats.map((row) => row.map((e) => e.src)), A.ring.S.map((x) => x.p)) : definite ? definiteResult : bianchiExact(m, A);
+    if (ex && ex.index && ex.quaternion) { quaternionFound(R, ex); return; }
     if (ex && ex.index && ex.ring) {
         // over ℚ(√−1), ℚ(√−2), ℚ(√−3): coset enumeration in PGL₂(O[1/S])
         const Otex = RING_TEX[ex.ring], Stex = ex.S.map((x) => `(${ringEltTex(ex.ring, x)})`).join(', ');
@@ -1582,6 +1597,83 @@ function startSarith(afterCusps = false) {
             stabCount: m.degree === 1 || factors.length >= 2 || (m.degree === 2 && bianchiRing(m.polySrc) && factors.some((f) => f.kind === 'complex')) ? EXACT_STAB_COUNT : 12,
         },
     });
+}
+
+/**
+ * A totally definite quaternion algebra over a totally real field k, and Γ unbounded at some prime: Γ lies in
+ * Λ = N(𝒪[1/S])/k^× for a maximal order 𝒪, presented by its action on the trees at S, and coset enumeration
+ * decides it (quaternionIndex.js, in quaternionWorker.js; also batch/pipeline.mjs).
+ */
+const DEFINITE_WAIT = 6;                 // seconds step 3 waits for the engine's congruence closure
+const DEFINITE_TIMEOUT = 120;
+function definiteApplies(A, m) {
+    if (!A || !m || m.degree < 2 || !A.A || !A.A.determined || !A.ring.S.length) return false;
+    const split = A.k.r1 - A.A.ram.filter((r) => r.kind === 'real').length + A.k.r2;
+    if (split === 0) return true;                                   // totally definite: finite vertex stabilizers
+    if (split !== 1) return false;
+    // one split place at ∞: Fuchsian or Kleinian vertex stabilizers; over ℚ(√−1), ℚ(√−2), ℚ(√−3) with A split,
+    // bianchi.js has its own (faster) presentation of PGL₂(O[1/S])
+    return !(A.A.split && m.degree === 2 && bianchiRing(m.polySrc));
+}
+/** The worker's job: the generators, step 1's k, S, ramification, and the primes where the closure is deficient. */
+function definiteParams(m, A) {
+    const C = A.congruence && !A.congruence.error ? A.congruence.checked || [] : [];
+    return {
+        rows: m.mats.map((row) => row.map((e) => e.src)), poly: m.poly.map(String),
+        S: A.ring.S.map((s) => ({ p: s.p, e: s.e, f: s.f, H: s.H })),
+        opts: {
+            field: A.k.d > 1 ? { minpoly: A.k.minpoly, P: A.k.P } : null,
+            ram: A.A.ram.filter((r) => r.kind === 'finite').map((r) => ({ p: r.p, e: r.e, f: r.f, H: r.H })),
+            levelPrimes: C.filter((c) => c.status === 'deficient').map((c) => ({ p: c.p, level: c.level })),
+            seconds: 4,
+        },
+    };
+}
+function definiteJob(R) {
+    const m = R.model, A = R.zariski.arith;
+    setStep('sarith', 'running', 'Building $\\Lambda$…', 'Coset enumeration in $N(\\mathcal{O}[1/S])/k^\\times$, from its action on the trees, then FlashBeam if it does not close.');
+    let worker;
+    try { worker = new Worker(new URL(`./quaternionWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
+    catch (e) { startSarith(false, true, { index: null, error: 'module workers are unavailable here', quaternion: true }); return; }
+    arithWorker(R, worker);
+    const ep = R.arithEpoch;
+    let answered = false;
+    const done = (result) => {
+        if (answered) return;
+        answered = true;
+        clearTimeout(timer);
+        dropWorker(R, worker);
+        if (R !== run || R.arithEpoch !== ep || R.cancelled) return;
+        const ex = result ? { ...result, quaternion: true } : null;
+        if (ex && ex.index) quaternionFound(R, ex);
+        else startSarith(false, true, ex);
+    };
+    const timer = setTimeout(() => done({ index: null, error: `no answer after ${DEFINITE_TIMEOUT} s` }), DEFINITE_TIMEOUT * 1000);
+    worker.onmessage = (ev) => done(ev.data.result);
+    worker.onerror = (e) => { e.preventDefault?.(); done({ index: null, error: e.message || 'the worker failed to load' }); };
+    worker.postMessage({ id: R.seq, ...definiteParams(m, A) });
+}
+
+/** Γ (or K, its elements with even valuations outside S) has finite index in Λ = N(𝒪[1/S])/k^×. */
+function quaternionFound(R, ex) {
+    const A = R.zariski.arith, overQ = A.k.d === 1;
+    const Stex = overQ ? ex.S.join('\\cdot ') : A.ring.S.map((x) => x.tex).join(', ');
+    const L = overQ ? `N(\\mathcal{O}[1/${Stex}])/\\mathbb{Q}^\\times` : 'N(\\mathcal{O}_S)/k^\\times';
+    const iso = overQ && ex.disc === '2' ? ` \\cong \\mathrm{SO}_3(\\mathbb{Z}[1/${Stex}])` : '';
+    const sub = ex.kernelIndex > 1 ? 'K' : '\\Gamma', lev = ex.level && ex.level.N !== '1' ? ex.level.N : null;
+    R.sarith = {
+        phase: 'done', status: 'yes', exact: ex, places: [], history: [], metric: R.settings.metric,
+        head: [
+            ...(ex.kernelIndex > 1 ? [`The elements of $\\Gamma$ whose reduced norms have even valuations at ${listTex(ex.bad)} form a subgroup $K$ of index $${ex.kernelIndex}$, and $K \\le \\Lambda = ${L}$.`] : []),
+            `Coset enumeration in $\\Lambda = ${L}${iso}$ closes, with $\\mathcal{O}$ a maximal order of $A$${overQ ? '' : ` and $S = \\{${Stex}\\}$`}.`,
+            `So $[\\Lambda : ${sub}] = ${ex.index}$ exactly, and $\\Gamma$ is S-arithmetic.`,
+            ...(lev ? [`$${sub}$ contains $\\Lambda(${lev})$, the kernel of the action of $\\Lambda$ on $\\mathcal{O}/${lev}\\mathcal{O}$: it is a congruence subgroup of level $${lev}$.`] : []),
+        ],
+    };
+    setStep('sarith', 'yes', 'S-arithmetic', `$${sub}$ has index $${ex.index}$ in $\\Lambda = ${L}${iso}$, by coset enumeration (${ex.tcMs} ms)${lev ? `, and it is a congruence subgroup of level $${lev}$` : ''}.`);
+    if (lev && ex.kernelIndex === 1) setStep('congruence', 'info', `$\\Delta = \\Gamma$, of level $${lev}$`, `$\\Gamma$ contains $\\Lambda(${lev})$, the kernel of $\\Lambda = ${L}$ acting on $\\mathcal{O}/${lev}\\mathcal{O}$ (step 3), so it is its own congruence closure, of index $${ex.index}$ in $\\Lambda$.`);
+    renderVerdict();
+    if (!R.userPicked) showView('sarith', null, { auto: true });
 }
 
 /** Over ℚ(√−1), ℚ(√−2), ℚ(√−3) with S ≠ ∅: [PGL₂(O[1/S]) : Γ] by coset enumeration (bianchi.js; also batch/pipeline.mjs). */
@@ -2183,7 +2275,8 @@ function renderPresentation() {
     const d = presentationData();
     if (!d) {
         const busy = run && STEPS.some((s) => run.steps[s].status === 'running');
-        el.innerHTML = `<p class="rels-empty">${!run ? 'Relations appear here after Compute.' : busy ? 'Computing…' : 'No presentation found.'}</p>`;
+        const definite = run && run.sarith && run.sarith.exact && run.sarith.exact.quaternion && run.sarith.exact.index;
+        el.innerHTML = `<p class="rels-empty">${!run ? 'Relations appear here after Compute.' : busy ? 'Computing…' : definite ? 'Not computed yet in these generators: step 3 found the index by coset enumeration in the ambient group.' : 'No presentation found.'}</p>`;
         syncRelsHeight();
         return;
     }
@@ -2253,7 +2346,7 @@ function arithLine(R) {
     } else if (st.status === 'running') {
         parts.push(st.detail);
     } else {
-        if (S.exactTried && !S.exactTried.index) parts.push('Coset enumeration did not close.');
+        if (S.exactTried && !S.exactTried.index) parts.push(S.exactTried.quaternion && S.exactTried.error ? `Coset enumeration in $N(\\mathcal{O}[1/S])/k^\\times$ did not apply: ${S.exactTried.error.replace(/\$/g, '')}.` : 'Coset enumeration did not close.');
         // what FlashBeam found (a covering that decided it is already in the step's own line)
         const decidedByCovering = st.status === 'yes' && !(o && o.verdict);
         if (decidedByCovering) parts.push(st.detail);
@@ -2360,7 +2453,10 @@ function refreshView(step) {
     else if (step === 'sarith') {
         html = R.sarith ? sarithCard(R.sarith, R.model, R.model.mats.length).replace(/<\/div>$/, `${presentationSection(R.presentation)}</div>`) : '';
         const hs = $('card-sarith').querySelector('.h-sub');
-        if (hs) hs.hidden = !!(R.sarith && R.sarith.lattice);
+        if (hs) {
+            hs.hidden = !!(R.sarith && R.sarith.lattice);
+            hs.textContent = R.sarith && R.sarith.exact && R.sarith.exact.index ? 'Coset enumeration' : 'FlashBeam in the adelic product';
+        }
     }
     body.innerHTML = html;
     typeset(body);

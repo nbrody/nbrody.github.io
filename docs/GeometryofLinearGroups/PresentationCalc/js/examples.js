@@ -9,7 +9,7 @@
  */
 import { allExamples as discretenessExamples } from '../../Geometric/Tools/discretenessAlgorithm/js/examples.js';
 
-const SARITH = 'S-arithmetic: certified by FlashBeam';
+const SARITH = 'S-arithmetic: certified';
 const DISCRETE = 'Discrete at a place';
 const NOTDENSE = 'Not Zariski dense';
 const OPEN = 'No certificate';
@@ -42,13 +42,18 @@ export const CURATED = [
     },
     {
         name: 'Hurwitz quaternions at 5 and 13: ⟨1+2i, 1+2j, 3+2i, 3+2j⟩', cat: SARITH, chip: '\\langle 1{+}2i, 1{+}2j, 3{+}2i, 3{+}2j\\rangle',
-        desc: 'Definite at ∞, so the certificate is a covering of T₆ × T₁₄ alone. FlashBeam needs a few seconds and four representatives.',
+        desc: 'Definite at ∞: coset enumeration in SO₃(ℤ[1/65]) gives index 96, and Γ is a congruence subgroup of level 16.',
         mats: [['1+2i', '0', '0', '1-2i'], ['1', '2', '-2', '1'], ['3+2i', '0', '0', '3-2i'], ['3', '2', '-2', '3']],
     },
     {
         name: 'Hurwitz quaternions at 5 and 13: five generators', cat: SARITH, chip: '\\mathrm{PU}_2(\\mathbb{Z}[\\tfrac15,\\tfrac1{13}])',
-        desc: '1+2i, 1+2j, 1+2k, 3+2i, 3+2j: transitive on the vertices of T₆ × T₁₄.',
+        desc: '1+2i, 1+2j, 1+2k, 3+2i, 3+2j: index 24 in SO₃(ℤ[1/65]), transitive on the vertices of T₆ × T₁₄.',
         mats: [['1+2i', '0', '0', '1-2i'], ['1', '2', '-2', '1'], ['1', '2i', '2i', '1'], ['3+2i', '0', '0', '3-2i'], ['3', '2', '-2', '3']],
+    },
+    {
+        name: 'Hurwitz quaternions: ⟨1+2i, 3+2j⟩', cat: SARITH, chip: '\\langle 1{+}2i, 3{+}2j\\rangle',
+        desc: 'One generator at each of 5 and 13: index 2304 in SO₃(ℤ[1/65]) by coset enumeration, a congruence subgroup of level 96. FlashBeam alone finds no covering: it would need 96 orbit representatives.',
+        mats: [['1+2i', '0', '0', '1-2i'], ['3', '2', '-2', '3']],
     },
     {
         name: 'Modular group PSL₂(ℤ)', cat: DISCRETE, chip: '\\mathrm{PSL}_2(\\mathbb{Z})',
@@ -57,7 +62,7 @@ export const CURATED = [
     },
     {
         name: 'Hurwitz quaternions at 5: ⟨1+2i, 1+2j, 1+2k⟩', cat: DISCRETE, chip: '\\text{LPS at }5',
-        desc: 'Free, acting simply transitively on T₆: discrete at the prime above 5.',
+        desc: 'Free, acting simply transitively on T₆: discrete at the prime above 5, and of index 24 in SO₃(ℤ[1/5]).',
         mats: [['1+2i', '0', '0', '1-2i'], ['1', '2', '-2', '1'], ['1', '2i', '2i', '1']],
     },
     {
@@ -94,11 +99,6 @@ export const CURATED = [
         name: 'Dihedral group of order 6', cat: NOTDENSE, chip: 'D_3',
         desc: 'Finite: its own Zariski closure.',
         mats: [['0', '1', '1', '0'], ['0', '-1', '1', '-1']],
-    },
-    {
-        name: 'Hurwitz quaternions: ⟨1+2i, 3+2j⟩', cat: OPEN, chip: '\\langle 1{+}2i, 3{+}2j\\rangle',
-        desc: 'One generator at each of 5 and 13. The search finds no covering.',
-        mats: [['1+2i', '0', '0', '1-2i'], ['3', '2', '-2', '3']],
     },
 ];
 

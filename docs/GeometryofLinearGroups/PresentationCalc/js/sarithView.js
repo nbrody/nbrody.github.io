@@ -160,6 +160,53 @@ export function sarithCard(S, model, nGens) {
     if (S.lattice) return html + banner(S.status === 'yes' ? 'yes' : 'open', S.lattice.lines) + '</div>';
     if (S.exact && S.exact.index) {
         const E = S.exact;
+        if (E.quaternion) {
+            const sub = E.kernelIndex > 1 ? 'K' : '\\Gamma', overQ = (E.k || 1) === 1;
+            const trees = (E.letters || []).map((d) => `T_{${d}}`).join(' \\times ');
+            const ram = (E.ramified || []).map((p) => `$${p}$`);
+            const where = overQ ? '$\\mathbb{Q}$' : 'the totally real field $k$';
+            const ramText = overQ ? `ramified at ${ram.length ? `${ram.join(', ')} and ` : ''}$\\infty$` : `ramified at ${ram.length ? `the primes above ${ram.join(', ')} and at ` : ''}every infinite place`;
+            const geo = E.definite === false
+                ? (E.place === 'real' ? { H: '\\mathbb{H}^2', what: 'Fuchsian', size: 'area' } : { H: '\\mathbb{H}^3', what: 'Kleinian', size: 'volume' })
+                : null;
+            // geo: the infinite places other than v (complex places never ramify, so they are all real and ramified)
+            const others = (E.k || 1) - (E.place === 'complex' ? 2 : 1);
+            const atRam = ram.length ? (overQ ? ram.join(', ') : `the primes above ${ram.join(', ')}`) : '';
+            const orbits = E.reps === 1
+                ? (geo ? `$\\Lambda$ is transitive on the vertices of $X = ${trees}$.` : `$\\Lambda$ is transitive on the vertices of $X = ${trees}$, with stabilizer $U = N(\\mathcal{O})/k^\\times$ of order $${E.stabilizers[0]}$.`)
+                : `$\\Lambda$ has $${E.reps}$ orbits on the vertices of $X = ${trees}$ (found by walking out from $\\mathcal{O}$${geo ? ', and by strong approximation for the norm-one group' : ' and testing each new vertex against the earlier ones'})${geo ? '' : `, with stabilizers of orders ${E.stabilizers.map((u) => `$${u}$`).join(', ')}`}.`;
+            const sentences = geo
+                ? [
+                    `${others > 0
+                        ? `$A$ splits at exactly one place $v$ at $\\infty$ (${E.place}), and is ramified at the other infinite places${atRam ? ` and at ${atRam}` : ''}`
+                        : `$A$ splits at the only infinite place $v$ of $k$ (${E.place})${atRam ? `, and is ramified at ${atRam}` : ''}`}; $\\Gamma$ is bounded at every prime outside $S$.`,
+                    E.kernelIndex > 1
+                        ? `The elements of $\\Gamma$ whose reduced norms have even valuations outside $S$ form a subgroup $K$ of index $${E.kernelIndex}$, and $K$ lies in $\\Lambda = N(\\mathcal{O}[1/S])/k^\\times$ for a maximal order $\\mathcal{O}$ of $A$.`
+                        : '$\\Gamma$ lies in $\\Lambda = N(\\mathcal{O}[1/S])/k^\\times$ for a maximal order $\\mathcal{O}$ of $A$: the order $\\Gamma$ generates, enlarged one prime at a time.',
+                    orbits,
+                    `The stabilizer of a vertex is the ${geo.what} group $U = N(\\mathcal{O})/k^\\times$, a lattice in $\\mathrm{PGL}_2(k_v)$. Its presentation comes from a Dirichlet domain in $${geo.H}$ (Poincaré's theorem, in the poincare engine), built from the elements of $U$ moving the centre of $\\mathcal{O}$ least, until its ${geo.size} equals Borel's covolume of $U$, $${(E.covols && E.covols[0] != null ? E.covols[0].toFixed(6) : '?')}$ (${(E.stabGens || [])[0]} side pairings). Its relators were checked again exactly, and an element of $U$ is written in the side pairings by folding it back into the domain.`,
+                    `With a letter for each edge at each representative (${E.gens} generators), and ${E.relators} relators: the stabilizers' relators, how they move the letters, the edge inversions, and the squares of $X$. Each relator was checked by multiplying it out.`,
+                    `Each generator of $${sub}$ is written in it by walking from $\\mathcal{O}$ towards its image, one closer vertex at a time, and Todd–Coxeter (Felsch's strategy) enumerates the cosets.`,
+                ]
+                : [
+                    `$A$ is a totally definite quaternion algebra over ${where}, ${ramText}, and $\\Gamma$ is bounded at every prime outside $S$.`,
+                    E.kernelIndex > 1
+                        ? `The elements of $\\Gamma$ whose reduced norms have even valuations outside $S$ form a subgroup $K$ of index $${E.kernelIndex}$, and $K$ lies in $\\Lambda = N(\\mathcal{O}[1/S])/k^\\times$ for a maximal order $\\mathcal{O}$ of $A$.`
+                        : '$\\Gamma$ lies in $\\Lambda = N(\\mathcal{O}[1/S])/k^\\times$ for a maximal order $\\mathcal{O}$ of $A$: the order $\\Gamma$ generates, enlarged one prime at a time.',
+                    orbits,
+                    'The stabilizers, and the elements carrying one vertex to another, come from exhaustive searches for elements of given reduced norm (Fincke–Pohst on $\\mathrm{Tr}_{k/\\mathbb{Q}}\\,\\mathrm{nrd}$, which is positive definite).',
+                    `Since $X$ is simply connected, this gives a presentation of $\\Lambda$ on the stabilizers and a letter for each edge at each representative (${E.gens} generators), with ${E.relators} relators: the stabilizers' multiplication, how they move the letters, the edge inversions, and the squares of $X$. Each relator was checked by multiplying it out.`,
+                    `Each generator of $${sub}$ is written in it by walking from $\\mathcal{O}$ towards its image, one closer vertex at a time, and Todd–Coxeter (Felsch's strategy) enumerates the cosets.`,
+                ];
+            html += para(sentences, 'lead');
+            html += banner('yes', S.head);
+            const lines = [`The coset table has $${E.index}$ cosets, and it was checked again: every relator of $\\Lambda$ and every generator of $${sub}$ closes up.`, `This took ${E.tcMs} ms, and building $\\Lambda$ ${E.buildMs} ms.`];
+            if (E.level && E.level.N !== '1') lines.push(`$\\Lambda$ acts on $\\mathcal{O}/N\\mathcal{O}$ by conjugation. Modulo $N = ${E.level.N}$ the $${E.index}$ cosets have $${E.index}$ distinct images, so $${sub}$ contains the kernel $\\Lambda(${E.level.N})$: it is a congruence subgroup of level $${E.level.N}$, the smallest of the levels tried (${E.congMs} ms).`);
+            else if (E.index === 1) lines.push(`So $${sub} = \\Lambda$.`);
+            else if (E.levelTried && E.levelTried.length) lines.push(`No congruence level was found: modulo ${E.levelTried.filter((t) => typeof t.index === 'number').map((t) => `$${t.N}$ the images give index $${t.index}$`).join(', ') || 'the levels tried, the images were too large'}${E.levelStopped ? ', before the time ran out' : ''}.`);
+            html += para(lines);
+            return html + '</div>';
+        }
         if (E.ring) {
             html += para([
                 `Over $\\mathcal{O} = ${RING_TEX[E.ring]}$, every determinant is a unit times a product of the primes in $S$, so $\\Gamma \\le \\Lambda = \\mathrm{PGL}_2(\\mathcal{O}[1/S])$.`,

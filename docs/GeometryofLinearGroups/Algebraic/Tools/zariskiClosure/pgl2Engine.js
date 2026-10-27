@@ -867,11 +867,11 @@ function arithmetic(F, M, gens, opts = {}) {
         A: {
             split, hamilton, determined: ram.determined,
             aTex: simplifySymbolEntry(aK, ksub, F), bTex: simplifySymbolEntry(bK, ksub, F),
-            ram: ramified.map((pl) => ({ kind: pl.kind, tex: pl.tex, approx: pl.approx, byParity: !!pl.byParity, ...(pl.kind === 'finite' ? { p: `${pl.p}`, f: pl.f } : {}) })),
+            ram: ramified.map((pl) => ({ kind: pl.kind, tex: pl.tex, approx: pl.approx, byParity: !!pl.byParity, ...(pl.kind === 'finite' ? { p: `${pl.p}`, f: pl.f, e: pl.e, H: idealRows(pl.pr) } : {}) })),
             undetermined: ram.places.filter((pl) => pl.ramified === null).map((pl) => pl.tex),
         },
         G: { tex: Gtex, dim: 3 * d },
-        ring: { tex: ringTex, S: Splaces.map((pl) => ({ tex: pl.tex, p: pl.p, e: pl.e, f: pl.f })), d, orderIndex: ringDesc.R.index },
+        ring: { tex: ringTex, S: Splaces.map((pl) => ({ tex: pl.tex, p: pl.p, e: pl.e, f: pl.f, H: idealRows(pl.pr) })), d, orderIndex: ringDesc.R.index },
         head: `\\langle S \\rangle \\le ${Gtex}\\left(${ringTex}\\right)`,
         lattice: factors,
         compactAt,
@@ -880,11 +880,14 @@ function arithmetic(F, M, gens, opts = {}) {
 }
 
 /** k = ℚ(θ): TeX for display, and the minimal polynomial of θ (integer coefficients, low → high) and disc(k) as strings. */
+/** A prime of k as the rows of its HNF (O_k coordinates, strings), for exact steps downstream. */
+const idealRows = (pr) => (pr && pr.H ? pr.H.map((r) => r.map(String)) : null);
 function describeField(ksub, F, d, r1) {
     if (d === 1) return { d, tex: '\\mathbb{Q}', r1: 1, r2: 0, minpoly: ['0', '1'], disc: '1' };
     const g = ksub.g;
     const thetaTex = F.tex(ksub.theta);
-    const num = { minpoly: g.map((c) => `${c}`), disc: `${ksub.disc}` };
+    // P: the powers θ^j in the field of definition's coordinates
+    const num = { minpoly: g.map((c) => `${c}`), disc: `${ksub.disc}`, P: ksub.P.map((r) => r.map((x) => `${x.n}/${x.d}`)) };
     if (d === 2) {
         const disc = g[1] * g[1] - 4n * g[0];
         const D = squarefreePart(disc);
