@@ -1472,7 +1472,7 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
     // over a definite algebra, coset enumeration runs in a worker, and comes back here with its result
     if (definite && definiteResult === undefined) { definiteJob(R); return; }
     // exact first: coset enumeration in PGL₂(ℤ[1/S]), N(𝒪[1/S])/k^× or PGL₂(O[1/S])
-    const ex = m.degree === 1 ? exactIndexCheck(m.mats.map((row) => row.map((e) => e.src)), A.ring.S.map((x) => x.p)) : definite ? definiteResult : bianchiExact(m, A);
+    const ex = m.degree === 1 ? exactIndexCheck(m.mats.map((row) => row.map((e) => e.src)), A.ring.S.map((x) => x.p), { express: true }) : definite ? definiteResult : bianchiExact(m, A);
     if (ex && ex.index && ex.quaternion) { quaternionFound(R, ex); return; }
     if (ex && ex.index && ex.ring) {
         // over ℚ(√−1), ℚ(√−2), ℚ(√−3): coset enumeration in PGL₂(O[1/S])
@@ -1502,6 +1502,7 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
                 : [
                     `Coset enumeration in $\\Lambda = ${Ltex}$ closes.`,
                     `So $[\\Lambda : \\Gamma] = ${ex.index}$ exactly, and $\\Gamma$ is S-arithmetic.`,
+                    ...(ex.index === 1 && ex.express && !ex.express.error ? [`So $\\Gamma = ${ex.express.conjugator ? 'C\\Lambda C^{-1}' : '\\Lambda'}$, and the generators of $\\Lambda$ are written in terms of $\\Gamma$'s below.`] : []),
                 ],
         };
         setStep('sarith', 'yes', 'S-arithmetic', ex.kernelIndex > 1
@@ -1511,6 +1512,20 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
         if (!R.userPicked) showView('sarith', null, { auto: true });
         return;
     }
+    // bounded at every prime and unbounded at ≥ 2 places at ∞ (a totally real, CM or cubic field): coset
+    // enumeration in PGL₂(O_k) on its presentation from Voronoi's algorithm (numberRingIndex.js, in a worker)
+    if (!afterCusps && !R.nrTried && numberRingWanted(R)) {
+        R.nrTried = true;
+        R.sarith = { phase: 'search', status: 'running', places: [], history: [], metric: st.metric, head: ['Coset enumeration in $\\mathrm{PGL}_2(\\mathcal{O}_k)$, on its presentation from Voronoi\'s algorithm.'] };
+        setStep('sarith', 'running', 'Coset enumeration…', 'Building the presentation of $\\mathrm{PGL}_2(\\mathcal{O}_k)$ from the perfect forms over $\\mathcal{O}_k$, then enumerating the cosets of $\\Gamma$.');
+        if (!R.userPicked) showView('sarith', null, { auto: true });
+        numberRingJob(R, m.mats.map((_, i) => [i + 1]), (res) => {
+            if (res && res.index) { numberRingFound(R, res); return; }
+            R.nrResult = res && res.applies !== false ? res : null;
+            startSarith(false, true);
+        }, NR_SECONDS, true);
+        return;
+    }
     // bounded at every prime, over a field with infinitely many units: a full lattice of unipotents
     // at one cusp makes Γ arithmetic (cusps.js, by Vaserstein's theorem)
     if (!afterCusps && vasersteinApplies(R)) { startCusps(R); return; }
@@ -1518,6 +1533,7 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
     const ap = sarithApplicable(R, factors);
     R.sarith = {
         exactTried: ex,
+        nrTried: R.nrResult || null,
         phase: 'search', note: ap.note, certifiable: ap.certifiable, arch: ap.certifiable ? ap.arch : null,
         archFactors: factors, metric: st.metric, history: [], places: [], status: 'running',
     };
@@ -1684,6 +1700,55 @@ function bianchiExact(m, A) {
     if (!gens) return null;
     const r = indexInPGL2OS(d, gens, { seconds: 4, maxCosets: 1500000 });
     return { index: r.index ?? null, limit: r.limit ?? null, error: r.error ?? null, S: r.S || [], kernelIndex: 1, ms: r.ms ?? null, ring: d };
+}
+
+// ───────────────────────── PGL₂(O_k) from Voronoi's algorithm (numberRingIndex.js) ─────────────────────────
+const NR_SECONDS = 20, NR_TIMEOUT = 150;
+/** S = ∅, k = the field of definition, A split, Γ unbounded at ≥ 2 places at ∞ (the worker checks the field type). */
+function numberRingWanted(R) {
+    const A = R.zariski && R.zariski.arith, m = R.model;
+    if (!A || !m || m.degree < 2 || A.ring.S.length || A.k.d !== m.degree || !(A.A && A.A.split)) return false;
+    return A.k.r1 - A.A.ram.filter((r) => r.kind === 'real').length + A.k.r2 >= 2;
+}
+/** [PGL₂(O_k) : ⟨words in the generators⟩] in a worker; cb(result) with indexInPGL2O's record, { applies: false } or { error }. */
+function numberRingJob(R, words, cb, seconds = NR_SECONDS, express = false) {
+    const m = R.model;
+    let worker;
+    try { worker = new Worker(new URL(`./numberRingWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
+    catch (e) { cb({ index: null, error: 'module workers are unavailable here' }); return; }
+    arithWorker(R, worker);
+    const ep = R.arithEpoch;
+    let answered = false;
+    const done = (result) => {
+        if (answered) return;
+        answered = true;
+        clearTimeout(timer);
+        dropWorker(R, worker);
+        if (R !== run || R.arithEpoch !== ep || R.cancelled) return;
+        cb(result);
+    };
+    const timer = setTimeout(() => done({ index: null, error: `no answer after ${NR_TIMEOUT} s` }), NR_TIMEOUT * 1000);
+    worker.onmessage = (ev) => done(ev.data.result);
+    worker.onerror = (e) => { e.preventDefault?.(); done({ index: null, error: e.message || 'the worker failed to load' }); };
+    worker.postMessage({ id: R.seq, poly: m.polySrc, rows: m.mats.map((row) => row.map((e) => e.src)), words, seconds, express });
+}
+/** Γ (or its subgroup K fixing a vertex of every tree) has finite index in (a conjugate of) PGL₂(O_k). */
+function numberRingFound(R, ex) {
+    const sub = ex.evenIndex > 1 ? 'K' : '\\Gamma';
+    const L = ex.conjugated ? 'g\\,\\mathrm{PGL}_2(\\mathcal{O}_k)\\,g^{-1}' : '\\mathrm{PGL}_2(\\mathcal{O}_k)';
+    R.sarith = {
+        phase: 'done', status: 'yes', exact: { ...ex, numberRing: true }, places: [], history: [], metric: R.settings.metric,
+        head: [
+            ...(ex.evenIndex > 1 ? [`The elements of $\\Gamma$ whose determinants have even valuation at every prime form a subgroup $K$ of index $${ex.evenIndex}$, which fixes a vertex of every tree.`] : []),
+            ...(ex.conjugated ? [`$${sub}$ preserves a lattice $L \\subset k^2$; with $g$ a basis of $L$, $g^{-1}${sub}\\,g \\le \\mathrm{PGL}_2(\\mathcal{O}_k)$.`] : []),
+            `Coset enumeration on the presentation of $\\mathrm{PGL}_2(\\mathcal{O}_k)$ from Voronoi's algorithm closes, and the table was checked again.`,
+            `So $[${L} : ${sub}] = ${ex.index}$ exactly${ex.skipped ? `, for the subgroup generated by the ${ex.used} generators that lie in it` : ''}, and $\\Gamma$ is arithmetic.`,
+            ...(ex.index === 1 && ex.express && !ex.express.error ? [`So $${sub} = ${L}$, and its generators are written in terms of $\\Gamma$'s below.`] : []),
+        ],
+    };
+    setStep('sarith', 'yes', 'Arithmetic', `$${sub}$ has index $${ex.index}$ in $${L}$, by coset enumeration on its presentation from Voronoi's algorithm (${(() => { const t = (ex.ms || 0) + (ex.presentationMs || 0); return t < 1000 ? `${t} ms` : `${(t / 1000).toFixed(1)} s`; })()}).`);
+    renderVerdict();
+    if (!R.userPicked) showView('sarith', null, { auto: true });
 }
 
 const CUSP_SECONDS = 15;
@@ -2077,7 +2142,32 @@ function stabilizerCheck(R, stab, attempt) {
 
 /** A split at ≥ 2 places at ∞: a full lattice of unipotents at a cusp of ⟨elements fixing o⟩ (cusps.js, in a worker). */
 function cuspStabCheck(R, stab, attempt) {
-    const S = R.sarith, m = R.model;
+    const S = R.sarith, A = R.zariski.arith, m = R.model;
+    // first: the elements fixing o in PGL₂(O_k), by coset enumeration on its Voronoi presentation
+    if (attempt === 0 && stab.length && !S.nrStabTried && A.k.d === m.degree && A.A && A.A.split) {
+        S.nrStabTried = true;
+        S.stab = { status: 'running', used: stab };
+        setStep('sarith', 'running', 'Checking the stabilizer…', 'Coset enumeration of the elements fixing $o$ in $\\mathrm{PGL}_2(\\mathcal{O}_k)$, on its presentation from Voronoi\'s algorithm.');
+        refreshView('sarith');
+        numberRingJob(R, stab.map((e) => e.word), (res) => {
+            if (res && res.index) {
+                const L = res.conjugated ? 'g\\,\\mathrm{PGL}_2(\\mathcal{O}_k)\\,g^{-1}' : '\\mathrm{PGL}_2(\\mathcal{O}_k)';
+                S.stab = {
+                    status: 'yes', exact: true, used: stab, index: res.index, group: 'PGL₂(O_k)', groupTex: L, nr: res,
+                    lines: [
+                        'Coset enumeration on the presentation of $\\mathrm{PGL}_2(\\mathcal{O}_k)$ from Voronoi\'s algorithm closes, and the table was checked again.',
+                        `So ${res.used} of the ${stab.length} elements found fixing $o$${res.evenIndex > 1 ? ' (their subgroup fixing a vertex of every tree)' : ''} generate a subgroup of index $${res.index}$ in $${L}$, exactly.`,
+                        'Hence $\\Gamma_o$ has finite index in $\\Lambda_o$.',
+                    ],
+                };
+                finishStab(R, true);
+                return;
+            }
+            S.nrStab = res;
+            cuspStabCheck(R, stab, attempt);
+        });
+        return;
+    }
     const next = () => { if (attempt + 1 < STAB_SIZES.length) requestHarvest(R, attempt + 1); else { S.stab = { status: 'no', used: stab, lines: ['The elements found fixing $o$ show no full lattice of unipotents at a cusp.'] }; finishStab(R, false); } };
     if (!stab.length) { next(); return; }
     S.stab = { status: 'running', used: stab };
@@ -2120,7 +2210,9 @@ function finishStab(R, ok) {
         const stab = S.stab.cusp
             ? "The elements found fixing $o$ contain a full lattice of unipotents at a cusp, so by Vaserstein's theorem they generate a subgroup of finite index in $\\Lambda_o$, since $\\mathcal{O}_K$ has infinitely many units."
             : S.stab.exact
-            ? (S.stab.group === 'PGL₂(ℤ)'
+            ? (S.stab.group === 'PGL₂(O_k)'
+                ? `The elements found fixing $o$ generate a subgroup of index $${S.stab.index}$ in $${S.stab.groupTex}$, by coset enumeration on its presentation from Voronoi's algorithm.`
+                : S.stab.group === 'PGL₂(ℤ)'
                 ? `The elements found fixing $o$ generate a subgroup of index $${S.stab.index}$ in $\\Lambda_o = \\mathrm{PGL}_2(\\mathbb{Z})$, by coset enumeration.`
                 : `The elements found fixing $o$ meet the Bianchi group $${S.stab.groupTex}$ in a subgroup of index $${S.stab.index}$, by coset enumeration.`)
             : `The stabilizer of $o$ has finite ${S.arch.kind === 'real' ? 'area' : 'covolume'} at $\\infty$, so it has finite index in $\\Lambda_o$.`;

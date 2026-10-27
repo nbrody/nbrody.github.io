@@ -154,6 +154,32 @@ const repName = (i) => (i === 0 ? 'o' : `r_{${i}}`);
 /** An element of the ring d, written in its generator w (bianchi.js), in TeX. */
 const ringElt = (d, x) => String(x).replace(/−/g, '-').replace(/(\d)w/g, `$1${{ 1: 'i', 2: '\\sqrt{-2}', 3: '\\omega' }[d]}`).replace(/w/g, { 1: 'i', 2: '\\sqrt{-2}', 3: '\\omega' }[d]);
 
+/**
+ * When Γ = Λ (index 1): Λ's generators in terms of Γ's, from coset enumeration with labels (the
+ * modified Todd–Coxeter of felsch.js). kind 'Q': letters a, b, c, w_q with integer matrices; 'O': the
+ * generators p_i of the Voronoi presentation of PGL₂(O_k), matrices in TeX.
+ */
+const msText = (ms) => (ms == null ? '?' : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
+function expressHtml(X, kind) {
+    if (!X) return '';
+    if (X.error) return para([`Writing the generators of $\\Lambda$ in terms of those of $\\Gamma$ did not finish: ${String(X.error).replace(/\$/g, '')}.`]);
+    const C = X.conjugator;
+    const Ctex = !C ? '' : kind === 'Q' ? `\\begin{pmatrix} ${C[0]} & ${C[1]} \\\\ ${C[2]} & ${C[3]} \\end{pmatrix}` : `\\begin{pmatrix} ${C[0][0]} & ${C[0][1]} \\\\ ${C[1][0]} & ${C[1][1]} \\end{pmatrix}`;
+    const name = (L, k) => (kind === 'Q' ? L.name : `p_{${k + 1}}`);
+    const mat = (L) => (kind === 'Q' ? `\\begin{pmatrix} ${L.matrix[0]} & ${L.matrix[1]} \\\\ ${L.matrix[2]} & ${L.matrix[3]} \\end{pmatrix}` : L.matrix);
+    const items = X.letters.map((L, k) => {
+        const lhs = C ? `C\\,${name(L, k)}\\,C^{-1}` : name(L, k);
+        return `<li>${mix(`$${lhs} = ${mat(L)} = ${L.word ? wordTexG(L.word, 60) : '\\text{(too long to write out)}'}$`)}</li>`;
+    }).join('');
+    return `<h3>${mix('The generators of $\\Lambda$ in terms of $\\Gamma$')}</h3>`
+        + para([
+            'Coset enumeration with labels (the modified Todd–Coxeter algorithm) keeps, next to each entry $c \\cdot x = d$ of the table, a word $L$ in the generators of $\\Gamma$ with $t_c x = L\\, t_d$.',
+            `With one coset, every generator $x$ of $\\Lambda$ satisfies $x = L(0, x)$${C ? `; here $\\Gamma$ was first conjugated by $C = ${Ctex}$` : ''}.`,
+            'Each word was then shortened inside $\\Gamma$ and checked by multiplying it out.',
+        ])
+        + `<ul class="express-list">${items}</ul>`;
+}
+
 export function sarithCard(S, model, nGens) {
     let html = '<div class="vc-inner">';
     // Γ discrete at a place: whether it is a lattice there (main.js, discreteArith), one sentence per line
@@ -207,6 +233,17 @@ export function sarithCard(S, model, nGens) {
             html += para(lines);
             return html + '</div>';
         }
+        if (E.numberRing) {
+            html += para([
+                '$\\Gamma$ is bounded at every prime, so it fixes a vertex of every Bruhat–Tits tree (its elements with determinants of even valuation do), and it lies in a conjugate of $\\mathrm{PGL}_2(\\mathcal{O}_k)$: the stabilizer of a lattice $L \\subset k^2$.',
+                `The perfect binary forms over $\\mathcal{O}_k$ (Voronoi's algorithm, after Koecher) give a cell decomposition of the symmetric space on which $\\mathrm{GL}_2(\\mathcal{O}_k)$ acts with ${E.cells} orbit${E.cells === 1 ? '' : 's'} of top cells; Brown's theorem turns it into a presentation (as in the Arithmetic tool Presentations of $\\mathrm{PGL}_2(\\mathcal{O}_k)$), with every relator checked by multiplying it out.`,
+                'Each generator is written in it by walking from a cell to its image, one facet at a time, and Todd–Coxeter (Felsch’s strategy) enumerates the cosets.',
+            ], 'lead');
+            html += banner('yes', S.head);
+            html += para([`The coset table has $${E.index}$ coset${E.index === 1 ? '' : 's'}, and it was checked again: every relator and every subgroup generator closes up.`, `Building the presentation took ${msText(E.presentationMs)}, writing the generators and enumerating the cosets ${msText(E.ms)}.`]);
+            html += expressHtml(E.express, 'O');
+            return html + '</div>';
+        }
         if (E.ring) {
             html += para([
                 `Over $\\mathcal{O} = ${RING_TEX[E.ring]}$, every determinant is a unit times a product of the primes in $S$, so $\\Gamma \\le \\Lambda = \\mathrm{PGL}_2(\\mathcal{O}[1/S])$.`,
@@ -226,7 +263,8 @@ export function sarithCard(S, model, nGens) {
             ], 'lead');
         }
         html += banner('yes', S.head);
-        html += para([`The coset table has $${E.index}$ cosets, and it was checked again: every relator of $\\Lambda$ and every generator of $\\Gamma$ closes up.`, `This took ${E.ms} ms.`]);
+        html += para([`The coset table has $${E.index}$ coset${E.index === 1 ? '' : 's'}, and it was checked again: every relator of $\\Lambda$ and every generator of $\\Gamma$ closes up.`, `This took ${E.ms} ms.`]);
+        if (!E.ring) html += expressHtml(E.express, 'Q');
         return html + '</div>';
     }
     if (S.phase === 'na') return html + banner('open', S.note) + '</div>';
@@ -253,6 +291,11 @@ export function sarithCard(S, model, nGens) {
         const why = { cosets: 'it reached its limit on cosets', time: 'it ran out of time' }[E.limit] || String(E.limit || E.error || '').replace(/\$/g, '');
         const Ltex = E.ring ? `\\mathrm{PGL}_2(${RING_TEX[E.ring]}[1/${E.S.map((x) => `(${ringElt(E.ring, x)})`).join('\\cdot ')}])` : `\\mathrm{PGL}_2(\\mathbb{Z}[1/${E.S.join('\\cdot ')}])`;
         html += para([`Coset enumeration in $${Ltex}$ did not close, because ${why}.`, 'So FlashBeam searches instead.']);
+    }
+    if (S.nrTried && !S.nrTried.index) {
+        const E = S.nrTried;
+        const why = { cosets: 'it reached its limit on cosets', time: 'it ran out of time' }[E.limit] || String(E.limit || E.error || '').replace(/\$/g, '');
+        html += para([`Coset enumeration in $\\mathrm{PGL}_2(\\mathcal{O}_k)$, on its presentation from Voronoi's algorithm, did not close, because ${why}.`]);
     }
     if (S.error) html += banner('open', [`The search stopped: ${String(S.error).replace(/\$/g, '')}.`]);
     if (S.head) html += banner(S.status === 'yes' ? 'yes' : S.status === 'running' ? 'running' : 'open', S.head);
@@ -351,7 +394,8 @@ export function sarithCard(S, model, nGens) {
         html += para(multi
             ? [
                 'The quaternion algebra $A$ splits at two or more places at $\\infty$, and $\\mathcal{O}_K$ has infinitely many units.',
-                'So the elements of $\\Gamma$ fixing $o$ that the search found must contain a full lattice of unipotents at a cusp, and then they have finite index in $\\Lambda_o$ by Vaserstein’s theorem.',
+                'So $\\Lambda_o$ is a conjugate of $\\mathrm{PGL}_2(\\mathcal{O}_K)$, and the elements of $\\Gamma$ fixing $o$ that the search found must generate a subgroup of finite index in it.',
+                'For totally real, CM and cubic fields, coset enumeration on the presentation of $\\mathrm{PGL}_2(\\mathcal{O}_K)$ from Voronoi’s algorithm decides this exactly; otherwise, a full lattice of unipotents at a cusp proves it by Vaserstein’s theorem.',
             ]
             : [
                 `The quaternion algebra $A$ splits at exactly one place at $\\infty$, so $\\Lambda_o$ is a lattice in $\\mathrm{PGL}_2(${S.arch.kind === 'real' ? '\\mathbb{R}' : '\\mathbb{C}'})$.`,
@@ -364,7 +408,11 @@ export function sarithCard(S, model, nGens) {
         else if (st.status === 'none') html += para(st.lines || ['No element fixing $o$ was found.']);
         else {
             if (st.used) html += `<p class="note">${mix(`These are the ${st.used.length} elements fixing $o$ that were used:`)} ${st.used.slice(0, 16).map((e) => wordCell(e.word, 20)).join(', ')}${st.used.length > 16 ? `, and ${st.used.length - 16} more` : ''}.</p>`;
-            if (st.status === 'running') html += para([st.harvesting ? 'FlashBeam is collecting more elements that fix $o$…' : 'Poincaré is computing their Dirichlet domain…']);
+            if (st.status === 'running') html += para([st.harvesting ? 'FlashBeam is collecting more elements that fix $o$…' : multi ? 'Checking them…' : 'Poincaré is computing their Dirichlet domain…']);
+            if (multi && S.nrStab && !S.nrStab.index && S.nrStab.applies !== false) {
+                const E = S.nrStab, why = { cosets: 'it reached its limit on cosets', time: 'it ran out of time' }[E.limit] || String(E.limit || E.error || '').replace(/\$/g, '');
+                html += para([`Coset enumeration in $\\mathrm{PGL}_2(\\mathcal{O}_K)$ on ${E.used ?? 0} of them did not close, because ${why}.`]);
+            }
             else html += banner(st.status === 'yes' ? 'yes' : 'open', st.lines || (st.text ? [st.text] : []));
             if (st.state) html += '<p><button class="btn btn-add-alt" id="show-stab">View their domain in Poincaré</button></p>';
         }

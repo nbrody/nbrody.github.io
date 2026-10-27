@@ -317,3 +317,7 @@ ol.pres-rels li::marker { color: var(--faint); font-size: 0.8rem; }
 .cq-panel[hidden] { display: none; }
 .cq-panel p { overflow-x: auto; overflow-y: hidden; }
 #cong-body .head-math { overflow-x: auto; overflow-y: hidden; }
+
+/* Λ's generators in terms of Γ's (coset enumeration with labels) */
+.express-list { margin: 6px 0 4px; padding-left: 1.2em; display: grid; gap: 6px; max-height: 420px; overflow: auto; }
+.express-list li { overflow-x: auto; overflow-y: hidden; }
