@@ -474,13 +474,17 @@ function buildExampleModal() {
                 <div class="example-grid">`;
         for (const { ex, idx } of cats.get(cat)) {
             const badges = ex.anti ? '<span class="ex-badge mirrors" title="Orientation-reversing generators">mirrors</span>' : '';
-            html += `<button class="example-card" data-idx="${idx}">
+            const card = `<button class="example-card${ex.dehn ? ' has-dehn' : ''}" data-idx="${idx}">
                     <span class="example-card-head">
                         <span class="example-name">${ex.name}</span>
                         <span class="example-badges">${badges}</span>
                     </span>
                     ${ex.desc ? `<span class="example-desc">${ex.desc}</span>` : ''}
                 </button>`;
+            // a link may not sit inside the button: pin it over the card's bottom edge instead
+            html += ex.dehn
+                ? `<div class="example-item">${card}<a class="example-dehn" href="../DehnFillings/index.html${ex.dehn}" target="_blank" rel="noopener" title="Cut it into ideal tetrahedra, then fill or drill a cusp or a geodesic">Fill / drill this in Dehn Fillings ↗</a></div>`
+                : card;
         }
         html += `</div></section>`;
     }

@@ -63,6 +63,7 @@
       { t: 'Geometric — Overview',          u: 'Geometric/index.html' },
       { t: 'Dirichlet Polyhedron Viewer',   u: 'Geometric/Tools/Kleinian/dirichlet/index.html' },
       { t: 'Hyperbolic Polyhedron Viewer',  u: 'Geometric/Tools/Kleinian/poincare/index.html' },
+      { t: 'Dehn Fillings',                 u: 'Geometric/Tools/Kleinian/DehnFillings/index.html' },
       { t: 'Fuchsian / H² Viewer',          u: 'Geometric/Tools/Kleinian/fuchsian/index.html' },
       { t: 'Riley Slice Explorer',          u: 'Geometric/Tools/Kleinian/riley/index.html' },
       { t: 'Riley Slice (alt)',             u: 'Geometric/Tools/Kleinian/rileySlice/index.html' },

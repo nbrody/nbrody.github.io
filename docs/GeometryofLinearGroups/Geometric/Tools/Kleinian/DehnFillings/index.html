@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dehn Fillings</title>
+    <meta name="description" content="Dehn filling and drilling: a knot complement cut into ideal tetrahedra and unfolded into hyperbolic space, Thurston's hyperbolic Dehn surgery as an animation through cone manifolds, the filled manifold's volume, core geodesic and homology, and export of every group to poincare.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <!-- MathQuill: the site's vendored copy -->
+    <link rel="stylesheet" href="../vendor/mathquill/build/mathquill.css">
+    <script src="../vendor/jquery/jquery-3.7.1.min.js"></script>
+    <script src="../vendor/mathquill/build/mathquill.min.js"></script>
+    <script>
+        // dark is the default, as in poincare; a saved choice or ?theme=light|dark overrides it
+        (function () {
+            const q = new URLSearchParams(location.search);
+            let t = q.get('theme');
+            if (t !== 'dark' && t !== 'light') { t = null; try { t = localStorage.getItem('dehnFillings-theme'); } catch (e) { /* storage blocked */ } }
+            if (t === 'light') document.documentElement.classList.add('light');
+            if (q.has('embed')) document.documentElement.classList.add('embed-mode');
+        })();
+    </script>
+    <script>
+        (function () {
+            // APP_VERSION busts stale module caches; bump when the js changes.
+            const APP_VERSION = '2026-10-25c';
+            window.APP_VERSION = APP_VERSION;
+            const im = { imports: { three: '../vendor/three/three.module.js', 'three/addons/': '../vendor/three/addons/' } };
+            const mods = ['main', 'complex', 'volume', 'triangulation', 'solver', 'develop', 'homology', 'census',
+                'export', 'ui', 'knotView', 'polyView', 'cuspView', 'surgeryPlot', 'hyperbolic', 'stage', 'linking'];
+            for (const m of mods) im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
+            document.write(`<script type="importmap">${JSON.stringify(im)}<\/script>`);
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="viz-container">
+    <canvas id="canvas3d" aria-label="The knot, its ideal tetrahedra in hyperbolic space"></canvas>
+    <canvas id="cusp-canvas" aria-label="The view from the cusp" hidden></canvas>
+    <div id="tex-layer" class="tex-layer" aria-hidden="true"></div>
+</div>
+
+<div id="status-banner" class="status-banner" hidden>
+    <span class="status-banner-text" id="status-text"></span>
+    <button class="status-banner-close" id="status-close" aria-label="Collapse the status">×</button>
+</div>
+
+<!-- views of the picture -->
+<div id="view-bar" class="view-bar" role="tablist" aria-label="Picture">
+    <button class="view-chip active" data-view="knot" role="tab">Knot</button>
+    <button class="view-chip" data-view="poly" role="tab">Polyhedron</button>
+    <button class="view-chip" data-view="cusp" role="tab">Cusp</button>
+    <span class="cusp-modes" id="cusp-modes" hidden>
+        <button class="view-chip sub active" data-cusp-mode="plane" title="The developed horosphere, one sheet around the core">plane</button>
+        <button class="view-chip sub" data-cusp-mode="log" title="Log coordinates around the core: the cusp torus is a lattice, the filling curve a vertical segment of length θ">log</button>
+    </span>
+</div>
+
+<!-- the cone-angle timeline -->
+<div id="timeline" class="timeline" hidden>
+    <button id="play-btn" class="play-btn" aria-label="Play the filling" title="Play (space)">
+        <svg class="icon-play" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>
+        <svg class="icon-pause" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg>
+    </button>
+    <button id="dir-btn" class="dir-btn" title="Play toward drilling (cone angle → 0) or toward filling (cone angle → 2π)"></button>
+    <div class="scrub-wrap">
+        <div id="scrub-ticks" class="scrub-ticks"></div>
+        <input id="scrub" class="scrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Cone angle">
+        <div id="scrub-labels" class="scrub-labels"></div>
+    </div>
+    <div id="readout" class="readout"></div>
+</div>
+
+<div id="control-panel">
+    <div class="tab-navigation">
+        <button class="tab-btn active" data-tab="manifold">Manifold</button>
+        <button class="tab-btn" data-tab="unfold">Unfold</button>
+        <button class="tab-btn" data-tab="fill">Fill</button>
+        <button class="tab-btn" data-tab="drill">Drill</button>
+        <button class="tab-btn" data-tab="view">View</button>
+        <button id="help-btn" class="collapse-btn" title="About the calculator" aria-label="About the calculator"><span class="collapse-icon">?</span></button>
+        <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+            <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+        </button>
+        <button id="collapse-btn" class="collapse-btn" title="Collapse panel (H)" aria-label="Collapse panel"><span class="collapse-icon">×</span></button>
+    </div>
+
+    <div class="panel-content">
+        <!-- ============ Manifold ============ -->
+        <div id="tab-manifold" class="tab-content active">
+            <div>
+                <h2 class="panel-title">Dehn Fillings</h2>
+                <p class="panel-subtitle">Choose a knot or a cusped manifold. Its complement is cut into ideal tetrahedra, whose shapes solve Thurston's gluing equations; filling a cusp deforms the shapes through cone manifolds until the filling curve bounds a disk.</p>
+            </div>
+            <div class="control-group">
+                <div class="card-head">
+                    <span class="control-label">Manifold</span>
+                    <button id="examples-btn" class="btn btn-add-alt small">Choose…</button>
+                </div>
+                <div id="manifold-card"></div>
+            </div>
+            <div id="manifold-results" class="results"></div>
+        </div>
+
+        <!-- ============ Unfold ============ -->
+        <div id="tab-unfold" class="tab-content">
+            <div>
+                <h2 class="panel-title">Unfolding</h2>
+                <p class="panel-subtitle" id="unfold-sub"></p>
+            </div>
+            <div class="control-group">
+                <div class="steps" id="unfold-steps"></div>
+                <div class="field-row">
+                    <span class="control-label">Assemble</span>
+                    <input id="unfold-range" class="range-input" type="range" min="0" max="1000" step="1" value="1000" aria-label="Assembly">
+                    <button id="unfold-play" class="btn btn-add small">Play</button>
+                </div>
+            </div>
+            <div id="unfold-results" class="results"></div>
+        </div>
+
+        <!-- ============ Fill ============ -->
+        <div id="tab-fill" class="tab-content">
+            <div>
+                <h2 class="panel-title">Dehn Filling</h2>
+                <p class="panel-subtitle">Glue a solid torus to a cusp so that its meridian disk bounds the curve <span data-tex="p\,m + q\,l"></span> of slope <span data-tex="p/q"></span>. Thurston: all but finitely many slopes give hyperbolic manifolds, reached through cone manifolds with cone angle <span data-tex="\theta"></span> along the core growing from <span data-tex="0"></span> to <span data-tex="2\pi"></span>.</p>
+            </div>
+            <div class="control-group">
+                <div id="slope-fields"></div>
+                <p class="label-hint" id="slope-hint"></p>
+                <div class="btn-row">
+                    <button id="fill-btn" class="btn btn-add grow">Fill</button>
+                    <button id="complete-btn" class="btn btn-ghost">Complete</button>
+                </div>
+            </div>
+            <div id="fill-results" class="results"></div>
+            <div class="control-group" id="plot-group">
+                <div class="card-head">
+                    <span class="control-label">Dehn surgery space</span>
+                    <span class="dim small-note" id="plot-note"></span>
+                </div>
+                <div id="surgery-plot" class="surgery-plot"></div>
+            </div>
+        </div>
+
+        <!-- ============ Drill ============ -->
+        <div id="tab-drill" class="tab-content">
+            <div>
+                <h2 class="panel-title">Drilling</h2>
+                <p class="panel-subtitle">Drilling removes a closed geodesic: the inverse of filling. Running the cone angle along the geodesic from <span data-tex="2\pi"></span> down to <span data-tex="0"></span> pushes it off to infinity, where it becomes a new cusp, and the volume grows.</p>
+            </div>
+            <div id="drill-results" class="results"></div>
+        </div>
+
+        <!-- ============ View ============ -->
+        <div id="tab-view" class="tab-content">
+            <div>
+                <h2 class="panel-title">View</h2>
+                <p class="panel-subtitle" id="view-caption"></p>
+            </div>
+            <div class="control-group">
+                <div class="field-row">
+                    <span class="control-label">Model</span>
+                    <div class="seg" id="model-seg">
+                        <button class="seg-opt active" data-model="poincare">Poincaré</button>
+                        <button class="seg-opt" data-model="klein">Klein</button>
+                    </div>
+                </div>
+                <label class="check-row"><input type="checkbox" id="opt-arrows" checked> Edge classes (Thurston's arrows)</label>
+                <label class="check-row"><input type="checkbox" id="opt-labels" checked> Face-pairing labels</label>
+                <label class="check-row"><input type="checkbox" id="opt-core" checked> Core geodesic</label>
+                <label class="check-row"><input type="checkbox" id="opt-sphere" checked> Sphere at infinity</label>
+                <label class="check-row"><input type="checkbox" id="opt-spin" checked> Turn slowly</label>
+            </div>
+            <div class="control-group">
+                <span class="control-label">Cusp view</span>
+                <label class="check-row"><input type="checkbox" id="opt-tiles" checked> Developed copies</label>
+                <label class="check-row"><input type="checkbox" id="opt-curves" checked> Meridian, longitude and filling curve</label>
+                <div class="field-row">
+                    <label class="control-label" for="cusp-pick">Cusp</label>
+                    <select id="cusp-pick" class="select-input"></select>
+                </div>
+                <button id="reset-view" class="toggle-btn">Reset View</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- examples -->
+<div id="example-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="example-title">
+        <div class="modal-head">
+            <h3 id="example-title">Manifolds</h3>
+            <button class="modal-close" data-close aria-label="Close">×</button>
+        </div>
+        <div class="modal-body" id="example-body"></div>
+    </div>
+</div>
+
+<!-- help -->
+<div id="help-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <div class="modal-head">
+            <h3 id="help-title">About Dehn Fillings</h3>
+            <button class="modal-close" data-close aria-label="Close">×</button>
+        </div>
+        <div class="modal-body help-body" id="help-body"></div>
+    </div>
+</div>
+
+<div id="tooltip" class="tooltip" hidden></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

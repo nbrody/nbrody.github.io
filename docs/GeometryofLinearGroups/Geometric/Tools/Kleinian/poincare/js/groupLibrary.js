@@ -6,6 +6,11 @@ const root = (poly, re = 0, im = 0, name = 'w') => ({ name, poly, near: { re, im
 
 const RILEY = 'Riley slice — pleating-ray cusps';
 
+// `dehn`: the query string that opens the preset in Kleinian/DehnFillings, where the knot is
+// cut into ideal tetrahedra and the slope can be filled or drilled (the example picker shows
+// it as a link). Jørgensen's orbifolds are the figure-eight knot's 0-filling at cone angle
+// 2π/n: the volumes agree to 10 digits and tr² of the meridian is ψ + 2, as for T below.
+
 // Jørgensen, "Compact 3-manifolds of constant negative curvature fibering
 // over the circle", Ann. of Math. 106 (1977), §5–6. For n ≥ 2:
 // 2ψ = 1 + √(17 − 8cos(π/n)), λ = e^{iπ/2n}, 2ρ = √(ψ+2) + √(ψ−2),
@@ -24,6 +29,7 @@ const jorgensen = (n, tPoly, tNear, mPoly, mNear, desc, extra = {}) => ({
     name: `Jorgensen fibered (n=${n})`,
     cat: 'Knots, links & bundles',
     desc,
+    dehn: `?m=4_1&fill=0/1&t=1/${n}`,
     consts: [
         root(tPoly, tNear, 0, 't'),
         root(mPoly, mNear[0], mNear[1], 'm'),
@@ -76,6 +82,7 @@ export const exampleLibrary = [
         name: 'Borromean rings group',
         cat: 'Knots, links & bundles',
         desc: 'Complement of the Borromean rings — three meridians in PSL(2,Z[i])',
+        dehn: '?m=L6a4',
         mats: [['-i', '1', '-2i', '2+i'], ['1', '1', '0', '1'], ['1', '0', '-2i', '1']]
     },
     {
@@ -119,6 +126,7 @@ export const exampleLibrary = [
         name: 'Figure eight knot group',
         cat: 'Knots, links & bundles',
         desc: 'Complement of the figure-eight knot (the default group)',
+        dehn: '?m=4_1',
         mats: [['1', '\\frac{-1+\\sqrt{-3}}{2}', '0', '1'], ['1', '0', '1', '1']]
     },
     {
@@ -346,6 +354,7 @@ export const exampleLibrary = [
         name: 'Weeks manifold (closed)',
         cat: 'Closed 3-manifolds',
         desc: 'Smallest closed hyperbolic 3-manifold — exact over a sextic field',
+        dehn: '?m=m003&fill=-3/1',
         consts: [root('w^6-2w^5+6w^4-5w^3+6w^2-2w+1', 0.61547315, 1.80372911)],
         mats: [['\\frac{w}{w^2+1}-1', '-1', '1', '0'],
         ['0', 'w', '-\\frac{1}{w}', '\\frac{w}{w^2+1}-1']]
@@ -360,6 +369,7 @@ export const exampleLibrary = [
         name: 'Meyerhoff manifold (closed)',
         cat: 'Closed 3-manifolds',
         desc: 'Second-smallest closed hyperbolic 3-manifold — exact over a field of degree 8',
+        dehn: '?m=m003&fill=-2/3',
         consts: [
             root('x^4-x^3-1', 0.2194474721, 0.9144736630, 'x'),
             ['y', '1+x-x^2'],
@@ -385,6 +395,7 @@ export const exampleLibrary = [
         name: 'FLMS',
         cat: 'Closed 3-manifolds',
         desc: 'm003(-4,1) — non-arithmetic closed manifold with no totally geodesic surfaces',
+        dehn: '?m=m003&fill=-4/1',
         consts: [root('w^10+4w^8+w^7+8w^6+w^5+8w^4+w^3+4w^2+1', 0.487334922689059, -1.435797175535177)],
         mats: [
             ['w^8+3w^6+w^5+5w^4+3w^2+w+1', '-1', '1', '0'],
