@@ -248,7 +248,9 @@ function fordCoreFactory() {
      every element (a b; c d) not fixing infinity, i.e. every isometric circle
      has radius <= 1.  A candidate with radius > 1 (both groups contain A, and
      Gamma_rho has index <= 2 in Gamma^) proves rho is NOT in the Riley slice:
-     nondiscrete = {word, r}, and the closure stops.  Near the boundary of the
+     nondiscrete = {word, r}, and the closure stops.  c = 0 fixes infinity
+     (a power of A): the radius is undefined, and a float residual is not a
+     witness — those candidates are dropped, not clipped.  Near the boundary of the
      slice such elements are long (68 letters at rho = 4^(1/3) e^(2 pi i/3)),
      so the closure must not stop at the word-length cap and call that
      complete: a final round that skipped products for the cap is `capped`,
@@ -267,7 +269,20 @@ function fordCoreFactory() {
     let faces = visibleItems(seed.map(w => wordItem(w, E)), false);
     let complete = false, capped = false, hidden = null, nondiscrete = null;
     const SHIMIZU = 1 + 1e-9;
-    for (const f of faces) if (f.r > SHIMIZU && (!nondiscrete || f.r > nondiscrete.r)) nondiscrete = { word: wordOf(f), r: f.r };
+    // c = 0 fixes infinity (a power of A). The radius 1/|c| is then undefined.
+    // Float products of such an element leave |c| at a few ulps, so 1/|c| is
+    // enormous (∞ at ρ = 2, ~10¹⁵ for the figure-eight knot) and is not a
+    // Shimizu witness. Trust |c| < 1 only when it clears that noise.
+    const shimizuViolation = (it) => {
+      if (!(it.r > SHIMIZU) || !Number.isFinite(it.r)) return false;
+      const c = Math.hypot(it.cr, it.ci);
+      const scale = Math.max(1, Math.hypot(it.ar, it.ai), Math.hypot(it.br, it.bi), Math.hypot(it.dr, it.di));
+      return c > 1e-8 * scale;
+    };
+    const noteShimizu = (it) => {
+      if (shimizuViolation(it) && (!nondiscrete || it.r > nondiscrete.r)) nondiscrete = { word: wordOf(it), r: it.r };
+    };
+    for (const f of faces) noteShimizu(f);
     for (let round = 0; round < 40 && !nondiscrete; round++) {
       const have = new Set();
       for (const f of faces) have.add(f.key);
@@ -282,8 +297,10 @@ function fordCoreFactory() {
         if (have.has(kk)) continue;
         have.add(kk);
         const it = productItem(f, k, g);
-        if (it.r > SHIMIZU && (!big || it.r > big.r)) big = it;
-        cand.push(it);
+        if (shimizuViolation(it)) { if (!big || it.r > big.r) big = it; continue; }
+        // c ≈ 0 (a power of A, or float noise): the radius is not a circle.
+        // Feeding it to the visibility clip loops for ~1/|c| translates.
+        if (Number.isFinite(it.r) && it.r <= SHIMIZU) cand.push(it);
       }
       if (big) { nondiscrete = { word: wordOf(big), r: big.r }; break; }
       const hiddenItems = [];
