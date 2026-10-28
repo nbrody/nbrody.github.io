@@ -151,6 +151,10 @@ details.syntax code { font-family: var(--mono); font-size: 0.85em; color: var(--
 .v-head.no { color: var(--bad); }
 .v-head.open { color: var(--warn); }
 .v-head.info { color: var(--info); }
+/* an undecided Γ: the same run with longer time limits */
+.v-retry-btn { display: block; margin-top: 8px; font-family: var(--sans); font-size: 0.84rem; color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; border-radius: 7px; padding: 4px 11px; cursor: pointer; }
+.v-retry-btn:hover, .v-retry-btn:focus-visible { border-color: var(--accent); outline: none; }
+.v-retry { display: block; margin-top: 6px; font-family: var(--sans); font-size: 0.84rem; color: var(--faint); }
 .result .summary { font-size: 1.0rem; margin-top: 6px; color: var(--muted); }
 .v-pres { margin-top: 8px; overflow-x: auto; }
 .v-pres:empty { display: none; }

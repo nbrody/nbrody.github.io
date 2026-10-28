@@ -52,6 +52,15 @@
         <span class="status" id="compute-status"></span>
     </div>
     <div class="settings-grid" id="settings" hidden>
+        <span class="sub-h">Every step</span>
+        <label for="time-scale">Time limits</label>
+        <select id="time-scale" title="Multiplies every time limit: the seconds below, and the fixed limits of the Zariski closure, Poincaré, coset enumeration, the vertex orbits and the stabilizer checks. An undecided group offers a run with longer ones.">
+            <option value="1" selected>standard</option>
+            <option value="2">2 times</option>
+            <option value="4">4 times</option>
+            <option value="8">8 times</option>
+            <option value="16">16 times</option>
+        </select>
         <span class="sub-h">Step 2 · discreteness</span>
         <label for="wordLength">Word length at <span class="m">\infty</span></label><input id="wordLength" type="number" value="8" min="1" max="32" step="1">
         <label for="face-count-input">Max faces at <span class="m">\infty</span></label><input id="face-count-input" type="number" value="96" min="1" max="256" step="4">

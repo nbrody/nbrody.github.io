@@ -100,8 +100,16 @@ function readSettings() {
         beamSeconds: intIn('beam-seconds', 5, 1800, 60),
         maxReps: intIn('max-reps', 1, 200, 24),
         metric: $('tree-metric') && $('tree-metric').value === 'unit' ? 'unit' : 'log',
+        time: TIME_SCALES.includes(parseInt($('time-scale')?.value, 10)) ? parseInt($('time-scale').value, 10) : 1,
     };
 }
+/**
+ * A time limit of s seconds for run R, multiplied by the "Time limits" setting. An undecided Γ can be
+ * run again with longer ones (renderVerdict's button). Coset enumerations on the page's own thread keep
+ * theirs, so that the page does not freeze.
+ */
+const TIME_SCALES = [1, 2, 4, 8, 16];
+const timeLimit = (R, s) => s * ((R && R.settings && R.settings.time) || 1);
 
 // ───────────────────────── the run ─────────────────────────
 
@@ -164,16 +172,16 @@ function startPresentation(R) {
     worker.onmessage = (ev) => done(ev.data);
     worker.onerror = (e) => { e.preventDefault?.(); done({ error: e.message || 'the worker failed to load' }); };
     if (ring) {
-        worker.postMessage({ id: R.seq, kind: 'bianchi', d: ring, polySrc: R.model.polySrc, rows: R.model.mats.map((r) => r.map((e) => e.src)), maxIndex: 20000, seconds: 20 });
+        worker.postMessage({ id: R.seq, kind: 'bianchi', d: ring, polySrc: R.model.polySrc, rows: R.model.mats.map((r) => r.map((e) => e.src)), maxIndex: 20000, seconds: timeLimit(R, 20) });
         return;
     }
     if (nr) {
-        worker.postMessage({ id: R.seq, kind: 'numberRing', polySrc: R.model.polySrc, rows: R.model.mats.map((r) => r.map((e) => e.src)), maxIndex: 5000, seconds: 20 });
+        worker.postMessage({ id: R.seq, kind: 'numberRing', polySrc: R.model.polySrc, rows: R.model.mats.map((r) => r.map((e) => e.src)), maxIndex: 5000, seconds: timeLimit(R, 20) });
         return;
     }
     worker.postMessage({
         id: R.seq, rows: R.model.mats.map((r) => r.map((e) => e.src)), S,
-        levels: cong && cong.levels ? cong.levels : null, C: cong && cong.levels ? null : A.congruence, maxIndex: 20000, seconds: 20,
+        levels: cong && cong.levels ? cong.levels : null, C: cong && cong.levels ? null : A.congruence, maxIndex: 20000, seconds: timeLimit(R, 20),
     });
 }
 
@@ -260,7 +268,7 @@ function startZariski() {
     }
     R.workers.add(worker);
     const done = (res) => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); zariskiDone(R, res); };
-    const timer = setTimeout(() => done({ ok: false, error: `no answer after ${ZARISKI_TIMEOUT} s` }), ZARISKI_TIMEOUT * 1000);
+    const timer = setTimeout(() => done({ ok: false, error: `no answer after ${timeLimit(R, ZARISKI_TIMEOUT)} s` }), timeLimit(R, ZARISKI_TIMEOUT) * 1000);
     worker.onmessage = (ev) => done(ev.data.result);
     worker.onerror = (e) => { e.preventDefault?.(); done({ ok: false, error: e.message || 'the worker failed to load' }); };
     // without the congruence closure, which can take far longer over a big field: it runs after step 1
@@ -295,7 +303,7 @@ function startEngineCongruence(R) {
         const C = res && res.ok && res.arith ? res.arith.congruence : null;
         engineCongruenceDone(R, C || { error: res && res.error ? res.error : 'no congruence closure was returned' });
     };
-    const timer = setTimeout(() => done({ ok: false, error: `no answer after ${ENGINE_CONG_TIMEOUT} s` }), ENGINE_CONG_TIMEOUT * 1000);
+    const timer = setTimeout(() => done({ ok: false, error: `no answer after ${timeLimit(R, ENGINE_CONG_TIMEOUT)} s` }), timeLimit(R, ENGINE_CONG_TIMEOUT) * 1000);
     worker.onmessage = (ev) => done(ev.data.result);
     worker.onerror = (e) => { e.preventDefault?.(); done({ ok: false, error: e.message || 'the worker failed to load' }); };
     worker.postMessage({ id: R.seq, state: zariskiState(R.model) });
@@ -696,7 +704,7 @@ function runArch(R, state, { certify = true, pool = null } = {}, cb) {
         R.workers.add(worker);
         if (pool) pool.add(worker);
         const done = () => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); if (pool) pool.delete(worker); resolve(); };
-        const timer = setTimeout(() => { cb({ timeout: true }); done(); }, ARCH_TIMEOUT * 1000);
+        const timer = setTimeout(() => { cb({ timeout: true }); done(); }, timeLimit(R, ARCH_TIMEOUT) * 1000);
         worker.onmessage = (ev) => {
             const m = ev.data;
             if (m.error) { cb({ error: m.error }); done(); return; }
@@ -743,7 +751,7 @@ function setArch(R, pl, { cert = null, summary = null, error = null, timeout = f
     } else if (summary) {
         Object.assign(pl, { status: 'unknown', headline: 'Undecided', lines: one(`Poincaré’s conditions fail at this word length${summary.tries > 1 ? `, from ${summary.tries} basepoints` : ''}.`) });
     } else if (timeout) {
-        Object.assign(pl, { status: 'unknown', headline: 'Undecided', lines: one(`The domain took longer than ${ARCH_TIMEOUT} s.`) });
+        Object.assign(pl, { status: 'unknown', headline: 'Undecided', lines: one(`The domain took longer than ${timeLimit(R, ARCH_TIMEOUT)} s.`) });
     } else {
         Object.assign(pl, { status: 'unknown', headline: 'Undecided', lines: one(`Error: ${String(error).replace(/\$/g, '')}`) });
     }
@@ -786,10 +794,10 @@ function startDeep(R, pl) {
         R.placeWorkers.delete(worker);
         if (R === run && !R.placesStopped) deepDone(R, pl, cert, maxLen);
     };
-    const timer = setTimeout(() => done(null), (DEEP_SECONDS + 30) * 1000);
+    const timer = setTimeout(() => done(null), (timeLimit(R, DEEP_SECONDS) + 30) * 1000);
     worker.onmessage = (ev) => done(ev.data.error ? null : ev.data.cert);
     worker.onerror = (e) => { e.preventDefault?.(); done(null); };
-    worker.postMessage({ id: 1, state: pl.state, deep: { maxLen, cap: 4000, budgetMs: DEEP_SECONDS * 1000, maxEvals: 20000 } });
+    worker.postMessage({ id: 1, state: pl.state, deep: { maxLen, cap: 4000, budgetMs: timeLimit(R, DEEP_SECONDS) * 1000, maxEvals: 20000 } });
 }
 
 function deepDone(R, pl, cert, maxLen) {
@@ -835,7 +843,7 @@ function startFinite() {
     const job = {
         poly: m.degree > 1 ? m.polySrc : null,
         mats: m.mats.map((r) => r.map((e) => e.src)),
-        numbers: m.numbers, seconds: st.seconds, maxPrimes: MAX_PRIMES,
+        numbers: m.numbers, seconds: timeLimit(R, st.seconds), maxPrimes: MAX_PRIMES,
     };
     let worker;
     try {
@@ -859,7 +867,7 @@ function startFinite() {
     };
     const arm = () => {
         clearTimeout(watchdog);
-        watchdog = setTimeout(() => finish(`no answer for ${3 * st.seconds + 20} s`), (3 * st.seconds + 20) * 1000);
+        watchdog = setTimeout(() => finish(`no answer for ${3 * timeLimit(R, st.seconds) + 20} s`), (3 * timeLimit(R, st.seconds) + 20) * 1000);
     };
     arm();
     worker.onmessage = (ev) => {
@@ -1052,7 +1060,7 @@ function startCongruence() {
     let answered = false;
     const stop = () => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); };
     const done = (m) => { if (answered) return; answered = true; congruenceDone(R, m); };
-    const timer = setTimeout(() => { stop(); if (!answered) done({ error: `no answer after ${CONG_SECONDS + 20} s` }); }, (CONG_SECONDS + 40) * 1000);
+    const timer = setTimeout(() => { stop(); if (!answered) done({ error: `no answer after ${timeLimit(R, CONG_SECONDS) + 20} s` }); }, (timeLimit(R, CONG_SECONDS) + 40) * 1000);
     worker.onmessage = (ev) => {
         const m = ev.data;
         if ('shape' in m) { stop(); if (R === run && R.congruence) { R.congruence.shape = m.shape; refreshView('zariski'); } return; }
@@ -1060,7 +1068,7 @@ function startCongruence() {
         if (m.error) stop();
     };
     worker.onerror = (e) => { e.preventDefault?.(); stop(); done({ error: e.message || 'the worker failed to load' }); };
-    worker.postMessage({ id: R.seq, rows: R.model.mats.map((r) => r.map((e) => e.src)), S, C: A.congruence, cap: 4000000, seconds: CONG_SECONDS });
+    worker.postMessage({ id: R.seq, rows: R.model.mats.map((r) => r.map((e) => e.src)), S, C: A.congruence, cap: 4000000, seconds: timeLimit(R, CONG_SECONDS) });
 }
 
 function congruenceDone(R, m) {
@@ -1617,7 +1625,7 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
     R.sarith.worker = worker;
     const ep = R.arithEpoch, live = () => R === run && R.arithEpoch === ep;
     const stop = () => { dropWorker(R, worker); if (live()) R.sarith.worker = null; };
-    const timer = setTimeout(() => { if (!live()) return; sarithError(R, 'the search did not stop in time'); stop(); }, (st.beamSeconds * MAX_STRETCH + 60) * 1000);
+    const timer = setTimeout(() => { if (!live()) return; sarithError(R, 'the search did not stop in time'); stop(); }, (timeLimit(R, st.beamSeconds) * MAX_STRETCH + 60) * 1000);
     worker.onmessage = (ev) => {
         if (!live()) return;
         const msg = ev.data.msg;
@@ -1667,7 +1675,7 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
             sameField: m.degree === A.k.d,
             arch: factors.map((f) => ({ re: f.re, im: f.im, kind: f.kind })),
             metric: st.metric,
-            opts: { beamWidth: st.beam, flashSize: st.flash, seconds: st.beamSeconds, maxReps: st.maxReps, maxStretch: MAX_STRETCH },
+            opts: { beamWidth: st.beam, flashSize: st.flash, seconds: timeLimit(R, st.beamSeconds), maxReps: st.maxReps, maxStretch: MAX_STRETCH },
             calibMs: referenceMs(),
             stabCount: m.degree === 1 || factors.length >= 2 || (m.degree === 2 && bianchiRing(m.polySrc) && factors.some((f) => f.kind === 'complex')) ? EXACT_STAB_COUNT : 12,
         },
@@ -1723,10 +1731,12 @@ function definiteJob(R) {
         if (ex && ex.index) quaternionFound(R, ex);
         else startSarith(false, true, ex);
     };
-    const timer = setTimeout(() => done({ index: null, error: `no answer after ${DEFINITE_TIMEOUT} s` }), DEFINITE_TIMEOUT * 1000);
+    const timer = setTimeout(() => done({ index: null, error: `no answer after ${timeLimit(R, DEFINITE_TIMEOUT)} s` }), timeLimit(R, DEFINITE_TIMEOUT) * 1000);
     worker.onmessage = (ev) => done(ev.data.result);
     worker.onerror = (e) => { e.preventDefault?.(); done({ index: null, error: e.message || 'the worker failed to load' }); };
-    worker.postMessage({ id: R.seq, ...definiteParams(m, A) });
+    const job = definiteParams(m, A);
+    job.opts.seconds = timeLimit(R, job.opts.seconds);
+    worker.postMessage({ id: R.seq, ...job });
 }
 
 /** Γ (or K, its elements with even valuations outside S) has finite index in Λ = N(𝒪[1/S])/k^×. */
@@ -1786,10 +1796,10 @@ function numberRingJob(R, words, cb, seconds = NR_SECONDS, express = false) {
         if (R !== run || R.arithEpoch !== ep || R.cancelled) return;
         cb(result);
     };
-    const timer = setTimeout(() => done({ index: null, error: `no answer after ${NR_TIMEOUT} s` }), NR_TIMEOUT * 1000);
+    const timer = setTimeout(() => done({ index: null, error: `no answer after ${timeLimit(R, NR_TIMEOUT)} s` }), timeLimit(R, NR_TIMEOUT) * 1000);
     worker.onmessage = (ev) => done(ev.data.result);
     worker.onerror = (e) => { e.preventDefault?.(); done({ index: null, error: e.message || 'the worker failed to load' }); };
-    worker.postMessage({ id: R.seq, poly: m.polySrc, rows: m.mats.map((row) => row.map((e) => e.src)), words, seconds, express });
+    worker.postMessage({ id: R.seq, poly: m.polySrc, rows: m.mats.map((row) => row.map((e) => e.src)), words, seconds: timeLimit(R, seconds), express });
 }
 /** Γ (or its subgroup K fixing a vertex of every tree) has finite index in (a conjugate of) PGL₂(O_k). */
 function numberRingFound(R, ex) {
@@ -1866,10 +1876,10 @@ function cuspJob(R, extra, cb) {
     arithWorker(R, worker);
     const ep = R.arithEpoch;
     const done = (msg) => { clearTimeout(timer); dropWorker(R, worker); if (R === run && R.arithEpoch === ep) cb(msg && msg.result ? msg.result : null); };
-    const timer = setTimeout(() => done(null), (CUSP_SECONDS + 20) * 1000);
+    const timer = setTimeout(() => done(null), (timeLimit(R, CUSP_SECONDS) + 20) * 1000);
     worker.onmessage = (ev) => done(ev.data);
     worker.onerror = (e) => { e.preventDefault?.(); done(null); };
-    worker.postMessage({ id: R.seq, gens: m.mats.map((r) => r.map((e) => e.src)), poly: m.poly.map(String), root: m.roots[m.defaultIndex], maxElements: 40000, seconds: CUSP_SECONDS, ...extra });
+    worker.postMessage({ id: R.seq, gens: m.mats.map((r) => r.map((e) => e.src)), poly: m.poly.map(String), root: m.roots[m.defaultIndex], maxElements: 40000, seconds: timeLimit(R, CUSP_SECONDS), ...extra });
 }
 
 function startCusps(R) {
@@ -1968,7 +1978,7 @@ function runOrbits(R, msg) {
         if (!((msg.status === 'covered' || msg.auto) && S.certifiable && S.arch)) stopWorker();
         sarithDone(R, msg);
     };
-    S.worker.postMessage({ id: R.seq, cmd: 'orbits', rows: R.model.mats.map((r) => r.map((e) => e.src)), S: R.zariski.arith.ring.S.map((x) => x.p), seconds: ORBIT_SECONDS });
+    S.worker.postMessage({ id: R.seq, cmd: 'orbits', rows: R.model.mats.map((r) => r.map((e) => e.src)), S: R.zariski.arith.ring.S.map((x) => x.p), seconds: timeLimit(R, ORBIT_SECONDS) });
 }
 
 /**
@@ -2127,7 +2137,7 @@ function requestHarvest(R, attempt) {
         S.stabFound = msg.stabFound;
         stabilizerCheck(R, msg.stab, attempt);
     };
-    S.worker.postMessage({ id: R.seq, cmd: 'harvest', seconds: HARVEST_SECONDS, stabCount: R.model.degree === 1 || bianchiOf(R) || (R.sarith.arch && R.sarith.arch.kind === 'multi') ? EXACT_STAB_COUNT : STAB_SIZES[attempt] + 4 });
+    S.worker.postMessage({ id: R.seq, cmd: 'harvest', seconds: timeLimit(R, HARVEST_SECONDS), stabCount: R.model.degree === 1 || bianchiOf(R) || (R.sarith.arch && R.sarith.arch.kind === 'multi') ? EXACT_STAB_COUNT : STAB_SIZES[attempt] + 4 });
 }
 
 function stabilizerCheck(R, stab, attempt) {
@@ -2189,7 +2199,7 @@ function stabilizerCheck(R, stab, attempt) {
             requestHarvest(R, attempt + 1);
         } else {
             let why;
-            if (out.timeout) why = `Poincaré took longer than ${ARCH_TIMEOUT} s.`;
+            if (out.timeout) why = `Poincaré took longer than ${timeLimit(R, ARCH_TIMEOUT)} s.`;
             else if (out.error) why = `Poincaré failed: ${String(out.error).replace(/\$/g, '')}.`;
             else if (sm && sm.status === 'verified') why = S.arch.kind === 'real' ? `Their Dirichlet domain is verified, but it has ${plural(sm.freeArcs, 'free side')} at infinity, so it has infinite area.` : 'Their Dirichlet domain is verified, but it has infinite volume.';
             else why = 'Poincaré’s conditions did not close up for these elements at this word length.';
@@ -2250,10 +2260,10 @@ function cuspStabCheck(R, stab, attempt) {
             finishStab(R, true);
         } else next();
     };
-    const timer = setTimeout(() => done({ error: 'no answer in time' }), 40000);
+    const timer = setTimeout(() => done({ error: 'no answer in time' }), (timeLimit(R, 10) + 30) * 1000);
     worker.onmessage = (ev) => done(ev.data);
     worker.onerror = (e) => { e.preventDefault?.(); done({ error: e.message }); };
-    worker.postMessage({ id: R.seq, gens: m.mats.map((r) => r.map((e) => e.src)), poly: m.poly.map(String), words: stab.map((e) => e.word), root: m.roots[m.defaultIndex], maxElements: 40000, seconds: 10 });
+    worker.postMessage({ id: R.seq, gens: m.mats.map((r) => r.map((e) => e.src)), poly: m.poly.map(String), words: stab.map((e) => e.word), root: m.roots[m.defaultIndex], maxElements: 40000, seconds: timeLimit(R, 10) });
 }
 
 function finishStab(R, ok) {
@@ -2332,7 +2342,7 @@ function verdict() {
             : s.status === 'running' ? `${where} Deciding whether it is arithmetic…`
                 : s.status === 'open' ? `${where} Whether $\\Gamma$ is arithmetic is undecided. ${s.detail}`
                     : `${where}${zNote}`;
-        return { cls: 'yes', head, sub, place: best };
+        return { cls: 'yes', head, sub, place: best, retry: s.status === 'open' };
     }
     if (arithmetic) return { cls: 'yes', head: '$\\Gamma$ is arithmetic.', sub: `$\\Gamma^{(2)}$ has finite index in $${Ltex}$ (up to conjugation). ${s.detail}${still}` };
     if (s.status === 'yes') return { cls: 'yes', head: '$\\Gamma$ is thin.', sub: `It is Zariski dense, with infinite index in $${Ltex}$, and no place is known where it is discrete. ${s.detail}${still}` };
@@ -2342,7 +2352,7 @@ function verdict() {
     if (placesBusy) return { cls: '', head: 'Deciding discreteness at every place…', sub: s.status === 'open' ? `The search for an arithmetic certificate stopped: ${s.detail}` : '' };
     if (s.status === 'idle' && z.status !== 'open') return { cls: '', head: 'Deciding whether $\\Gamma$ is arithmetic…' };
     // nothing shown, and nothing left running
-    return { cls: 'open', head: '$\\Gamma$ is undecided.', sub: z.status === 'open' ? `Step 1 failed: ${z.detail}. ${p.head}. ${p.detail}` : `${p.head}. ${p.detail} ${s.detail}` };
+    return { cls: 'open', head: '$\\Gamma$ is undecided.', retry: true, sub: z.status === 'open' ? `Step 1 failed: ${z.detail}. ${p.head}. ${p.detail}` : `${p.head}. ${p.detail} ${s.detail}` };
 }
 
 
@@ -2476,11 +2486,19 @@ function renderVerdict() {
     card.hidden = false;
     $('v-head').className = `v-head ${v.cls}`;
     $('v-head').innerHTML = mix(plainArith(v.head));
-    $('v-sub').innerHTML = v.sub ? mix(plainArith(v.sub)) : '';
-    typeset(card);
     const busy = run && STEPS.some((s) => run.steps[s].status === 'running');
+    $('v-sub').innerHTML = (v.sub ? mix(plainArith(v.sub)) : '') + (v.retry && !busy ? retryHtml(run) : '');
+    typeset(card);
     const note = run && run.note ? run.note : '';
     setStageStatus(busy ? (note ? `${note} Computing…` : 'Computing…') : note);
+}
+
+/** For an undecided Γ: run again with 4 times the time limits (up to 16 times the settings). */
+function retryHtml(R) {
+    const t = (R && R.settings && R.settings.time) || 1;
+    const next = TIME_SCALES.find((x) => x >= 4 * t) || (t < 16 ? 16 : null);
+    if (!next) return ` <span class="v-retry">The time limits are already 16 times the settings.</span>`;
+    return ` <button class="v-retry-btn" id="more-time" data-time="${next}">Run again with ${next} times the time limits</button>`;
 }
 
 /** The tone of a place in the summary: green when discrete, red when not, grey while undecided. */
@@ -2812,7 +2830,7 @@ function edited() {
 
 function currentState() {
     const st = readSettings();
-    return { v: 1, ...input.getState(), depth: st.depth, faces: st.faces, secs: st.seconds, beam: st.beam, flash: st.flash, bsecs: st.beamSeconds, reps: st.maxReps, metric: st.metric };
+    return { v: 1, ...input.getState(), depth: st.depth, faces: st.faces, secs: st.seconds, beam: st.beam, flash: st.flash, bsecs: st.beamSeconds, reps: st.maxReps, metric: st.metric, ...(st.time > 1 ? { time: st.time } : {}) };
 }
 
 function updatePermalink() {
@@ -2823,6 +2841,7 @@ function applySettings(st) {
     const set = (id, v) => { if (v != null) $(id).value = String(v); };
     set('wordLength', st.depth); set('face-count-input', st.faces); set('decide-seconds', st.secs);
     set('beam-width', st.beam); set('flash-size', st.flash); set('beam-seconds', st.bsecs); set('max-reps', st.reps); set('tree-metric', st.metric);
+    set('time-scale', st.time);
 }
 
 /** The input state of a permalink: poincare's own, or this page's Zariski-style one of 2026-10-06. */
@@ -2881,6 +2900,13 @@ function closeExamples() { $('ex-pop').hidden = true; $('examples-btn').setAttri
 
 function wire() {
     $('compute-btn').addEventListener('click', compute);
+    // an undecided Γ: the same run with longer time limits
+    $('v-sub').addEventListener('click', (e) => {
+        const b = e.target.closest('#more-time');
+        if (!b) return;
+        $('time-scale').value = b.dataset.time;
+        compute();
+    });
     $('settings-btn').addEventListener('click', () => {
         const on = $('settings').hidden;
         $('settings').hidden = !on;
