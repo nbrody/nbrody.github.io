@@ -7,6 +7,7 @@
     --bg: #f7f6f2; --card: #ffffff; --ink: #1f2a37; --muted: #5f6b7a; --faint: #8a94a1; --line: #e3e0d8;
     --accent: #2f5d8a; --accent-soft: #e8eff6; --good: #2e7d4f; --good-soft: #e6f3eb; --warn: #a2551a; --warn-soft: #fbefe4;
     --bad: #b3261e; --bad-soft: #fbe9e7; --info: #5b4fa8; --info-soft: #eeebf9; --input-bg: #fcfcfa;
+    --gt-hyp: #1c6e8c; --gt-hyp-soft: #e4f1f5; --gt-par: #6b4fb3; --gt-par-soft: #f0ebfa; --gt-ell: #9a5b12; --gt-ell-soft: #fbf0e1;
     --rp-accent: var(--accent); --rp-yes: var(--good); --rp-no: var(--bad); --rp-ink: var(--ink); --rp-dim: var(--muted); --rp-faint: var(--faint); --rp-bg: var(--input-bg); --rp-line: var(--line); --rp-font: var(--sans);
     --serif: Georgia, 'Times New Roman', serif;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -17,12 +18,14 @@
         --bg: #15181d; --card: #1d2128; --ink: #e6e9ee; --muted: #a3acb8; --faint: #7d8794; --line: #2e343d;
         --accent: #8fb8e0; --accent-soft: #233041; --good: #7fcf9d; --good-soft: #1f3328; --warn: #e9a46c; --warn-soft: #3a2a1d;
         --bad: #f28b82; --bad-soft: #3a2222; --info: #b6aef0; --info-soft: #2a2740; --input-bg: #171a20;
+        --gt-hyp: #6cc3dd; --gt-hyp-soft: #1b3139; --gt-par: #bba9f2; --gt-par-soft: #2b2642; --gt-ell: #e8b06a; --gt-ell-soft: #3a2d1a;
     }
 }
 :root[data-theme="dark"] {
     --bg: #15181d; --card: #1d2128; --ink: #e6e9ee; --muted: #a3acb8; --faint: #7d8794; --line: #2e343d;
     --accent: #8fb8e0; --accent-soft: #233041; --good: #7fcf9d; --good-soft: #1f3328; --warn: #e9a46c; --warn-soft: #3a2a1d;
     --bad: #f28b82; --bad-soft: #3a2222; --info: #b6aef0; --info-soft: #2a2740; --input-bg: #171a20;
+    --gt-hyp: #6cc3dd; --gt-hyp-soft: #1b3139; --gt-par: #bba9f2; --gt-par-soft: #2b2642; --gt-ell: #e8b06a; --gt-ell-soft: #3a2d1a;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--ink); font-family: var(--serif); line-height: 1.55; }
@@ -204,6 +207,29 @@ dl.facts dd:last-of-type, dl.facts dt:last-of-type { border-bottom: none; }
 .step-body td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 td.st-full { color: var(--good); }
 td.st-deficient { color: var(--warn); }
+/* step 1: each generator at each place (charSets.js); a cell shows its characteristic set */
+table.gt { border-collapse: collapse; }
+.step-body table.gt th.gt-col { text-align: center; padding: 4px 10px 6px; font-weight: 400; color: var(--ink); font-size: 0.95rem; }
+.gt-col .gt-place { display: block; font-family: var(--sans); font-size: 0.72rem; color: var(--faint); margin-top: 1px; white-space: nowrap; }
+.step-body table.gt th.gt-row { font-weight: 400; color: var(--ink); font-size: 0.95rem; padding-right: 12px; vertical-align: middle; }
+.step-body table.gt td { text-align: center; padding: 3px 4px; vertical-align: middle; }
+/* a color per type: hyperbolic, parabolic, elliptic (torsion is elliptic of finite order) */
+:is(.gt-cell, .gt-kind)[data-cls="hyperbolic"] { --gt: var(--gt-hyp); --gt-soft: var(--gt-hyp-soft); }
+:is(.gt-cell, .gt-kind)[data-cls="parabolic"] { --gt: var(--gt-par); --gt-soft: var(--gt-par-soft); }
+:is(.gt-cell, .gt-kind)[data-cls="elliptic"], :is(.gt-cell, .gt-kind)[data-cls="torsion"] { --gt: var(--gt-ell); --gt-soft: var(--gt-ell-soft); }
+.gt-cell { font-family: var(--sans); font-size: 0.84rem; color: var(--gt, var(--ink)); background: var(--gt-soft, none); border: 1px solid transparent; border-radius: 6px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+.gt-cell:hover { border-color: var(--gt, var(--line)); }
+.gt-cell:focus-visible { outline: none; border-color: var(--gt, var(--accent)); }
+.gt-cell.sel { border-color: var(--gt, var(--accent)); box-shadow: 0 0 0 1px var(--gt, var(--accent)); font-weight: 600; }
+.gt-cell[data-cls="identity"], .gt-cell[data-cls="error"] { color: var(--faint); }
+.gt-detail { margin-top: 8px; padding: 6px 12px; border-left: 2px solid var(--accent-soft); }
+.gt-detail:has(.gt-kind[data-cls]) { border-left-color: var(--gt-line, var(--accent-soft)); }
+.gt-detail:has(.gt-kind[data-cls="hyperbolic"]) { --gt-line: var(--gt-hyp); }
+.gt-detail:has(.gt-kind[data-cls="parabolic"]) { --gt-line: var(--gt-par); }
+.gt-detail:has(.gt-kind[data-cls="elliptic"]), .gt-detail:has(.gt-kind[data-cls="torsion"]) { --gt-line: var(--gt-ell); }
+.gt-detail p { margin: 3px 0; }
+.gt-detail .gt-head { font-weight: 600; }
+.gt-kind { color: var(--gt, var(--ink)); }
 .word { font-family: var(--mono); font-size: 0.86rem; color: var(--accent); word-break: break-all; }
 
 /* places */

@@ -28,6 +28,7 @@ import { reidemeisterSchreier, tietze, abelianInvariants, findWords } from './pr
 import { congruenceClosure, congruenceDescription, congruenceCosetAction, findLevels } from './congruence.js';
 import { graphOfGroups, hallExtension, rationalAlgebra, wordsInGiven, eliminateByWords, restateFromGraph, stripTree, GRAPH_MAX_COSETS } from './graphOfGroups.js';
 import { beamWords } from './wordSearch.js';
+import { subgroupPresentation } from './felsch.js';
 
 const babs = (x) => (x < 0n ? -x : x);
 const bgcd = (a, b) => { a = babs(a); b = babs(b); while (b) [a, b] = [b, a % b]; return a; };
@@ -98,13 +99,6 @@ export function presentationOverQ(rows, S, opts = {}) {
     if (!r.index) return { error: `coset enumeration did not close (${r.limit || r.error})` };
     if (r.index > maxIndex) return { error: `[Λ : Γ] = ${r.index} is above the limit ${maxIndex} for a presentation`, index: r.index };
 
-    // K by Reidemeister–Schreier: generator k (1 …) is s_k = t_i·x·t_{i·x}⁻¹
-    const RS = reidemeisterSchreier({ nLetters: P.gens.length, inv: (x) => x, relators: P.relators, table: r.table });
-    const wordM = (w) => w.reduce((A, x) => prim(mul(A, P.gens[x])), ONE);
-    const sMat = RS.gens.map(({ i, x }) => prim(mul(mul(wordM(RS.transversal[i]), P.gens[x]), adj(wordM(RS.transversal[r.table[i][x]])))));
-    const m = RS.gens.length;
-    const kWord = (M) => RS.rewrite(wordInPGL2ZS(M, P));                // M ∈ K (in the frame) → word in 1 … m
-
     // Γ/K: a basis u₁ … u_r of the parity classes reached, as matrices of Γ in the frame
     const basis = [];                                                    // { c, M } in echelon form
     const reduceC = (c) => { let v = c.slice(), word = []; for (const [j, b] of basis.entries()) if (v[b.pivot]) { v = v.map((x, t) => x ^ b.c[t]); word.push(j); } return { v, word }; };
@@ -139,6 +133,14 @@ export function presentationOverQ(rows, S, opts = {}) {
         const Uprod = js.reduce((A, j) => prim(mul(A, basis[j].M)), ONE);
         return { js, k: prim(mul(adj(Uprod), Mf)) };
     };
+
+    // K by Reidemeister–Schreier: generator k (1 …) is s_k = t_i·x·t_{i·x}⁻¹
+    const RS = reidemeisterSchreier({ nLetters: P.gens.length, inv: (x) => x, relators: P.relators, table: r.table });
+    const wordM = (w) => w.reduce((A, x) => prim(mul(A, P.gens[x])), ONE);
+    const sMat = RS.gens.map(({ i, x }) => prim(mul(mul(wordM(RS.transversal[i]), P.gens[x]), adj(wordM(RS.transversal[r.table[i][x]])))));
+    const m = RS.gens.length;
+    const kWord = (M) => RS.rewrite(wordInPGL2ZS(M, P));                // M ∈ K (in the frame) → word in 1 … m
+
     // the presentation on s₁ … s_m, u₁ … u_r, g₁ … g_n
     const n = R.mats.length;
     const uNum = (j) => m + 1 + j, gNum = (i) => m + nu + 1 + i;
@@ -209,7 +211,8 @@ export function presentationOverQ(rows, S, opts = {}) {
     };
     let F;
     try { F = finish(T); } catch (e) { return { error: e.message }; }
-    const kgens = F._gens;
+    let kgens = F._gens;
+    let Tcur = T;
     // an element of Γ (in the frame) as a word in the generators kept
     const wordInKept = (Mf) => {
         const { js, k } = split(Mf);
@@ -232,6 +235,17 @@ export function presentationOverQ(rows, S, opts = {}) {
             return F3;
         },
     };
+    // generators Tietze kept besides the given ones: their words from the labeled coset enumeration
+    // (the modified Todd–Coxeter algorithm), exact, so that each can be removed
+    if (!F.onGiven && tableFrom === 'coset enumeration' && opts.labeled !== false) {
+        try {
+            const wordInGiven = labeledRewriter(R, P, words, r.index, { basis, split }, { seconds });
+            if (wordInGiven) {
+                const Q = core.restate(kgens.map((g) => (g.given === null ? wordInGiven(g.Mf) : null)));
+                if (Q) Object.assign(F, Q, { hFrom: 'labels' });
+            }
+        } catch (e) { /* keep the h's */ }
+    }
     delete F._gens;
     return {
         _core: core,
@@ -239,6 +253,31 @@ export function presentationOverQ(rows, S, opts = {}) {
         ...F,
         rs: { generators: m, relators: RS.relators.length },
         ms: Date.now() - t0,
+    };
+}
+
+/**
+ * Every element of Γ as a word in the given generators, from the labeled coset enumeration of
+ * K = ⟨kernelGens⟩ in Λ (the modified Todd–Coxeter algorithm, felsch.js subgroupPresentation): an
+ * element of K, read through the table in Λ's letters, comes out as a word in K's generators k_l, and
+ * those have words κ_l in the given generators (reduceToLambda); an element of Γ is u_{j₁}⋯u_{j_t}·k
+ * with the coset representatives u_j of Γ/K, which have words too. Exact, so no search is needed.
+ * Returns wordInGiven(M in the frame), or null when the labeled enumeration does not close in time or
+ * gives another index; wordInGiven throws when a word passes 20000 letters.
+ */
+function labeledRewriter(R, P, words, index, { basis, split }, { seconds = 10 } = {}) {
+    const n = P.gens.length;
+    // the involutions as letters with inverses: x ↦ 2x, and the relators x²
+    const relF = P.relators.map((w) => w.map((x) => 2 * x)).concat(Array.from({ length: n }, (_, k) => [2 * k, 2 * k]));
+    const SP = subgroupPresentation(n, relF, words.map((w) => w.map((x) => 2 * x)), { seconds, maxCosets: Math.max(50000, 8 * index), maxLength: 20000 });
+    if (!SP.index || SP.index !== index) return null;
+    const kappa = R.kernelWords;
+    const ups = basis.map((b) => b.w);
+    return (Mf) => {
+        const { js, k } = split(Mf);
+        const w = SP.rewrite(wordInPGL2ZS(k, P).map((x) => 2 * x));
+        if (w === null) throw new Error('a word is too long');
+        return freeReduce(js.flatMap((j) => ups[j]).concat(substAll(w, (l) => kappa[l - 1])));
     };
 }
 

@@ -278,7 +278,8 @@ export function tietze(m, relators, { maxLen = 12, growth = 1.15, slack = 4, max
     const keep = [...alive].sort((a, b) => a - b);
     const num = new Map(keep.map((g, i) => [g, i + 1]));
     const ren = (w) => w.map((x) => Math.sign(x) * num.get(Math.abs(x)));
-    const powers = [...orders].filter(([g, n]) => n > 1 && alive.has(g)).sort((a, b) => a[0] - b[0]).map(([g, n]) => new Array(n).fill(g));
+    // (a generator of order 1 that had to be kept, keepPreferred, keeps its relator x)
+    const powers = [...orders].filter(([g, n]) => n >= 1 && alive.has(g)).sort((a, b) => a[0] - b[0]).map(([g, n]) => new Array(n).fill(g));
     return {
         keep,
         relators: powers.concat([...rels.values()].sort((a, b) => a.length - b.length || canonKey(a).localeCompare(canonKey(b)))).map(ren),

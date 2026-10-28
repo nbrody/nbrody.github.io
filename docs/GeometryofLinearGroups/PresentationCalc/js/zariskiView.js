@@ -85,8 +85,48 @@ export function texToText(t) {
         .replace(/\\cong/g, '≅').replace(/\\tfrac\{1\}\{([^}]*)\}/g, '1/$1').replace(/[{}]/g, '').replace(/\\/g, '').replace(/\s+/g, ' ').trim();
 }
 
-/** Step 1 as a card. */
-export function zariskiCard(res, model) {
+/**
+ * The generators at each place (charSets.js): a row per generator, a column per space Γ acts on,
+ * each cell a button; the selected cell's characteristic set below. chars: { table, sel } with
+ * table = { status: 'running' | 'error' | 'done', columns, rows, notes, error }, sel = 'i:j'.
+ */
+export function generatorTableHtml(chars, nGens) {
+    const T = chars && chars.table;
+    if (!T || T.status === 'running') return `<p class="note">${mix('Classifying each generator at each place…')}</p>`;
+    if (T.status === 'error') return `<p class="note">${mix(`Could not classify the generators: ${T.error}`)}</p>`;
+    let html = '<div class="wrap"><table class="gt"><thead><tr><th></th>';
+    for (const c of T.columns) {
+        html += `<th class="gt-col">${tex(c.space)}<span class="gt-place">at ${tex(c.label)}${c.bounded ? ' · bounded' : ''}</span></th>`;
+    }
+    html += '</tr></thead><tbody>';
+    T.rows.forEach((row, i) => {
+        html += `<tr><th scope="row" class="gt-row">${tex(`g_{${i + 1}}`)}</th>`;
+        row.forEach((cell, j) => {
+            const key = `${i}:${j}`;
+            html += `<td><button type="button" class="gt-cell${chars.sel === key ? ' sel' : ''}" data-gcell="${key}" data-cls="${cell.cls}" aria-pressed="${chars.sel === key}">${esc(cell.text)}</button></td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += `<div class="gt-detail">${generatorDetailHtml(chars, nGens)}</div>`;
+    if (T.notes && T.notes.length) html += `<p class="note">${T.notes.map(mix).join(' ')}</p>`;
+    return html;
+}
+
+/** The selected cell's characteristic set, or a hint. */
+export function generatorDetailHtml(chars) {
+    const T = chars && chars.table;
+    if (!T || T.status !== 'done') return '';
+    const [i, j] = String(chars.sel || '').split(':').map(Number);
+    const cell = Number.isInteger(i) && T.rows[i] ? T.rows[i][j] : null;
+    if (!cell) return `<p class="note">${mix('Click a cell for the axis, the fixed point in the space, or the fixed point on the boundary.')}</p>`;
+    const c = T.columns[j];
+    const head = `<p class="gt-head">${mix(`$g_{${i + 1}}$ in $${c.space}$, at $${c.label}$:`)} <span class="gt-kind" data-cls="${cell.cls}">${esc(cell.text)}</span></p>`;
+    return head + cell.lines.map((l) => `<p>${mix(l)}</p>`).join('');
+}
+
+/** Step 1 as a card. chars: the generators at each place (generatorTableHtml). */
+export function zariskiCard(res, model, chars = null) {
     const F = res.field, C = res.closure, A = res.arith;
     const nGens = res.gens.length;
     let html = '<div class="vc-inner">';
@@ -96,11 +136,7 @@ export function zariskiCard(res, model) {
     if (A) html += `<div class="head-math">${tex(A.head.replace('\\langle S \\rangle', '\\Gamma'), true)}</div>`;
 
     const facts = [];
-    const gl = res.gens.map((g, i) => {
-        const kind = g.type === 'identity' ? 'scalar (trivial in $\\mathrm{PGL}_2$)' : g.order ? `${g.type}, order $${g.order}$` : `${g.type}, infinite order`;
-        return `<div>${tex(`g_{${i + 1}}`)}: ${tex(`\\operatorname{tr}^2/\\det = ${g.tauTex}`)} <span class="note">— ${mix(kind)}</span></div>`;
-    }).join('');
-    facts.push(['Generators', gl]);
+    facts.push(['Generators', generatorTableHtml(chars, nGens)]);
     facts.push([mix('Closure over $\\overline{\\mathbb{Q}}$'), mix(`$${C.tex}$, of dimension $${C.dim}$${C.order ? `; $|\\Gamma| = ${C.order}$` : ''}`) + `<div class="note">${mix(summaryTex(C.summary))}</div>`]);
     if (A) {
         const k = A.k;

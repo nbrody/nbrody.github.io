@@ -19,6 +19,7 @@ import { RINGS, presentationPGL2OS, wordInPGL2OS, enumerateGeneral, primitiveO, 
 import { reidemeisterSchreier, tietze, abelianInvariants, findWords } from './presentation.js';
 import { graphOfGroups, wordsInGiven, eliminateByWords, restateFromGraph, stripTree, GRAPH_MAX_COSETS } from './graphOfGroups.js';
 import { flashWords, log2Big } from './wordSearch.js';
+import { subgroupPresentation } from './felsch.js';
 
 const { O, mm, adj, det, projEq, units, pglMats } = ringOps;
 const invWord = (w) => w.slice().reverse().map((x) => -x);
@@ -104,7 +105,7 @@ export function standardLambdaBianchi(d, S) {
  * elements dividing the determinants). Returns as sarithPresentation.js presentationOverQ, with
  * matrices as text, or { error }.
  */
-export function presentationOverBianchi(d, mats, { seconds = 10, maxCosets = 2000000, maxIndex = 20000, maxLen = 16, longWords = true, graphUpTo = 0 } = {}) {
+export function presentationOverBianchi(d, mats, { seconds = 10, maxCosets = 2000000, maxIndex = 20000, maxLen = 16, longWords = true, graphUpTo = 0, labeled = true } = {}) {
     const t0 = Date.now();
     const R = O(d);
     const prims = mats.map((A) => primitiveO(R, A));
@@ -184,6 +185,22 @@ export function presentationOverBianchi(d, mats, { seconds = 10, maxCosets = 200
             return F3;
         },
     };
+    // generators Tietze kept besides the given ones: their words from the labeled coset enumeration
+    // (the modified Todd–Coxeter algorithm, felsch.js), exact, so that each can be removed
+    if (!F.onGiven && labeled) {
+        try {
+            const SP = subgroupPresentation(P.gens.length, P.relators, words, { seconds, maxCosets: Math.max(50000, 8 * r.index), maxLength: 20000 });
+            if (SP.index === r.index) {
+                const wordInGiven = (M) => {
+                    const w = SP.rewrite(wordInPGL2OS(M, P));
+                    if (w === null) throw new Error('a word is too long');
+                    return w;
+                };
+                const Q = core.restate(kgens.map((g) => (g.given === null ? wordInGiven(g.M) : null)));
+                if (Q) Object.assign(F, Q, { hFrom: 'labels' });
+            }
+        } catch (e) { /* keep the h's */ }
+    }
     delete F._gens;
     return {
         _core: core,

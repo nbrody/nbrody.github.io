@@ -33,7 +33,7 @@ import { ToolFrames } from '../../Geometric/Tools/discretenessAlgorithm/js/frame
 import { CURATED, CAT_ORDER, allExamples } from './examples.js';
 import { archClasses, sameTaus, tauValuesOf } from './archPlaces.js';
 import { mathLines, innerTex } from './texText.js';
-import { zariskiCard, congruenceSection, zariskiLineTex, jointCongruenceLine, summaryTex, esc, mix } from './zariskiView.js';
+import { zariskiCard, generatorDetailHtml, congruenceSection, zariskiLineTex, jointCongruenceLine, summaryTex, esc, mix } from './zariskiView.js';
 import { sarithCard, liveNumbers, wordText, gapText, presentationSection, presentationGap, relatorTexNamed, ordersFrom, orientRelator, graphTop } from './sarithView.js';
 import { createInput, fromZariskiStyle } from './input.js';
 import { indexInPGL2Z } from './modularIndex.js';
@@ -47,7 +47,7 @@ import { referenceMs } from './calibrate.js';
 import { randomGroup } from './randomGroup.js';
 import { elementarySection, elementaryTop } from './elementaryView.js';
 
-const VERSION = '2026-10-26b';          // busts the workers' module caches
+const VERSION = '2026-10-28';           // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const ZARISKI_TIMEOUT = 120;
 const MAX_PRIMES = 12;
@@ -140,7 +140,9 @@ function startPresentation(R) {
     // (a definite algebra: Γ is not in a Bianchi group, and no presentation is computed yet)
     if (R.sarith && R.sarith.exact && R.sarith.exact.quaternion) return;
     const ring = R.model.degree === 2 ? bianchiRing(R.model.polySrc) : null;
-    if (R.model.degree !== 1 && !ring) return;
+    // step 3 found the index by coset enumeration in PGL₂(O_k) (Voronoi's presentation): Γ's from the same table
+    const nr = R.model.degree > 1 && !ring && !!(R.sarith && R.sarith.exact && R.sarith.exact.numberRing);
+    if (R.model.degree !== 1 && !ring && !nr) return;
     const A = R.zariski.arith;
     const S = A.ring.S.map((x) => x.p);
     const cong = R.congruence && R.congruence.result;
@@ -163,6 +165,10 @@ function startPresentation(R) {
     worker.onerror = (e) => { e.preventDefault?.(); done({ error: e.message || 'the worker failed to load' }); };
     if (ring) {
         worker.postMessage({ id: R.seq, kind: 'bianchi', d: ring, polySrc: R.model.polySrc, rows: R.model.mats.map((r) => r.map((e) => e.src)), maxIndex: 20000, seconds: 20 });
+        return;
+    }
+    if (nr) {
+        worker.postMessage({ id: R.seq, kind: 'numberRing', polySrc: R.model.polySrc, rows: R.model.mats.map((r) => r.map((e) => e.src)), maxIndex: 5000, seconds: 20 });
         return;
     }
     worker.postMessage({
@@ -315,6 +321,7 @@ function zariskiDone(R, res) {
         refreshView('zariski');
         return;
     }
+    startCharTable(R);
     const line = zariskiLineTex(res);
     if (res.closure.kind !== 'dense') {
         stopPlaces(R);
@@ -443,6 +450,58 @@ function boundedArchKeys(R) {
     const forced = nRam > 0 && arch.length === k.r1 + k.r2 && compact.length === nRam && A.spaces.bounded.length === nRam;
     R.boundedArch = new Set(forced ? compact.map((p) => p.key) : []);
     return R.boundedArch;
+}
+
+/**
+ * Step 1's table: the places at ∞ as its columns, one per class of embeddings, named as step 2
+ * names them (ℝ₁, ℂ₂, or ℝ alone), each with the embedding the table is computed at.
+ */
+function charArch(R) {
+    const groups = archGroups(R.model);
+    const count = { real: 0, complex: 0 }, seen = { real: 0, complex: 0 };
+    for (const g of groups) count[g.rep.kind]++;
+    return groups.map((g, i) => {
+        const kn = ++seen[g.rep.kind];
+        return {
+            key: `inf${i + 1}`, kind: g.rep.kind, root: g.rep.root, bounded: !g.rep.noncompact,
+            label: `\\mathbb{${g.rep.kind === 'real' ? 'R' : 'C'}}${count[g.rep.kind] === 1 ? '' : `_{${kn}}`}`,
+        };
+    });
+}
+
+/**
+ * Each generator at each place where Γ acts on a symmetric space or a tree, and its characteristic
+ * set (charSets.js, in charWorker.js), for step 1's table. Sets R.charTable.
+ */
+function startCharTable(R) {
+    R.charTable = { status: 'running' };
+    R.charSel = null;
+    let worker;
+    try { worker = new Worker(new URL(`./charWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
+    catch (e) { R.charTable = { status: 'error', error: 'module workers are unavailable here' }; return; }
+    R.workers.add(worker);
+    const done = (m) => {
+        clearTimeout(timer);
+        try { worker.terminate(); } catch (e) { /* gone */ }
+        R.workers.delete(worker);
+        if (R !== run) return;
+        R.charTable = m.error ? { status: 'error', error: m.error } : { status: 'done', ...m.result };
+        refreshView('zariski');
+    };
+    const timer = setTimeout(() => done({ error: 'no answer after 30 s' }), 30000);
+    worker.onmessage = (ev) => done(ev.data);
+    worker.onerror = (e) => { e.preventDefault?.(); done({ error: e.message || 'the worker failed to load' }); };
+    const m = R.model;
+    worker.postMessage({
+        id: R.seq,
+        job: {
+            poly: m.degree > 1 ? m.polySrc : null,
+            mats: m.mats.map((r) => r.map((e) => e.src)),
+            numbers: m.numbers,
+            arch: charArch(R),
+            gens: R.zariski.gens.map((g) => ({ type: g.type, order: g.order })),
+        },
+    });
 }
 
 /**
@@ -2255,7 +2314,7 @@ function verdict() {
         const C = R.zariski.closure;
         const E = R.elementary && R.elementary.status === 'done' ? R.elementary.result : null;
         const iso = E && !E.finite && E.structure && E.structure !== '1' ? ` $\\Gamma \\cong ${E.structure}$${E.finitelyPresented === false ? ', not finitely presented' : ''}.` : '';
-        return { cls: 'info', head: '$\\Gamma$ is algebraic.', sub: `Its Zariski closure is $${C.tex}$.${iso} ${summaryTex(C.summary)}` };
+        return { cls: 'yes', head: '$\\Gamma$ is algebraic.', sub: `Its Zariski closure is $${C.tex}$.${iso} ${summaryTex(C.summary)}` };
     }
     const A = R.zariski && R.zariski.ok ? R.zariski.arith : null;
     const Ltex = A ? A.head.replace(/^.*\\le /, '') : '';
@@ -2344,7 +2403,14 @@ function presentationData() {
         const d = R.presentation.result.ring, ent = (x) => (d ? ringEltTex(d, x) : x);
         const extra = Pr.gens.map((g, i) => (g.given === null ? `${names[i]} = \\left(\\begin{smallmatrix}${ent(g.M[0])}&${ent(g.M[1])}\\\\${ent(g.M[2])}&${ent(g.M[3])}\\end{smallmatrix}\\right)` : null)).filter(Boolean);
         const orders = ordersFrom(Pr.relators);
-        return { source: 'Reidemeister–Schreier', rels: Pr.relators.map((w) => relatorTexNamed(w, names, orders)), complete: true, free: !Pr.relators.length, extra, toggle: hasGraph ? { to: 'nice', label: 'as a graph of groups' } : null };
+        // a very large presentation: the first relators and generators only (Copy for GAP, in step 3, has them all)
+        const cap = 150, big = Pr.relators.length > cap;
+        return {
+            source: 'Reidemeister–Schreier', rels: Pr.relators.slice(0, cap).map((w) => relatorTexNamed(w, names, orders)), count: Pr.relators.length,
+            note: big ? `the first ${cap} shown` : null, complete: true, free: !Pr.relators.length,
+            extra: extra.length > 12 ? extra.slice(0, 12).concat([`\\ldots\\ (${extra.length - 12}\\text{ more})`]) : extra,
+            toggle: hasGraph ? { to: 'nice', label: 'as a graph of groups' } : null,
+        };
     }
     for (const pl of disc) {
         const d = pl.decision;
@@ -2372,7 +2438,7 @@ function renderPresentation() {
         syncRelsHeight();
         return;
     }
-    const n = d.rels.length;
+    const n = d.count ?? d.rels.length;
     const head = `${mix(d.source)} · ${n} relation${n === 1 ? '' : 's'}${d.toggle ? ` <button class="quiet rels-toggle" id="rels-toggle" data-to="${d.toggle.to}">${mix(d.toggle.label)}</button>` : ''}${d.note ? ` <span class="rels-note">— ${mix(d.note)}</span>` : ''}${d.complete ? '' : ` <span class="partial">— ${d.source === 'FlashBeam' ? 'found, not known to be a presentation' : 'some may be missing'}</span>`}`;
     el.innerHTML = `<div class="rels-head">${head}</div>`
         + (d.names ? `<p class="rels-on">on \\(${d.names.join(', ')}\\)</p>` : '')
@@ -2529,7 +2595,7 @@ function refreshView(step) {
     if (step === 'zariski') {
         if (!R.zariski) html = `<p class="lead">${mix(R.error || 'Computing…')}</p>`;
         else if (!R.zariski.ok) html = `<div class="banner" data-status="open"><span class="dot"></span><div>${mix(R.zariski.error)}</div></div>`;
-        else html = zariskiCard(R.zariski, R.model);
+        else html = zariskiCard(R.zariski, R.model, { table: R.charTable, sel: R.charSel });
         if (R.elementary) html = html.replace(/<\/div>$/, `${elementarySection(R.elementary)}</div>`);
         if (R.descent && R.descent.mats) {
             const st = { v: 1, mats: R.descent.mats, anti: R.descent.mats.map(() => false), consts: [] };
@@ -2864,6 +2930,20 @@ function wire() {
     $('card-places').addEventListener('click', (e) => {
         const b = e.target.closest('[data-place]');
         if (b && run && run.byKey.has(b.dataset.place)) showView('places', b.dataset.place);
+    });
+    // step 1's table: a cell shows the generator's characteristic set at that place
+    $('card-zariski').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-gcell]');
+        if (!b || !run || !run.charTable || run.charTable.status !== 'done') return;
+        run.charSel = run.charSel === b.dataset.gcell ? null : b.dataset.gcell;
+        const card = $('card-zariski');
+        card.querySelectorAll('.gt-cell').forEach((c) => {
+            const on = c.dataset.gcell === run.charSel;
+            c.classList.toggle('sel', on);
+            c.setAttribute('aria-pressed', String(on));
+        });
+        const panel = card.querySelector('.gt-detail');
+        if (panel) { panel.innerHTML = generatorDetailHtml({ table: run.charTable, sel: run.charSel }); typeset(panel); }
     });
     document.querySelectorAll('.m').forEach((el) => { el.innerHTML = tex(el.textContent); });
 }

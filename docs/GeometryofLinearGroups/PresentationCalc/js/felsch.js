@@ -346,7 +346,93 @@ export function enumerateFelschAugmented(nGens, relators, subgroupWords, { maxCo
         const w = reduced.get(n0);
         return w ? w.slice() : null;
     };
-    return { index: T.length, table: T, labels: TL, defs, live, expand, length, nodes: kind.length, defined: table.length };
+    // the labels read along w from coset c, multiplied (freely reduced): t_c·w = word·t_end
+    const traceWord = (c, w, maxLength = 1e6) => {
+        let acc = [], d = c;
+        for (const x of w) {
+            const L = expand(TL[d][x], maxLength);
+            if (L === null) return { word: null, end: -1 };
+            acc = joinReduced(acc, L);
+            if (acc.length > maxLength) return { word: null, end: -1 };
+            d = T[d][x];
+        }
+        return { word: acc, end: d };
+    };
+    return { index: T.length, table: T, labels: TL, defs, live, expand, traceWord, length, nodes: kind.length, defined: table.length };
+}
+
+/**
+ * The modified Todd–Coxeter algorithm: a presentation of H = ⟨subgroupWords⟩ ≤ G = ⟨X | relators⟩ on H's
+ * own generators h₁ … h_m, when [G : H] is finite.
+ *
+ * The labeled enumeration gives coset representatives t_c (t₁ = 1) and, for every coset c and letter x,
+ * a word L(c, x) in the h's with t_c·x = L(c, x)·t_{c·x} in G. Reading a relator r of G around coset c
+ * multiplies the labels into a word in the h's equal to t_c·r·t_c⁻¹ = 1, and reading h_s's word w_s
+ * from coset 1 gives a word equal to h_s. Then
+ *     H = ⟨ h₁ … h_m | r read around c (every coset c, every relator r),  h_s⁻¹·(w_s read from 1) ⟩.
+ * Reidemeister–Schreier presents H on the Schreier generators t′_c·x·t′_{c·x}⁻¹ of any transversal
+ * t′_c = λ_c·t_c (λ_c ∈ H); the labels write each of them as λ_c·L(c, x)·λ_{c·x}⁻¹ in the h's, its
+ * relators become conjugates of the words above, and Tietze moves that replace the Schreier generators
+ * by those words leave exactly this presentation. So, unlike Reidemeister–Schreier followed by a search,
+ * it is always on the given generators.
+ *
+ * Returns { index, relators (words in ±(s+1), freely and cyclically reduced, without repeats), rewrite
+ * (a word in X for an element of H → a word in the h's, or null when too long), table, nodes, defined },
+ * or { limit } (with index when only a label was too long).
+ */
+export function subgroupPresentation(nGens, relators, subgroupWords, opts = {}) {
+    const maxLength = opts.maxLength ?? 100000;
+    const r = enumerateFelschAugmented(nGens, relators, subgroupWords, opts);
+    if (!r.index) return r;
+    const out = [], seen = new Set();
+    const add = (w) => {
+        const u = cyclicReduceSigned(w);
+        if (!u.length) return;
+        const k = rotationKey(u);
+        if (seen.has(k)) return;
+        seen.add(k);
+        out.push(u);
+    };
+    for (const rel of relators.map(cyclicReduce).filter((w) => w.length)) {
+        for (let c = 0; c < r.index; c++) {
+            const { word, end } = r.traceWord(c, rel, maxLength);
+            if (word === null) return { limit: 'a relator is too long', index: r.index };
+            if (end !== c) throw new Error('internal: a relator does not close in the table');
+            add(word);
+        }
+    }
+    for (let s = 0; s < subgroupWords.length; s++) {
+        const { word, end } = r.traceWord(0, subgroupWords[s], maxLength);
+        if (word === null) return { limit: 'a generator’s word is too long', index: r.index };
+        if (end !== 0) throw new Error('internal: a subgroup generator does not fix coset 1');
+        add([-(s + 1)].concat(word));
+    }
+    const rewrite = (w) => {
+        const { word, end } = r.traceWord(0, w, maxLength);
+        if (word !== null && end !== 0) throw new Error('the element is not in the subgroup');
+        return word;
+    };
+    return { index: r.index, relators: out, rewrite, table: r.table, nodes: r.nodes, defined: r.defined };
+}
+
+/** Free and cyclic reduction of a word in ±(s+1). */
+function cyclicReduceSigned(w) {
+    const o = [];
+    for (const x of w) { if (o.length && o[o.length - 1] === -x) o.pop(); else o.push(x); }
+    let i = 0, j = o.length - 1;
+    while (i < j && o[i] === -o[j]) { i++; j--; }
+    return o.slice(i, j + 1);
+}
+/** The same key for a cyclic word, its rotations and its inverse (exact rotations up to length 400). */
+function rotationKey(u) {
+    if (u.length > 400) return u.join(',');
+    const inv = u.slice().reverse().map((x) => -x);
+    let best = null;
+    for (const v of [u, inv]) for (let i = 0; i < v.length; i++) {
+        const k = v.slice(i).concat(v.slice(0, i)).join(',');
+        if (best === null || k < best) best = k;
+    }
+    return best;
 }
 
 /**

@@ -111,9 +111,9 @@ const ringA = (d) => {
         projEq: (A, B) => ringOps.projEq(R, A, B),
     };
 };
-const bGraph = (d, gens) => {
+const bGraph = (d, gens, opts = {}) => {
     const mats = gens.split('|').map((g) => g.split(',').map(ent));
-    const R = presentationReportBianchi(d, mats);
+    const R = presentationReportBianchi(d, mats, opts);
     assert.ok(R.graph && !R.graph.error, R.graph && R.graph.error);
     checkGraph(R.graph, mats, ringA(d), (M) => M.map(ent));
     return R;
@@ -160,17 +160,25 @@ function checkOnGiven(P, given, A) {
 }
 
 test('the h’s Tietze leaves get words through the graph of groups: the presentation is on the given generators', () => {
-    // over ℤ[1/5]: Reidemeister–Schreier and Tietze keep one Schreier generator
+    // over ℤ[1/5]: Reidemeister–Schreier and Tietze keep one Schreier generator …
     const k = '1,1,0,1|0,-1,1,0|25,0,0,1';
-    const P0 = presentationOverQ(rows(k), ['5']);
+    const P0 = presentationOverQ(rows(k), ['5'], { labeled: false });
     assert.equal(P0.onGiven, false);
+    // … which the labeled coset enumeration (the modified Todd–Coxeter algorithm) writes in the given ones
+    const P1 = presentationOverQ(rows(k), ['5']);
+    assert.equal(P1.hFrom, 'labels');
+    checkOnGiven(P1, givenQ(k), Q);
     const R = qGraph(k, ['5']);
-    assert.equal(R.pres.hFrom, 'graph');
+    assert.ok(R.pres.onGiven);
     checkOnGiven(R.pres, givenQ(k), Q);
-    // over ℤ[i]: two of them
-    const Rb = bGraph(1, '1,2,0,1|1,2w,0,1|1,0,1+w,1|1+w,0,0,1');
-    assert.equal(Rb.pres.hFrom, 'graph');
-    checkOnGiven(Rb.pres, '1,2,0,1|1,2w,0,1|1,0,1+w,1|1+w,0,0,1'.split('|').map((g) => g.split(',').map(ent)), ringA(1));
+    // over ℤ[i]: two of them, through the graph of groups (without labels) or the labels
+    const kb = '1,2,0,1|1,2w,0,1|1,0,1+w,1|1+w,0,0,1', given = kb.split('|').map((g) => g.split(',').map(ent));
+    const Rg = bGraph(1, kb, { labeled: false });
+    assert.equal(Rg.pres.hFrom, 'graph');
+    checkOnGiven(Rg.pres, given, ringA(1));
+    const Rb = bGraph(1, kb);
+    assert.equal(Rb.pres.hFrom, 'labels');
+    checkOnGiven(Rb.pres, given, ringA(1));
 });
 
 test('FlashBeam over ℚ and over ℤ[i]: words for the generators of the graph of groups, near o, through a pool that keeps what it finds', async () => {

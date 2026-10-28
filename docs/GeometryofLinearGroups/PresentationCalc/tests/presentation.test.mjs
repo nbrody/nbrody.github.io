@@ -26,6 +26,12 @@ test('Reidemeister–Schreier keeps the squares of involutions (PGL₂(ℤ) on i
     assert.deepEqual(abelianInvariants(R.gens.length, R.relators), { rank: 0, torsion: ['2', '2'] });
 });
 
+test('Tietze: a kept generator of order 1 keeps its relator x (keepPreferred)', () => {
+    const T = tietze(2, [[1], [2, 2, 2]], { prefer: new Set([1, 2]), keepPreferred: true });
+    assert.deepEqual(T.keep, [1, 2]);
+    assert.deepEqual(T.relators, [[1], [2, 2, 2]]);
+});
+
 test('Tietze: power relators reduce exponents, and redundant generators go', () => {
     // ⟨x, y, z | x², z = x y, x³ y⁻¹ x y⟩ = ⟨x, y | x², x y⁻¹ x y⟩ (z eliminated, x³ → x)
     const T = tietze(3, [[1, 1], [-3, 1, 2], [1, 1, 1, -2, 1, 2]], { prefer: new Set([1, 2]) });

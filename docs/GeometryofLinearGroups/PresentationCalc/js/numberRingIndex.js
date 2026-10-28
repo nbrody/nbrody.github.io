@@ -67,7 +67,7 @@ function parseEntry(nf, src) {
     const theta = RI.ratSolveRows(nf.subData.P, aCoords);
     return nf.fromPower(theta);
 }
-const kMat = (nf) => ({
+export const kMat = (nf) => ({
     mul: (A, B) => [0, 1].map((i) => [0, 1].map((j) => nf.kadd(nf.kmul(A[i][0], B[0][j]), nf.kmul(A[i][1], B[1][j])))),
     adj: (A) => [[A[1][1], neg(nf, A[0][1])], [neg(nf, A[1][0]), A[0][0]]],
 });
@@ -89,7 +89,7 @@ export function wordMatricesK(nf, genSrc, words) {
     });
 }
 // keep entries small: divide by the rational content (projectively harmless)
-function scaleDown(nf, M) {
+export function scaleDown(nf, M) {
     let g = 0n;
     const gcd = (a, b) => { a = a < 0n ? -a : a; b = b < 0n ? -b : b; while (b) [a, b] = [b, a % b]; return a; };
     let L = 1n;
@@ -188,7 +188,7 @@ export function conjugateIntoGL2O(nf, mats, { maxGens = 1500, maxRounds = 80, wo
     const W0 = words || mats.map((_, i) => [i + 1]);
     const invW = (w) => w.slice().reverse().map((x) => -x);
     const freeRedW = (w) => { const o = []; for (const x of w) { if (o.length && o[o.length - 1] === -x) o.pop(); else o.push(x); } return o; };
-    let gens = mats, gensW = W0, evenIndex = 1;
+    let gens = mats, gensW = W0, evenIndex = 1, repList = null;
     if (par.some((v) => v.some((b) => b))) {
         const key = (v) => v.join('');
         const add = (u, v) => u.map((x, i) => x ^ v[i]);
@@ -200,6 +200,7 @@ export function conjugateIntoGL2O(nf, mats, { maxGens = 1500, maxRounds = 80, wo
             mats.forEach((M, i) => { const c2 = add(c, par[i]); if (!reps.has(key(c2))) { const r0 = reps.get(key(c)); reps.set(key(c2), { v: c2, t: K.mul(r0.t, M), w: r0.w.concat(W0[i]) }); queue.push(c2); } });
         }
         evenIndex = reps.size;
+        repList = [...reps.values()];
         gens = []; gensW = [];
         for (const { v, t, w } of reps.values()) mats.forEach((M, i) => {
             if (gens.length >= maxGens) return;
@@ -287,7 +288,10 @@ export function conjugateIntoGL2O(nf, mats, { maxGens = 1500, maxRounds = 80, wo
     }
     // is g itself in GL₂(O)·k^× (so the conjugate of PGL₂(O) is PGL₂(O))?
     const trivial = !!intoGL2O(nf, g);
-    return { mats: out, words: gensW, g, evenIndex, trivial };
+    // for P. Hall's extension (numberRingPresentation.js): the coset representatives { v, t, w } of the
+    // even subgroup (v its parity class, t a matrix of H, w its word), and the parity of any matrix
+    const parity = (M) => { const d = det(M); return primes.map((pr) => ((val(pr, d) % 2) + 2) % 2); };
+    return { mats: out, words: gensW, g, evenIndex, trivial, reps: repList, parity };
 }
 
 // ------------------------------------------------------------------ the index
