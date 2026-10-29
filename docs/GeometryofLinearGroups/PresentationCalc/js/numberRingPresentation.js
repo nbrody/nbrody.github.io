@@ -119,13 +119,25 @@ export function presentationInPGL2O(polySrc, genSrc, opts = {}) {
     const m = RS.gens.length;
     const kWord = (Mk) => RS.rewrite(lambdaWord(intoO(Mk)));                 // M ∈ K (in the frame) → word in 1 … m
 
-    // Γ/K: a basis u₁ … u_r of the parity classes, as matrices of Γ in the frame, with their words
+    // Γ/K: a basis u₁ … u_r of the parity classes, as matrices of Γ in the frame, with their words.
+    // Each row is reduced against the earlier ones (M ← M·u⁻¹, and the word with it), so the parity
+    // stored on the row is the parity of that matrix. An unreduced class makes the solve below fail,
+    // or keep a dependent u, once two or more primes have odd valuation (as over ℚ).
     const basis = [];
     if (reps) {
-        const reduceC = (c) => { let v = c.slice(); for (const b of basis) if (v[b.pivot]) v = v.map((x, t) => x ^ b.c[t]); return v; };
+        const reduceRep = (c, M, w) => {
+            let v = c.slice(), Mat = M, word = w.slice();
+            for (const b of basis) if (v[b.pivot]) {
+                v = v.map((x, t) => x ^ b.c[t]);
+                Mat = mul(Mat, adj(b.M));
+                word = freeReduce(word.concat(invWord(b.w)));
+            }
+            return { v, M: Mat, w: word };
+        };
         for (const r of reps) {
-            const v = reduceC(r.v), pivot = v.indexOf(1);
-            if (pivot >= 0) basis.push({ c: r.v, M: inFrame(r.t), w: r.w, pivot });
+            const red = reduceRep(r.v, inFrame(r.t), r.w);
+            const pivot = red.v.indexOf(1);
+            if (pivot >= 0) basis.push({ c: red.v, M: red.M, w: red.w, pivot });
         }
     }
     const solve = (c) => {
