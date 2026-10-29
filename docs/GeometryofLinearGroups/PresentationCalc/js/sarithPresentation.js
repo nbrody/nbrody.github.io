@@ -99,15 +99,27 @@ export function presentationOverQ(rows, S, opts = {}) {
     if (!r.index) return { error: `coset enumeration did not close (${r.limit || r.error})` };
     if (r.index > maxIndex) return { error: `[Λ : Γ] = ${r.index} is above the limit ${maxIndex} for a presentation`, index: r.index };
 
-    // Γ/K: a basis u₁ … u_r of the parity classes reached, as matrices of Γ in the frame
-    const basis = [];                                                    // { c, M } in echelon form
-    const reduceC = (c) => { let v = c.slice(), word = []; for (const [j, b] of basis.entries()) if (v[b.pivot]) { v = v.map((x, t) => x ^ b.c[t]); word.push(j); } return { v, word }; };
-    for (const { c, M } of R.reps.values()) {
-        const { v } = reduceC(c);
-        const pivot = v.indexOf(1);
-        if (pivot >= 0) basis.push({ c, M: inFrame(M), pivot });
+    // Γ/K: a basis u₁ … u_r of the parity classes, as matrices of Γ in the frame, in echelon form.
+    // Reducing a class against earlier rows replaces its representative by M·u⁻¹ (and the word with it).
+    // The parity stored on the row is then the parity of that matrix. Keeping the unreduced class
+    // instead leaves a dependent row or a class the solve cannot express, for some orders of the
+    // same generators (a product of the two Atkin–Lehner elements of Γ₀(15)⁺ over ℤ[1/2]).
+    const basis = [];                                                    // { c, M, w } in echelon form
+    const reduceRep = (c, M, w) => {
+        let v = c.slice(), Mat = M, word = w.slice();
+        for (const b of basis) if (v[b.pivot]) {
+            v = v.map((x, t) => x ^ b.c[t]);
+            Mat = prim(mul(Mat, adj(b.M)));
+            word = freeReduce(word.concat(invWord(b.w)));
+        }
+        return { v, M: Mat, w: word };
+    };
+    for (const { c, M, w } of R.reps.values()) {
+        const red = reduceRep(c, inFrame(M), w);
+        const pivot = red.v.indexOf(1);
+        if (pivot >= 0) basis.push({ c: red.v, M: red.M, w: red.w, pivot });
     }
-    // c = Σ c_j·basis_j: solve by echelon reduction (basis vectors were reduced only against earlier ones)
+    // c = Σ c_j·basis_j over 𝔽₂. The rows are echelon, so one downward pass expresses c.
     const solve = (c) => {
         let v = c.slice(); const used = [];
         for (let pass = 0; pass < basis.length && v.some((x) => x); pass++) {
@@ -117,16 +129,6 @@ export function presentationOverQ(rows, S, opts = {}) {
         return used.sort((a, b) => a - b);
     };
     const nu = basis.length;
-    // each u_j as a word in the given generators: reduceToLambda's search over the parity classes, again
-    const zero = R.bad.map(() => 0), repWord = new Map([[R.key(zero), []]]);
-    for (const q = [zero]; q.length;) {
-        const c = q.shift(), w = repWord.get(R.key(c));
-        R.mats.forEach((G, i) => {
-            const c2 = c.map((x, t) => x ^ R.parity(G)[t]);
-            if (!repWord.has(R.key(c2))) { repWord.set(R.key(c2), w.concat([i + 1])); q.push(c2); }
-        });
-    }
-    for (const b of basis) b.w = repWord.get(R.key(b.c));
     // M ∈ Γ (in the frame) as u_{j₁} ⋯ u_{j_t}·k with k ∈ K
     const split = (Mf) => {
         const js = solve(R.parity(Mf));

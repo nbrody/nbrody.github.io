@@ -91,6 +91,16 @@ test('presentations on the given generators, every relator checked (also across 
     assert.equal(P.index, 8);
     assert.ok(P.onGiven);
     assert.equal(ab(P), '0|2,2');
+    // Γ₀(15)⁺ over ℤ[1/2], with the two Atkin–Lehner elements A (det 3) and B (det 5). Replacing B by
+    // AB (det 15) is the same group, but the parity classes arrive as 11, 10, 01. The basis has to
+    // reduce 11 against the earlier row; keeping the unreduced class throws "a parity class outside
+    // the span" and presents nothing.
+    const standard = presentationOverQ(rows('1,1,0,1|1,0,15,1|2,0,0,1|3,1,15,6|5,1,45,10'), ['2']);
+    const mixed = presentationOverQ(rows('1,1,0,1|1,0,15,1|2,0,0,1|60,13,345,75|3,1,15,6'), ['2']);
+    assert.equal(mixed.error, undefined);
+    assert.equal(mixed.kernelIndex, 4);
+    assert.equal(mixed.index, standard.index);
+    assert.equal(ab(mixed), ab(standard));
     // conjugated at 3 (even valuations): ⟨T³, (1 0; 1/3 1)⟩ ≅ PSL₂(ℤ)
     const C = presentationOverQ(rows('1,3,0,1|1,0,1/3,1'), []);
     assert.deepEqual(C.conjugatedAt, ['3']);
