@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>alphaCentaur talk · build</title>
+<link rel="stylesheet" href="/private/alphaCentaur/presentations/vendor/katex/katex.min.css">
+<script src="/private/alphaCentaur/presentations/vendor/katex/katex.min.js"></script>
+<pre id="log">Rendering source/deck.json with the alphaCentaur exporter…</pre>
+<script type="module">
+// Renders source/deck.json with the slide editor's own exporter and saves
+// index.html (fonts/libs from CDNs, opens in the editor) and offline.html
+// (self-contained). Served by build_server.py, which allows these two PUTs.
+import { normalizeDeck } from '/private/alphaCentaur/presentations/js/model.js';
+import { exportHTML } from '/private/alphaCentaur/presentations/js/exporter.js';
+const log = s => (document.getElementById('log').textContent += '\n' + s);
+window.build = async () => {
+  const deck = normalizeDeck(await (await fetch('source/deck.json')).json());
+  for (const [file, opts] of [['index.html', {}], ['offline.html', { selfContained: true }]]) {
+    const html = await exportHTML(deck, opts);
+    const r = await fetch(file, { method: 'PUT', body: html });
+    log(`${file}: ${(html.length / 1024).toFixed(0)} KB → ${r.status}`);
+  }
+  log('done');
+  return document.getElementById('log').textContent;
+};
+window.build().catch(e => log('ERROR ' + e.stack));
+</script>

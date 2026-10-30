@@ -1,0 +1,495 @@
+#!/usr/bin/env python3
+"""Writes deck.json (alphaCentaur Presentations source) and ../script.md for the
+alphaCentaur talk. Render with ../build.html (see ../README.md).
+
+This is the bootstrap. Once the deck has been edited in the slide editor, the
+exported ../index.html is the source of truth: re-running this script would
+overwrite those edits."""
+import base64, io, json, os
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.dirname(HERE)
+n = 0
+def eid():
+    global n; n += 1; return f"e{n}"
+
+# ---------------------------------------------------------------- elements --
+def text(role, x, y, w, h, html, **kw):
+    return {"id": eid(), "type": "text", "role": role, "x": x, "y": y, "w": w, "h": h, "html": html, **kw}
+def math(x, y, w, h, tex, size=56, **kw):
+    return {"id": eid(), "type": "math", "x": x, "y": y, "w": w, "h": h, "tex": tex, "size": size, **kw}
+def rect(x, y, w, h, fill="surface", radius=24, **kw):
+    return {"id": eid(), "type": "shape", "shape": "rect", "x": x, "y": y, "w": w, "h": h, "fill": fill, "radius": radius, "stroke": "none", "strokeW": 0, **kw}
+def image(asset, x, y, w, h, alt, **kw):
+    return {"id": eid(), "type": "image", "x": x, "y": y, "w": w, "h": h, "asset": asset, "fit": "cover", "radius": 16, "shadow": "lifted", "alt": alt, **kw}
+def applet(code, name, x, y, w, h, **kw):
+    return {"id": eid(), "type": "applet", "x": x, "y": y, "w": w, "h": h, "code": code, "name": name, "radius": 0, "fill": "transparent", **kw}
+def eyebrow(t):
+    return text("eyebrow", 140, 62, 1640, 40, f"<p>{t}</p>")
+def heading(t):
+    return text("heading", 140, 40, 1640, 170, f"<p>{t}</p>", autoH=False, valign="bottom")
+def ul(*items):
+    return "<ul>" + "".join(f"<li>{i}</li>" for i in items) + "</ul>"
+def ol(*items):
+    return "<ol>" + "".join(f"<li>{i}</li>" for i in items) + "</ol>"
+def hl(t, c="accent"):
+    return f'<span style="color:var(--pz-{c})">{t}</span>'
+
+slides = []
+def slide(sid, els, notes, **kw):
+    slides.append({"id": sid, "notes": notes.strip(), "elements": els, **kw})
+
+# ------------------------------------------------------------------ assets --
+assets = {}
+def asset(name, crop=None, width=None, quality=84):
+    """Screenshots are 2160×1350 (1440×900 CSS px at 1.5×). crop is in CSS px."""
+    im = Image.open(os.path.join(HERE, "shots", name + ".jpg")).convert("RGB")
+    if crop:
+        im = im.crop(tuple(round(v * 1.5) for v in crop))
+    if width and im.width > width:
+        im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
+    buf = io.BytesIO(); im.save(buf, "JPEG", quality=quality, optimize=True, progressive=True)
+    key = name + ("-crop" if crop else "")
+    assets[key] = {"name": key + ".jpg", "mime": "image/jpeg", "data": "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()}
+    return key, im.width / im.height
+
+ORBIT = open(os.path.join(HERE, "orbit.html")).read()
+def orbit(**cfg):
+    line = "const CFG = " + json.dumps({"labels": False, "ellipses": True, "names": ["A", "B"], **cfg}, ensure_ascii=False) + ";"
+    return ORBIT.replace("const CFG = { labels: false, ellipses: true, names: ['A', 'B'] };", line)
+
+# Picture-on-one-side layout: 16:10 screenshot, 1000×625.
+def shot_left(key, alt):
+    return image(key, 140, 250, 1000, 625, alt)
+def side_text(html, size=36, x=1190, w=590, **kw):
+    return text("body", x, 250, w, 600, html, size=size, lh=1.38, **kw)
+
+# =================================================================== slides ==
+
+# 1 ─ Title
+slide("title", [
+    applet(orbit(), "Alpha Centauri A and B", 940, 40, 980, 1000),
+    text("eyebrow", 160, 300, 900, 40, "<p>A workspace for human–AI mathematics</p>"),
+    text("title", 160, 360, 1000, 180, "<p>alphaCentaur</p>", size=120, autoH=False, valign="bottom"),
+    rect(166, 562, 120, 12, fill="accent", radius=6),
+    text("subtitle", 160, 605, 820, 160, "<p>Doing research with AI, and keeping track of who did what</p>"),
+    text("caption", 160, 830, 800, 50, "<p>Nic Brody</p>", size=34, color="text"),
+], """
+~0:00–0:30. Hello. This is a talk about a piece of software I built for myself over the last couple of months, and about what I learned using it. It is called alphaCentaur. The two dots on the right are the two stars of Alpha Centauri — I'll come back to them in a second.
+""", bg={"kind": "gradient", "color": "bg", "color2": "surface", "angle": 160})
+
+# 2 ─ Centaurs
+slide("centaurs", [
+    eyebrow("Why the name"),
+    heading("Centaurs"),
+    text("body", 140, 250, 900, 520,
+         ul("<b>1998, León.</b> Kasparov plays “Advanced Chess”: each player has an engine at the board.",
+            "<b>2005, freestyle tournament.</b> Anyone, any hardware. The winners: two amateurs with three ordinary PCs, ahead of grandmasters with engines.",
+            "Kasparov’s moral, roughly:"),
+         size=38, build=1, buildBy="paragraph"),
+    rect(140, 720, 900, 200, fill="surface", radius=24, build=4),
+    text("body", 180, 745, 820, 160,
+         f"<p>weak human + machine + {hl('<b>better process</b>')}</p><p>beat strong human + machine + worse process.</p>",
+         size=38, lh=1.3, build=4),
+    applet(orbit(labels=True, names=["A · you", "B · the machine"]), "Alpha Centauri A and B", 1080, 160, 760, 740),
+    text("caption", 1080, 900, 760, 90, "<p>α Centauri A and B orbit a common centre every 80 years. Neither one is the planet.</p>", align="center"),
+], """
+~0:30–2:00. "Centaur" is the chess word for a human–computer team. In 1998 Kasparov organised Advanced Chess, where each player had an engine at the board. In the 2005 freestyle tournament anyone could enter with any hardware, and the winners were two amateurs from New Hampshire running three ordinary computers. They beat grandmasters who also had engines.
+
+Kasparov's reading of that: the process — how the human and the machine work together — mattered more than the strength of either one. That is the thesis of this talk. alphaCentaur is an attempt at a better process for doing mathematics with AI.
+
+The name: Alpha Centauri is a binary star — two stars orbiting a common centre, which is also the app's icon. That's the picture I want: neither the human nor the AI is the planet. [Nic: say where "alpha" comes from.]
+""")
+
+# 3 ─ Before
+slide("before", [
+    eyebrow("Why"),
+    heading("How I was doing math with AI"),
+    text("body", 140, 250, 860, 640,
+         ul("Chat windows, and copy-paste between them.",
+            "An agent with a shell on my whole Dropbox.",
+            "One project in five places: notes, Overleaf, Python, Lean, web apps.",
+            "A full Mathlib for every Lean project (8 GB each).",
+            "Three weeks later: <i>who wrote this paragraph? Was that a proof, or a computation?</i>"),
+         size=38, build=1, buildBy="paragraph"),
+    rect(1060, 250, 720, 560, fill="surface", radius=28, build=6),
+    text("eyebrow", 1110, 290, 620, 40, "<p>Questions I couldn’t answer</p>", build=6),
+    text("body", 1110, 350, 620, 520,
+         ol("What exactly is the claim, and what does it assume?",
+            "Who wrote this passage, this code, this proof?",
+            "Which computations and sources support it?",
+            "Has anyone checked it — and how?"),
+         size=36, lh=1.38, build=6),
+], """
+~2:00–3:30. [Nic: personalise — this slide is my reconstruction of the old workflow.] Before this, my workflow was: several chat windows, lots of copy-paste, and at some point an agent with a shell that could touch my whole Dropbox. The same project lived in five places. Each Lean project had its own 8 GB Mathlib.
+
+The real problem showed up weeks later, when I could no longer tell who had written what, or whether something was a proof or just the output of a computation that looked like one.
+
+So I wrote down four questions the workspace should always be able to answer. (These are from the design document; everything that follows is an attempt to answer them.)
+""")
+
+# 4 ─ What it is
+k, _ = asset("home")
+slide("what", [
+    eyebrow("What it is"),
+    heading("One workspace, one project per question"),
+    text("body", 140, 250, 590, 640,
+         ul("Runs on my Mac: a local web service and a native app. The iPad connects for handwriting.",
+            "A project owns its files, its chat and its runs. Nothing leaks between projects.",
+            "Bring your own model: Anthropic, OpenAI, Gemini, or a local Ollama."),
+         size=36, lh=1.38, build=1, buildBy="paragraph"),
+    image(k, 780, 250, 1000, 625, "The alphaCentaur project list"),
+], """
+~3:30–4:30. alphaCentaur is a local application: a small Node service with a SQLite database, a browser front end, and a native Mac wrapper. The iPad pairs with it for handwritten notes.
+
+The unit is the project — one per research question. Each project has its own files, its own conversation with the AI and its own computation history, and the AI working in one project can't see any other.
+
+It isn't tied to one AI company. Any of the big providers works, or a model running locally.
+""")
+
+# 5 ─ Sections
+tiles = [
+    ("Notes", "Markdown with live LaTeX, theorem blocks and links"),
+    ("Handwriting", "Pencil notebooks on the iPad; the original ink is kept"),
+    ("Bibliography", "Annotated references, primary or background; writes the .bib"),
+    ("Computations", "Python with SymPy and FLINT, in a sandboxed process"),
+    ("Formalization", "Lean 4 against one shared Mathlib, with blueprints"),
+    ("Apps", "Interactive HTML tools, sandboxed"),
+    ("Manuscript", "Overleaf-style LaTeX with SyncTeX"),
+    ("Presentation", "A slide editor — this talk"),
+    ("Activity", "Every revision, run and decision, with who did it"),
+]
+els = [eyebrow("What it is"), heading("Every kind of research artifact, side by side")]
+for i, (name, desc) in enumerate(tiles):
+    x, y = 140 + (i % 3) * 560, 250 + (i // 3) * 260
+    els += [rect(x, y, 520, 228, fill="surface", radius=24),
+            text("heading", x + 36, y + 30, 448, 60, f"<p>{name}</p>", size=42, color="accent"),
+            text("body", x + 36, y + 98, 448, 110, f"<p>{desc}</p>", size=30, lh=1.3, color="text")]
+slide("sections", els, """
+~4:30–5:30. Each project has these sections. The point is not any one of them — each is a reasonable version of a tool you already use — but that they share one store, one history and one AI collaborator. A figure in the paper can point at the exact Python revision that made it; a note can link to the Lean file that formalises it.
+""")
+
+# 6 ─ Notes
+k, _ = asset("overview")
+slide("notes", [
+    eyebrow("Notes"),
+    heading("Mathematics is the everyday medium"),
+    shot_left(k, "A project overview with a conjecture rendered in live LaTeX"),
+    side_text(ul("Click an equation to edit its LaTeX in place; it renders again when you leave.",
+                 "Theorem, conjecture and definition blocks; links between notes.",
+                 "One <code>macros.tex</code> shared by the notes, the paper and these slides.",
+                 r"Here: the $\SO_3(\Q)$ classification conjecture project."),
+              build=1, buildBy="paragraph"),
+], """
+~5:30–6:30. Notes are Markdown with live mathematics: you click an equation to see its source, and it re-renders when you leave. Theorem-like blocks and links between notes are built in. The macros are shared, so the notation in a note is the notation in the paper.
+
+The screenshot is the overview of my SO3(Q) project — the conjecture at the top, and the collaborator panel on the right.
+""")
+
+# 7 ─ Compute and check
+kp, _ = asset("python")
+kl, _ = asset("lean")
+slide("compute", [
+    eyebrow("Computations · Formalization"),
+    heading("Run it, check it — in a box"),
+    image(kp, 140, 250, 800, 500, "An AI-written SymPy check with its stored output"),
+    image(kl, 980, 250, 800, 500, "A Lean file in the Formalization section"),
+    text("caption", 140, 780, 800, 100, "<p>An AI-written SymPy check. Its output is stored with the exact revision of the source that produced it.</p>"),
+    text("caption", 980, 780, 800, 100, "<p>Lean files are checked against one shared, read-only Mathlib — no per-project 8 GB build.</p>"),
+    text("body", 140, 910, 1640, 60, f"<p>{hl('Workers get a snapshot, not the project:')} no network, no other files, no keys, a CPU budget.</p>",
+         size=34, align="center", build=1),
+], """
+~6:30–8:00. Left: a Python computation the AI wrote for the Riley project. Note the docstring — "success checks only the stated polynomial identities" — and the AI-created label. When it runs, the output is stored together with the exact revision of the source.
+
+Right: a Lean file. All projects check against one Mathlib, read-only, so there is no 8 GB build per project.
+
+Every run happens in a worker that gets a copy of the inputs and nothing else: no network, no access to other files or projects, no API keys, and a time budget (for Lean, 240 seconds of CPU).
+""")
+
+# 8 ─ Manuscript
+k, _ = asset("manuscript")
+slide("manuscript", [
+    eyebrow("Manuscript"),
+    heading("The paper lives in the same place"),
+    shot_left(k, "The LaTeX manuscript editor with source and PDF side by side"),
+    side_text(ul("An Overleaf-style editor: autocomplete, equation previews, outline, problems list.",
+                 "SyncTeX both ways.",
+                 "The Bibliography section writes <code>alphacentaur.bib</code>.",
+                 "Each build records the revision of every input it used."),
+              build=1, buildBy="paragraph"),
+], """
+~8:00–9:00. The manuscript editor does most of what Overleaf does, compiles in the same sandbox, and syncs between source and PDF. The bibliography comes from the Bibliography section, where each reference is marked primary or background. Each build snapshots exactly which revision of every file went into it, so a PDF can go stale but can never silently change. (This one is 140 pages.)
+""")
+
+# 9 ─ Apps
+k, _ = asset("app")
+slide("apps", [
+    eyebrow("Apps"),
+    heading("Pictures you can play with"),
+    shot_left(k, "The Riley slice explorer running inside a project"),
+    side_text(ul("A project tool is a plain HTML file.",
+                 "It runs in a sealed frame: scripts yes, network and the rest of the app no.",
+                 "Here: the Riley slice — pleating rays and Ford regions — inside the Lyndon–Ullman project."),
+              build=1, buildBy="paragraph"),
+], """
+~9:00–9:45. A lot of my research runs through interactive pictures. Those are just HTML files in the project, and they run sealed off: they can compute and draw, but can't reach the network or the rest of the app. This is the Riley slice explorer.
+""")
+
+# 10 ─ The rule
+slide("rule", [
+    eyebrow("The rules"),
+    text("quote", 140, 250, 1640, 160, "<p>Human and AI edit the same files.</p>", size=80, italic=False, weight=700, font="heading"),
+    rect(146, 440, 120, 12, fill="accent", radius=6),
+    text("body", 140, 500, 1500, 400,
+         "<p>Every editable artifact is shared — except one: " + hl("<code>description.md</code>") + ", which only the human may write.</p>"
+         "<p>No forks, no “AI copy” of the paper. A save names the revision it started from; a stale save fails instead of overwriting.</p>",
+         size=42, lh=1.4, build=1, buildBy="paragraph"),
+], """
+~9:45–11:00. Now the part I actually care about: the rules.
+
+Rule one: human and AI edit the same files. The first version gave every file an owner: the AI could only edit its own files and had to copy mine. Since 15 September everything is shared — with one exception, the project description, which is mine. [Nic: say why you switched.]
+
+What makes sharing safe is not separation but bookkeeping: every save says which revision it started from, and if someone else saved in between, the save fails and your draft is kept.
+""", bg={"kind": "gradient", "color": "bg", "color2": "surface", "angle": 160})
+
+# 11 ─ Three separate things
+cols = [
+    ("Origin", "Who wrote it",
+     "Human, AI, imported (authorship unverified), or mixed — recorded on every revision by the server, never by the model."),
+    ("Permission", "Who may edit it",
+     "Shared by default. <code>description.md</code> is human-only. Saved restrictions narrow what the AI may touch."),
+    ("Review", "Who checked it",
+     "Adopting, reviewing and checking are recorded separately. Editing a proof doesn’t make it correct."),
+]
+els = [eyebrow("The rules"), heading("Who wrote it, who may edit it, who checked it")]
+for i, (name, sub, body) in enumerate(cols):
+    x = 140 + i * 560
+    els += [rect(x, 250, 520, 620, fill="surface", radius=28, build=i + 1),
+            text("heading", x + 40, 290, 440, 70, f"<p>{name}</p>", size=52, color="accent", build=i + 1),
+            text("eyebrow", x + 40, 375, 440, 40, f"<p>{sub}</p>", color="muted", build=i + 1),
+            text("body", x + 40, 440, 440, 400, f"<p>{body}</p>", size=36, lh=1.4, build=i + 1)]
+els.append(text("caption", 140, 915, 1640, 60, "<p>Three separate records. Mixing them up is how “the AI proved it” sneaks into a paper.</p>",
+                align="center", size=32, color="text", build=4))
+slide("three", els, """
+~11:00–12:30. The design keeps three things apart that are easy to blur.
+
+Origin: who actually wrote this revision. The server records it — the model can't claim to be the human, and imported material I can't vouch for is labelled "authorship unverified" rather than guessed.
+
+Permission: who may edit. Almost everything is shared; the description is mine; and I can add restrictions.
+
+Review: whether anyone checked it. That's a separate record. An AI editing a proof, or me adopting an AI proposal, says nothing about whether the proof is right.
+""")
+
+# 12 ─ Provenance in practice
+kn, rn = asset("note", crop=(269, 62, 1115, 862))
+ka, ra = asset("activity", crop=(90, 62, 1100, 900))
+h = 680
+wn, wa = round(h * rn), round(h * ra)
+gap = 1640 - wn - wa
+slide("provenance", [
+    eyebrow("The rules"),
+    heading("What that looks like"),
+    image(kn, 140, 240, wn, h, "An AI-created research note"),
+    image(ka, 140 + wn + gap, 240, wa, h, "The project activity log, with human and AI entries"),
+    text("caption", 140, 945, wn, 80, "<p>An AI-written note says so: in its label, and in its first line.</p>"),
+    text("caption", 140 + wn + gap, 945, wa, 80, "<p>Every change and every run, with who did it.</p>"),
+], """
+~12:30–13:30. Left: a note the AI wrote in the Riley project. It carries the AI-created label, and its first lines say "AI-assisted working proofs for review… the main Galois–Riley conjecture remains open; no priority claim is made." 
+
+Right: the activity log — every revision and run, human or AI.
+""")
+
+# 13 ─ Restrictions
+slide("restrictions", [
+    eyebrow("The rules"),
+    heading("Rules the model can’t talk its way out of"),
+    text("code", 140, 260, 800, 200,
+         "<pre>you › Never edit **/*.tex\nyou › Please never edit \"my notes.md\"\nyou › Do not modify notes/*.md</pre>",
+         size=32, autoH=False),
+    text("caption", 140, 490, 800, 80, "<p>Plain sentences in the chat. Each becomes a saved rule before the model sees the message.</p>"),
+    text("body", 1000, 250, 780, 700,
+         ul("Saved in their own table, outside every file the AI can edit.",
+            "Included in every run, and checked again on every write — create, edit, rename, adopt.",
+            "Only a human can remove one.",
+            "Quoted documents and tool results can’t add or remove rules."),
+         size=36, lh=1.4, build=1, buildBy="paragraph"),
+], """
+~13:30–14:45. Rule two: restrictions. If I type "never edit any .tex file" in the chat, that sentence is parsed and saved as a rule before the message even reaches the model. The rule lives in its own table, not in a file the AI could rewrite, and it's checked on every single write, not once at the start.
+
+The model cannot remove a rule, and text that merely passes through the conversation — a pasted document, a web page, a tool result — can't create or delete one. Only explicit instructions typed by me count.
+""")
+
+# 14 ─ Append-only evidence
+slide("evidence", [
+    eyebrow("The rules"),
+    heading("Evidence is append-only"),
+    text("code", 140, 260, 900, 400,
+         "<pre>CREATE TRIGGER revisions_no_update\n  BEFORE UPDATE ON revisions\n  BEGIN SELECT RAISE(ABORT, 'Immutable revision'); END;\n\n"
+         "CREATE TRIGGER revisions_no_delete\n  BEFORE DELETE ON revisions\n  BEGIN SELECT RAISE(ABORT, 'Immutable revision'); END;</pre>",
+         size=27, autoH=False),
+    text("caption", 140, 690, 900, 60, "<p>The same two triggers guard the audit log.</p>"),
+    text("body", 1100, 250, 680, 700,
+         ul("No revision or audit entry can be changed or deleted — not even by the app.",
+            "Imported originals are kept byte for byte.",
+            "A build or run records the exact revision of every input: later edits make it stale, never different."),
+         size=36, lh=1.4, build=1, buildBy="paragraph"),
+], """
+~14:45–15:45. Rule three: history can only grow. Revisions and the audit log are protected by database triggers, so not even a bug in my own code can rewrite them. Imported files keep their original bytes. A computation or a PDF build points at the exact revisions it used; if you edit the source afterwards, the result is marked stale, but it never quietly changes.
+""")
+
+# 15 ─ Toolbox
+slide("toolbox", [
+    eyebrow("The rules"),
+    heading("What the AI can and can’t do"),
+    rect(140, 250, 790, 620, fill="surface", radius=28),
+    text("heading", 190, 285, 690, 70, "<p>Can</p>", size=50, color="accent2"),
+    text("body", 190, 370, 690, 480,
+         ul("read the files you select",
+            "create and edit files, as itself",
+            "propose a revision for review",
+            "run Python, LaTeX and Lean in a sandbox",
+            "look up references (Crossref)"),
+         size=36, lh=1.4),
+    rect(990, 250, 790, 620, fill="surface", radius=28, build=1),
+    text("heading", 1040, 285, 690, 70, "<p>Can’t</p>", size=50, color="accent", build=1),
+    text("body", 1040, 370, 690, 480,
+         ul("run a shell, or touch files outside the project",
+            "reach the network from a worker",
+            "see other projects, or your API keys",
+            "edit <code>description.md</code> or anything you’ve restricted",
+            "approve its own proposals"),
+         size=36, lh=1.4, build=1),
+    text("caption", 140, 910, 1640, 60, "<p>Every check is made by the server, on every call — not by asking the model nicely.</p>",
+         align="center", size=32, color="text", build=2),
+], """
+~15:45–17:00. Putting it together: the AI gets a small set of structured tools, not a shell. It can read what I select, write files under its own name, propose changes, run sandboxed computations and look up references. It can't run arbitrary commands, see the rest of my disk, see other projects or my keys, touch what I've protected, or approve its own work.
+
+The important design choice: none of this depends on the model behaving. The server enforces it on every call.
+""")
+
+# 16 ─ A report is a claim
+k, r = asset("chat", crop=(1115, 165, 1440, 705))
+slide("report", [
+    eyebrow("In practice"),
+    heading("A report is a claim, not a certificate"),
+    image(k, 1780 - round(800 * r), 230, round(800 * r), 800, "The project collaborator reporting a finished Lean proof"),
+    text("body", 140, 260, 1060, 660,
+         ul("The collaborator says: <i>compiles, no axioms, no sorries, lake build successful.</i>",
+            "The workspace makes that checkable without trusting the chat: the Lean file, its revisions, the check and its log are all in the project.",
+            "Whether we formalized the theorem we meant is still my job."),
+         size=40, lh=1.42, build=1, buildBy="paragraph"),
+], """
+~17:00–18:15. Here is the collaborator in the Lyndon–Ullman project reporting that a Lean proof is done: it compiles, no axioms, no sorries, and here's the build output.
+
+That report is a claim. What the workspace adds is that every piece of it can be checked without trusting the chat: the file, its revision history, and the check run are all there.
+
+And no tool can tell me whether the Lean statement is the theorem I actually care about. Statement review stays with the human.
+
+(This conversation is from the earlier version of alphaCentaur and was imported with the project.)
+""")
+
+# 17 ─ Numbers
+stats = [("21", "projects"), ("1,146", "artifacts"), ("1,608", "revisions, none ever rewritten"), ("102", "sandboxed runs")]
+els = [eyebrow("In practice"), heading("Since September")]
+for i, (big, small) in enumerate(stats):
+    x = 140 + i * 420
+    els += [rect(x, 260, 380, 330, fill="surface", radius=28),
+            text("title", x + 20, 300, 340, 140, f"<p>{big}</p>", align="center", color="accent", size=104, autoH=False, valign="middle"),
+            text("body", x + 30, 455, 320, 110, f"<p>{small}</p>", align="center", size=32, lh=1.3)]
+els.append(text("body", 140, 660, 1640, 260,
+                ul("Revisions: 614 human, 139 AI, 795 imported originals (authorship unverified), 60 templates.",
+                   "Runs: 72 LaTeX builds and 30 Python computations."),
+                size=36, lh=1.45, build=1, buildBy="paragraph"))
+slide("numbers", els, """
+~18:15–19:00. Some numbers from my own workspace, as of today. 21 projects, about 1,150 files, 1,608 revisions. Most of the history is imported from before alphaCentaur existed and is honestly labelled as unverified. Of the revisions made since, I wrote most and the AI wrote 139. And about a hundred sandboxed runs, mostly LaTeX builds.
+
+(Numbers read from the database on 21 October 2026; update before giving the talk.)
+""")
+
+# 18 ─ Lessons
+slide("lessons", [
+    eyebrow("Lessons"),
+    heading("What I’ve learned"),
+    text("body", 140, 250, 1640, 720,
+         ol("<b>Let the machine search; keep the judgement.</b> On Riley groups the search kept saying “thin?”; the structure said “index 2304”.",
+            "<b>Label everything.</b> In three weeks you won’t remember who wrote it.",
+            "<b>A computation is evidence, not a proof</b> — and a Lean proof is only as good as its statement.",
+            "<b>Share files; don’t fork them.</b> Copies drift. Revisions don’t.",
+            "<b>Write the rules where the model can’t edit them.</b>"),
+         size=40, lh=1.45, build=1, buildBy="paragraph"),
+], """
+~19:00–21:00. Five lessons.
+
+One: the machine is a superb searcher and a poor judge. This week's example: on the rational Riley groups, the computer kept failing to close coset enumerations, which nudged toward "probably thin". The right observation was structural, and it turned every open case into a finite-index problem with a known index.
+
+Two: label everything. Three: computation and formal proof are evidence of different kinds, and neither replaces reading the statement. Four: shared files with a history beat parallel copies. Five: the rules belong in the system, not in the prompt.
+""")
+
+# 19 ─ Made in alphaCentaur
+ke, _ = asset("editor")
+slide("meta", [
+    eyebrow("One more thing"),
+    heading("This talk was made in alphaCentaur"),
+    text("body", 140, 250, 800, 700,
+         ul("The Presentation section is a slide editor: text with live LaTeX, images, shapes, embeds, live applets, builds, notes.",
+            "A deck is one HTML file. Its source is a JSON block inside it.",
+            "The AI collaborator edits only that JSON; the editor re-renders it the next time it opens.",
+            "The binary star on the first slide is an applet: a few dozen lines of JavaScript, sandboxed."),
+         size=38, lh=1.4, build=1, buildBy="paragraph"),
+    image(ke, 1000, 300, 780, 488, "This deck open in the alphaCentaur slide editor"),
+], """
+~21:00–22:00. One more thing: these slides were made in alphaCentaur's own slide editor. A deck is a single HTML file that presents itself and carries its own source as JSON, which is what the AI collaborator edits. The orbiting stars are a small sandboxed applet.
+""")
+
+# 20 ─ Next
+slide("next", [
+    eyebrow("Next"),
+    heading("What’s missing"),
+    text("body", 140, 250, 1640, 700,
+         ul("<b>A claims ledger:</b> each claim with its status — conjectured, AI-argued, reviewed, Lean-checked, refuted — and what it depends on.",
+            "<b>A “your turn” queue</b> for the decisions only I can make.",
+            "<b>Negative results as records,</b> so nobody — human or AI — repeats a failed search.",
+            r"<b>A gap dashboard</b> built from <code>\GAP</code> and <code>\TOCHECK</code> in the manuscript.",
+            "<b>Coauthors:</b> more than one human."),
+         size=42, lh=1.5, build=1, buildBy="paragraph"),
+], """
+~22:00–23:30. What's next. The biggest gap is a claims ledger: a typed record of each claim and its evidence status, so "the AI argued this" and "this is Lean-checked" can never be confused. Then a queue of things waiting on me, first-class negative results, a dashboard of the gaps flagged in the paper, and eventually real human coauthors.
+""")
+
+# 21 ─ Thanks
+slide("thanks", [
+    applet(orbit(labels=True, names=["you", "AI"]), "Alpha Centauri A and B", 940, 40, 980, 1000),
+    text("title", 160, 360, 820, 160, "<p>Thank you</p>", autoH=False, valign="bottom"),
+    rect(166, 552, 120, 12, fill="accent", radius=6),
+    text("subtitle", 160, 595, 820, 80, "<p>Questions?</p>"),
+], """
+~23:30. Thank you. Happy to show it live.
+""", bg={"kind": "gradient", "color": "bg", "color2": "surface", "angle": 160})
+
+# ===================================================================== deck ==
+deck = {
+    "version": 1, "id": "alphacentaurtalk", "title": "alphaCentaur",
+    "theme": {"palette": "custom", "fontPair": "editorial",
+              "colors": {"bg": "#0d2326", "surface": "#173c40", "text": "#f4f1df", "muted": "#9dbdb5", "accent": "#f2d493", "accent2": "#7cc4b5"},
+              "fonts": {"heading": "Fraunces", "body": "Source Sans 3", "mono": "JetBrains Mono"}},
+    "settings": {"nav": "linear", "dots": True, "arrows": False, "numbers": True, "progress": True, "speed": 600},
+    "assets": assets,
+    "slides": slides,
+}
+json.dump(deck, open(os.path.join(HERE, "deck.json"), "w"))
+
+# script.md: the speaker notes in one place.
+def plain(s):
+    import re, html
+    s = re.sub(r"<[^>]+>", "", s)
+    return html.unescape(s)
+lines = ["# alphaCentaur — talk script", "",
+         "Generated from the speaker notes by `source/make_deck.py`. Once the deck has been",
+         "edited in the slide editor, the notes in `index.html` (press N while presenting) are current.", "",
+         "Lines marked [Nic: …] are guesses about your own experience: check or replace them.", ""]
+for i, s in enumerate(slides, 1):
+    title = next((plain(e["html"]) for e in s["elements"] if e["type"] == "text" and e.get("role") in ("heading", "title", "quote")), s["id"])
+    lines += [f"## {i}. {title}", "", s["notes"], ""]
+open(os.path.join(OUT, "script.md"), "w").write("\n".join(lines))
+print("wrote deck.json,", len(slides), "slides,", sum(len(a["data"]) for a in assets.values()) // 1024, "KB of images")

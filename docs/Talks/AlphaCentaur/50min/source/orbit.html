@@ -1,0 +1,72 @@
+<!-- Alpha Centauri A and B orbiting their barycentre (e = 0.52, mass ratio
+     1.08 : 0.91, period compressed from 79.9 years to ~14 seconds).
+     make_deck.py replaces the CFG line per slide. -->
+<style>
+  body { margin: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+</style>
+<canvas id="c"></canvas>
+<script>
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const c = document.getElementById('c'), g = c.getContext('2d');
+const CFG = { labels: false, ellipses: true, names: ['A', 'B'] };
+const labels = CFG.labels, ellipses = CFG.ellipses, label = CFG.names;
+const e = 0.52, mA = 1.08, mB = 0.91, P = 14, tilt = -0.57;   // tilt ≈ the logo's −32.7°
+let stars = [];
+function seed(w, h) {
+  let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  stars = Array.from({ length: Math.round(w * h / 9000) }, () => [rnd() * w, rnd() * h, rnd() * 1.3 + 0.2, rnd()]);
+}
+function kepler(M) { let E = M; for (let i = 0; i < 8; i++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); return E; }
+function size() {
+  const dpr = devicePixelRatio || 1; c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); seed(c.clientWidth, c.clientHeight);
+}
+addEventListener('resize', size); size();
+const t0 = performance.now();
+function frame(now) {
+  const w = c.clientWidth, h = c.clientHeight, t = (now - t0) / 1000;
+  g.clearRect(0, 0, w, h);
+  const text = css('--pz-text') || '#fff';
+  for (const [x, y, r, ph] of stars) {
+    g.globalAlpha = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(t * 0.8 + ph * 9));
+    g.fillStyle = text; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+  g.globalAlpha = 1;
+  const a = Math.min(w, h * 1.6) * 0.30, cx = w / 2, cy = h / 2, b = a * Math.sqrt(1 - e * e);
+  const fA = mB / (mA + mB), fB = mA / (mA + mB);
+  const rot = (x, y) => [cx + x * Math.cos(tilt) - y * Math.sin(tilt), cy + x * Math.sin(tilt) + y * Math.cos(tilt)];
+  const E = kepler(2 * Math.PI * ((t / P) % 1));
+  const rx = a * (Math.cos(E) - e), ry = b * Math.sin(E);       // B relative to A
+  const colA = css('--pz-accent') || '#f2d493', colB = css('--pz-accent2') || '#71b4a6';
+  if (ellipses) {
+    g.lineWidth = 1.5;
+    for (const [f, col, sgn] of [[fA, colA, -1], [fB, colB, 1]]) {
+      g.strokeStyle = col; g.globalAlpha = 0.35; g.beginPath();
+      for (let k = 0; k <= 200; k++) {
+        const s = 2 * Math.PI * k / 200, [x, y] = rot(sgn * f * a * (Math.cos(s) - e), sgn * f * b * Math.sin(s));
+        k ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
+  const bodies = [[rot(-fA * rx, -fA * ry), colA, 15, label[0]], [rot(fB * rx, fB * ry), colB, 12, label[1]]];
+  for (const [[x, y], col, r, name] of bodies) {
+    const glow = g.createRadialGradient(x, y, 0, x, y, r * 5);
+    glow.addColorStop(0, col); glow.addColorStop(0.25, col + '88'); glow.addColorStop(1, col + '00');
+    g.fillStyle = glow; g.beginPath(); g.arc(x, y, r * 5, 0, 7); g.fill();
+    g.fillStyle = '#fffdf4'; g.beginPath(); g.arc(x, y, r * 0.55, 0, 7); g.fill();
+    if (labels) {
+      g.font = '600 26px ' + (css('--pz-font-body') || 'sans-serif'); g.fillStyle = col; g.textAlign = 'left';
+      g.fillText(name, x + r * 2.2, y - r * 1.6);
+    }
+  }
+  const [bx, by] = rot(0, 0);
+  g.strokeStyle = text; g.globalAlpha = 0.5; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(bx - 8, by); g.lineTo(bx + 8, by); g.moveTo(bx, by - 8); g.lineTo(bx, by + 8); g.stroke();
+  g.globalAlpha = 1;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
