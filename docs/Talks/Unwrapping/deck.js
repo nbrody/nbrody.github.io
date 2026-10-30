@@ -144,6 +144,36 @@
         },
     };
 
+    // A separate instance keeps the first view independent of the later domain demo.
+    const orbit = {
+        frame: null, group: null, ready: null,
+        api: poincare.api,
+        setGroup: poincare.setGroup,
+        async go() {
+            if (this.ready) return this.ready;
+            this.ready = (async () => {
+                const API = await this.api();
+                await this.setGroup('pi', GPI);
+                API.setDomainVisible(false);
+                API.setPolyhedronOpacity(0);
+                API.setDual('off');
+                API.setDust(true);
+                API.setOrbit(true);
+                API.setCayleyMode('S');
+                API.setAutoRotate(false);
+            })().catch(e => { this.ready = null; console.error('Unwrapping orbit:', e); });
+            return this.ready;
+        },
+    };
+    document.querySelectorAll('[data-generator]').forEach(button => {
+        button.addEventListener('click', async e => {
+            await orbit.go();
+            const api = orbit.frame.contentWindow.PoincareAPI;
+            if (api) api.animateGenerator(Number(button.dataset.generator), e);
+        });
+    });
+
+    addStage('orbit', orbit);
     addStage('poincare', poincare);
     addStage('tree', tree);
 
@@ -154,10 +184,12 @@
         return k;
     }
     function sync() {
-        const slide = Reveal.getCurrentSlide(), name = slide && slide.dataset.stage;
+        const slide = Reveal.getCurrentSlide(), requested = slide && slide.dataset.stage;
+        const step = slide ? stepOf(slide) : 0;
+        const name = requested === 'tree' && step === 0 ? 'orbit' : requested;
         for (const [n, st] of Object.entries(stages)) st.el.classList.toggle('on', n === name);
         document.body.classList.toggle('stage-live', !!name);
-        if (name) stages[name].ctrl.go(stepOf(slide));
+        if (name) stages[name].ctrl.go(name === 'tree' ? Math.max(0, step - 1) : step);
     }
     Reveal.on('ready', () => {
         sync();

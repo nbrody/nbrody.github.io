@@ -150,3 +150,8 @@
 body.stage-live .reveal { pointer-events: none; }
 body.stage-live .reveal .slides, body.stage-live .reveal .slides section { pointer-events: none; }
 body.stage-live .reveal .caption, body.stage-live .reveal .controls, body.stage-live .reveal .progress { pointer-events: auto; }
+
+/* Generator buttons for the opening hyperbolic-space view. */
+.matrix-controls { display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: 0.6em; }
+.reveal .matrix-controls button { cursor: pointer; color: #f2d493; background: #193b3b; border: 1px solid #719b91; border-radius: 9px; padding: 0.35em 0.65em; font: inherit; }
+.reveal .matrix-controls button:hover, .reveal .matrix-controls button:focus-visible { background: #285651; outline: 2px solid #f2d493; }
