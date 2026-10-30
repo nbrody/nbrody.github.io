@@ -1,0 +1,46 @@
+\documentclass[11pt]{amsart}
+\usepackage{amssymb}
+\usepackage{tikz}
+\usepackage[colorlinks=true, linkcolor=teal, citecolor=teal]{hyperref}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\PGL}{\mathrm{PGL}}
+\newcommand{\SL}{\mathrm{SL}}
+
+\title{Ping pong in $\PGL_2(\Z[\tfrac12])$}
+\author{Nic Brody}
+\date{Demo document for the AlphaCentaur talk}
+
+\begin{document}
+
+\begin{abstract}
+A two-page example for alphaTeX: the ping-pong lemma, Sanov's free subgroup of
+$\SL_2(\Z)$, and why $\PGL_2(\Z[\frac12])$ is discrete only in a product of two
+completions.
+\end{abstract}
+
+\maketitle
+
+\input{sections/introduction}
+\input{sections/pingpong}
+\input{sections/arithmetic}
+
+\begin{thebibliography}{9}
+\bibitem{sanov} I.~N. Sanov, \emph{A property of a representation of a free
+  group}, Doklady Akad. Nauk SSSR (N.S.) \textbf{57} (1947), 657--659.
+\bibitem{serre} J.-P. Serre, \emph{Trees}, Springer-Verlag, Berlin, 1980.
+\bibitem{tits} J. Tits, \emph{Free subgroups in linear groups}, J. Algebra
+  \textbf{20} (1972), 250--270.
+\end{thebibliography}
+
+\end{document}

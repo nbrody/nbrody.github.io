@@ -185,6 +185,7 @@
  * model = { title, theme: { colors, fonts, fontURLs }, controls: [...],
  *           state: { index, count, step, steps, startedAt },
  *           slides: [{ t: title, n: notes }], params: { name: value },
+ *           url: the deck on the web, for the "Current slide" thumbnail (optional),
  *           status: { text, ok } }
  * events: { k: 'next' | 'prev' | 'goto' (i) | 'button' (name)
  *              | 'param' (name, value) | 'joy' (name, x, y) }   x, y ∈ [−1, 1], y up */
@@ -200,6 +201,9 @@
     '.pzr-dot{width:9px;height:9px;border-radius:50%;background:#e5534b;flex:none}.pzr-dot.ok{background:#3fb950}',
     '.pzr-status{font-size:12px;color:var(--muted)}',
     '.pzr-card{background:var(--surface);border-radius:18px;padding:14px 16px}',
+    '.pzr-thumb{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--bg)}',
+    '.pzr-thumb iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}',
+    '.pzr-thumb-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;font-size:13px;line-height:1.4;color:var(--muted)}',
     '.pzr-label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:8px}',
     '.pzr-btn{appearance:none;border:0;border-radius:16px;background:var(--surface);color:var(--text);font:600 18px/1.1 var(--fb);padding:14px;min-height:58px;touch-action:manipulation;cursor:pointer;width:100%}',
     '.pzr-btn.accent{background:var(--accent);color:var(--bg)}',
@@ -289,6 +293,32 @@
       },
       next: function (c) { var b = h('button', 'pzr-btn accent pzr-next', c.label || 'Next'); b.onclick = function () { send({ k: 'next' }); }; return b; },
       prev: function (c) { var b = h('button', 'pzr-btn', c.label || '‹ Back'); b.onclick = function () { send({ k: 'prev' }); }; return b; },
+      // A small live copy of the deck, following the presenter (runtime/deck.js ?pz-thumb).
+      slide: function () {
+        var card = h('div', 'pzr-card'), lab = h('div', 'pzr-label', 'Current slide'), box = h('div', 'pzr-thumb');
+        var empty = h('div', 'pzr-thumb-empty', 'The current slide shows here when the presentation is on the web.');
+        var frame = null, ready = false;
+        card.append(lab, box);
+        var post = function (m) {
+          if (!frame || !ready) return;
+          var s = st(m);
+          try { frame.contentWindow.postMessage({ type: 'pz-control', index: s.index || 0, step: s.step || 0 }, '*'); } catch (e) {}
+        };
+        dyn.push(function (m) {
+          var url = typeof m.url === 'string' && /^https?:\/\/[^\s"'<>]+$/.test(m.url) ? m.url.split(/[?#]/)[0] : '';
+          if (!url) { frame = null; box.replaceChildren(empty); return; }
+          if (!frame || frame.getAttribute('data-url') !== url) {
+            frame = document.createElement('iframe'); ready = false;
+            frame.setAttribute('data-url', url); frame.title = 'Current slide'; frame.tabIndex = -1;
+            frame.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+            frame.onload = function () { ready = true; post(model); };
+            frame.src = url + '?pz-thumb=1#pz-' + (st(m).index || 0);
+            box.replaceChildren(frame);
+          }
+          post(m);
+        });
+        return card;
+      },
       progress: function () {
         var card = h('div', 'pzr-card'), row = h('div', 'pzr-progress'), n = h('b'), of = h('span'), steps = h('em'), bar = h('div', 'pzr-bar'), fill = h('i');
         row.append(n, of, steps); bar.append(fill); card.append(row, bar);
@@ -440,7 +470,7 @@
     var slide = (deck.slides || [])[i] || {};
     var values = {};
     for (var k in params) if (params[k] && 'v' in params[k]) values[k] = params[k].v;
-    ui.update({ title: deck.title, theme: deck.theme, controls: Array.isArray(slide.r) ? slide.r : [], state: state || { index: 0, count: deck.slides.length }, slides: deck.slides, params: values, status: status });
+    ui.update({ title: deck.title, url: deck.url, theme: deck.theme, controls: Array.isArray(slide.r) ? slide.r : [], state: state || { index: 0, count: deck.slides.length }, slides: deck.slides, params: values, status: status });
     document.title = (deck.title || 'Remote') + ' · remote';
   }
   function onEvent(e) {
