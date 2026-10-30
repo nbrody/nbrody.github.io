@@ -12,7 +12,7 @@ import { kindOf, editable, cleanPath, IMAGE } from './latex/js/kinds.js';
 import { citationKey, paperPath, parseArxiv } from './library/js/references.js';
 
 const BASE = new URL('./', self.location.href);
-const EDITORS = { markdown: 'alphaMarkdown', ink: 'alphaNote', library: 'alphaLibrary', latex: 'alphaTeX' };
+const EDITORS = { markdown: 'alphaMarkdown', ink: 'alphaNote', library: 'alphaLibrary', latex: 'alphaTeX', python: 'alphaPy' };
 const MAX_TEXT = 4 * 1024 * 1024;
 const enc = new TextEncoder(), dec = new TextDecoder();
 

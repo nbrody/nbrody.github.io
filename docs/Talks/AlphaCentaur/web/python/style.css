@@ -1,0 +1,194 @@
+/* alphaPy — notebook chrome, in alphaCentaur's light theme. Markdown output
+   uses the same .prose styles as alphaMarkdown, so notes and notebooks match. */
+:root {
+  /* Skin tokens (app/lib/skins.mjs); alphaCentaur sets them to the chosen skin. */
+  --skin-bg: #ffffff;
+  --skin-fg: #152c3e;
+  --skin-accent: #087e6c;
+  --skin-accent-bright: #2eac98;
+  --skin-accent2: #d9822b;
+  --skin-on-accent: #ffffff;
+  --skin-sidebar: #132c3d;
+  --skin-sidebar-fg: #ffffff;
+  --skin-sidebar-muted: #8aa7b7;
+  --skin-sidebar-accent: #aaf0db;
+  --skin-shadow: #152c3e;
+  --skin-blue: #5274b8;
+  --skin-amber: #a97c51;
+  --skin-purple: #8665a9;
+  --skin-red: #c24940;
+  --skin-green: #36ab83;
+  --skin-yellow: #e0ad46;
+}
+:root {
+  --bg: var(--skin-bg); --fg: var(--skin-fg); --primary: var(--skin-accent); --primary-hover: color-mix(in srgb, var(--skin-fg) 26%, var(--skin-accent)); --secondary: color-mix(in srgb, var(--skin-bg) 90%, var(--skin-accent-bright));
+  --muted: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-fg)); --muted-fg: color-mix(in srgb, var(--skin-bg) 40%, var(--skin-fg)); --border: color-mix(in srgb, var(--skin-bg) 88%, var(--skin-fg)); --ring: color-mix(in srgb, color-mix(in srgb, var(--skin-accent) 75%, var(--skin-accent-bright)) 73%, var(--skin-bg)); --danger: var(--skin-red);
+  --stale: var(--skin-yellow); --running: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent));
+  --font: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); -webkit-font-smoothing: antialiased; }
+#app { height: 100%; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+/* ------------------------------------------------------------ frame -- */
+.py-applet { height: 100%; display: flex; flex-direction: column; min-height: 0; background: color-mix(in srgb, var(--skin-bg) 98%, var(--skin-fg)); }
+.py-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-height: 48px; padding: 7px 14px; border-bottom: 1px solid color-mix(in srgb, var(--skin-fg) 9%, var(--skin-bg)); background: var(--skin-bg); flex: none; }
+.applet-name {
+  flex: none; padding: 2px 8px; margin-right: 6px; border-radius: 999px; background: var(--secondary); color: var(--primary);
+  font-size: 12px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; cursor: default;
+}
+.spacer { flex: 1; min-width: 8px; }
+.py-btn { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--skin-bg); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.py-btn:hover:not(:disabled) { background: var(--muted); }
+.py-btn.ghost { border-color: transparent; background: none; }
+.py-btn.ghost:hover:not(:disabled) { background: var(--muted); }
+.py-btn:disabled { opacity: .45; cursor: default; }
+.py-btn.attention { border-color: var(--primary); color: var(--primary); }
+.py-btn:focus-visible, .py-tool:focus-visible, .py-show-code:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.py-count { min-width: 16px; padding: 0 5px; border-radius: 999px; background: color-mix(in srgb, var(--skin-bg) 79%, var(--skin-yellow)); color: color-mix(in srgb, color-mix(in srgb, var(--skin-fg) 30%, var(--skin-accent2)) 99%, var(--skin-bg)); font-size: 11px; text-align: center; }
+.py-count:empty { display: none; }
+.py-status { font-size: 12px; color: var(--muted-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+.py-status[data-state='running']::before, .py-status[data-state='starting']::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--running); animation: py-pulse 1s ease-in-out infinite; vertical-align: 1px; }
+.py-status[data-state='stopped'] { color: var(--danger); }
+.py-log { margin: 0; max-height: 180px; overflow: auto; padding: 10px 16px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--skin-bg) 97%, var(--skin-fg)); font: 12px/1.5 var(--mono); color: color-mix(in srgb, var(--skin-bg) 25%, var(--skin-fg)); white-space: pre-wrap; flex: none; }
+.py-scroll { flex: 1; min-height: 0; overflow: auto; padding: 22px 18px 120px; }
+.py-cells, .py-raw { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+/* Left of the cells, a gutter for their carets. */
+.py-cells { max-width: 908px; padding-left: 28px; }
+.py-end { display: flex; justify-content: center; gap: 6px; padding: 4px 0; }
+.py-notice { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; background: color-mix(in srgb, var(--skin-bg) 84%, var(--skin-yellow)); color: color-mix(in srgb, color-mix(in srgb, var(--skin-fg) 45%, var(--skin-accent2)) 99%, var(--skin-bg)); font-size: 13px; }
+.py-raw-editor { border: 1px solid var(--border); border-radius: 10px; background: var(--skin-bg); }
+@keyframes py-pulse { 50% { opacity: .35; } }
+
+/* ------------------------------------------------------------ cells -- */
+/* As in marimo, a cell's output sits above its code. */
+.py-cell { position: relative; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px; background: var(--skin-bg); }
+.py-cell:focus-within { border-color: color-mix(in srgb, var(--skin-bg) 71%, var(--skin-accent)); border-left-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--skin-shadow) 100%, transparent); }
+.py-cell.stale { border-left-color: var(--stale); }
+.py-cell[data-status='queued'], .py-cell[data-status='running'] { border-left-color: var(--running); }
+.py-cell[data-status='running'] { animation: py-pulse-border 1.2s ease-in-out infinite; }
+.py-cell[data-status='error'], .py-cell.graph-error { border-left-color: var(--danger); }
+@keyframes py-pulse-border { 50% { border-left-color: color-mix(in srgb, var(--skin-bg) 53%, var(--skin-accent-bright)); } }
+.py-tools { position: absolute; top: -13px; right: 10px; display: flex; gap: 1px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--skin-bg); box-shadow: 0 2px 8px color-mix(in srgb, var(--skin-shadow) 8%, transparent); opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 2; }
+.py-cell:hover .py-tools, .py-cell:focus-within .py-tools { opacity: 1; pointer-events: auto; }
+.py-tool { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: none; color: color-mix(in srgb, color-mix(in srgb, var(--skin-accent-bright) 15%, var(--skin-bg)) 36%, var(--skin-fg)); }
+.py-tool:hover { background: var(--muted); color: var(--fg); }
+.py-output { padding: 0 16px; overflow-x: auto; }
+.py-cell.has-output .py-output { padding: 12px 16px; }
+.py-output.dim { opacity: .45; transition: opacity .2s; }
+.py-cell.code-hidden.has-output .py-output { padding-bottom: 12px; }
+.py-editor { border-top: 1px solid color-mix(in srgb, var(--skin-bg) 93%, var(--skin-fg)); background: color-mix(in srgb, var(--skin-bg) 98%, var(--skin-fg)); border-radius: 0 0 9px 9px; }
+.py-cell:not(.has-output) .py-editor { border-top: 0; border-radius: 0 9px 9px 0; }
+.py-cell[data-kind='markdown'] .py-editor .cm-scroller { font-family: var(--font); }
+/* Only the focused cell marks its current line. */
+.py-editor .cm-editor:not(.cm-focused) .cm-activeLine, .py-editor .cm-editor:not(.cm-focused) .cm-activeLineGutter { background: transparent; }
+/* Carets (as in Colab): a Python cell's shows or hides its code; a heading's collapses its section. */
+.py-caret { position: absolute; left: -29px; top: 9px; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: color-mix(in srgb, var(--skin-bg) 52%, var(--skin-fg)); cursor: pointer; transition: opacity .12s; }
+.py-caret:hover { background: var(--muted); color: var(--fg); }
+.py-caret:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.py-caret.quiet { opacity: 0; }
+.py-cell:hover .py-caret.quiet, .py-cell:focus-within .py-caret.quiet { opacity: 1; }
+.py-cell[data-kind='markdown'] .py-caret { top: 13px; }
+.py-fold-bar { display: flex; align-items: center; gap: 6px; margin: -2px 12px 10px; padding: 5px 9px; border: 0; border-radius: 6px; background: var(--muted); color: var(--muted-fg); font: 12.5px/1.3 var(--font); text-align: left; cursor: pointer; }
+.py-fold-bar:hover { background: color-mix(in srgb, var(--skin-bg) 92%, var(--skin-fg)); color: var(--fg); }
+.py-fold-bar .err { color: var(--danger); }
+.py-show-code { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 8px 12px; padding: 2px 8px; border: 0; border-radius: 5px; background: none; color: var(--muted-fg); font-size: 11.5px; opacity: 0; }
+.py-cell:hover .py-show-code, .py-cell:not(.has-output) .py-show-code { opacity: 1; }
+.py-cell:not(.has-output) .py-show-code { margin: 8px 12px; }
+.py-show-code:hover { background: var(--muted); color: var(--fg); }
+.py-cell[data-kind='markdown'].code-hidden .py-output { cursor: text; }
+.py-foot { position: absolute; right: 10px; bottom: 4px; pointer-events: none; }
+.py-elapsed { font-size: 11px; color: color-mix(in srgb, var(--skin-bg) 58%, var(--skin-fg)); }
+.py-console { margin: 0; padding: 8px 16px; max-height: 320px; overflow: auto; border-top: 1px solid color-mix(in srgb, var(--skin-bg) 93%, var(--skin-fg)); background: color-mix(in srgb, var(--skin-bg) 98%, var(--skin-accent)); font: 12.5px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; color: color-mix(in srgb, color-mix(in srgb, var(--skin-accent-bright) 15%, var(--skin-bg)) 19%, var(--skin-fg)); }
+.py-console .stderr { color: color-mix(in srgb, var(--skin-red) 92%, var(--skin-accent)); }
+.py-run-error { padding: 8px 16px; border-top: 1px solid color-mix(in srgb, var(--skin-bg) 79%, var(--skin-red)); background: color-mix(in srgb, var(--skin-bg) 96%, var(--skin-fg)); color: color-mix(in srgb, color-mix(in srgb, var(--skin-fg) 15%, var(--skin-red)) 99%, var(--skin-bg)); }
+.py-run-error pre { margin: 0; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; }
+.py-run-error p { margin: 0; font-size: 13px; }
+.py-graph-error { display: flex; align-items: center; gap: 7px; padding: 7px 14px; border-bottom: 1px solid color-mix(in srgb, var(--skin-bg) 79%, var(--skin-red)); background: color-mix(in srgb, var(--skin-bg) 96%, var(--skin-fg)); color: color-mix(in srgb, color-mix(in srgb, var(--skin-fg) 15%, var(--skin-red)) 99%, var(--skin-bg)); font-size: 12.5px; border-radius: 9px 9px 0 0; }
+
+/* ---------------------------------------------------------- outputs -- */
+.py-text { margin: 0; font: 13px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word; color: color-mix(in srgb, var(--skin-fg) 94%, var(--skin-bg)); }
+.py-image { display: block; max-width: 100%; height: auto; }
+.py-html { display: block; width: 100%; height: 40px; border: 0; background: transparent; }
+.py-latex { overflow-x: auto; padding: 4px 0; }
+.py-latex .katex-display { margin: 0; }
+.py-stack { display: flex; }
+.py-stack-h { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.py-stack-v { flex-direction: column; align-items: flex-start; }
+
+/* Widgets (mo.ui) */
+.py-ui { display: inline-flex; align-items: center; gap: 8px; margin: 2px 0; font-size: 14px; color: color-mix(in srgb, var(--skin-fg) 90%, var(--skin-bg)); vertical-align: middle; }
+.py-ui-label { color: color-mix(in srgb, var(--skin-fg) 81%, var(--skin-bg)); }
+.py-ui-label p { margin: 0; }
+.py-ui input[type='range'] { width: 200px; accent-color: var(--primary); }
+.py-ui-value { min-width: 2.5em; font: 12.5px var(--mono); color: var(--primary); }
+.py-ui input[type='number'], .py-ui input[type='text'], .py-ui select, .py-ui textarea { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--skin-bg); font-size: 13.5px; }
+.py-ui input[type='number'] { width: 7em; }
+.py-ui input[type='text'] { width: 16em; }
+.py-ui-text_area { align-items: flex-start; flex-direction: column; gap: 4px; }
+.py-ui textarea { width: min(36em, 100%); font: 13px/1.5 var(--mono); resize: vertical; }
+.py-ui input:focus, .py-ui select:focus, .py-ui textarea:focus { outline: 2px solid var(--ring); outline-offset: 0; border-color: transparent; }
+.py-ui input[type='checkbox'] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); }
+.py-ui-switch input[type='checkbox'] { appearance: none; width: 32px; height: 18px; border-radius: 999px; background: color-mix(in srgb, var(--skin-bg) 80%, var(--skin-fg)); position: relative; transition: background .15s; cursor: pointer; }
+.py-ui-switch input[type='checkbox']::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px color-mix(in srgb, var(--skin-shadow) 20%, transparent); transition: left .15s; }
+.py-ui-switch input[type='checkbox']:checked { background: var(--primary); }
+.py-ui-switch input[type='checkbox']:checked::after { left: 16px; }
+.py-ui-button { padding: 5px 12px; border: 1px solid var(--primary); border-radius: 7px; background: var(--primary); color: var(--skin-on-accent); font-size: 13px; font-weight: 500; }
+.py-ui-button:hover { background: var(--primary-hover); }
+.py-ui-button .py-ui-label { color: inherit; }
+.py-ui-unknown { color: var(--muted-fg); font: 12px var(--mono); }
+
+/* ---------------------------------------------- Markdown output (.prose) -- */
+.prose { font-size: 16px; line-height: 1.75; color: color-mix(in srgb, var(--skin-fg) 90%, var(--skin-bg)); }
+.prose h1, .prose h2, .prose h3 { font-family: Georgia, serif; letter-spacing: -0.02em; margin: .9em 0 .45em; font-weight: 700; line-height: 1.25; }
+.prose h1 { font-size: 30px; } .prose h2 { font-size: 24px; } .prose h3 { font-size: 19px; }
+.prose h4, .prose h5, .prose h6 { margin: 1em 0 .4em; }
+.prose > :first-child { margin-top: 0; }
+.prose > :last-child { margin-bottom: 0; }
+.prose p { margin: 0 0 .9em; }
+.prose a { color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); text-decoration: underline; text-underline-offset: 3px; }
+.prose ul, .prose ol { padding-left: 24px; margin: 10px 0; }
+.prose li { margin: 4px 0; }
+.prose li.task-list-item { list-style: none; margin-left: -20px; }
+.prose blockquote { border-left: 3px solid color-mix(in srgb, var(--skin-bg) 55%, var(--skin-accent)); padding: 5px 18px; margin: 16px 0; color: color-mix(in srgb, color-mix(in srgb, var(--skin-accent-bright) 15%, var(--skin-fg)) 67%, var(--skin-bg)); background: color-mix(in srgb, var(--skin-bg) 96%, var(--skin-accent)); }
+/* mo.callout(…, kind) */
+.py-md.py-callout { border: 1px solid var(--border); border-left: 4px solid var(--muted-fg); border-radius: 8px; padding: 10px 14px; background: var(--muted); }
+.py-callout > :first-child { margin-top: 0; }
+.py-callout > :last-child { margin-bottom: 0; }
+.py-md.py-callout-info { border-color: color-mix(in srgb, var(--skin-bg) 75%, var(--skin-blue)); border-left-color: color-mix(in srgb, var(--skin-blue) 93%, var(--skin-accent)); background: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-fg)); }
+.py-md.py-callout-success { border-color: color-mix(in srgb, var(--skin-bg) 80%, var(--skin-accent)); border-left-color: var(--primary); background: var(--secondary); }
+.py-md.py-callout-warn { border-color: color-mix(in srgb, var(--skin-bg) 62%, var(--skin-yellow)); border-left-color: var(--stale); background: color-mix(in srgb, var(--skin-bg) 89%, var(--skin-yellow)); }
+.py-md.py-callout-danger { border-color: color-mix(in srgb, var(--skin-bg) 74%, var(--skin-red)); border-left-color: var(--danger); background: color-mix(in srgb, var(--skin-bg) 96%, var(--skin-fg)); }
+.prose pre { font-size: 13px; line-height: 1.6; padding: 12px; margin: 0 0 1em; background: color-mix(in srgb, var(--skin-bg) 96%, var(--skin-fg)); overflow: auto; border: 1px solid color-mix(in srgb, var(--skin-bg) 89%, var(--skin-fg)); border-radius: 6px; }
+.prose code { font-size: .9em; background: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-fg)); padding: 2px 4px; border-radius: 3px; }
+.prose pre code { padding: 0; background: none; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 0 0 1em; }
+.prose td, .prose th { border: 1px solid var(--border); padding: 7px 10px; text-align: left; }
+.prose img { max-width: 100%; }
+.prose hr { border: 0; border-top: 1px solid var(--border); margin: 1.4em 0; }
+.prose .katex { font-size: 1.18em; color: inherit; font-style: normal; line-height: 1.2; }
+.prose .katex-display { margin: .9em 0; padding: 0; overflow-x: auto; overflow-y: hidden; }
+.prose .katex p { margin: 0; } .prose .katex table { width: auto; border: 0; } .prose .katex td { border: 0; padding: 0; }
+.prose .fold-toggle { display: none; }
+.math-environment { border-left: 3px solid color-mix(in srgb, var(--skin-bg) 8%, var(--skin-accent)); padding: 12px 16px; margin: 16px 0; background: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-accent-bright)); border-radius: 0 6px 6px 0; }
+.math-environment > :last-child, .math-environment p:last-child { margin-bottom: 0; }
+.env-thm, .env-conj { font-style: italic; }
+.math-environment strong { font-style: normal; }
+
+.applet-offline { max-width: 640px; margin: 80px auto; padding: 0 20px; line-height: 1.6; }
+.applet-offline h1 { font: 30px Georgia, serif; margin: 0 0 12px; }
+.applet-offline pre { background: var(--muted); border-radius: 6px; padding: 12px; white-space: pre-wrap; }
+
+@media (max-width: 640px) {
+  .py-toolbar { padding: 6px 10px; }
+  .py-btn span { display: none; }
+  .applet-name, .py-status { display: none; }
+  .py-scroll { padding: 16px 8px 80px; }
+  .py-tools { opacity: 1; pointer-events: auto; position: static; justify-content: flex-end; border: 0; box-shadow: none; }
+}

@@ -4,7 +4,7 @@ __generated_with = "alphaPy"
 app = marimo.App()
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import marimo as mo
     import matplotlib.pyplot as plt
@@ -27,7 +27,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     length = mo.ui.slider(1, 7, value=4, label="Word length $n$")
     show_sets = mo.ui.checkbox(value=True, label="Show the ping-pong sets")
@@ -35,7 +35,7 @@ def _(mo):
     return (length, show_sets)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(fmpz_mat, length):
     A = fmpz_mat([[1, 2], [0, 1]])
     B = fmpz_mat([[1, 0], [2, 1]])
@@ -57,7 +57,7 @@ def _(fmpz_mat, length):
     return (A, B, frontier, inverse, letters, words)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(length, mo, words):
     _distinct = len({tuple(int(e) for e in m.entries()) for m in words.values()})
     _expected = 1 + sum(4 * 3 ** (k - 1) for k in range(1, length.value + 1))
@@ -67,7 +67,7 @@ def _(length, mo, words):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(plt, show_sets, words):
     def _disk(m):
         a, b, c, d = (int(e) for e in m.entries())

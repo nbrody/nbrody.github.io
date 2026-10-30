@@ -1,10 +1,11 @@
 #!/bin/zsh
 # Starts the Alpha editors on this computer, each on a fixed port, opened on the
-# matching folder here. The talk's slides only need this for AlphaPy
-# (http://127.0.0.1:8835/): the other editors run in the page itself, from
-# ../web/ (alphaCentaur's scripts/build-web-demo.mjs). Run it anyway to use
-# the real servers, for example to recompile in AlphaTeX. Double-click, or run
-# in a terminal; close the window (or press Ctrl-C) to stop them all.
+# matching folder here. The talk's slides don't need this: every editor runs in
+# the page itself, from ../web/ (alphaCentaur's scripts/build-web-demo.mjs),
+# AlphaPy with Python in the browser. Run it to use the real servers, for
+# example to recompile in AlphaTeX or to run notebooks with Python on this
+# computer. Double-click, or run in a terminal; close the window (or press
+# Ctrl-C) to stop them all.
 #
 #   AlphaTeX       8795  paper/
 #   AlphaMarkdown  8833  notes/
