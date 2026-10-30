@@ -26,13 +26,18 @@
   var card = q.get('card') || 'top', zoom = Math.min(1.5, Math.max(0.4, Number(q.get('zoom')) || 1));
   var target = { top: null, verdict: '#verdict', zariski: '#card-zariski', congruence: '#cong-h', places: '#card-places', view: '#card-places iframe', sarith: '#card-sarith' }[card];
   var frame = document.getElementById('calc');
+  // Scale the whole frame with a transform, not CSS zoom: zoom doesn't carry into the calculator's
+  // own poincare and trees frames the same way in every browser (white bands around their canvases).
+  if (zoom !== 1) {
+    frame.style.width = (100 / zoom) + '%'; frame.style.height = (100 / zoom) + '%';
+    frame.style.transformOrigin = '0 0'; frame.style.transform = 'scale(' + zoom + ')';
+  }
   frame.src = calc + location.hash;
 
   var userScrolled = false, timer = null;
   frame.addEventListener('load', function () {
     var w = frame.contentWindow, d = frame.contentDocument;
     if (!d) return;                                   // another origin: show the page as it is
-    if (zoom !== 1) d.documentElement.style.zoom = String(zoom);
     if (!target) return;
     ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(function (t) {
       w.addEventListener(t, function () { userScrolled = true; }, { passive: true, capture: true });
