@@ -1,21 +1,42 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Folding an LPS square complex</title>
-<style>html,body,iframe{width:100%;height:100%;margin:0;border:0;background:#0d2326}iframe{display:block}</style></head>
-<body><iframe id="tool" title="Folded LPS square complex" src="../../GeometryofLinearGroups/Geometric/Tools/padicGroups/quaternionCalculator/index.html"></iframe>
-<script>
-document.querySelector('#tool').addEventListener('load', function () {
-  try {
-    const win=this.contentWindow, doc=this.contentDocument;
-    const canvas=doc.querySelector('#folded-vis-container');
-    if (!canvas) return;
-    const section=canvas.closest('.section-content');
-    const header=section.previousElementSibling;
-    section.classList.add('slide-folded');
-    const style=doc.createElement('style');
-    style.textContent=`body{margin:0!important;overflow:hidden!important}.container{max-width:none!important;width:100%!important;height:100vh!important;margin:0!important;padding:8px!important;box-sizing:border-box!important}.container>*:not(.slide-folded){display:none!important}.slide-folded{display:block!important;margin:0!important;padding:0!important}.folded-intro{display:none!important}.folded-layout{margin-top:8px!important;height:calc(100vh - 140px)!important}.folded-stage{min-height:0!important;height:100%!important}#folded-vis-container{height:calc(100% - 52px)!important;min-height:0!important}.folded-panel{max-height:100%!important}`;
-    doc.head.appendChild(style);
-    if (header && header.classList.contains('collapsed')) header.click();
-    win.dispatchEvent(new Event('resize'));
-  } catch (e) { console.error('Unable to open folded-complex view:', e); }
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LPS square complex</title>
+<style>
+  html, body, #complex { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #0c111c; }
+  #complex canvas { display: block; width: 100%; height: 100%; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="complex" role="img" aria-label="Interactive LPS square complex; drag to rotate, scroll to zoom"></div>
+<script type="module">
+import { buildVHComplex } from '../../GeometryofLinearGroups/Geometric/Tools/padicGroups/quaternionCalculator/quaternionPackage/vhComplex.js';
+import { FoldedComplexView } from '../../GeometryofLinearGroups/Geometric/Tools/padicGroups/quaternionCalculator/vis/vis_folded.js';
+
+const container = document.getElementById('complex');
+const view = new FoldedComplexView(container);
+view.params.fold = 0;
+view.setComplex(buildVHComplex(5, 13));
+
+window.addEventListener('resize', () => view.resize());
+if (window.ResizeObserver) new ResizeObserver(() => view.resize()).observe(container);
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window.parent || event.origin !== location.origin) return;
+  if (event.data?.type === 'pz-button' && event.data.name === 'toggle-fold') {
+    view.animateFold(view.params.fold > 0.5 ? 0 : 1);
+  }
 });
-</script></body></html>
+</script>
+</body>
+</html>
