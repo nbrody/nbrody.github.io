@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Views of one group</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0f1218; overflow: hidden; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #app { display: flex; flex-direction: column; height: 100%; }
+  iframe { flex: 1; min-height: 0; border: 0; display: block; width: 100%; background: #0f1218; }
+  #bar { flex: none; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px 12px; background: #151a23; border-top: 1px solid #2a3140; }
+  #bar[hidden] { display: none; }
+  #bar button { appearance: none; border: 0; cursor: pointer; font: inherit; color: #c9d2e3; background: transparent; border-radius: 10px; padding: 7px 14px; font-size: 17px; }
+  #bar button:hover { background: #222a38; }
+  #bar .arrow { font-size: 26px; line-height: 1; padding: 4px 16px; color: #f2d493; }
+  #views { display: flex; align-items: center; gap: 8px; }
+  #bar .view { white-space: nowrap; }
+  #bar .view.on { background: #f2d493; color: #0d2326; font-weight: 650; }
+  #bar .sep { color: #5a6479; font-size: 20px; }
+</style>
+</head>
+<body>
+<!-- One group, several views, for a slide of the AlphaCentaur talk.
+       views.html?tool=<path to poincare or trees>&views=polyhedron,cayley,honeycomb&panel=closed#s=<the tool's own permalink>
+     The tool opens on the group in the permalink. The arrows under it (or the buttons the phone remote can send:
+     pz-button "prev-view" / "next-view") step through the views. Views are poincare's own display settings:
+       polyhedron  the Dirichlet domain alone      cayley     the Cayley graph of the generators
+       honeycomb   the tessellation by copies of the domain -->
+<div id="app">
+  <iframe id="tool" title="Group"></iframe>
+  <div id="bar" hidden>
+    <button class="arrow" id="prev" title="Previous view" aria-label="Previous view">‹</button>
+    <span id="views"></span>
+    <button class="arrow" id="next" title="Next view" aria-label="Next view">›</button>
+  </div>
+</div>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var tool = q.get('tool') || '';
+  if (!/^(?:\.\.?\/)+[\w./-]*\.html$/.test(tool)) { document.body.textContent = 'views.html needs ?tool=<relative path to a tool page>'; return; }
+  var names = (q.get('views') || '').split(',').filter(Boolean);
+  var frame = document.getElementById('tool');
+  // poincare's first-visit tutorial would open over the group; this page is the tutorial's "seen" flag's origin too.
+  try { localStorage.setItem('poincare.welcome.v2', '1'); } catch (e) {}
+  frame.src = tool + location.hash;
+
+  // How each view is shown: poincare's own buttons, so its panel stays in step.
+  var LABEL = { polyhedron: 'Polyhedron', cayley: 'Cayley graph', honeycomb: 'Honeycomb' };
+  function click(d, id) { var b = d.getElementById(id); if (b) b.click(); }
+  function setToggle(d, id, on) { var b = d.getElementById(id); if (b && b.classList.contains('active') !== on) b.click(); }
+  var SHOW = {
+    polyhedron: function (w, d) { setToggle(d, 'toggle-honeycomb', false); click(d, 'cayley-off'); w.PoincareAPI && w.PoincareAPI.setPolyhedronOpacity(1); },
+    cayley: function (w, d) { setToggle(d, 'toggle-honeycomb', false); click(d, 'cayley-s'); w.PoincareAPI && w.PoincareAPI.setPolyhedronOpacity(0.25); },
+    honeycomb: function (w, d) { click(d, 'cayley-off'); w.PoincareAPI && w.PoincareAPI.setPolyhedronOpacity(1); setToggle(d, 'toggle-honeycomb', true); },
+  };
+
+  var current = 0, ready = false;
+  var bar = document.getElementById('bar'), holder = document.getElementById('views');
+  names = names.filter(function (n) { return SHOW[n]; });
+  names.forEach(function (n, i) {
+    if (i) { var s = document.createElement('span'); s.className = 'sep'; s.textContent = '·'; holder.appendChild(s); }
+    var b = document.createElement('button'); b.className = 'view'; b.textContent = LABEL[n]; b.onclick = function () { go(i); };
+    holder.appendChild(b);
+  });
+  if (names.length) bar.hidden = false;
+
+  function paint() { Array.prototype.forEach.call(holder.querySelectorAll('.view'), function (b, i) { b.classList.toggle('on', i === current); }); }
+  // The polyhedron is a small part of the ball: look closer at it, and at the whole ball for the others.
+  var baseDistance = null, CLOSE = { polyhedron: 0.6 };
+  function distance(w, name) {
+    var api = w.PoincareAPI;
+    if (!api || !api.camera || !api.controls) return;
+    var cam = api.camera, target = api.controls.target;
+    if (baseDistance === null) baseDistance = cam.position.distanceTo(target);
+    var dir = cam.position.clone().sub(target).normalize();
+    cam.position.copy(target).addScaledVector(dir, baseDistance * (CLOSE[name] || 1));
+    api.controls.update();
+  }
+  function apply() {
+    var w = frame.contentWindow, d = frame.contentDocument;
+    if (!ready || !w || !d || !names[current]) return;
+    try { SHOW[names[current]](w, d); distance(w, names[current]); } catch (e) { console.warn('view', names[current], e); }
+  }
+  function go(i) { if (!names.length) return; current = (i + names.length) % names.length; paint(); apply(); }
+  document.getElementById('next').onclick = function () { go(current + 1); };
+  document.getElementById('prev').onclick = function () { go(current - 1); };
+  addEventListener('message', function (e) {
+    var m = e.data || {};
+    if (m.type === 'pz-button' && m.name === 'next-view') go(current + 1);
+    if (m.type === 'pz-button' && m.name === 'prev-view') go(current - 1);
+  });
+
+  // The group has to be computed before a view can be set: wait for poincare's domain.
+  frame.addEventListener('load', function () {
+    var tries = 0, t = setInterval(function () {
+      tries++;
+      var w = frame.contentWindow, st = null;
+      try { st = w.PoincareAPI && w.PoincareAPI.state(); } catch (e) {}
+      if ((st && st.domain) || !names.length || tries > 120) { clearInterval(t); ready = true; paint(); apply(); }
+    }, 500);
+  });
+  paint();
+})();
+</script>
+</body>
+</html>
