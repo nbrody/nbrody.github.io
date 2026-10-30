@@ -1,0 +1,97 @@
+/* alphaNote — notebook chrome, in alphaCentaur's light theme. */
+:root {
+  /* Skin tokens (app/lib/skins.mjs); alphaCentaur sets them to the chosen skin. */
+  --skin-bg: #ffffff;
+  --skin-fg: #152c3e;
+  --skin-accent: #087e6c;
+  --skin-accent-bright: #2eac98;
+  --skin-accent2: #d9822b;
+  --skin-on-accent: #ffffff;
+  --skin-sidebar: #132c3d;
+  --skin-sidebar-fg: #ffffff;
+  --skin-sidebar-muted: #8aa7b7;
+  --skin-sidebar-accent: #aaf0db;
+  --skin-shadow: #152c3e;
+  --skin-blue: #5274b8;
+  --skin-amber: #a97c51;
+  --skin-purple: #8665a9;
+  --skin-red: #c24940;
+  --skin-green: #36ab83;
+  --skin-yellow: #e0ad46;
+}
+:root {
+  --bg: var(--skin-bg); --fg: var(--skin-fg); --primary: var(--skin-accent); --primary-hover: color-mix(in srgb, var(--skin-fg) 26%, var(--skin-accent)); --secondary: color-mix(in srgb, var(--skin-bg) 90%, var(--skin-accent-bright));
+  --muted: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-fg)); --muted-fg: color-mix(in srgb, var(--skin-bg) 40%, var(--skin-fg)); --border: color-mix(in srgb, var(--skin-bg) 88%, var(--skin-fg)); --ring: color-mix(in srgb, color-mix(in srgb, var(--skin-accent) 75%, var(--skin-accent-bright)) 73%, var(--skin-bg)); --danger: var(--skin-red);
+  --font: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); -webkit-font-smoothing: antialiased; }
+#app { height: 100%; }
+button, input, textarea { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none;
+  height: 32px; min-width: 32px; padding: 0 9px; border: 1px solid transparent; border-radius: 8px;
+  background: transparent; color: var(--fg); font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer;
+}
+.btn:hover { background: var(--muted); }
+.btn.icon { width: 32px; padding: 0; }
+.btn.secondary { background: var(--secondary); }
+.btn.outline { border-color: var(--border); background: var(--skin-bg); }
+.btn.outline:hover { background: var(--muted); }
+.btn.primary { background: var(--primary); color: var(--skin-on-accent); padding: 0 14px; }
+.btn.primary:hover { background: var(--primary-hover); }
+.btn:disabled { opacity: .5; pointer-events: none; }
+.btn:focus-visible, .segmented button:focus-visible, .import-action:focus-within { outline: 2px solid var(--ring); outline-offset: 1px; }
+.btn svg { flex: none; }
+
+.applet-name {
+  flex: none; padding: 2px 8px; margin-right: 6px; border-radius: 999px; background: color-mix(in srgb, var(--skin-bg) 90%, var(--skin-accent-bright)); color: var(--skin-accent);
+  font-size: 12px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; cursor: default;
+}
+.spacer { flex: 1; min-width: 8px; }
+.divider { height: 22px; width: 1px; background: var(--border); margin: 0 5px; flex: none; }
+.button-group { display: flex; gap: 2px; border-right: 1px solid var(--border); padding-right: 6px; margin-right: 6px; flex: none; }
+.segmented { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--muted); flex: none; margin-left: 6px; }
+.segmented button { border: 0; border-radius: 6px; padding: 3px 9px; background: none; color: var(--muted-fg); font-size: 11px; cursor: pointer; }
+.segmented button[aria-pressed='true'] { background: var(--skin-bg); color: var(--fg); box-shadow: 0 1px 2px color-mix(in srgb, var(--skin-shadow) 12%, transparent); }
+.segmented button:disabled { opacity: .5; cursor: default; }
+
+/* The notebook */
+.ink-workspace { display: flex; flex-direction: column; height: 100%; min-height: 400px; background: color-mix(in srgb, var(--skin-bg) 93%, var(--skin-fg)); }
+.ink-toolbar {
+  display: flex; align-items: center; gap: 3px; flex-shrink: 0; min-height: 49px; padding: 8px 12px;
+  background: var(--skin-bg); border-bottom: 1px solid var(--border); font-size: 12px; overflow-x: auto;
+}
+.ink-toolbar input[type='color'] { flex: none; height: 26px; width: 28px; border: 0; background: none; padding: 2px; cursor: pointer; }
+.ink-value { min-width: 2.2em; text-align: center; font-variant-numeric: tabular-nums; flex: none; }
+.ink-page { padding: 0 4px; white-space: nowrap; flex: none; }
+.ink-stage { flex: 1; overflow: auto; padding: 28px; min-height: 230px; }
+.ink-stage canvas { display: block; margin: 0 auto; max-width: none; background: #fff; box-shadow: 0 2px 12px #1c3b5014; }
+.ink-toolbar.bottom { border-top: 1px solid var(--border); border-bottom: 0; white-space: nowrap; }
+.import-action { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 9px; border-radius: 8px; color: color-mix(in srgb, var(--skin-bg) 40%, var(--skin-fg)); cursor: pointer; flex: none; }
+.import-action:hover { color: color-mix(in srgb, var(--skin-fg) 15%, var(--skin-accent)); background: var(--muted); }
+.import-action input { display: none; }
+.import-action[aria-disabled='true'] { opacity: .5; pointer-events: none; }
+.ink-notice { flex-shrink: 0; padding: 8px 14px; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--skin-bg) 89%, var(--skin-red)); color: color-mix(in srgb, var(--skin-red) 82%, var(--skin-fg)); font-size: 12px; }
+
+/* Recognition draft */
+.ocr-result { flex-shrink: 0; padding: 20px; background: var(--skin-bg); border-top: 1px solid var(--border); }
+.ocr-result p { font-size: 12px; color: color-mix(in srgb, color-mix(in srgb, var(--skin-accent-bright) 10%, var(--skin-bg)) 56%, var(--skin-fg)); margin: 10px 0; }
+.ocr-result textarea {
+  display: block; width: 100%; height: 110px; margin: 10px 0; padding: 10px 12px; resize: vertical;
+  border: 1px solid var(--border); border-radius: 7px; font-size: 14px; color: var(--fg);
+}
+.ocr-result textarea:focus { outline: 2px solid var(--ring); outline-offset: 0; }
+
+.ink-offline { max-width: 640px; margin: 80px auto; padding: 0 20px; line-height: 1.6; }
+
+@media (max-width: 767px) {
+  .ink-toolbar { min-width: 100%; }
+  .ink-stage { padding: 14px; }
+  .ink-stage canvas { margin: 0; }
+}

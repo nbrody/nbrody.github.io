@@ -1,0 +1,22 @@
+\section{A group that needs two places}\label{sec:arithmetic}
+
+\begin{proposition}\label{prop:twoplaces}
+The group $\Gamma = \PGL_2(\Z[\frac12])$ is not discrete in $\PGL_2(\R)$ or in
+$\PGL_2(\Q_2)$, but it is discrete in $\PGL_2(\R) \times \PGL_2(\Q_2)$.
+\end{proposition}
+
+\begin{proof}
+The ring $\Z[\frac12]$ is dense in $\R$, so the upper triangular unipotent
+matrices in $\Gamma$ are not discrete in $\PGL_2(\R)$. In $\PGL_2(\Q_2)$, the
+infinite group $\PGL_2(\Z)$ lies in the compact group $\PGL_2(\Z_2)$, so
+$\Gamma$ is not discrete there either. Finally, $\Z[\frac12]$ is discrete in
+$\R \times \Q_2$, and so $\Gamma$ is discrete in the product; see
+\cite[Chapter~II]{serre}, where $\Gamma$ acts on the product of the hyperbolic
+plane and the $3$-regular tree.
+\end{proof}
+
+\begin{remark}
+Proposition~\ref{prop:twoplaces} is why Sanov's group of
+Theorem~\ref{thm:sanov} is \emph{geometric} while $\PGL_2(\Z[\frac12])$ is
+\emph{arithmetic} in the sense of the Classification Conjecture.
+\end{remark}
