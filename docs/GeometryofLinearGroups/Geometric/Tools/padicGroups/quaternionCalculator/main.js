@@ -11,6 +11,7 @@ import * as TreeVis from './vis/vis_tree.js';
 import * as SquareVis from './vis/vis_square.js';
 import * as SO3ZVis from './vis/vis_so3z.js';
 import * as GeneratorVis from './vis/vis_generators.js';
+import { initFoldedSection, setFoldedPrimes } from './vis/folded_section.js';
 
 // Global State
 let GENERATORS = {};
@@ -25,12 +26,14 @@ async function runComputation() {
 
     if (primes.length === 0) return;
 
-    const listDiv = document.getElementById('generators-list');
-    listDiv.innerHTML = 'Computing...';
+    // (#generators-list does not survive drawGenerators, so report progress here)
+    const status = document.getElementById('status-message');
+    if (status) status.textContent = 'Computing...';
 
     const groupGenerators = await generateGeneratorsForPrimes(primes);
     GENERATORS = createGeneratorObject(groupGenerators);
     RELATIONS = computeProjectiveRelations(GENERATORS);
+    if (status) status.textContent = '';
 
     // Store XY solutions for labeling
     primes.forEach(p => {
@@ -38,6 +41,7 @@ async function runComputation() {
     });
 
     GeneratorVis.drawGenerators(GENERATORS, XY_SOLUTIONS);
+    setFoldedPrimes(primes);
     populateGenSelects();
     updateVisualizations();
 }
@@ -48,11 +52,15 @@ function populateGenSelects() {
     const selY = document.getElementById('gen-y');
     selX.innerHTML = ''; selY.innerHTML = '';
 
-    Object.keys(GENERATORS).filter(k => !k.endsWith('*')).forEach(key => {
+    const keys = Object.keys(GENERATORS);
+    keys.forEach(key => {
         const opt = new Option(`${key}: ${formatQuaternion(GENERATORS[key].q)}`, key);
         selX.add(opt.cloneNode(true));
         selY.add(opt);
     });
+    // squares pair generators of different primes
+    const other = keys.find(k => GENERATORS[k].prime !== GENERATORS[keys[0]].prime);
+    if (other) selY.value = other;
 }
 
 function updateVisualizations() {
@@ -362,6 +370,7 @@ function formatBigQuaternion(q) {
 function init() {
     MainVis.initMainVis('vis-container');
     GeneratorVis.initGeneratorVis('generator-vis-container');
+    initFoldedSection();
 
     document.getElementById('compute-button').addEventListener('click', runComputation);
 

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spatial Graph Relaxer</title>
+    <meta name="description"
+        content="Enter a spatial graph — a graph embedded in ℝ³ — and watch it settle, without ever passing through itself, into a symmetric, evenly spread embedding.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+    </script>
+    <script>
+        // theme before first paint
+        try { if (localStorage.getItem('spatialGraphs.theme') === 'light') document.documentElement.classList.add('light'); } catch (e) { }
+    </script>
+</head>
+
+<body>
+    <div id="viz-container"></div>
+
+    <div id="status-banner" class="status-banner pending" role="status" aria-live="polite">
+        <span class="status-banner-text">Loading…</span>
+        <button class="status-banner-close" title="Collapse" aria-label="Collapse">×</button>
+    </div>
+
+    <!-- ============================================================ control panel -->
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <div class="panel-tabs" role="tablist" aria-label="Controls">
+                <button class="tab-btn active" data-tab="graph" role="tab">Graph</button>
+                <button class="tab-btn" data-tab="shape" role="tab">Shape</button>
+                <button class="tab-btn" data-tab="view" role="tab">View</button>
+            </div>
+            <button id="help-btn" class="collapse-btn" title="What is this?" aria-label="What is this?">
+                <span class="collapse-icon">?</span>
+            </button>
+            <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+                <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+            </button>
+            <button id="play-btn" class="collapse-btn" title="Pause (Space)" aria-label="Pause">
+                <svg class="icon-pause" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M7 5h3.2v14H7zM13.8 5H17v14h-3.2z"/></svg>
+                <svg class="icon-play" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- ======================== Graph -->
+            <div id="tab-graph" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">Spatial Graph</h2>
+                    <p class="panel-subtitle">A graph embedded in ℝ³, up to isotopy. Load, draw or type one; it settles
+                        into a nice position without ever passing through itself.</p>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <label class="control-label">Examples</label>
+                        <button id="load-example-btn" class="toggle-btn" title="Browse the example library">Load Example…</button>
+                    </div>
+                    <div id="graph-name" class="graph-name">—</div>
+                    <p id="graph-desc" class="graph-desc"></p>
+                    <div id="graph-summary" class="summary"></div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Draw</label>
+                    <button id="draw-btn" class="btn btn-add"
+                        title="Draw strands in the plane and choose over/under at each crossing (D)">✎ Draw a diagram</button>
+                    <button id="from-view-btn" class="btn btn-add-alt"
+                        title="Project the current shape along the line of sight, with its crossings, into the diagram editor">Edit this view as a diagram</button>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row" style="justify-content: space-between">
+                        <label class="control-label">Invariants</label>
+                        <span id="inv-status" class="inv-status"></span>
+                    </div>
+                    <div id="inv-readout"><p class="label-hint">Computing…</p></div>
+                </div>
+
+                <div class="control-group fold" id="text-fold">
+                    <button class="fold-toggle" id="text-toggle" aria-expanded="false">
+                        <span class="control-label">Text</span><span class="fold-chev" aria-hidden="true"></span>
+                    </button>
+                    <div class="fold-body">
+                        <textarea id="text-input" class="text-input" spellcheck="false" aria-label="Spatial graph as text"></textarea>
+                        <div class="control-row">
+                            <button id="text-apply" class="btn btn-add">Apply</button>
+                            <button id="text-current" class="btn btn-add-alt" title="Write the current shape out as text">Current shape</button>
+                        </div>
+                        <pre id="text-help" class="text-help"></pre>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button id="copy-link" class="btn btn-add-alt"
+                        title="The URL encodes the current shape: anyone opening it sees this graph">Copy link to this graph</button>
+                </div>
+
+                <p id="graph-error" class="error-message"></p>
+            </div>
+
+            <!-- ======================== Shape -->
+            <div id="tab-shape" class="tab-content">
+                <div>
+                    <h2 class="panel-title">What makes it nice</h2>
+                    <p class="panel-subtitle">The shape lowers an energy at fixed total length. Every step is guarded, so
+                        strands never pass through each other.</p>
+                </div>
+
+                <div class="control-group">
+                    <div class="seg-selector">
+                        <span class="seg-label">Style</span>
+                        <div class="seg-options" id="style-options">
+                            <button class="seg-opt active" data-style="balanced" title="The defaults">Balanced</button>
+                            <button class="seg-opt" data-style="round" title="Long-range repulsion, soft junctions: round, spread out">Round</button>
+                            <button class="seg-opt" data-style="elastic" title="Stiff edges: elastic-rod curves">Elastic</button>
+                            <button class="seg-opt" data-style="tight" title="Short-range repulsion: strands pack close, like rope pulled tight">Tight</button>
+                        </div>
+                    </div>
+                    <button class="slider-btn" id="sl-range" title="How far the repulsion reaches: long (round) … short (tight, rope-like)"><span class="slider-name">Repulsion range</span></button>
+                    <button class="slider-btn" id="sl-bend" title="Weight of ∫κ² ds: how much the edges resist bending"><span class="slider-name">Stiffness</span></button>
+                    <button class="slider-btn" id="sl-junction" title="Weight of the junction energy: edges leave each vertex evenly spread (120° for degree 3)"><span class="slider-name">Junction balance</span></button>
+                    <button class="slider-btn" id="sl-equal" title="Weight of Σ(L_e/L̄ − 1)²: edges of similar length"><span class="slider-name">Equal edges</span></button>
+                    <button class="slider-btn" id="sl-res" title="Beads per unit length. More is smoother and slower."><span class="slider-name">Resolution</span></button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Energy</label>
+                    <div id="energy-readout"></div>
+                    <button id="explore-btn" class="btn btn-add-alt" title="A settled shape is a local minimum. Kick it with random twists of space, let it settle again, and keep the lowest energy found (E)">Explore other minima</button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Symmetry</label>
+                    <div id="sym-readout"><p class="label-hint">Detected once the shape settles.</p></div>
+                    <div class="control-row">
+                        <button id="symmetrize-btn" class="btn btn-add" title="Average the shape over its symmetry group (Y)">Symmetrize</button>
+                        <button id="detect-btn" class="btn btn-add-alt" title="Look for rigid symmetries now">Detect now</button>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">What “nice” means here</h3>
+                    <p>A spatial graph is an embedding up to isotopy, so “nice” has to pick a representative. Here it
+                        is a low point of an energy that depends only on the shape:</p>
+                    <ul>
+                        <li><b>Self-avoidance.</b> The tangent-point energy Σ ℓ<sub>I</sub>ℓ<sub>J</sub>|T×e|<sup>α</sup>/|e|<sup>β</sup>
+                            over pairs of pieces: it blows up where two strands meet but vanishes along a straight
+                            strand, so strands spread apart evenly.</li>
+                        <li><b>Smoothness.</b> Bending energy ∫κ² ds along each edge.</li>
+                        <li><b>Balanced junctions.</b> Edges leave each vertex as evenly spread as possible (the Thomson
+                            problem on directions): 120° in a plane at a trivalent vertex, as in a soap film.</li>
+                        <li><b>Fairness.</b> Edges that a symmetry of the abstract graph could swap get equal length.
+                            Without this a θ-curve settles as a flat circle with a diameter.</li>
+                    </ul>
+                    <p>Total length is held fixed, so only the shape matters. Minimizers tend to be <b>symmetric</b>:
+                        the rigid motions that map the shape to itself are found above and drawn under View — the other
+                        sense of “nice”: as many of the graph’s symmetries as possible realized by isometries of ℝ³.</p>
+                    <p>A settled shape is a <i>local</i> minimum. <b>Explore</b> kicks it with random twists of space and
+                        keeps the lowest energy it finds.</p>
+                    <p>No bead moves more than 0.45× the current clearance (the least distance between pieces that
+                        share no bead) in one step, so pieces never meet and the isotopy class is unchanged — the
+                        invariants on the Graph tab confirm it.</p>
+                </div>
+            </div>
+
+            <!-- ======================== View -->
+            <div id="tab-view" class="tab-content">
+                <div>
+                    <h2 class="panel-title">View</h2>
+                </div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label for="palette-select" class="control-label">Palette</label>
+                        <select id="palette-select" class="select-input"></select>
+                        <div class="theme-options" role="group" aria-label="Background theme">
+                            <button class="theme-opt active" data-theme="dark">Dark</button>
+                            <button class="theme-opt" data-theme="light">Light</button>
+                        </div>
+                    </div>
+                    <button class="slider-btn" id="sl-thick" title="Tube radius (never thicker than half the clearance)"><span class="slider-name">Thickness</span></button>
+                </div>
+                <div class="control-group">
+                    <div class="toggle-row">
+                        <button id="toggle-sym" class="toggle-btn" title="Rotation axes (coloured by order) and mirror planes">Symmetry elements</button>
+                        <button id="toggle-rotate" class="toggle-btn" title="Spin the camera slowly">Auto-rotate</button>
+                        <button id="reset-view" class="toggle-btn">Reset view</button>
+                        <button id="axis-btn" class="toggle-btn" title="Look straight down the axis of highest order">Down the main axis</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <button id="export-png" class="btn btn-add-alt">⬇ Image</button>
+                        <button id="export-obj" class="btn btn-add-alt" title="The tubes as a mesh, for 3D printing">⬇ .obj</button>
+                    </div>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">Handling it</h3>
+                    <p><b>Drag a strand</b> to pull it: it cannot pass through anything. Drag empty space to turn the
+                        view; scroll to zoom. Click a strand or a vertex to inspect it.</p>
+                    <p><kbd>Space</kbd> relax/pause · <kbd>S</kbd> scramble · <kbd>Y</kbd> symmetrize · <kbd>E</kbd> explore · <kbd>D</kbd> draw
+                        · <kbd>Esc</kbd> close</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ transport -->
+    <div id="transport">
+        <button id="pill-play" class="pill" title="Relax / pause (Space)">
+            <svg class="icon-pause" viewBox="0 0 24 24"><path class="solid" d="M7 5h3.2v14H7zM13.8 5H17v14h-3.2z"/></svg>
+            <svg class="icon-play" viewBox="0 0 24 24"><path class="solid" d="M8 5l11 7-11 7z"/></svg>
+            <span class="pill-label" id="pill-play-label">Pause</span>
+        </button>
+        <button id="pill-scramble" class="pill" title="Twist space around the graph, then let it settle again (S)">
+            <svg viewBox="0 0 24 24"><path d="M4 12c3-7 7 7 10 0s5-3 6-1"/><path d="M4 18c3-4 6 2 9-1M13 6c2-2 4-1 6 1"/></svg>
+            <span class="pill-label">Scramble</span>
+        </button>
+        <button id="pill-explore" class="pill" title="Hop between energy basins and keep the lowest minimum (E)">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>
+            <span class="pill-label">Explore</span>
+        </button>
+        <button id="pill-sym" class="pill" title="Average over the symmetry group (Y)">
+            <svg viewBox="0 0 24 24"><path d="M12 3v18M5 7l7-4 7 4M5 17l7 4 7-4"/></svg>
+            <span class="pill-label">Symmetrize</span>
+        </button>
+        <button id="pill-draw" class="pill" title="Draw a diagram (D)">
+            <svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/></svg>
+            <span class="pill-label">Draw</span>
+        </button>
+    </div>
+
+    <div id="inspector" class="inspector" hidden></div>
+
+    <!-- ============================================================ diagram editor -->
+    <section id="diagram-card" class="glass-card" hidden aria-label="Diagram editor">
+        <div class="card-head">
+            <span class="card-title">Diagram</span>
+            <div class="seg-options" id="tool-options">
+                <button class="seg-opt active" data-tool="draw" title="Draw strands">Draw</button>
+                <button class="seg-opt" data-tool="move" title="Drag vertices and strands">Move</button>
+                <button class="seg-opt" data-tool="erase" title="Click a strand or vertex to remove it">Erase</button>
+            </div>
+            <button id="diagram-close" class="collapse-btn" title="Close (Esc)" aria-label="Close"><span class="collapse-icon">×</span></button>
+        </div>
+        <canvas id="diagram-canvas"></canvas>
+        <div class="card-foot">
+            <div class="card-hint">Draw a stroke; end it on a strand to make a vertex there, or where it began to close a
+                loop. Click a crossing to flip it.</div>
+            <div class="control-row">
+                <span id="diagram-stats" class="card-stats"></span>
+            </div>
+            <div class="control-row">
+                <button id="diagram-undo" class="btn btn-add-alt" title="Undo (⌘Z)">Undo</button>
+                <button id="diagram-clear" class="btn btn-add-alt">Clear</button>
+                <button id="diagram-lift" class="btn btn-primary" title="Lift the diagram into ℝ³ and let it settle">Relax in ℝ³ ▸</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ modals -->
+    <div id="example-modal" class="example-modal" hidden>
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel" role="dialog" aria-modal="true" aria-labelledby="example-title">
+            <div class="example-modal-head">
+                <h3 id="example-title">Examples</h3>
+                <button class="example-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="example-modal-body" id="example-body"></div>
+        </div>
+    </div>
+
+    <div id="help-modal" class="example-modal" hidden>
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel" role="dialog" aria-modal="true" aria-labelledby="help-title">
+            <div class="example-modal-head">
+                <h3 id="help-title">Spatial graphs, settled</h3>
+                <button class="example-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="help-body">
+                <h4>The question</h4>
+                <p>A <b>spatial graph</b> is a graph embedded in ℝ³, considered up to isotopy: you may move it
+                    around as long as no two of its strands pass through each other. Every such class has
+                    infinitely many pictures. Which one is the nice one?</p>
+                <h4>An answer</h4>
+                <p>Make niceness an energy and let the picture flow downhill inside its class. The energy here
+                    rewards four things: strands far apart from one another (a <b>tangent-point repulsion</b>, as in
+                    Yu, Schumacher and Crane’s <i>Repulsive Curves</i>), smooth edges (<b>bending</b>), edges leaving
+                    each vertex evenly spread (<b>balanced junctions</b>: 120° in a plane at a trivalent vertex, like
+                    the films in a soap foam), and edges of similar length. Total length is held fixed, so only the
+                    shape matters.</p>
+                <p>“Fairness” matters more than you might guess: with repulsion alone, at fixed length, the θ-curve’s
+                    minimizer is a flat circle with a diameter. Asking that edges the graph cannot tell apart have equal
+                    length makes three meridians of a sphere the winner.</p>
+                <p>The minimizers are typically <b>symmetric</b>, and that is the second sense of nice: the
+                    symmetries of the graph that the picture realizes as rigid motions. The tool finds them (by
+                    matching every graph automorphism against the geometry) and names the point group — the
+                    standard θ-curve settles to D<sub>3h</sub>, a trefoil to D<sub>3</sub>.</p>
+                <h4>Why it can’t cheat</h4>
+                <p>The flow moves beads along a polygonal model. No bead moves more than 0.45× the current
+                    clearance in a step, and two segments that are at least the clearance apart cannot meet while
+                    each point of them moves less than half of it. So no step changes the isotopy class — scramble,
+                    drag and symmetrize included.</p>
+                <h4>Using it</h4>
+                <ul>
+                    <li><b>Load Example…</b> for θ-curves, handcuffs, K₄ to K₇, Petersen, knots and links.</li>
+                    <li><b>Draw</b> a diagram: strands, vertices where strokes end on strands, a click on a crossing to
+                        flip it. Or project the current shape into the editor and change a crossing.</li>
+                    <li><b>Text</b>: vertices, edges through waypoints, closed curves, or named graphs like
+                        <code>graph petersen</code>.</li>
+                    <li><b>Drag</b> a strand in 3D to pull it; <b>Scramble</b> twists the surrounding space and lets it
+                        settle again — a good test of whether the nice picture is canonical.</li>
+                    <li><b>Explore</b> hops between energy basins (kick, settle, keep the lowest): a settled shape is only a
+                        local minimum.</li>
+                    <li><b>Invariants</b> (knot determinants of the cycles, linking numbers of disjoint cycles) are
+                        recomputed as it settles, as a check that nothing passed through anything.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

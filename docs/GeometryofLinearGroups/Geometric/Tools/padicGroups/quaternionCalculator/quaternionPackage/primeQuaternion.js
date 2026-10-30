@@ -1,5 +1,5 @@
 // primeQuaternion.js - Generation and filtering of prime quaternions
-import { ProjectiveQuaternion, findXYSolution, modInverse, formatQuaternion } from './projectiveQuaternion.js';
+import { ProjectiveQuaternion, QMath, findXYSolution, modInverse, formatQuaternion } from './projectiveQuaternion.js';
 
 /**
  * Compute the 2×2 matrix representation of a quaternion modulo p
@@ -26,19 +26,13 @@ function projectiveToP1Label(x, y, p) {
 }
 
 /**
- * Find the kernel of a 2×2 matrix over F_p
+ * Find the kernel of a rank-one 2×2 matrix over F_p: it kills (b, −a), or
+ * (d, −c) when the first row vanishes.
  */
 function matrixKernel(matrix, p) {
     const [[a, b], [c, d]] = matrix;
-    if (a === 0 && b === 0) return { x: 1, y: 0, p1Label: '∞' };
-    if (b !== 0) {
-        const x = b;
-        const y = (-a % p + p) % p;
-        const p1Label = projectiveToP1Label(x, y, p);
-        return { x, y, p1Label };
-    }
-    if (a !== 0) return { x: 0, y: 1, p1Label: '0' };
-    return { x: 1, y: 0, p1Label: '∞' };
+    const [x, y] = (a !== 0 || b !== 0) ? [b, (p - a) % p] : [d, (p - c) % p];
+    return { x, y, p1Label: projectiveToP1Label(x, y, p) };
 }
 
 /**
@@ -151,19 +145,23 @@ export function createGeneratorObject(canonicalGroups, colors = null) {
             const color = colors ? colors[genCount % colors.length] : primeColors[colorIdx % primeColors.length];
             colorIdx++;
 
+            // A generator and its conjugate (= inverse) label the same edge, in
+            // opposite directions; the conjugate is flagged `inverse`.
             const key = `g${genCount++}`;
+            const keyConj = qKey !== conjKey ? `g${genCount++}` : key;
             generators[key] = {
                 q: q,
                 pq: ProjectiveQuaternion.fromArray(q),
                 color: color,
                 formatted: formatQuaternion(q),
                 prime: prime,
-                p1Label: genObj.p1Label
+                p1Label: genObj.p1Label,
+                inverse: false,
+                inverseKey: keyConj
             };
             seen.add(qKey);
 
             if (qKey !== conjKey) {
-                const keyConj = `g${genCount++}`;
                 const conjMatch = gens.find(g => g.quaternion.join(',') === conjKey);
                 generators[keyConj] = {
                     q: conj,
@@ -171,7 +169,9 @@ export function createGeneratorObject(canonicalGroups, colors = null) {
                     color: color,
                     formatted: formatQuaternion(conj),
                     prime: prime,
-                    p1Label: conjMatch ? conjMatch.p1Label : '?'
+                    p1Label: conjMatch ? conjMatch.p1Label : '?',
+                    inverse: true,
+                    inverseKey: key
                 };
                 seen.add(conjKey);
             }
@@ -182,49 +182,45 @@ export function createGeneratorObject(canonicalGroups, colors = null) {
 }
 
 /**
- * Compute relations between projective quaternions
- * q1 * q2 = q3 * q4 in PGL_2
+ * Square relations a·b = b'·a' (projectively, i.e. up to sign) with a, a' of one
+ * prime p and b, b' of another prime q. a·b is primitive of norm pq, so it has a
+ * unique left factor of norm q among the generators of q, which is b'; then
+ * a' = b'⁻¹·a·b = conj(b')·a·b / q. Returns one relation for each such (a, b).
  */
 export function computeProjectiveRelations(generators) {
     const relations = [];
     const genKeys = Object.keys(generators);
-    const relationSet = new Set();
-
-    console.log(`Computing projective relations for ${genKeys.length} generators...`);
+    const byPrime = new Map();
+    const lookup = new Map(); // ±q → key
+    for (const key of genKeys) {
+        const { prime, q } = generators[key];
+        if (!byPrime.has(prime)) byPrime.set(prime, []);
+        byPrime.get(prime).push(key);
+        lookup.set(q.join(','), key);
+        lookup.set(q.map((x) => -x).join(','), key);
+    }
 
     for (const aKey of genKeys) {
-        if (aKey.endsWith('*')) continue;
-
+        const a = generators[aKey];
         for (const bKey of genKeys) {
-            if (bKey.endsWith('*')) continue;
-
-            const a = generators[aKey].pq;
-            const b = generators[bKey].pq;
-            const ab = a.multiply(b);
-
-            let found = false;
-            for (const bpKey of genKeys) {
-                if (found) break;
-                for (const apKey of genKeys) {
-                    const bp = generators[bpKey].pq;
-                    const ap = generators[apKey].pq;
-                    const bpap = bp.multiply(ap);
-
-                    if (ab.equals(bpap)) {
-                        const relKey = `${aKey},${bKey},${bpKey},${apKey}`;
-                        if (!relationSet.has(relKey)) {
-                            relationSet.add(relKey);
-                            relations.push({ a: aKey, b: bKey, bp: bpKey, ap: apKey });
-                        }
-                        found = true;
-                        break;
-                    }
-                }
+            const b = generators[bKey];
+            if (a.prime === b.prime) continue;
+            const ab = QMath.multiply(a.q, b.q);
+            const found = [];
+            for (const bpKey of byPrime.get(b.prime)) {
+                const y = QMath.multiply(QMath.conjugate(generators[bpKey].q), ab);
+                if (!y.every((v) => v % b.prime === 0)) continue;
+                const apKey = lookup.get(y.map((v) => v / b.prime).join(','));
+                if (apKey !== undefined && generators[apKey].prime === a.prime) found.push({ bpKey, apKey });
             }
+            if (found.length !== 1) {
+                console.warn(`${aKey}·${bKey}: expected one refactorisation, found ${found.length}`);
+                if (found.length === 0) continue;
+            }
+            relations.push({ a: aKey, b: bKey, bp: found[0].bpKey, ap: found[0].apKey });
         }
     }
 
-    console.log(`Found ${relations.length} projective relations`);
     return relations;
 }
 

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Folding an LPS square complex</title>
+<style>html,body,iframe{width:100%;height:100%;margin:0;border:0;background:#0d2326}iframe{display:block}</style></head>
+<body><iframe id="tool" title="Folded LPS square complex" src="../../GeometryofLinearGroups/Geometric/Tools/padicGroups/quaternionCalculator/index.html"></iframe>
+<script>
+document.querySelector('#tool').addEventListener('load', function () {
+  try {
+    const win=this.contentWindow, doc=this.contentDocument;
+    const canvas=doc.querySelector('#folded-vis-container');
+    if (!canvas) return;
+    const section=canvas.closest('.section-content');
+    const header=section.previousElementSibling;
+    section.classList.add('slide-folded');
+    const style=doc.createElement('style');
+    style.textContent=`body{margin:0!important;overflow:hidden!important}.container{max-width:none!important;width:100%!important;height:100vh!important;margin:0!important;padding:8px!important;box-sizing:border-box!important}.container>*:not(.slide-folded){display:none!important}.slide-folded{display:block!important;margin:0!important;padding:0!important}.folded-intro{display:none!important}.folded-layout{margin-top:8px!important;height:calc(100vh - 64px)!important}.folded-stage{min-height:0!important}#folded-vis-container{height:calc(100% - 52px)!important;min-height:0!important}.folded-panel{max-height:100%!important}`;
+    doc.head.appendChild(style);
+    if (header && header.classList.contains('collapsed')) header.click();
+    win.dispatchEvent(new Event('resize'));
+  } catch (e) { console.error('Unable to open folded-complex view:', e); }
+});
+</script></body></html>

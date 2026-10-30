@@ -109,6 +109,96 @@
         </div>
 
         <hr>
+        <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Folded Square Complex in \(\mathbb{R}^3\)</h2>
+        <div class="section-content hidden">
+            <p class="folded-intro">The quotient \(X_{p,q} = \Gamma\backslash(T_{p+1}\times T_{q+1})\) has one vertex,
+                \(\tfrac{p+1}{2}\) horizontal and \(\tfrac{q+1}{2}\) vertical loops, and one square for each relation
+                \(ab = b'a'\) with \(a, a'\) of norm \(p\) and \(b, b'\) of norm \(q\). Here each loop is a circle
+                through the vertex (horizontal ones leaving near the \(x\)-axis, vertical ones near the \(z\)-axis). The
+                hyperplanes, made of the midlines of the squares, are drawn first: smooth arcs through a centre for each
+                square, leaving each edge midpoint perpendicular to the edge at evenly spaced angles, placed so that each
+                family is an embedded graph in \(\mathbb{R}^3\). Each square is then a patch spanning its four sides and
+                its two midlines. Unfold it into separate squares, or show only the hyperplanes.</p>
+            <div class="controls folded-controls">
+                <label for="folded-p">\(p\)</label><select id="folded-p"></select>
+                <label for="folded-q">\(q\)</label><select id="folded-q"></select>
+                <div class="folded-seg" id="folded-view" role="group" aria-label="View">
+                    <button type="button" data-view="complex">Complex</button>
+                    <button type="button" data-view="vertical">Vertical hyperplanes</button>
+                    <button type="button" data-view="horizontal">Horizontal hyperplanes</button>
+                    <button type="button" data-view="both">Both hyperplanes</button>
+                </div>
+                <span id="folded-message"></span>
+            </div>
+            <div class="folded-layout">
+                <div class="folded-stage">
+                    <div id="folded-vis-container"></div>
+                    <div class="folded-foldbar">
+                        <button type="button" id="folded-fold-btn">Unfold</button>
+                        <input type="range" id="folded-fold" min="0" max="1" step="0.001" value="1" aria-label="Fold">
+                        <span id="folded-fold-val">folded</span>
+                    </div>
+                </div>
+                <aside class="folded-panel">
+                    <div class="folded-group">
+                        <div class="folded-group-title">Show</div>
+                        <label><input type="checkbox" id="folded-show-squares" checked> Squares</label>
+                        <label><input type="checkbox" id="folded-show-edges" checked> 1-skeleton</label>
+                        <label><input type="checkbox" id="folded-show-vertical"> <span class="swatch" style="--c:#ff4fa3"></span>Vertical hyperplanes</label>
+                        <label><input type="checkbox" id="folded-show-horizontal"> <span class="swatch" style="--c:#a3e635"></span>Horizontal hyperplanes</label>
+                        <label><input type="checkbox" id="folded-labels" checked> Labels</label>
+                    </div>
+                    <div class="folded-group">
+                        <div class="folded-group-title">Hyperplanes</div>
+                        <div class="folded-sub">Drawn as the \(\tfrac14\) and \(\tfrac34\) slices of each square.
+                            Together they bound the carrier: a double cover of the hyperplane, connected exactly when it
+                            is one-sided, whose vertices are the generators \(a^{\pm1}\) (or \(b^{\pm1}\)) at the
+                            \(\tfrac14\) and \(\tfrac34\) points of the loops.</div>
+                        <div class="folded-cover-row">
+                            <button type="button" id="folded-cover-btn">Double cover</button>
+                            <input type="range" id="folded-cover" min="0" max="1" step="0.001" value="0"
+                                aria-label="Slide the slices to the midline">
+                        </div>
+                        <label><input type="checkbox" id="folded-ribbons"> Carrier bands</label>
+                        <label>Colours
+                            <select id="folded-arc-colors">
+                                <option value="hyperplane">by hyperplane</option>
+                                <option value="square">by square</option>
+                            </select>
+                        </label>
+                        <div class="folded-relax">
+                            <label><input type="checkbox" id="folded-relax"> Relax into a nice embedding</label>
+                            <div class="folded-sub">Lowers the energy of the
+                                <a href="../../../../../topology/spatialGraphs/" target="_blank" rel="noopener">Spatial Graph Relaxer</a>
+                                (strands repel, edges stay smooth, edges leave each vertex evenly spread, symmetric edges
+                                get equal length) without any strand passing through another. It runs only while the
+                                hyperplanes are shown on their own.</div>
+                            <div class="folded-buttons">
+                                <button type="button" id="folded-relax-restart" disabled>Start over</button>
+                                <button type="button" id="folded-relax-open" disabled title="Explore, scramble or edit it there">Open in the Relaxer ↗</button>
+                            </div>
+                            <div class="folded-sub" id="folded-relax-status"></div>
+                        </div>
+                    </div>
+                    <div class="folded-group">
+                        <div class="folded-group-title">Shape</div>
+                        <label class="folded-slider">Square opacity
+                            <input type="range" id="folded-opacity" min="0" max="1" step="0.01" value="0.42"></label>
+                        <label class="folded-slider">Vertex spread
+                            <input type="range" id="folded-kappa" min="0.05" max="0.9" step="0.01" value="0.28"></label>
+                        <div class="folded-buttons">
+                            <button type="button" id="folded-reseed">New immersion</button>
+                            <button type="button" id="folded-reset-cam">Reset view</button>
+                        </div>
+                    </div>
+                    <div class="folded-group" id="folded-selection"></div>
+                    <div class="folded-group" id="folded-info"></div>
+                    <div class="folded-group" id="folded-legend"></div>
+                </aside>
+            </div>
+        </div>
+
+        <hr>
         <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Multiplication</h2>
         <div class="section-content hidden">
             <div class="controls">

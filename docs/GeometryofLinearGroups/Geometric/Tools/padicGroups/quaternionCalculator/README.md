@@ -20,6 +20,9 @@ The codebase is organized into modular ES modules, separating mathematical logic
   - `computeFactorizationLattice`: Generates the lattice of all possible factorizations for a given quaternion.
   - `calculateTreePath`: Computes the unique non-backtracking path in the Bruhat-Tits tree.
 - **`so3z.js`**: Generates elements of the finite group $SO(3, \mathbb{Z})$.
+- **`vhComplex.js`**: The one-vertex square complex $X_{p,q}$ for distinct odd primes $p, q$.
+  - `canonicalPrimeQuaternions`: the $p+1$ quaternions of norm $p$ with $a > 0$ odd, normalised mod 2 ($b, c, d$ even if $p \equiv 1 \bmod 4$; $b, c$ odd and $d$ even if $p \equiv 3 \bmod 4$). They generate a group acting simply transitively on the vertices of $T_{p+1} \times T_{q+1}$.
+  - `buildVHComplex`: one square per relation $ab = \pm b'a'$ (each $(a, b)$ refactors uniquely), deduplicated over the four readings of a square; hyperplane graphs with components, rank of $\pi_1$ and sidedness.
 
 ### Visualizations (located in `/vis/`)
 - **`vis_generators.js`**: 
@@ -30,6 +33,8 @@ The codebase is organized into modular ES modules, separating mathematical logic
 - **`vis_tree.js`**: Generates SVG representations of p-adic trees.
 - **`vis_factor.js`**: D3-like force-directed visualization of the factorization lattice.
 - **`vis_so3z.js`**: Interactive cube rotation tool for $SO(3, \mathbb{Z})$ elements.
+- **`vis_folded.js`**: $X_{p,q}$ folded into $\mathbb{R}^3$. Loops are circles through the vertex (horizontal ones near the $x$-axis, vertical ones near the $z$-axis). The hyperplanes are built first, as smooth arcs through a centre for each square that leave each edge midpoint perpendicular to the edge at evenly spaced angles (a relaxation and a background polishing pass spread the centres apart), and each square is the Gordon patch through its four sides and two midlines. Hyperplanes are drawn as their double covers, the ¼ and ¾ slices of those patches, whose vertices are the generators $a^{\pm1}$ at the ¼ and ¾ points of the loops; they slide along the squares onto the midlines. Includes the fold animation (net → flight → bend), carrier bands, picking, and sampled embedding checks for the hyperplane graphs, their double covers and the 1-skeleton. The vertex link $K_{p+1,q+1}$ is drawn with Zarankiewicz's number of crossings.
+- **`folded_section.js`**: Controls and read-outs for the folded complex section.
 
 ### UI and Orchestration
 - **`main.js`**: The central entry point and controller, managing state, event listeners, and data flow between modules.
@@ -56,6 +61,12 @@ The tool automatically identifies "squares" in the group: pairs $(a, b)$ and $(b
 - **Dynamic Resizing**: Visualizations automatically scale and respond to window changes.
 - **Cross-Module Interaction**: Selecting a generator in the "Generators" section highlights its occurrences in the Cayley graph and the Square Complex.
 - **Export/Analysis**: View the P¹ labels and exact integer coordinates for every computed element.
+
+## Tests
+
+```
+node --test tests/*.test.mjs
+```
 
 ## Usage
 
