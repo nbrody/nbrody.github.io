@@ -127,15 +127,16 @@
                     <h2 class="stage-title">Unwrapping</h2>
                     <div class="caption-stack">
                         <div class="caption fragment fade-out" data-fragment-index="0">
-                            <p><strong>One \(\mathbb H^3\).</strong> The Cayley graph of \(\Gamma=\langle x,y,y_\pi\rangle\) accumulates in hyperbolic space. Click a matrix to apply its isometry; ⌘-click for its inverse.</p>
+                            <p><strong>One \(\mathbb H^3\).</strong> The Cayley graph of \(\langle x,y,x_\pi\rangle\) accumulates in hyperbolic space: \(x^{22}x_\pi^{-7}\) translates by \(22-7\pi\approx0.00885\). Click a matrix to apply it; ⌘-click for its inverse.</p>
                             <div class="matrix-controls" aria-label="Apply a generator">
                                 <button type="button" data-generator="0">\(x=\begin{pmatrix}1&amp;1\\0&amp;1\end{pmatrix}\)</button>
                                 <button type="button" data-generator="1">\(y=\begin{pmatrix}1&amp;0\\-\omega&amp;1\end{pmatrix}\)</button>
-                                <button type="button" data-generator="2">\(y_\pi=\begin{pmatrix}1-\omega\pi&amp;\omega\pi^2\\-\omega&amp;1+\omega\pi\end{pmatrix}\)</button>
+                                <button type="button" data-generator="2">\(x_\pi=\begin{pmatrix}1&amp;\pi\\0&amp;1\end{pmatrix}\)</button>
+                                <button type="button" data-near-identity>\(x^{22}x_\pi^{-7}\)</button>
                             </div>
                         </div>
                         <div class="caption fragment fade-in-then-out" data-fragment-index="0">
-                            <p><strong>\(t = \pi\)</strong>: one \(\mathbb H^3\). Each colour is the circle pattern of another vertex of the tree, laid on it by \(g_v(\pi)\); \(\Gamma\) acts here by \(x\), \(y\), \(y_\pi\), indiscretely.</p>
+                            <p><strong>Now switch to \(\langle x,y,y_\pi\rangle\)</strong>, where \(y_\pi=x_\pi yx_\pi^{-1}\). At \(t=\pi\): one \(\mathbb H^3\). Each colour is the circle pattern of another vertex of the tree, laid on it by \(g_v(\pi)\); \(\Gamma\) acts here by \(x\), \(y\), \(y_\pi\), indiscretely.</p>
                         </div>
                         <div class="caption fragment fade-in-then-out" data-fragment-index="1">
                             <p>Let \(t\) run from \(\pi\) back to \(\infty\): the one \(\mathbb H^3\) unwraps into the <strong>tree of \(\mathbb H^3\)'s</strong>, each ball hanging off a cusp of its parent.</p>
@@ -149,7 +150,7 @@
                     </div>
                 </div>
                 <aside class="notes">
-                    <p>First: the Cayley graph and dust in one hyperbolic space. The generator buttons apply the matrices; Command-click applies inverses.</p>
+                    <p>First: the Cayley graph of ⟨x, y, xπ⟩ and dust in one hyperbolic space. x²²xπ⁻⁷ is translation by 22 − 7π, close to zero. The buttons apply the generators; Command-click applies inverses. The next view switches to ⟨x, y, yπ⟩, with yπ = xπ y xπ⁻¹.</p>
                     <p>[click] Live: 2dimFields over ℚ(ω), the figure-eight double at t = π. "This is a single ℍ³ with the
                         pictures of many vertices of the tree laid on top of each other: each colour is the circle
                         pattern of the Eisenstein cusps of a different vertex. This is the indiscrete picture."</p>

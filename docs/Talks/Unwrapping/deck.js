@@ -31,6 +31,7 @@
     // The group: Riley's figure-eight generators, and y conjugated by z ↦ z + π (poincare's syntax).
     const G8 = [['1', '1', '0', '1'], ['1', '0', '-\\omega', '1']];
     const GPI = [...G8, ['1-\\omega\\pi', '\\omega\\pi^2', '-\\omega', '1+\\omega\\pi']];
+    const GTRANSLATION = [...G8, ['1', '\\pi', '0', '1']];
     // the same group over ℚ(ω)(t) in 2dimFields, at t = π
     const FIG8 = 'Shalen: the double of the figure-eight knot complement';
 
@@ -153,7 +154,7 @@
             if (this.ready) return this.ready;
             this.ready = (async () => {
                 const API = await this.api();
-                await this.setGroup('pi', GPI);
+                await this.setGroup('translation', GTRANSLATION);
                 API.setDomainVisible(false);
                 API.setPolyhedronOpacity(0);
                 API.setDual('off');
@@ -171,6 +172,18 @@
             const api = orbit.frame.contentWindow.PoincareAPI;
             if (api) api.animateGenerator(Number(button.dataset.generator), e);
         });
+    });
+
+    document.querySelector('[data-near-identity]').addEventListener('click', async () => {
+        await orbit.go();
+        const api = orbit.frame.contentWindow.PoincareAPI;
+        if (!api || api.isAnimating()) return;
+        const matrices = api.state().matrices;
+        if (matrices.length < 3) return;
+        let near = matrices[0].constructor.identity();
+        for (let i = 0; i < 22; i++) near = near.mul(matrices[0]).normalized();
+        for (let i = 0; i < 7; i++) near = near.mul(matrices[2].inv()).normalized();
+        api.animateMatrix(near, [...Array(22).fill(1), ...Array(7).fill(-3)]);
     });
 
     addStage('orbit', orbit);
