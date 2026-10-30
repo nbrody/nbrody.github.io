@@ -20,7 +20,13 @@ export function outlinePanel({onJump, open, onToggle}) {
     list.replaceChildren(...items.map((item, i) => h('button', {type: 'button', class: `outline-item ${i === current ? 'current' : ''}`, role: 'treeitem',
       style: {paddingLeft: `${12 + (item.level - top) * 13}px`}, title: `Line ${item.line}`, onclick: () => onJump(item.line)},
       h('span', {class: 'outline-title'}, item.title || `\\${item.command}`))));
-    list.querySelector('.current')?.scrollIntoView({block: 'nearest'});
+    // Keep the outline item visible without scrolling an embedding presentation.
+    const selected = list.querySelector('.current');
+    if (selected) {
+      const item = selected.getBoundingClientRect(), viewport = list.getBoundingClientRect();
+      if (item.top < viewport.top) list.scrollTop += item.top - viewport.top;
+      else if (item.bottom > viewport.bottom) list.scrollTop += item.bottom - viewport.bottom;
+    }
   }
   const recompute = debounce(text => { items = text === null ? [] : outlineOf(text); current = currentIndex(); render(); }, 250);
   return {
