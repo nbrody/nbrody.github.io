@@ -5,7 +5,7 @@ import { serializeTowerContext } from '../../../../../assets/js/hyperbolic/tower
 import { makeLetters, computeOrbit, stabilizerWords, linkPermutation, cycles, wordString, translationLength } from './groupWords.js';
 import { generateTree } from './treeGeneration.js';
 import { EXAMPLES } from './examples.js';
-import { decide, serializeDecision, wordText } from './discreteness.js';
+import { decide, serializeDecision, wordText, evaluateWord } from './discreteness.js';
 
 const TREE_BUDGET = 3200;
 
@@ -18,7 +18,12 @@ const ui = {
     rational: false,
     model: 'halfplane',          // 'halfplane' | 'disk' | 'tower'
     spread: null,                // tower growth exponent; null = automatic
+    theme: 'dark',               // 'dark' | 'light'
+    word: [],                    // the current element W, a reduced word: ±(i+1) for g_{i+1}^{±1}
+    groupKey: null,              // W survives recomputes of the same group (new base vertex, word length, …)
+    userElements: [],            // stored words { word }
 };
+let metaHeld = false;            // ⌘/Ctrl held: the generator buttons apply inverses
 let tower = null;            // the mounted 3D tower, if any
 let current = null;          // the last successful computation
 const fieldCache = new Map();
@@ -260,6 +265,11 @@ function calculate({ refit = false } = {}) {
     const t1 = performance.now();
 
     current = { F, K, gensT: input.gens, p, place, mats, letters, orbit, base, baseId, image, imageId, orbitIds, wordLength };
+    // a new group sends W home; the same group keeps it (as poincare keeps its view on a refresh)
+    const key = JSON.stringify([getInputState(), String(p), place.index]);
+    if (key !== ui.groupKey) { ui.groupKey = key; ui.word = []; }
+    if (ui.word.some((x) => Math.abs(x) > mats.length)) ui.word = [];
+    locateCurrent();
 
     // results
     const lens = mats.map((m) => translationLength(place, m));
@@ -273,10 +283,13 @@ function calculate({ refit = false } = {}) {
         <table class="gen-table">${genRows}</table>
         <p class="meta">${orbit.wordCount.toLocaleString()} words, ${orbit.orbitMap.size.toLocaleString()} orbit vertices, ${(t1 - t0).toFixed(0)} ms${orbit.truncated ? ' — <span class="warn-text">word budget reached; shorten the word length</span>' : ''}</p>`;
     const nStab = orbit.orbitMap.get(baseId).count - 1;
-    $('summary').textContent = `${orbit.orbitMap.size.toLocaleString()} orbit vertices · d(v, g₁v) = ${place.dist(base, image)} · ${nStab} word${nStab === 1 ? '' : 's'} fixing v — details in the Orbit tab`;
+    $('summary').textContent = `${orbit.orbitMap.size.toLocaleString()} orbit vertices · d(v, g₁v) = ${place.dist(base, image)} · ${nStab} word${nStab === 1 ? '' : 's'} fixing v — details in the Info tab`;
 
     renderOrbitInfo();
     renderStabilizer();
+    renderIsometryButtons();
+    renderCurrentElement();
+    renderUserElements();
     updateVisualization({ refit });
     startDecision();
     typeset($('output'));
@@ -287,11 +300,12 @@ function calculate({ refit = false } = {}) {
     }
 }
 
-function updateVisualization({ refit = false } = {}) {
+function updateVisualization({ refit = false, focus = false } = {}) {
     if (!current) return;
-    const { place, orbit, base, baseId, imageId, orbitIds } = current;
+    const { place, orbit, base, baseId, imageId, orbitIds, currentVertex, currentId } = current;
     const radius = Math.max(0, Math.min(10, parseInt($('maxDistance').value, 10) || 0));
     const verts = [base].concat([...orbit.orbitMap.values()].map((e) => e.vertex).filter((v) => place.id(v) !== baseId));
+    if (!orbitIds.has(currentId)) verts.splice(1, 0, currentVertex);        // W·v is drawn even beyond the word length
     const tree = generateTree(place, verts, { radius, budget: TREE_BUDGET });
     current.tree = tree;
     const notes = [];
@@ -303,10 +317,10 @@ function updateVisualization({ refit = false } = {}) {
         ? `Vertices ⌊x⌋ₖ with x ∈ ℚ${sub(place.p)}: the ${place.pNum + 1}-regular tree of PGL₂(ℚ${sub(place.p)}) inside this ${place.q + 1}-regular one.`
         : 'Available at an unramified prime of residue degree f > 1 (try Unramified ℚ_{p^k} under Constants).';
     $('toggle-rational').disabled = !rationalOK;
-    const onVertexClick = (vt) => { ui.selectedId = place.id(vt); showSelected(vt); showTab('orbit'); };
+    const onVertexClick = (vt) => { ui.selectedId = place.id(vt); showSelected(vt); showTab('info'); jumpTo('selected-group'); };
     const notesModel = {
         halfplane: 'Rooted at the end ∞: level k grows downward, and each vertex hangs from its parent ⌊x⌋ₖ₋₁.',
-        disk: 'Centred on v. Radius depends only on the distance to v; edges are hyperbolic geodesics, and the boundary circle is the space of ends ℙ¹(K_𝔭).',
+        disk: 'Centred on the current copy W·v (on v until you apply a generator). Radius depends only on the distance to v; edges are hyperbolic geodesics, and the boundary circle is the space of ends ℙ¹(K_𝔭).',
         tower: `Level k is a circle at height −k; a vertex sits at the angle given by its digits (over ℚ_p, x/pᵏ mod 1). Drag to orbit, scroll to zoom.`,
     };
     $('model-note').textContent = notesModel[ui.model];
@@ -314,7 +328,7 @@ function updateVisualization({ refit = false } = {}) {
     if (ui.model === 'tower') {
         $('tree-vis').style.display = 'none';
         $('tower-host').hidden = false;
-        const ctx = { ...analyzeTree(tree, orbitIds, baseId), place, baseId, imageId, orbitIds, selectedId: ui.selectedId,
+        const ctx = { ...analyzeTree(tree, orbitIds, currentId), place, baseId, currentId, imageId, orbitIds, selectedId: ui.selectedId,
             rationalSubtree: ui.rational && rationalOK, spread: ui.spread ?? undefined, onVertexClick };
         current.drawn = { root: ctx.root };
         import('./tower.js').then(({ mountTower }) => {
@@ -327,7 +341,7 @@ function updateVisualization({ refit = false } = {}) {
         $('tower-host').hidden = true;
         $('tree-vis').style.display = '';
         current.drawn = drawTree({
-            tree, place, baseId, imageId, orbitIds, selectedId: ui.selectedId, refit, model: ui.model,
+            tree, place, baseId, currentId, imageId, orbitIds, selectedId: ui.selectedId, refit, focus, model: ui.model,
             endsLabel: place.F.isQ ? `∂T = ℙ¹(ℚ${sub(place.p)})` : '∂T = ℙ¹(K𝔭)',
             rationalSubtree: ui.rational && rationalOK,
             onVertexClick,
@@ -500,9 +514,14 @@ function renderVerdict(r) {
     if (r.basis) {
         $('basis-label').textContent = r.kind === 'virtually-free' ? 'Basis of the congruence kernel' : 'Free basis';
         $('use-basis').hidden = r.kind === 'virtually-free';
-        $('basis-list').innerHTML = r.basis.map((b) => `<div class="list-item basis-item word-row" style="--chip: var(--success)">
-            <code>${esc(wordText(b.w))}</code>
-            <span class="nums">${b.len != null ? `|g| = ${b.len} · ` : ''}ℓ = ${b.ell}</span></div>`).join('');
+        $('basis-list').innerHTML = r.basis.map((b, i) => `<div class="std-gen-item basis-item" data-i="${i}" style="--chip: var(--success)"
+            title="Click to apply (⌘/Ctrl-click for the inverse)">
+            <span class="std-gen-word">$${wordTex(b.w)}$</span>
+            <span class="std-gen-type">${b.len != null ? `|g| = ${b.len} · ` : ''}ℓ = ${b.ell}</span></div>`).join('');
+        $('basis-list').querySelectorAll('.basis-item').forEach((el) => el.addEventListener('click', (e) => {
+            const b = r.basis[+el.dataset.i];
+            if (b && b.w.every((x) => Math.abs(x) <= (current?.mats.length ?? 0))) applyWord(b.w, e);
+        }));
     }
     // witness
     const wg = $('witness-group');
@@ -514,11 +533,11 @@ function renderVerdict(r) {
     }
     // certificate log
     $('cert-log').innerHTML = certificateLog(r);
-    typeset(box, $('witness-box'));
+    typeset(box, $('witness-box'), $('basis-list'));
 }
 
 function shortReason(r) {
-    if (r.verdict === 'unknown') return 'See the Verdict tab.';
+    if (r.verdict === 'unknown') return 'See the Info tab.';
     if (r.method === 'bounded') return r.kind === 'finite' ? 'It fixes a point of the tree.' : 'Infinite, but it fixes a point of the tree.';
     if (r.witness) return `${wordText(r.witness.w)} is elliptic of infinite order.`;
     if (r.method === 'conder') return "Conder's Nielsen test.";
@@ -574,6 +593,7 @@ function getState() {
         L: $('wordLength').value,
         r: $('maxDistance').value,
         model: ui.model,
+        theme: ui.theme !== 'dark' ? ui.theme : undefined,
     };
 }
 
@@ -591,6 +611,7 @@ function applyState(st) {
     $('wordLength').value = String(st.L ?? 3);
     $('maxDistance').value = String(st.r ?? 2);
     setModel(st.model || 'halfplane', false);
+    if (st.theme) setTheme(st.theme, false);
     ui.selectedId = null;
 }
 
@@ -617,23 +638,304 @@ function writeURL() {
     catch (e) { /* sandboxed */ }
 }
 
+function loadExample(ex) {
+    applyState(ex);
+    calculate({ refit: true });
+    const note = $('example-note');
+    note.hidden = !ex.note;
+    note.innerHTML = ex.note || '';
+    if (ex.note) typeset(note);
+}
+
+/** The example library, as poincare's: a dialog of cards by category. */
 function setupExamples() {
-    const sel = $('example-select');
-    const groups = [...new Set(EXAMPLES.map((ex) => ex.group || 'Trees over number fields'))];
-    sel.innerHTML = '<option value="">Choose an example…</option>' + groups.map((gname) =>
-        `<optgroup label="${esc(gname)}">` +
-        EXAMPLES.map((ex, i) => ((ex.group || 'Trees over number fields') === gname ? `<option value="${i}">${esc(ex.name)}</option>` : '')).join('') +
-        '</optgroup>').join('');
-    sel.addEventListener('change', () => {
-        const ex = EXAMPLES[parseInt(sel.value, 10)];
-        if (!ex) return;
-        applyState(ex);
-        calculate({ refit: true });
-        const note = $('example-note');
-        note.hidden = !ex.note;
-        note.innerHTML = ex.note || '';
-        if (ex.note) typeset(note);
+    const modal = document.createElement('div');
+    modal.id = 'example-modal';
+    modal.className = 'example-modal';
+    modal.hidden = true;
+    const groups = new Map();
+    let group = 'Trees over number fields';
+    EXAMPLES.forEach((ex, idx) => {
+        group = ex.group || group;
+        if (!groups.has(group)) groups.set(group, []);
+        groups.get(group).push({ ex, idx });
     });
+    let html = `<div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel" role="dialog" aria-label="Example library">
+            <div class="example-modal-head"><h3>Example Library</h3>
+                <button class="example-modal-close" aria-label="Close">×</button></div>
+            <div class="example-modal-body">`;
+    for (const [gname, list] of groups) {
+        html += `<section class="example-cat"><h4 class="example-cat-title">${esc(gname)}</h4><div class="example-grid">`;
+        for (const { ex, idx } of list) {
+            html += `<button class="example-card" data-idx="${idx}">
+                <span class="example-card-head"><span class="example-name">${esc(ex.name)}</span>
+                    <span class="example-badges"><span class="ex-badge prime">p = ${esc(ex.p)}</span></span></span>
+                ${ex.note ? `<span class="example-desc">${ex.note}</span>` : ''}</button>`;
+        }
+        html += '</div></section>';
+    }
+    modal.innerHTML = html + '</div></div>';
+    document.body.appendChild(modal);
+    let typeset_ = false;
+    const close = () => { modal.hidden = true; };
+    modal.querySelector('.example-modal-backdrop').addEventListener('click', close);
+    modal.querySelector('.example-modal-close').addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) { e.stopPropagation(); close(); } }, true);
+    modal.querySelectorAll('.example-card').forEach((card) => card.addEventListener('click', () => {
+        close();
+        loadExample(EXAMPLES[parseInt(card.dataset.idx, 10)]);
+    }));
+    $('load-example-btn').addEventListener('click', () => {
+        modal.hidden = false;
+        if (!typeset_) { typeset_ = true; typeset(modal); }
+    });
+}
+
+// ───────────────────────── the current element (poincare's isometry buttons, without the animation) ─────────────────────────
+
+/** ±(i+1) → the letter index of g_{i+1}^{±1}. */
+const letterOf = (x) => (x > 0 ? 2 * (x - 1) : 2 * (-x - 1) + 1);
+
+function reduceWord(w) {
+    const out = [];
+    for (const x of w) { if (out.length && out[out.length - 1] === -x) out.pop(); else out.push(x); }
+    return out;
+}
+const invertWord = (w) => w.slice().reverse().map((x) => -x);
+
+/** TeX for a word, with runs collapsed to powers: g_1^{2}g_2^{-1}. */
+function wordTex(w, max = 40) {
+    if (!w.length) return 'e';
+    const runs = [];
+    for (const x of w) {
+        const last = runs[runs.length - 1];
+        if (last && last.x === x) last.n++; else runs.push({ x, n: 1 });
+    }
+    const parts = runs.map(({ x, n }) => {
+        const e = (x < 0 ? -n : n);
+        return `g_{${Math.abs(x)}}${e === 1 ? '' : `^{${e}}`}`;
+    });
+    return parts.length > max ? `${parts.slice(0, max).join('')}\\cdots` : parts.join('');
+}
+
+/** W·v and its id, from the reduced word ui.word. */
+function locateCurrent() {
+    const { orbit, base } = current;
+    current.currentVertex = orbit.actor.actWord(ui.word.map(letterOf), base);
+    current.currentId = current.place.id(current.currentVertex);
+}
+
+/** W ← W·g (the word appended on the right, as poincare's cumulative word). */
+function applyWord(w, e) {
+    if (!current) return;
+    const inv = e && (e.metaKey || e.ctrlKey);
+    ui.word = reduceWord([...ui.word, ...(inv ? invertWord(w) : w)]);
+    locateCurrent();
+    renderCurrentElement();
+    updateVisualization({ focus: true });
+}
+
+function resetCurrent() {
+    if (!current || !ui.word.length) return;
+    ui.word = [];
+    locateCurrent();
+    renderCurrentElement();
+    updateVisualization({ focus: true });
+}
+
+function matrixTex(F, m) {
+    const t = [m.a, m.b, m.c, m.d].map((x) => F.tex(x));
+    if (t.some((x) => x.length > 48)) return '';
+    return `\\begin{pmatrix} ${t[0]} & ${t[1]} \\\\ ${t[2]} & ${t[3]} \\end{pmatrix}`;
+}
+
+/** What a word does to the tree: its matrix, ℓ, and how far it moves v. */
+function elementFacts(w) {
+    const { F, place, mats, orbit, base } = current;
+    const M = evaluateWord(F, mats, w);
+    const ell = translationLength(place, M);
+    const wv = orbit.actor.actWord(w.map(letterOf), base);
+    return { M, ell, wv, d: place.dist(base, wv) };
+}
+
+function renderCurrentElement() {
+    const display = $('current-element-display'), info = $('current-element-info');
+    if (!current) return;
+    display.innerHTML = `$W = ${wordTex(ui.word)}$`;
+    const { F, place } = current;
+    const { M, ell, wv, d } = elementFacts(ui.word);
+    const mt = ui.word.length ? matrixTex(F, M) : '';
+    info.innerHTML = `<p>$W\\cdot v = ${vertexTex(place, wv)}$, at distance ${d} from $v$${ui.word.length ? `; ${ell > 0 ? `hyperbolic, $\\ell(W) = ${ell}$` : 'elliptic'}` : ''}.</p>`
+        + (mt ? `<div class="matrix-tex">$$${mt}$$</div>` : ui.word.length ? '<p class="label-hint">(entries too long to show)</p>' : '');
+    $('current-reset').disabled = !ui.word.length;
+    typeset(display, info);
+}
+
+function isoLabel(i) { return `g<sub>${i + 1}</sub>${metaHeld ? '<sup>−1</sup>' : ''}`; }
+
+function renderIsometryButtons() {
+    const c = $('isometry-controls');
+    c.innerHTML = '';
+    if (!current) return;
+    current.mats.forEach((_, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'isometry-btn';
+        btn.dataset.gen = i;
+        btn.innerHTML = isoLabel(i);
+        btn.title = 'Apply this generator (⌘/Ctrl-click for its inverse)';
+        btn.addEventListener('click', (e) => applyWord([i + 1], e));
+        c.appendChild(btn);
+    });
+}
+
+function setMetaHeld(v) {
+    if (metaHeld === v) return;
+    metaHeld = v;
+    document.querySelectorAll('#isometry-controls .isometry-btn').forEach((b) => { b.innerHTML = isoLabel(+b.dataset.gen); });
+}
+
+/**
+ * A word in the generators, as in poincare: lower case for a generator and
+ * upper case for its inverse (a b A B), or g1, g2, … with ' and ^n exponents.
+ */
+function parseWord(str, nGens) {
+    const s = String(str || '');
+    const out = [];
+    let i = 0;
+    while (i < s.length) {
+        const ch = s[i];
+        if (/[\s*,.·]/.test(ch)) { i++; continue; }
+        let idx, sign = 1;
+        if (ch === 'g' || ch === 'G') {
+            const m = /^[gG]_?\{?(\d+)\}?/.exec(s.slice(i));
+            if (!m) throw new Error(`expected a generator number after “${ch}”`);
+            idx = parseInt(m[1], 10);
+            i += m[0].length;
+        } else if (/[a-z]/.test(ch)) { idx = ch.charCodeAt(0) - 96; i++; }
+        else if (/[A-Z]/.test(ch)) { idx = ch.charCodeAt(0) - 64; sign = -1; i++; }
+        else throw new Error(`unexpected character “${ch}”`);
+        if (!(idx >= 1 && idx <= nGens)) throw new Error(`g${idx} is not a generator of this group (it has ${nGens})`);
+        while (s[i] === "'" || s[i] === '′') { sign = -sign; i++; }
+        let exp = 1;
+        if (s[i] === '^') {
+            i++;
+            const m = /^\s*\{?\s*(-?\d+)\s*\}?/.exec(s.slice(i));
+            if (!m) throw new Error('expected an integer exponent after “^”');
+            exp = parseInt(m[1], 10);
+            i += m[0].length;
+        }
+        const total = sign * exp;
+        for (let k = 0; k < Math.abs(total); k++) out.push(total >= 0 ? idx : -idx);
+    }
+    return reduceWord(out);
+}
+
+function renderUserElements() {
+    const list = $('user-elements-list');
+    if (!ui.userElements.length || !current) {
+        list.innerHTML = '<p class="empty-message">No stored elements yet.</p>';
+        return;
+    }
+    list.innerHTML = '';
+    ui.userElements.forEach((el, idx) => {
+        const item = document.createElement('div');
+        item.className = 'std-gen-item user-elem';
+        let facts = null, err = null;
+        if (el.word.some((x) => Math.abs(x) > current.mats.length)) err = 'uses a generator this group no longer has';
+        else { try { facts = elementFacts(el.word); } catch (e) { err = e.message; } }
+        item.innerHTML = `<div class="user-elem-head"><span class="std-gen-word">$w_{${idx + 1}} = ${wordTex(el.word, 24)}$</span>
+            ${facts ? `<span class="std-gen-type">${facts.ell > 0 ? `ℓ = ${facts.ell}` : 'elliptic'}</span>` : ''}
+            <button class="user-elem-del" title="Remove this element">✕</button></div>
+            <div class="element-matrix">${err ? `<span class="elem-error">${esc(err)}</span>`
+                : `$w_{${idx + 1}}\\cdot v = ${vertexTex(current.place, facts.wv)}$, at distance ${facts.d}`}</div>`;
+        item.querySelector('.user-elem-del').addEventListener('click', (e) => {
+            e.stopPropagation(); ui.userElements.splice(idx, 1); renderUserElements();
+        });
+        if (facts) {
+            item.title = 'Click to apply this element (⌘/Ctrl-click for its inverse)';
+            item.addEventListener('click', (e) => applyWord(el.word, e));
+        }
+        list.appendChild(item);
+    });
+    typeset(list);
+}
+
+function setupElements() {
+    const input = $('word-input');
+    const setErr = (m) => { $('word-error').textContent = m || ''; };
+    const add = (word) => { ui.userElements.push({ word }); setErr(''); renderUserElements(); };
+    const storeTyped = () => {
+        try {
+            const w = parseWord(input.value, current?.mats.length ?? 0);
+            if (!w.length) throw new Error('type a word first, e.g. “a b A B”');
+            add(w);
+            input.value = '';
+        } catch (e) { setErr(e.message); }
+    };
+    $('word-store').addEventListener('click', storeTyped);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); storeTyped(); } });
+    input.addEventListener('input', () => setErr(''));
+    $('word-from-current').addEventListener('click', () => {
+        if (!ui.word.length) { setErr('the current element is the identity'); return; }
+        add([...ui.word]);
+    });
+    $('current-reset').addEventListener('click', resetCurrent);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Meta' || e.key === 'Control') setMetaHeld(true); });
+    document.addEventListener('keyup', (e) => { if (e.key === 'Meta' || e.key === 'Control') setMetaHeld(false); });
+    window.addEventListener('blur', () => setMetaHeld(false));
+}
+
+// ───────────────────────── theme and help ─────────────────────────
+
+function setTheme(mode, redraw = true) {
+    if (mode !== 'light' && mode !== 'dark') return;
+    ui.theme = mode;
+    document.documentElement.classList.toggle('light', mode === 'light');
+    $('theme-dark').classList.toggle('active', mode === 'dark');
+    $('theme-light').classList.toggle('active', mode === 'light');
+    const b = $('theme-btn');
+    b.title = mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+    b.setAttribute('aria-label', b.title);
+    try { localStorage.setItem('trees.theme', mode); } catch (e) { /* private mode */ }
+    if (redraw && current) { if (ui.model === 'tower') updateVisualization(); writeURL(); }
+}
+
+const HELP = `
+    <p>This page draws the Bruhat–Tits tree of $\\mathsf{PGL}_2(K_{\\mathfrak p})$ and the orbit of a base vertex $v$
+        under the group generated by your matrices, and decides exactly whether that group is discrete.</p>
+    <h4>Group</h4>
+    <p>Type the generators (entries are exact: fractions, $i$, radicals, roots of polynomials) and the prime $p$.
+        The tree updates as you type. <b>Load Example…</b> opens the library.</p>
+    <h4>Generators</h4>
+    <p>The buttons along the bottom apply a generator: the current element $W$ becomes $Wg$, and the base vertex and
+        its Dirichlet cell move to the copy $W\\cdot v$ (magenta). ⌘/Ctrl-click applies $g^{-1}$. In the disk model
+        the picture recentres on $W\\cdot v$. Words typed under <b>Info → Define Element</b>, and the elements of a
+        Nielsen basis, apply the same way.</p>
+    <h4>Tree</h4>
+    <p>Drag to pan, scroll to zoom. Click a vertex for its distance to $v$, the words reaching it and its link;
+        double-click to make it the base vertex. <b>View</b> switches between the half-plane, the disk and the 3D
+        tower.</p>
+    <h4>Verdict</h4>
+    <p>The banner at the top left gives the verdict; click it for the certificate in the Info tab.</p>`;
+
+function setupHelp() {
+    const modal = document.createElement('div');
+    modal.id = 'help-modal';
+    modal.className = 'example-modal';
+    modal.hidden = true;
+    modal.innerHTML = `<div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel help-panel" role="dialog" aria-label="How to use this page">
+            <div class="example-modal-head"><h3>Bruhat–Tits Tree Viewer</h3>
+                <button class="example-modal-close" aria-label="Close">×</button></div>
+            <div class="example-modal-body help-body">${HELP}</div></div>`;
+    document.body.appendChild(modal);
+    let done = false;
+    const close = () => { modal.hidden = true; };
+    modal.querySelector('.example-modal-backdrop').addEventListener('click', close);
+    modal.querySelector('.example-modal-close').addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) { e.stopPropagation(); close(); } }, true);
+    $('help-btn').addEventListener('click', () => { modal.hidden = false; if (!done) { done = true; typeset(modal); } });
 }
 
 // ───────────────────────── wiring ─────────────────────────
@@ -652,15 +954,50 @@ function showTab(name) {
 
 function setupTabs() {
     document.querySelectorAll('.tab-btn').forEach((btn) => btn.addEventListener('click', () => showTab(btn.dataset.tab)));
+    document.querySelectorAll('.info-jump-btn').forEach((btn) => btn.addEventListener('click', () => jumpTo(btn.dataset.jump)));
+    // the jump bar follows the scroll
+    const pc = document.querySelector('.panel-content');
+    pc.addEventListener('scroll', () => {
+        if (!$('tab-info').classList.contains('active')) return;
+        const top = pc.getBoundingClientRect().top + 60;
+        let at = 'info-group';
+        for (const id of ['info-group', 'info-orbit', 'info-notes']) if ($(id).getBoundingClientRect().top <= top) at = id;
+        document.querySelectorAll('.info-jump-btn').forEach((b) => b.classList.toggle('active', b.dataset.jump === at));
+    }, { passive: true });
+}
+
+/** Scroll the Info tab to a section (or any element in it). */
+function jumpTo(id) {
+    const el = $(id);
+    if (!el) return;
+    if ($('control-panel').classList.contains('collapsed')) $('control-panel').classList.remove('collapsed');
+    requestAnimationFrame(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+}
+
+/** Room the panel takes on the right, so the generator buttons centre in what is left. */
+function syncPanelSpace() {
+    const panel = $('control-panel');
+    const r = panel.getBoundingClientRect();
+    const space = panel.classList.contains('collapsed') || r.left < window.innerWidth * 0.45 ? 0 : window.innerWidth - r.left;
+    document.documentElement.style.setProperty('--panel-space', `${space}px`);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
     setupMatrixInput(() => calculate());
     setupExamples();
+    setupElements();
+    setupHelp();
     $('budget-label').textContent = String(TREE_BUDGET);
+    document.querySelectorAll('.theme-opt').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.theme)));
+    $('theme-btn').addEventListener('click', () => setTheme(ui.theme === 'light' ? 'dark' : 'light'));
+    setTheme(document.documentElement.classList.contains('light') ? 'light' : 'dark', false);
 
-    $('collapse-btn').addEventListener('click', () => $('control-panel').classList.toggle('collapsed'));
+    $('collapse-btn').addEventListener('click', () => {
+        $('control-panel').classList.toggle('collapsed');
+        setTimeout(syncPanelSpace, 480);
+        syncPanelSpace();
+    });
     document.querySelectorAll('.model-opt').forEach((b) => b.addEventListener('click', () => setModel(b.dataset.model)));
     $('tower-spread').addEventListener('input', () => { ui.spread = parseFloat($('tower-spread').value); if (ui.model === 'tower') updateVisualization(); });
     $('decide-again').addEventListener('click', () => startDecision());
@@ -668,8 +1005,8 @@ document.addEventListener('DOMContentLoaded', () => {
     banner.querySelector('.status-banner-close').addEventListener('click', (e) => { e.stopPropagation(); banner.classList.add('collapsed'); });
     banner.addEventListener('click', () => {
         if (banner.classList.contains('collapsed')) { banner.classList.remove('collapsed'); return; }
-        showTab('verdict');
-        if ($('control-panel').classList.contains('collapsed')) $('control-panel').classList.remove('collapsed');
+        showTab('info');
+        jumpTo('info-group');
     });
     $('use-basis').addEventListener('click', () => {
         const r = current?.decision;
@@ -678,7 +1015,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showTab('group');
         calculate({ refit: true });
     });
-    $('calculateBtn').addEventListener('click', () => calculate());
     $('refresh-btn').addEventListener('click', () => calculate());
     $('reset-zoom').addEventListener('click', () => (ui.model === 'tower' ? tower?.resetView() : resetZoom()));
     $('maxDistance').addEventListener('change', () => { updateVisualization(); writeURL(); });
@@ -686,7 +1022,8 @@ document.addEventListener('DOMContentLoaded', () => {
     $('prime').addEventListener('change', () => { ui.primeIndex = 0; ui.selectedId = null; calculate({ refit: true }); });
     $('prime').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
     for (const id of ['vertex_q', 'vertex_k']) {
-        $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') calculate(); });
+        $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
+        $(id).addEventListener('change', () => calculate());
     }
     $('unram-btn').addEventListener('click', () => {
         try {
@@ -712,7 +1049,8 @@ document.addEventListener('DOMContentLoaded', () => {
         catch (e) { $('copy-link').textContent = 'Copy failed — the URL bar has the link'; }
         setTimeout(() => { $('copy-link').textContent = 'Copy link to this tree'; }, 1800);
     });
-    window.addEventListener('resize', () => { if (current) updateVisualization(); });
+    window.addEventListener('resize', () => { syncPanelSpace(); if (current) updateVisualization(); });
+    syncPanelSpace();
 
     applyState(readURL() || EXAMPLES[0]);
     calculate({ refit: true });

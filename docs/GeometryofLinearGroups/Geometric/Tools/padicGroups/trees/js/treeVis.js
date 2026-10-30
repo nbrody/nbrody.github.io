@@ -8,6 +8,9 @@
  *               neighbours surround it, radius depends only on the distance to
  *               v, edges are hyperbolic geodesics, and the boundary circle is
  *               the space of ends P¹(K_𝔭). Unrooted, with no preferred end.
+ *
+ * Applying generators (main.js) moves the base vertex to its copy W·v: the
+ * Dirichlet cell is drawn about W·v, and the disk is centred there.
  */
 import { computeConvexHull } from './convexHull.js';
 import { computeVoronoiCell } from './voronoiCell.js';
@@ -20,11 +23,13 @@ const depthToY = (depth) => { let s = 0, step = BASE_Y; for (let i = 0; i < dept
 const DISK_R = 340;           // pixel radius of the disk
 const DISK_RIM = 0.93;        // the farthest vertex lands here, as a fraction of the radius
 
-const BASE_R = { base: 8, image: 8, orbit: 6.5, hull: 6, plain: 5 };
-const MIN_R = { base: 5, image: 5, orbit: 3, hull: 1.8, plain: 0.9 };
+const BASE_R = { base: 8, current: 8, image: 8, orbit: 6.5, hull: 6, plain: 5 };
+const MIN_R = { base: 5, current: 5, image: 5, orbit: 3, hull: 1.8, plain: 0.9 };
+const STROKE_W = { base: 3, current: 3, image: 3, orbit: 2.5, hull: 2, plain: 2 };
+// plain vertices follow the theme (styles.css)
 const COLORS = {
-    base: ['#1d4ed8', '#2563eb'], image: ['#059669', '#34d399'], orbit: ['#10b981', '#34d399'],
-    hull: ['#93c5fd', '#bfdbfe'], plain: ['#1f2937', '#6366f1'],
+    base: ['#1d4ed8', '#2563eb'], current: ['#c026d3', '#f0abfc'], image: ['#059669', '#34d399'], orbit: ['#10b981', '#34d399'],
+    hull: ['#93c5fd', '#bfdbfe'], plain: ['var(--v-plain-fill)', 'var(--v-plain-stroke)'],
 };
 
 let zoomBehavior = null;
@@ -64,11 +69,17 @@ function fitToView(drawn, animate) {
     else svg.call(zoomBehavior.transform, t);
 }
 
-/** The hierarchy with its hull and Dirichlet cell, shared by every model. */
-export function analyzeTree(tree, orbitIds, baseId) {
+/**
+ * The hierarchy with its hull and Dirichlet cell, shared by every model. The
+ * cell is that of `cellId` (the current copy W·v, or v itself) against the
+ * orbit; W·v counts as an orbit point even when its word is longer than the
+ * orbit's word length.
+ */
+export function analyzeTree(tree, orbitIds, cellId) {
     const root = d3.hierarchy(tree.root, (d) => d.children);
     const hull = computeConvexHull(orbitIds, root);
-    const voronoi = computeVoronoiCell(orbitIds, baseId, root);
+    const cellOrbit = orbitIds.has(cellId) ? orbitIds : new Set([...orbitIds, cellId]);
+    const voronoi = computeVoronoiCell(cellOrbit, cellId, root);
     return { root, hull, voronoi };
 }
 
@@ -102,11 +113,11 @@ function halfPlaneLayout(root) {
  * radius is tanh of half the hyperbolic distance, scaled so the farthest
  * vertex sits at DISK_RIM.
  */
-function diskLayout(root, baseId, place) {
+function diskLayout(root, centerId, place) {
     const nodes = root.descendants();
     const adj = new Map(nodes.map((n) => [n, []]));
     for (const n of nodes) if (n.parent) { adj.get(n).push(n.parent); adj.get(n.parent).push(n); }
-    const center = nodes.find((n) => n.data.id === baseId) || root;
+    const center = nodes.find((n) => n.data.id === centerId) || root;
     // breadth-first from the centre; branches in the order of the link P¹(F_q) (∞ first)
     const kids = new Map(), dist = new Map([[center, 0]]);
     const order = [center];
@@ -186,12 +197,14 @@ function geodesicPath(a, b, t = 1) {
 // ───────────────────────── drawing ─────────────────────────
 
 /**
- * opts: { tree (from generateTree), place, baseId, imageId, orbitIds (Set),
- *         selectedId, onVertexClick(vt), refit, model ('halfplane' | 'disk'),
- *         rationalSubtree }
+ * opts: { tree (from generateTree), place, baseId, currentId (W·v; defaults to
+ *         baseId), imageId, orbitIds (Set), selectedId, onVertexClick(vt),
+ *         refit, focus (pan W·v into view if it is off screen),
+ *         model ('halfplane' | 'disk'), rationalSubtree }
  */
 export function drawTree(opts) {
     const { tree, place, baseId, imageId, orbitIds, onVertexClick } = opts;
+    const currentId = opts.currentId ?? baseId;
     const model = opts.model === 'disk' ? 'disk' : 'halfplane';
     const svg = d3.select('#tree-vis');
     svg.selectAll('*').remove();
@@ -199,8 +212,8 @@ export function drawTree(opts) {
     svg.attr('width', container.clientWidth).attr('height', container.clientHeight);
     const g = svg.append('g');
 
-    const { root, hull, voronoi } = analyzeTree(tree, orbitIds, baseId);
-    const L = model === 'disk' ? diskLayout(root, baseId, place) : halfPlaneLayout(root);
+    const { root, hull, voronoi } = analyzeTree(tree, orbitIds, currentId);
+    const L = model === 'disk' ? diskLayout(root, currentId, place) : halfPlaneLayout(root);
     const P = (d) => L.pos.get(d);
     const R = L.scale;
     const nodes = root.descendants();
@@ -271,7 +284,7 @@ export function drawTree(opts) {
     // ── vertices ──
     const node = g.selectAll('.node').data(nodes).enter().append('g')
         .attr('class', 'node').attr('transform', (d) => `translate(${P(d).x},${P(d).y})`);
-    const kind = (id) => (id === baseId ? 'base' : id === imageId ? 'image' : orbitIds.has(id) ? 'orbit' : hull.vertices.has(id) ? 'hull' : 'plain');
+    const kind = (id) => (id === baseId ? 'base' : id === currentId ? 'current' : id === imageId ? 'image' : orbitIds.has(id) ? 'orbit' : hull.vertices.has(id) ? 'hull' : 'plain');
     node.filter((d) => voronoi.vertices.has(d.data.id)).append('circle')
         .attr('class', 'voronoi-halo').attr('r', (d) => 14 * R(d));
     node.append('circle')
@@ -279,15 +292,15 @@ export function drawTree(opts) {
         .attr('r', (d) => { const t = kind(d.data.id); return Math.max(MIN_R[t], BASE_R[t] * R(d)); })
         .style('fill', (d) => COLORS[kind(d.data.id)][0])
         .style('stroke', (d) => COLORS[kind(d.data.id)][1])
-        .style('stroke-width', (d) => { const t = kind(d.data.id); return `${Math.max(MIN_R[t] / 3, ({ base: 3, image: 3, orbit: 2.5, hull: 2, plain: 2 })[t] * R(d))}px`; });
+        .style('stroke-width', (d) => { const t = kind(d.data.id); return `${Math.max(MIN_R[t] / 3, STROKE_W[t] * R(d))}px`; });
     node.append('title').text((d) => `⌊${place.label(d.data.vt)}⌋${subscript(d.data.k)}`);
     node.filter((d) => d.data.k === 0 && !d.data.vt.d.length).insert('circle', ':first-child')
         .attr('class', 'origin-ring').attr('r', (d) => 12 * Math.max(R(d), 0.6))
         .style('stroke-width', (d) => `${2 * Math.max(R(d), 0.6)}px`);
-    node.filter((d) => d.data.id === baseId || d.data.id === imageId)
+    node.filter((d) => d.data.id === baseId || d.data.id === imageId || d.data.id === currentId)
         .append('foreignObject')
         .attr('x', -70).attr('y', (d) => (model === 'halfplane' && !d.children ? 10 : -34)).attr('width', 140).attr('height', 30)
-        .append('xhtml:div').attr('class', 'vertex-label')
+        .append('xhtml:div').attr('class', (d) => (d.data.id === currentId && currentId !== baseId ? 'vertex-label current' : 'vertex-label'))
         .html((d) => `⌊${escapeHtml(place.label(d.data.vt))}⌋<sub>${d.data.k}</sub>`);
 
     node.on('click', (event, d) => {
@@ -334,6 +347,19 @@ export function drawTree(opts) {
     if (opts.refit || !userMoved || !lastTransform || lastModel !== model) { userMoved = false; fitToView(drawn, false); }
     else svg.call(zoomBehavior.transform, lastTransform);
     lastModel = model;
+    // After applying a generator, keep W·v on screen (an instant pan, no animation).
+    if (opts.focus && model === 'halfplane') {
+        const d = nodes.find((n) => n.data.id === currentId);
+        const t = d && d3.zoomTransform(svg.node());
+        if (t) {
+            const [x, y] = t.apply([P(d).x, P(d).y]);
+            const A = availableRect(), m = 40;
+            if (x < A.x0 + m || x > A.x1 - m || y < A.y0 + m || y > A.y1 - m) {
+                const nt = t.translate(((A.x0 + A.x1) / 2 - x) / t.k, ((A.y0 + A.y1) / 2 - y) / t.k);
+                svg.call(zoomBehavior.transform, nt);
+            }
+        }
+    }
     return { root, hullVertices: hull.vertices, voronoi };
 }
 

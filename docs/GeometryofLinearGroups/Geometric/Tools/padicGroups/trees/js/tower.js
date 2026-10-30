@@ -35,7 +35,7 @@ export function angleFraction(place, vt) {
 
 /**
  * Mount the tower into `host`. ctx: { root (d3 hierarchy), hull, voronoi,
- * place, baseId, imageId, orbitIds, selectedId, spread, onVertexClick(vt) }.
+ * place, baseId, currentId, imageId, orbitIds, selectedId, spread, onVertexClick(vt) }.
  * Returns { destroy, resetView }.
  */
 export function mountTower(host, ctx) {
@@ -104,7 +104,7 @@ export function mountTower(host, ctx) {
         plain: { pts: [], color: '#64748b', opacity: 0.35 },
         hull: { pts: [], color: '#60a5fa', opacity: 0.95 },
         cell: { pts: [], color: '#fbbf24', opacity: 0.9 },
-        rational: { pts: [], color: '#f5f5f4', opacity: 0.6 },
+        rational: { pts: [], color: css('--rational-edge', '#f5f5f4'), opacity: 0.6 },
     };
     for (const l of root.links()) {
         const a = at.get(l.source), b = at.get(l.target), k = keyOf(l);
@@ -124,9 +124,10 @@ export function mountTower(host, ctx) {
     }
 
     // vertices: one instanced mesh per role
-    const role = (id) => (id === ctx.selectedId ? 'selected' : id === baseId ? 'base' : id === imageId ? 'image' : orbitIds.has(id) ? 'orbit' : hull.vertices.has(id) ? 'hull' : 'plain');
+    const currentId = ctx.currentId ?? baseId;
+    const role = (id) => (id === ctx.selectedId ? 'selected' : id === baseId ? 'base' : id === currentId ? 'current' : id === imageId ? 'image' : orbitIds.has(id) ? 'orbit' : hull.vertices.has(id) ? 'hull' : 'plain');
     const STYLE = {
-        selected: ['#f472b6', 30], base: ['#2563eb', 30], image: ['#059669', 26], orbit: ['#10b981', 22],
+        selected: ['#f472b6', 30], base: ['#2563eb', 30], current: ['#c026d3', 30], image: ['#059669', 26], orbit: ['#10b981', 22],
         hull: ['#93c5fd', 15], plain: ['#475569', 7],
     };
     const sphere = track(new THREE.SphereGeometry(1, 16, 12));
