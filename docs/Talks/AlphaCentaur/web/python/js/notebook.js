@@ -493,7 +493,13 @@ export function createNotebook(container, { icon, onChange }) {
   function runStaleCells() { runCells(cells.filter(isStale)); }
 
   function startKernel() {
-    if (!kernelSpec || kernel || !doc) { paintToolbar(); return; }
+    if (!kernelSpec || kernel || !doc) {
+      // Without a kernel (a read-only view such as the web demo) nothing sends Markdown output,
+      // so the Markdown cells render from their own text.
+      if (!kernelSpec && doc) for (const c of cells) if (c.kind === 'markdown' && !c.output) setOutput(c, { mime: 'text/markdown', data: c.text });
+      paintToolbar();
+      return;
+    }
     kstatus = 'starting';
     deadMessage = '';
     firstRun = true;

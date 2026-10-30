@@ -60,9 +60,11 @@ async function standalone() {
     icon,
     mount(container, ctx) {
       const notebook = createNotebook(container, { icon, onChange: ctx.onChange });
-      const kernel = { start: 'api/kernel/start', base: 'api/kernel/', headers: { 'x-alpha-applet': '1' }, body: { path: ctx.path },
-        ...(globalThis.alphaPyBrowserKernel ? { browser: globalThis.alphaPyBrowserKernel } : {}) };
-      notebook.load(ctx.content, { kernel, macrosSource, docKey: `alphaPy:${ctx.folder.root}:${ctx.path}` });
+      const kernel = { start: 'api/kernel/start', base: 'api/kernel/', headers: { 'x-alpha-applet': '1' }, body: { path: ctx.path } };
+      // The web demo has no Python to run: globalThis.alphaPyStatic shows the notebook read-only,
+      // Markdown rendered and code displayed (scripts/build-web-demo.mjs sets it).
+      const mode = globalThis.alphaPyStatic ? { kernel: null, readOnly: true } : { kernel };
+      notebook.load(ctx.content, { ...mode, macrosSource, docKey: `alphaPy:${ctx.folder.root}:${ctx.path}` });
       readMacros(ctx.files()).then(changed => { if (changed) notebook.setContext({ macrosSource }); });
       return {
         filesChanged: files => { readMacros(files).then(changed => { if (changed) notebook.setContext({ macrosSource }); }); },

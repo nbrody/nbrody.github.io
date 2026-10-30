@@ -9,12 +9,8 @@
 //   POST base + session + '/send'      {msg}
 //   POST base + session + '/interrupt'
 //   POST base + session + '/stop'
-import { BrowserKernelClient } from './browser-kernel.js';
-
 export class KernelClient {
   constructor(spec, onMessage) {
-    // The web demo runs Python in the browser instead (browser-kernel.js).
-    if (spec.browser) return new BrowserKernelClient(spec, onMessage);
     this.spec = spec;
     this.onMessage = onMessage;
     this.session = null;
