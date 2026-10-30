@@ -12,7 +12,7 @@ document.querySelector('#tool').addEventListener('load', function () {
     const header=section.previousElementSibling;
     section.classList.add('slide-folded');
     const style=doc.createElement('style');
-    style.textContent=`body{margin:0!important;overflow:hidden!important}.container{max-width:none!important;width:100%!important;height:100vh!important;margin:0!important;padding:8px!important;box-sizing:border-box!important}.container>*:not(.slide-folded){display:none!important}.slide-folded{display:block!important;margin:0!important;padding:0!important}.folded-intro{display:none!important}.folded-layout{margin-top:8px!important;height:calc(100vh - 64px)!important}.folded-stage{min-height:0!important}#folded-vis-container{height:calc(100% - 52px)!important;min-height:0!important}.folded-panel{max-height:100%!important}`;
+    style.textContent=`body{margin:0!important;overflow:hidden!important}.container{max-width:none!important;width:100%!important;height:100vh!important;margin:0!important;padding:8px!important;box-sizing:border-box!important}.container>*:not(.slide-folded){display:none!important}.slide-folded{display:block!important;margin:0!important;padding:0!important}.folded-intro{display:none!important}.folded-layout{margin-top:8px!important;height:calc(100vh - 140px)!important}.folded-stage{min-height:0!important;height:100%!important}#folded-vis-container{height:calc(100% - 52px)!important;min-height:0!important}.folded-panel{max-height:100%!important}`;
     doc.head.appendChild(style);
     if (header && header.classList.contains('collapsed')) header.click();
     win.dispatchEvent(new Event('resize'));
