@@ -1,0 +1,13 @@
+{"version": 1, "title": "Summing a geometric series", "morph": 0.9, "hold": 3}
+[0, "caption", "Call the sum $S$."]
+[0, "show", "S = 1 + r + r^2 + \\cdots + r^n"]
+[2.6, "caption", "Multiply by $r$: every power goes up by one."]
+[0, "show", "\\begin{aligned} S &= 1 + r + r^2 + \\cdots + r^n \\\\ rS &= \\phantom{1 + {}} r + r^2 + \\cdots + r^n + r^{n+1} \\end{aligned}"]
+[2.8, "caption", "Subtract. Everything in the middle cancels."]
+[0, "show", "\\begin{aligned} S &= 1 + \\faint{r + r^2 + \\cdots + r^n} \\\\ rS &= \\phantom{1 + {}} \\faint{r + r^2 + \\cdots + r^n} + r^{n+1} \\end{aligned}"]
+[2.6, "caption", "What survives:"]
+[0, "show", "S - rS = 1 - r^{n+1}"]
+[2.4, "caption", "Factor out $S$."]
+[0, "show", "S(1 - r) = 1 - r^{n+1}"]
+[2.4, "caption", "Divide by $1 - r$ (when $r \\ne 1$)."]
+[0, "show", "S = \\frac{1 - r^{n+1}}{1 - r}"]

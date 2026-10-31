@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>texcast</title>
+<meta name="description" content="Animated LaTeX stored as plain text. A recording is just formulas and timings; the player typesets them in your browser and morphs one into the next.">
+<meta name="theme-color" content="#f2efe8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121418" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f2efe8'/%3E%3Cpath d='M9 23l7-14 7 14' fill='none' stroke='%230b6a80' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M11.5 18h9' stroke='%23c2185b' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500..700;1,9..144,500..700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="player.js"></script>
+<script defer src="recorder.js"></script>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f2efe8;
+    --surface: #fbfaf6;
+    --paper: #f1eee6;
+    --line: rgba(28, 32, 40, 0.12);
+    --line-strong: rgba(28, 32, 40, 0.24);
+    --ink: #1e242e;
+    --ink-dim: #5b6370;
+    --accent: #0b6a80;
+    --lead: #c2185b;
+    --shadow: 0 1px 2px rgba(28, 32, 40, 0.06), 0 8px 24px -12px rgba(28, 32, 40, 0.18);
+    --serif: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --gutter: clamp(16px, 4vw, 40px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121418;
+      --surface: #1a1d23;
+      --paper: #22262d;
+      --line: rgba(236, 235, 230, 0.10);
+      --line-strong: rgba(236, 235, 230, 0.22);
+      --ink: #ecebe6;
+      --ink-dim: #a3a9b3;
+      --accent: #5cc6de;
+      --lead: #f0679d;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  code, kbd, pre { font-family: var(--mono); font-size: 0.88em; }
+  code { padding: 0.1em 0.35em; border-radius: 5px; background: var(--paper); }
+  kbd {
+    padding: 0.05em 0.4em;
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--surface);
+    font-size: 0.8em;
+    white-space: nowrap;
+  }
+
+  .wrap { width: min(920px, 100% - 2 * var(--gutter)); margin-inline: auto; }
+
+  texcast-player {
+    --tc-bg: var(--surface);
+    --tc-ink: var(--ink);
+    --tc-dim: var(--ink-dim);
+    --tc-line: var(--line);
+    --tc-accent: var(--accent);
+    --tc-source-bg: var(--paper);
+    --tc-ui-font: var(--sans);
+    box-shadow: var(--shadow);
+  }
+
+  /* ---- top ---------------------------------------------------------------- */
+
+  .top { padding-top: 22px; font-size: 14px; }
+  .top a { color: var(--ink-dim); text-decoration: none; }
+  .top a:hover { color: var(--ink); }
+
+  header.intro { padding: clamp(36px, 8vw, 72px) 0 clamp(24px, 5vw, 36px); }
+  h1 {
+    font: 600 clamp(44px, 9vw, 76px)/1 var(--serif);
+    letter-spacing: -0.02em;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+  .lede {
+    max-width: 38em;
+    margin-top: 18px;
+    font-size: clamp(17px, 2.2vw, 19px);
+    color: var(--ink-dim);
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .hero texcast-player { --tc-size: 34px; }
+  .meta {
+    margin-top: 10px;
+    font: 12.5px/1.4 var(--mono);
+    color: var(--ink-dim);
+  }
+  .meta a { color: inherit; }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(16px, 3vw, 32px);
+    margin: clamp(32px, 6vw, 52px) 0 0;
+    list-style: none;
+  }
+  .facts li { border-top: 1px solid var(--line-strong); padding-top: 12px; color: var(--ink-dim); font-size: 15px; }
+  .facts b { display: block; color: var(--ink); font: 600 19px/1.3 var(--serif); margin-bottom: 4px; }
+
+  section { padding-top: clamp(52px, 9vw, 88px); }
+  h2 {
+    font: 600 clamp(28px, 4.4vw, 38px)/1.1 var(--serif);
+    letter-spacing: -0.01em;
+  }
+  .section-lede { max-width: 40em; margin-top: 10px; color: var(--ink-dim); }
+
+  .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(16px, 3vw, 28px);
+    margin-top: 26px;
+  }
+  .pair texcast-player { --tc-size: 25px; }
+  .pair h3 { font: 600 15px/1.3 var(--sans); margin-bottom: 10px; }
+
+  /* ---- recorder ----------------------------------------------------------- */
+
+  .recorder {
+    margin-top: 26px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .rec-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 18px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .seg { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--paper); }
+  .seg button {
+    appearance: none;
+    border: 0;
+    padding: 5px 12px;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ink-dim);
+    font: 500 13.5px/1.2 var(--sans);
+    cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+  .seg button:disabled { cursor: default; }
+  .rec-bar label { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-dim); cursor: pointer; }
+  .rec-bar .hint { margin-left: auto; color: var(--ink-dim); font-size: 13px; }
+
+  .rec-io { display: grid; grid-template-columns: 1fr 1fr; }
+  .rec-io textarea {
+    min-height: 168px;
+    padding: 16px;
+    border: 0;
+    border-right: 1px solid var(--line);
+    resize: vertical;
+    background: transparent;
+    color: var(--ink);
+    font: 15px/1.6 var(--mono);
+    outline: none;
+  }
+  .rec-io textarea:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+  .rec-preview { display: grid; place-items: center; align-content: center; gap: 8px; padding: 16px; min-width: 0; overflow-x: auto; }
+  #rec-preview { font-size: 22px; transition: opacity .15s; }
+  #rec-preview.is-stale { opacity: .35; }
+  #rec-preview .katex-display { margin: 0; }
+  #rec-error { min-height: 1.4em; color: var(--lead); font: 12.5px/1.4 var(--mono); text-align: center; }
+
+  .rec-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--line);
+  }
+  .btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--ink);
+    font: 500 14px/1.2 var(--sans);
+    cursor: pointer;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--ink-dim); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--lead); }
+  .btn.primary .dot { background: var(--surface); }
+  .recording .btn.primary { background: var(--lead); border-color: var(--lead); }
+  .recording .btn.primary .dot { border-radius: 2px; }
+  .btn.flash { animation: flash .4s ease; }
+  @keyframes flash { 40% { background: var(--accent); color: var(--surface); } }
+  #rec-caption {
+    flex: 1 1 220px;
+    min-width: 0;
+    padding: 8px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    background: transparent;
+    color: var(--ink);
+    font: 14px/1.2 var(--sans);
+  }
+  #rec-caption:disabled { opacity: .45; }
+  #rec-status { font: 12.5px/1.4 var(--mono); color: var(--ink-dim); min-width: 12ch; }
+  .recording #rec-status { color: var(--lead); }
+
+  #rec-result { padding: 18px 14px 16px; border-top: 1px solid var(--line); background: var(--bg); }
+  #rec-result[hidden] { display: none; }
+  #rec-result texcast-player { --tc-size: 26px; }
+  .file { margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .file-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    padding: 8px 8px 8px 14px;
+    border-bottom: 1px solid var(--line);
+    font: 12.5px/1.4 var(--mono);
+    color: var(--ink-dim);
+  }
+  .file-head b { color: var(--ink); font-weight: 600; }
+  .file-head .btn { margin-left: auto; padding: 6px 12px; font-size: 13px; }
+  #rec-text {
+    display: block;
+    width: 100%;
+    min-height: 150px;
+    padding: 12px 14px;
+    border: 0;
+    resize: vertical;
+    background: transparent;
+    color: var(--ink);
+    font: 12.5px/1.6 var(--mono);
+    white-space: pre;
+    outline: none;
+  }
+  #rec-text-error { padding: 0 14px 10px; color: var(--lead); font: 12.5px/1.4 var(--mono); }
+  #rec-text-error:empty { display: none; }
+
+  /* ---- format ------------------------------------------------------------- */
+
+  pre.code {
+    margin-top: 20px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  pre.code .c { color: var(--ink-dim); }
+  table { width: 100%; margin-top: 18px; border-collapse: collapse; font-size: 15px; }
+  th, td { padding: 10px 12px 10px 0; border-top: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { font-weight: 500; white-space: nowrap; }
+  td { color: var(--ink-dim); }
+  .table-scroll { overflow-x: auto; }
+  .prose { max-width: 40em; margin-top: 14px; color: var(--ink-dim); }
+  .prose + .prose { margin-top: 10px; }
+
+  footer { padding: clamp(56px, 9vw, 88px) 0 40px; color: var(--ink-dim); font-size: 14px; }
+
+  @media (max-width: 760px) {
+    .facts { grid-template-columns: 1fr; }
+    .pair { grid-template-columns: 1fr; }
+    .rec-io { grid-template-columns: 1fr; }
+    .rec-io textarea { border-right: 0; border-bottom: 1px solid var(--line); min-height: 120px; }
+    .rec-preview { min-height: 110px; }
+    .rec-bar .hint { margin-left: 0; width: 100%; }
+    .hero texcast-player { --tc-size: 30px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap top"><a href="../">← Misc</a></div>
+
+  <main class="wrap">
+    <header class="intro">
+      <h1>tex<em>cast</em></h1>
+      <p class="lede">Animated LaTeX, stored as text. A recording is <strong>just the formulas and when they appear</strong>. The player typesets them in your browser and morphs each one into the next, the way asciinema replays a terminal.</p>
+    </header>
+
+    <figure class="hero">
+      <texcast-player id="cast-quadratic" src="casts/quadratic.texcast" autoplay loop></texcast-player>
+      <figcaption class="meta" data-meta="cast-quadratic"><a href="casts/quadratic.texcast">quadratic.texcast</a></figcaption>
+    </figure>
+
+    <ul class="facts">
+      <li><b id="fact-size">Tiny</b>The whole animation above, as a text file. That's smaller than a single thumbnail image.</li>
+      <li><b>Real type</b>Pause and select it, zoom in as far as you like. It stays sharp and follows dark mode.</li>
+      <li><b>Editable</b>Spot a typo? Change one line of the file. Nothing to re-render or re-upload.</li>
+    </ul>
+
+    <section aria-labelledby="more">
+      <h2 id="more">Steps or keystrokes</h2>
+      <p class="section-lede">A derivation stores one line per step. A typing recording stores every keystroke as a small edit, and can show the source as it's typed. While the LaTeX is half-finished, the last version that parses stays on screen.</p>
+      <div class="pair">
+        <figure>
+          <h3>Typing, played back</h3>
+          <texcast-player id="cast-typing" src="casts/typing.texcast"></texcast-player>
+          <figcaption class="meta" data-meta="cast-typing"><a href="casts/typing.texcast">typing.texcast</a></figcaption>
+        </figure>
+        <figure>
+          <h3>Terms that travel</h3>
+          <texcast-player id="cast-geometric" src="casts/geometric.texcast"></texcast-player>
+          <figcaption class="meta" data-meta="cast-geometric"><a href="casts/geometric.texcast">geometric.texcast</a></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="record" aria-labelledby="record-title">
+      <h2 id="record-title">Record your own</h2>
+      <p class="section-lede">Type LaTeX on the left. In <b>Steps</b> mode, press <kbd>⌘ Enter</kbd> (<kbd>Ctrl Enter</kbd> on Windows) for each new step, and the player morphs between them. In <b>Keystrokes</b> mode, every keypress is saved.</p>
+
+      <div class="recorder" id="recorder">
+        <div class="rec-bar">
+          <div class="seg" role="group" aria-label="Recording mode">
+            <button type="button" data-mode="steps" aria-pressed="true">Steps</button>
+            <button type="button" data-mode="keys" aria-pressed="false">Keystrokes</button>
+          </div>
+          <label><input type="checkbox" id="rec-cap" checked> Shorten pauses to 2 s</label>
+          <span class="hint" id="rec-hint">Press <kbd>⌘ Enter</kbd> to record the first step.</span>
+        </div>
+        <div class="rec-io">
+          <textarea id="rec-input" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="LaTeX">(a + b)^2</textarea>
+          <div class="rec-preview" aria-live="off">
+            <div id="rec-preview"></div>
+            <div id="rec-error"></div>
+          </div>
+        </div>
+        <div class="rec-actions">
+          <button type="button" class="btn primary" id="rec-toggle"><span class="dot"></span><span>Record</span></button>
+          <button type="button" class="btn" id="rec-step" disabled>Add step</button>
+          <input id="rec-caption" type="text" placeholder="Caption (Enter adds it)" disabled aria-label="Caption">
+          <span id="rec-status"></span>
+        </div>
+        <div id="rec-result" hidden>
+          <texcast-player id="rec-player"></texcast-player>
+          <div class="file">
+            <div class="file-head">
+              <b>recording.texcast</b><span id="rec-size"></span>
+              <button type="button" class="btn" id="rec-download">Download</button>
+            </div>
+            <textarea id="rec-text" spellcheck="false" aria-label="Recording file. Edit it to change the animation."></textarea>
+            <div id="rec-text-error"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="format" aria-labelledby="format-title">
+      <h2 id="format-title">The format</h2>
+      <p class="prose">Like asciinema's <code>.cast</code> files: JSON lines. The first line is a header, and each line after it is an event. An event's first number is the delay in seconds since the previous event.</p>
+<pre class="code"><span class="c"># completing-the-square.texcast</span>
+{"version": 1, "title": "Completing the square", "morph": 0.8}
+[0,   "show",    "x^2 + 6x + 5 = 0"]
+[0,   "caption", "Move the constant over."]
+[2.5, "show",    "x^2 + 6x = -5"]
+[2.5, "caption", "Add $9$ to both sides."]
+[0,   "show",    "x^2 + 6x + \\blue{9} = \\blue{9} - 5"]
+[2.5, "show",    "(x + 3)^2 = 4"]</pre>
+      <div class="table-scroll">
+        <table>
+          <tr><th><code>[dt, "show", latex]</code></th><td>Replace the formula. Matching symbols glide to their new places, the rest fade.</td></tr>
+          <tr><th><code>[dt, "edit", pos, del, text]</code></th><td>Delete <code>del</code> characters at <code>pos</code> and insert <code>text</code>. The keystroke recorder writes these.</td></tr>
+          <tr><th><code>[dt, "caption", text]</code></th><td>Set the caption. <code>$…$</code> is inline math, and <code>""</code> clears it.</td></tr>
+          <tr><th>Header</th><td><code>title</code>, <code>morph</code> (seconds per transition), <code>hold</code> (seconds on the last frame), <code>source</code> (show the LaTeX), <code>poster</code> (seconds, or <code>"end"</code>), <code>size</code> (type scale), <code>macros</code>.</td></tr>
+          <tr><th>Colours</th><td><code>\blue{…}</code> <code>\red{…}</code> <code>\green{…}</code> <code>\gold{…}</code> <code>\purple{…}</code> <code>\faint{…}</code>. They follow light and dark mode, and colour changes animate too.</td></tr>
+        </table>
+      </div>
+      <p class="prose">Lines starting with <code>#</code> are comments. Backslashes are doubled because each line is JSON. The recorder writes the file for you, so you rarely type them by hand.</p>
+    </section>
+
+    <section id="embed" aria-labelledby="embed-title">
+      <h2 id="embed-title">Put one on a page</h2>
+      <p class="prose">One script tag. It loads KaTeX if the page doesn't already have it.</p>
+<pre class="code">&lt;script src="texcast/player.js"&gt;&lt;/script&gt;
+&lt;texcast-player src="derivation.texcast" autoplay loop&gt;&lt;/texcast-player&gt;</pre>
+      <p class="prose">Click a player, then use <kbd>Space</kbd> to play or pause, <kbd>←</kbd> <kbd>→</kbd> to step through, and <kbd>Home</kbd> <kbd>End</kbd> to jump to either end. Stepping with the arrow keys works well for presenting a derivation live.</p>
+    </section>
+
+    <footer>Typeset by <a href="https://katex.org">KaTeX</a>. Inspired by <a href="https://asciinema.org">asciinema</a>.</footer>
+  </main>
+
+  <script>
+    // Show each demo's real file size under it.
+    document.addEventListener('texcast-ready', async (e) => {
+      const player = e.detail;
+      const meta = document.querySelector(`[data-meta="${e.target.id}"]`);
+      if (!meta) return;
+      const gz = await Texcast.gzipSize(player.text);
+      const size = Texcast.formatBytes(player.bytes);
+      const secs = Math.round(player.cast.duration);
+      meta.append(` · ${secs} s · ${size}${gz ? ` (${Texcast.formatBytes(gz)} gzipped)` : ''}`);
+      if (e.target.id === 'cast-quadratic') document.getElementById('fact-size').textContent = size;
+    });
+  </script>
+</body>
+</html>
