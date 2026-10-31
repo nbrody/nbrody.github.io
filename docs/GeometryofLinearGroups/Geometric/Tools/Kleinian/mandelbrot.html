@@ -1,518 +1,1689 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mandelbrot & Julia Explorer</title>
-  <style>
-    :root {
-      --bg: #0b0e14;
-      --panel-bg: rgba(20, 25, 35, 0.85);
-      --accent: #00d2ff;
-      --text: #e0e6ed;
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mandelbrot &amp; Julia Explorer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="vendor/mathquill/build/mathquill.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="vendor/jquery/jquery-3.7.1.min.js"></script>
+<script src="vendor/mathquill/build/mathquill.min.js"></script>
+<style>
+/* Layout: the parameter plane fills the window as one WebGL picture; a glass panel docks
+   right (a bottom sheet on phones) with the point readout, its Julia set, landmarks,
+   view and color controls. Single dark look, after the poincare panel. */
+:root {
+  --bg: #04060d;
+  --ink: #eef1f8;
+  --ink-dim: #a3adc4;
+  --ink-faint: #6c768f;
+  --accent: #818cf8;
+  --warm: #ffb547;
+  --glass: rgba(9, 13, 25, 0.84);
+  --field: rgba(0, 0, 0, 0.28);
+  --w05: rgba(255, 255, 255, 0.05);
+  --w08: rgba(255, 255, 255, 0.08);
+  --w12: rgba(255, 255, 255, 0.12);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
+  --accent-soft: rgba(129, 140, 248, 0.16);
+  --accent-line: rgba(129, 140, 248, 0.55);
+  --accent-glow: rgba(129, 140, 248, 0.28);
+  --glass-edge: linear-gradient(165deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05) 30%, rgba(129,140,248,0.30) 90%);
+  --shadow: 0 24px 60px -16px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.35);
+  --font: KaTeX_Main, "Latin Modern Roman", "CMU Serif", "Times New Roman", serif;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-xl: 18px;
+  --panel-w: 360px;
+  --gap: 16px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.4;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.katex { font-size: 1.06em; }
+button, input { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
 
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: var(--bg);
-      font-family: 'Inter', -apple-system, sans-serif;
-      color: var(--text);
-    }
+/* ---------- picture ---------- */
+#stage { position: fixed; inset: 0; touch-action: none; cursor: crosshair; background: var(--bg); }
+#stage.dragging { cursor: grabbing; }
+#stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#overlay { pointer-events: none; }
+#progress {
+  position: fixed; top: 0; left: 0; height: 2px; width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--warm));
+  opacity: 0; transition: opacity 0.3s ease; z-index: 50; pointer-events: none;
+}
+#progress.on { opacity: 0.9; }
 
-    canvas {
-      display: block;
-      cursor: crosshair;
-    }
+#hud {
+  position: fixed;
+  left: max(var(--gap), env(safe-area-inset-left, 0px));
+  bottom: calc(var(--gap) + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 7px 10px 8px;
+  border-radius: var(--r-md);
+  background: rgba(4, 6, 13, 0.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--hairline);
+  pointer-events: none;
+  font-size: 13px;
+  color: var(--ink);
+}
+#scalebar {
+  height: 6px;
+  border: 1.5px solid var(--ink);
+  border-top: none;
+  min-width: 10px;
+}
 
-    #ui-overlay {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      width: 280px;
-      background: var(--panel-bg);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 15px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-      z-index: 100;
-      user-select: none;
-    }
+/* ---------- glass panel ---------- */
+#control-panel {
+  position: fixed;
+  top: calc(var(--gap) + env(safe-area-inset-top, 0px));
+  right: max(var(--gap), env(safe-area-inset-right, 0px));
+  width: var(--panel-w);
+  max-height: calc(100% - 2 * var(--gap) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  z-index: 100;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--r-xl);
+  border: 1px solid transparent;
+  background: linear-gradient(var(--glass), var(--glass)) padding-box, var(--glass-edge) border-box;
+  backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  box-shadow: var(--shadow);
+  transition: width 0.45s var(--ease-out), max-height 0.45s var(--ease-out), border-radius 0.45s var(--ease-out);
+}
+.panel-head {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 12px 10px 16px;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+.panel-name { flex: 1; min-width: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-btn {
+  width: 30px; height: 30px; min-width: 30px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--w05); border: 1px solid var(--hairline); border-radius: 50%;
+  color: var(--ink-dim); cursor: pointer; flex-shrink: 0;
+  transition: color 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.icon-btn:hover { color: var(--ink); background: var(--w08); border-color: var(--hairline-strong); }
+.icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#collapse-btn svg { transition: transform 0.45s var(--ease-out); }
+#control-panel.collapsed { width: 52px; max-height: 52px; border-radius: 26px; }
+#control-panel.collapsed .panel-head { padding: 10px; background: transparent; border-bottom: none; }
+#control-panel.collapsed .panel-head > :not(#collapse-btn), #control-panel.collapsed .panel-content { display: none; }
+#control-panel.collapsed #collapse-btn svg { transform: rotate(45deg); }
 
-    .control-group {
-      margin-bottom: 15px;
-    }
+.panel-content {
+  overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--w12) transparent;
+}
+.panel-content::-webkit-scrollbar { width: 5px; }
+.panel-content::-webkit-scrollbar-thumb { background: var(--w12); border-radius: 999px; }
+.sec { padding: 14px 16px 16px; display: grid; gap: 10px; }
+.sec + .sec { border-top: 1px solid var(--hairline); }
+.sec-head { display: flex; align-items: center; gap: 8px; }
+.sec-title {
+  flex: 1; margin: 0;
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+.intro { color: var(--ink-dim); font-size: 14.5px; }
+.intro .def { color: var(--ink); text-align: center; padding: 2px 0 4px; overflow-x: auto; }
+.chip {
+  font-size: 11.5px; letter-spacing: 0.04em; padding: 1px 9px; border-radius: 999px;
+  border: 1px solid var(--hairline-strong); color: var(--ink-dim);
+}
+.chip.pinned { border-color: rgba(255, 181, 71, 0.55); color: var(--warm); }
+.chip.pointer { border-color: var(--accent-line); color: var(--ink); }
 
-    .control-group label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 5px;
-      color: #8892b0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; align-items: baseline; }
+.kv .k { color: var(--ink-dim); font-size: 14px; }
+.kv .v { min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.kv .v::-webkit-scrollbar { display: none; }
+.status { font-size: 14px; color: var(--ink); min-height: 2.6em; }
+.status .dim, .dim { color: var(--ink-dim); }
+.small { font-size: 13px; }
 
-    .control-group input[type="range"] {
-      width: 100%;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
+.julia-wrap {
+  position: relative; width: 100%; aspect-ratio: 1; max-width: 100%;
+  border-radius: var(--r-md); overflow: hidden;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg);
+}
+.julia-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.julia-label {
+  position: absolute; left: 8px; top: 6px; font-size: 13px; color: var(--ink);
+  text-shadow: 0 0 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6); pointer-events: none;
+}
+.caption { font-size: 13.5px; color: var(--ink-dim); }
 
-    .control-group select {
-      width: 100%;
-      background: #1a1f29;
-      border: 1px solid #333;
-      color: white;
-      padding: 5px;
-      border-radius: 4px;
-    }
+/* landmarks */
+.landmarks { display: grid; gap: 4px; }
+.lm {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 10px; align-items: baseline;
+  width: 100%; text-align: left; padding: 7px 10px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-radius: var(--r-md);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.lm:hover { background: var(--w05); border-color: var(--hairline); }
+.lm.active { background: var(--accent-soft); border-color: var(--accent-line); }
+.lm .nm { font-size: 14.5px; color: var(--ink); }
+.lm .dp { font-size: 12.5px; color: var(--ink-faint); }
+.lm .ds { grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-dim); }
 
-    #juliaWindow {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      width: 300px;
-      height: 300px;
-      background: var(--panel-bg);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-      display: flex;
-      flex-direction: column;
-    }
+/* view & color controls */
+.row { display: flex; align-items: center; gap: 10px; }
+.row label { flex: 1; color: var(--ink-dim); font-size: 14px; }
+.row output { font-size: 14px; min-width: 3.2em; text-align: right; }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+.palettes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pal {
+  display: grid; gap: 4px; padding: 5px 5px 4px; cursor: pointer;
+  background: var(--field); border: 1px solid var(--hairline); border-radius: var(--r-sm);
+  font-size: 12.5px; color: var(--ink-dim); text-align: center;
+}
+.pal .sw { height: 16px; border-radius: 4px; }
+.pal:hover { border-color: var(--hairline-strong); color: var(--ink); }
+.pal.active { border-color: var(--accent-line); color: var(--ink); box-shadow: 0 0 12px var(--accent-glow); }
+.toggles { display: grid; gap: 6px; }
+.tog { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: var(--ink); }
+.tog input { appearance: none; -webkit-appearance: none; width: 30px; height: 17px; border-radius: 999px; margin: 0;
+  background: var(--w12); position: relative; cursor: pointer; transition: background 0.2s ease; flex-shrink: 0; }
+.tog input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%;
+  background: var(--ink-dim); transition: transform 0.2s var(--ease-out), background 0.2s ease; }
+.tog input:checked { background: var(--accent); }
+.tog input:checked::after { transform: translateX(13px); background: #fff; }
+.tog .dim { font-size: 12.5px; }
+.help { font-size: 13.5px; color: var(--ink-dim); display: grid; gap: 6px; }
+.help p { margin: 0; }
 
-    #juliaHeader {
-      padding: 8px 12px;
-      font-size: 11px;
-      font-weight: bold;
-      background: rgba(0, 0, 0, 0.2);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mode {
+  padding: 6px 8px; cursor: pointer; font-size: 13.5px; color: var(--ink-dim);
+  background: var(--field); border: 1px solid var(--hairline); border-radius: var(--r-sm);
+}
+.mode:hover { color: var(--ink); border-color: var(--hairline-strong); }
+.mode.active { color: var(--ink); border-color: var(--accent-line); background: var(--accent-soft); }
+.poly-row { display: flex; align-items: center; gap: 8px; }
+.poly-row .mq-editable-field {
+  flex: 1; min-width: 0; padding: 4px 8px; border-radius: var(--r-sm);
+  background: var(--field); border: 1px solid var(--hairline-strong); color: var(--ink);
+  font-family: KaTeX_Main, "Times New Roman", serif; font-size: 16px;
+}
+.poly-row .mq-editable-field.mq-focused { border-color: var(--accent-line); box-shadow: 0 0 0 2px var(--accent-glow); }
+.poly-row .mq-math-mode var, .poly-row .mq-math-mode i { font-family: KaTeX_Math, "Times New Roman", serif; }
+.poly-msg.err { color: #fb7185; }
+#message {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 200;
+  padding: 24px max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px));
+  background: var(--bg); color: var(--ink); text-align: center; font-size: 16px;
+}
 
-    #juliaCanvas {
-      flex: 1;
-      cursor: default;
-    }
-
-    .coord-display {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      font-family: monospace;
-      font-size: 12px;
-      color: var(--accent);
-      background: rgba(0, 0, 0, 0.5);
-      padding: 5px 10px;
-      border-radius: 4px;
-      pointer-events: none;
-    }
-
-    button {
-      background: var(--accent);
-      border: none;
-      color: #000;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-
-    .back-btn {
-      margin-bottom: 10px;
-      width: 100%;
-    }
-
-    #status {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      font-size: 12px;
-      color: #8892b0;
-      pointer-events: none;
-    }
-  </style>
+@media (max-width: 719px) {
+  :root { --panel-w: auto; }
+  #control-panel {
+    top: auto;
+    left: max(var(--gap), env(safe-area-inset-left, 0px));
+    right: max(var(--gap), env(safe-area-inset-right, 0px));
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    max-height: 47%;
+  }
+  #control-panel.collapsed { left: auto; }
+  #hud { bottom: auto; top: calc(12px + env(safe-area-inset-top, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #control-panel, #collapse-btn svg { transition: none; }
+}
+</style>
 </head>
-
 <body>
+<div id="stage" aria-label="The Mandelbrot set: drag to pan, scroll to zoom, click to pin a parameter">
+  <canvas id="gl"></canvas>
+  <canvas id="overlay"></canvas>
+</div>
+<div id="progress"></div>
+<div id="hud"><span id="scale-label"></span><div id="scalebar"></div></div>
 
-  <div id="status">Left Click: Set Julia Parameter | Drag: Pan | Wheel: Zoom</div>
-
-  <div id="ui-overlay">
-    <button class="back-btn" onclick="window.location.href='../index.html'">← Back</button>
-
-    <div class="control-group">
-      <label>Iteration Limit: <span id="iter-val">300</span></label>
-      <input type="range" id="maxIter" min="100" max="2000" step="50" value="300">
-    </div>
-
-    <div class="control-group">
-      <label>Super Sampling (Sharpness)</label>
-      <select id="ssFactor">
-        <option value="1">1x (Fast)</option>
-        <option value="2" selected>2x (Standard)</option>
-        <option value="3">3x (Retina)</option>
-      </select>
-    </div>
-
-    <div class="control-group">
-      <label>Coloring Mode</label>
-      <select id="colorMode">
-        <option value="smooth">Deep Ocean (Smooth)</option>
-        <option value="fire">Solar Flare</option>
-        <option value="electric">Electric Blue</option>
-        <option value="mono">Classic Monochrome</option>
-        <option value="loci">Escape Loci (Bands)</option>
-      </select>
-    </div>
-
-    <div class="control-group">
-      <label>Performance Profile</label>
-      <select id="perfMode">
-        <option value="balanced">Balanced</option>
-        <option value="high-quality">High Quality (Slow)</option>
-        <option value="high-perf">Max Performance</option>
-      </select>
-    </div>
-
-    <div class="control-group">
-      <label>Pixel Scale: <span id="px-val">1</span></label>
-      <input type="range" id="pxScale" min="1" max="4" step="1" value="1">
-    </div>
-
-    <div class="control-group" style="display:flex; align-items:center; gap:10px;">
-      <input type="checkbox" id="liveJulia" checked>
-      <label style="margin:0;">Live Julia Tracking</label>
-    </div>
-
-    <div class="control-group" style="display:flex; align-items:center; gap:10px;">
-      <input type="checkbox" id="autoAspect" checked>
-      <label style="margin:0;">Auto Aspect Ratio</label>
-    </div>
+<aside id="control-panel" aria-label="Controls">
+  <div class="panel-head">
+    <div class="panel-name">Mandelbrot Set</div>
+    <button id="home-btn" class="icon-btn" aria-label="Show the whole set" title="Show the whole set">
+      <svg viewBox="0 0 16 16"><path d="M2.5 7.5 8 3l5.5 4.5M4 6.5V13h3V9.5h2V13h3V6.5"/></svg>
+    </button>
+    <button id="collapse-btn" class="icon-btn" aria-label="Collapse panel">
+      <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+    </button>
   </div>
 
-  <div id="juliaWindow">
-    <div id="juliaHeader">Julia Set: c = <span id="julia-coord">0, 0</span></div>
-    <canvas id="juliaCanvas"></canvas>
+  <div class="panel-content">
+    <section class="sec intro">
+      <div class="modes" role="group" aria-label="Picture">
+        <button type="button" class="mode active" id="mode-m" data-mix="Parameters $c$ of $z^2 + c$"></button>
+        <button type="button" class="mode" id="mode-p" data-mix="Polynomial $f(z)$"></button>
+      </div>
+      <div id="m-intro" class="intro">
+      <div class="def" data-tex="\begin{gathered} \mathcal M = \{\, c \in \mathbb C : f_c^{\circ n}(0) \not\to \infty \,\} \\[2pt] f_c(z) = z^2 + c \end{gathered}"></div>
+      <div data-mix="Each pixel is a parameter $c$. It is colored by how fast the orbit $0 \mapsto c \mapsto c^2 + c \mapsto \cdots$ escapes; the black region never escapes."></div>
+      </div>
+      <div id="p-intro" class="intro" hidden>
+        <div class="poly-row"><span data-tex="f(z) ="></span><span id="poly-field"></span></div>
+        <div class="small poly-msg" id="poly-msg"></div>
+        <div data-mix="Each pixel is a starting point $z$, colored by how fast $z \mapsto f(z) \mapsto f(f(z)) \mapsto \cdots$ escapes; the black region is the filled Julia set $K_f$."></div>
+      </div>
+    </section>
+
+    <section class="sec" id="point-sec">
+      <div class="sec-head"><h3 class="sec-title" id="point-title">Parameter</h3><span id="point-chip" class="chip pinned">Pinned</span></div>
+      <div class="kv">
+        <span class="k" id="lab-re" data-tex="\operatorname{Re} c"></span><span class="v" id="c-re"></span>
+        <span class="k" id="lab-im" data-tex="\operatorname{Im} c"></span><span class="v" id="c-im"></span>
+      </div>
+      <div class="status" id="status"></div>
+      <div class="julia-wrap" id="julia-wrap">
+        <canvas id="julia"></canvas>
+        <canvas id="julia-orbit"></canvas>
+        <span class="julia-label" data-tex="K_c"></span>
+      </div>
+      <div class="caption" id="julia-caption"></div>
+    </section>
+
+    <section class="sec" id="lm-sec">
+      <div class="sec-head"><h3 class="sec-title">Landmarks</h3></div>
+      <div class="landmarks" id="landmarks"></div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h3 class="sec-title">View</h3></div>
+      <div class="kv">
+        <span class="k">Center</span><span class="v" id="v-re"></span>
+        <span class="k"></span><span class="v" id="v-im"></span>
+        <span class="k">Width</span><span class="v" id="v-w"></span>
+        <span class="k">Iterations</span><span class="v" id="v-n"></span>
+      </div>
+      <div class="row">
+        <label for="iter-mult">Iteration budget</label>
+        <output id="iter-mult-out"></output>
+      </div>
+      <input type="range" id="iter-mult" min="-2" max="4" step="0.5" value="0" aria-label="Iteration budget">
+      <div class="small dim" id="v-ref"></div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h3 class="sec-title">Color</h3></div>
+      <div class="palettes" id="palettes"></div>
+      <div class="toggles">
+        <label class="tog"><input type="checkbox" id="opt-relief" checked><span>Relief shading</span></label>
+        <label class="tog"><input type="checkbox" id="opt-edges" checked><span data-mix="Boundary from the distance estimate"></span></label>
+        <label class="tog"><input type="checkbox" id="opt-cycle"><span>Cycle colors</span></label>
+      </div>
+      <div class="row">
+        <label for="opt-cycles">Color bands</label>
+        <output id="opt-cycles-out"></output>
+      </div>
+      <input type="range" id="opt-cycles" min="0.3" max="5" step="0.1" value="1" aria-label="Color bands">
+    </section>
+
+    <section class="sec help">
+      <div class="sec-head"><h3 class="sec-title">Controls</h3></div>
+      <p data-mix="Drag to pan; scroll or pinch to zoom. Double-click zooms in by $4\times$ (Shift: out). Click pins $c$ for the Julia set; arrow keys pan, $+$ and $-$ zoom."></p>
+      <p data-mix="Deep views use perturbation: one orbit is computed in exact fixed-point arithmetic, and each pixel follows its offset $\delta_{n+1} = 2Z_n\delta_n + \delta_n^2 + \delta c$ in single precision, rebasing when $|Z_n + \delta_n| < |\delta_n|$. That reaches widths near $10^{-30}$."></p>
+    </section>
   </div>
+</aside>
 
-  <div class="coord-display" id="coord-display">z = 0.000 + 0.000i</div>
+<div id="message" hidden></div>
 
-  <canvas id="mandelbrotCanvas"></canvas>
+<script>
+(function () {
+'use strict';
 
-  <script>
-    // --- Math & Core ---
-    function hslToRgb(h, s, l) {
-      let r, g, b;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1 / 6) return p + (q - p) * 6 * t;
-          if (t < 1 / 2) return q;
-          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-          return p;
-        };
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
-      }
-      return [r * 255, g * 255, b * 255];
+/* ================================================================
+   Fixed-point complex coordinates: integers scaled by 2^256
+   ================================================================ */
+const FB = 256, FBn = 256n, SCALE = 2 ** 256;
+const fx = (x) => BigInt(Math.round(x * SCALE));
+const fd = (b) => Number(b) / SCALE;
+function parseFx(str) {
+  let s = String(str).trim(), neg = false;
+  if (s[0] === '-') { neg = true; s = s.slice(1); } else if (s[0] === '+') s = s.slice(1);
+  const [ip, fp = ''] = s.split('.');
+  const v = (BigInt((ip || '0') + fp) << FBn) / 10n ** BigInt(fp.length);
+  return neg ? -v : v;
+}
+function decParts(b, nd) {
+  const neg = b < 0n; if (neg) b = -b;
+  const p10 = 10n ** BigInt(nd);
+  let ip = b >> FBn;
+  let f = ((b & ((1n << FBn) - 1n)) * p10 + (1n << (FBn - 1n))) >> FBn;
+  if (f >= p10) { f -= p10; ip += 1n; }
+  return { neg, ip: ip.toString(), fr: f.toString().padStart(nd, '0') };
+}
+
+/* ================================================================
+   TeX helpers (all math goes through KaTeX)
+   ================================================================ */
+const hasKatex = () => typeof window.katex !== 'undefined';
+const escapeHtml = (s) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+function tex(s) { return hasKatex() ? katex.renderToString(s, { throwOnError: false }) : escapeHtml(s); }
+function mixTex(s) {
+  return s.split(/(\$[^$]+\$)/g).map((p) => (p.length > 2 && p[0] === '$' && p[p.length - 1] === '$') ? tex(p.slice(1, -1)) : escapeHtml(p)).join('');
+}
+function setTex(el, s) { if (el._t !== s) { el._t = s; el.innerHTML = tex(s); } }
+function setMix(el, s) { if (el._t !== s) { el._t = s; el.innerHTML = mixTex(s); } }
+function groupDigits(s) {
+  const [i, f] = s.split('.');
+  const neg = i[0] === '-';
+  let d = neg ? i.slice(1) : i;
+  if (d.length > 4) d = d.replace(/\B(?=(\d{3})+(?!\d))/g, '\\,');
+  return (neg ? '-' : '') + d + (f ? '.' + f : '');
+}
+function texNum(x, sig = 3) {
+  if (!isFinite(x)) return '\\infty';
+  if (x === 0) return '0';
+  const ax = Math.abs(x);
+  if (ax >= 1e-3 && ax < 1e5) return groupDigits(String(Number(x.toPrecision(sig))));
+  let e = Math.floor(Math.log10(ax));
+  let m = Number((x / 10 ** e).toPrecision(sig));
+  if (Math.abs(m) >= 10) { m /= 10; e += 1; }
+  const ms = Math.abs(m) === 1 ? (m < 0 ? '-' : '') : m + '\\times';
+  return ms + '10^{' + e + '}';
+}
+const texInt = (n) => groupDigits(String(Math.round(n)));
+function texFx(b, nd) {
+  const { neg, ip, fr } = decParts(b, nd);
+  const zero = ip === '0' && /^0*$/.test(fr);
+  return (neg && !zero ? '-' : '\\phantom{-}') + ip + '.' + fr.match(/.{1,5}/g).join('\\,');
+}
+
+const $ = (id) => document.getElementById(id);
+function fail(msg) { const m = $('message'); m.textContent = msg; m.hidden = false; throw new Error(msg); }
+
+document.querySelectorAll('[data-tex]').forEach((el) => setTex(el, el.dataset.tex));
+document.querySelectorAll('[data-mix]').forEach((el) => setMix(el, el.dataset.mix));
+
+/* ================================================================
+   Palettes
+   ================================================================ */
+const PALETTES = [
+  { id: 'classic', name: 'Classic', interior: '#000000', edge: '#000000',
+    stops: [[0, '#000764'], [0.16, '#206bcb'], [0.42, '#edffff'], [0.6425, '#ffaa00'], [0.8575, '#000200'], [1, '#000764']] },
+  { id: 'ember', name: 'Ember', interior: '#0a0306', edge: '#0a0306',
+    stops: [[0, '#12040a'], [0.22, '#6b1020'], [0.45, '#e0521c'], [0.62, '#ffc857'], [0.76, '#fff5dc'], [0.9, '#5c1a2e'], [1, '#12040a']] },
+  { id: 'lagoon', name: 'Lagoon', interior: '#020a10', edge: '#020a10',
+    stops: [[0, '#04121c'], [0.25, '#0f5866'], [0.48, '#5fd3b8'], [0.66, '#f1f4dc'], [0.82, '#4b7fb0'], [1, '#04121c']] },
+  { id: 'ink', name: 'Ink', interior: '#141927', edge: '#141927',
+    stops: [[0, '#f6f7fb'], [0.5, '#d5dcea'], [1, '#f6f7fb']] },
+];
+const hex3 = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+function paletteLUT(p) {
+  const n = 512, out = new Uint8Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    let k = 0;
+    while (k < p.stops.length - 2 && p.stops[k + 1][0] <= t) k++;
+    const [t0, h0] = p.stops[k], [t1, h1] = p.stops[k + 1];
+    const u = (t - t0) / (t1 - t0), a = hex3(h0), b = hex3(h1);
+    for (let c = 0; c < 3; c++) out[4 * i + c] = Math.round(a[c] + (b[c] - a[c]) * u);
+    out[4 * i + 3] = 255;
+  }
+  return out;
+}
+const opts = { palette: 0, relief: true, edges: true, cycle: false, cycles: 1, offset: 0 };
+
+/* ================================================================
+   WebGL 2: data pass (perturbation) → float layers → color pass
+   ================================================================ */
+const canvas = $('gl');
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'high-performance' });
+if (!gl) fail('This explorer needs WebGL 2, which this browser does not provide.');
+if (!gl.getExtension('EXT_color_buffer_float')) fail('This explorer needs float render targets (EXT_color_buffer_float), which this GPU does not provide.');
+
+const VS = `#version 300 es
+const vec2 P[3] = vec2[3](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+void main() { gl_Position = vec4(P[gl_VertexID], 0.0, 1.0); }`;
+
+const BAIL2 = 1.0e6;   // escape radius 1000: smooth coloring and distance estimates
+
+const DATA_FS = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+uniform sampler2D u_ref;      // reference orbit Z_m, 4096 per row
+uniform int u_refLen;
+uniform bool u_refEscaped;
+uniform bool u_allowEnd;
+uniform vec2 u_dc0;           // layer center minus reference parameter
+uniform vec2 u_span;          // complex width and height of the layer
+uniform vec2 u_res;
+uniform int u_maxIter;
+uniform int u_mode;           // 0: perturbed Mandelbrot, 1: a polynomial iterated from z
+uniform vec2 u_coef[17];
+uniform int u_deg;
+uniform float u_bail2, u_logD;
+uniform vec2 u_center;
+layout(location = 0) out vec4 o;
+vec2 refZ(int m) { return texelFetch(u_ref, ivec2(m & 4095, m >> 12), 0).rg; }
+vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+vec4 polyPixel(vec2 p) {
+  float w = u_span.x;
+  vec2 z = u_center + p * u_span, der = vec2(w, 0.0);
+  float r2 = dot(z, z);
+  int n;
+  bool esc = false;
+  for (n = 0; n < u_maxIter; n++) {
+    vec2 f = u_coef[u_deg], fp = vec2(0.0);     // Horner for f and f'
+    for (int k = 15; k >= 0; k--) {
+      if (k >= u_deg) continue;
+      fp = cmul(fp, z) + f;
+      f = cmul(f, z) + u_coef[k];
     }
+    der = cmul(fp, der);
+    z = f;
+    r2 = dot(z, z);
+    if (!(r2 <= u_bail2)) { esc = true; break; }
+  }
+  if (!esc) return vec4(-1.0, 0.0, 0.0, 0.0);
+  r2 = min(r2, 1.0e36);
+  float lz = 0.5 * log(r2);
+  float nu = float(n + 1) + 1.0 - log(lz / (0.5 * log(u_bail2))) / u_logD;
+  float Dmax = max(abs(der.x), abs(der.y));
+  vec2 Ds = Dmax > 0.0 ? der / Dmax : vec2(1.0, 0.0);
+  float b = 2.0 * sqrt(r2) * lz / (Dmax * length(Ds));
+  if (!(b >= 0.0) || b > 1.0e30) b = 1.0e30;
+  vec2 u = vec2(z.x * Ds.x + z.y * Ds.y, z.y * Ds.x - z.x * Ds.y);
+  float ul = length(u);
+  return vec4(max(nu, 0.0), b, ul > 0.0 ? u / ul : vec2(0.0));
+}
+void main() {
+  vec2 p = gl_FragCoord.xy / u_res - 0.5;
+  if (u_mode == 1) { o = polyPixel(p); return; }
+  vec2 dc = u_dc0 + p * u_span;
+  float w = u_span.x;
+  vec2 d = vec2(0.0), z = vec2(0.0), D = vec2(0.0), Z = vec2(0.0);
+  int m = 0, n = 0, state = 0;
+  float r2 = 0.0;
+  for (n = 0; n < u_maxIter; n++) {
+    D = 2.0 * cmul(z, D) + vec2(w, 0.0);          // w * dz/dc
+    d = cmul(2.0 * Z + d, d) + dc;
+    m++;
+    Z = refZ(m);
+    z = Z + d;
+    r2 = dot(z, z);
+    if (r2 > ${BAIL2.toExponential()}) { state = 1; break; }
+    if (r2 < dot(d, d)) {
+      d = z; m = 0; Z = vec2(0.0);             // rebase: z is closer to 0 than to the reference
+    } else if (m >= u_refLen - 1) {
+      if (u_refEscaped && !u_allowEnd) { state = 2; break; }
+      d = z; m = 0; Z = vec2(0.0);
+    }
+  }
+  if (state == 1) {
+    float lz = 0.5 * log(r2);
+    float nu = float(n + 1) + 1.0 - log2(lz);
+    float Dmax = max(abs(D.x), abs(D.y));
+    vec2 Ds = D / Dmax;
+    float b = 2.0 * sqrt(r2) * lz / (Dmax * length(Ds));   // distance bound / layer width
+    if (!(b >= 0.0) || b > 1.0e30) b = 1.0e30;
+    vec2 u = vec2(z.x * Ds.x + z.y * Ds.y, z.y * Ds.x - z.x * Ds.y);
+    float ul = length(u);
+    u = ul > 0.0 ? u / ul : vec2(0.0);
+    o = vec4(max(nu, 0.0), b, u);
+  } else if (state == 2) {
+    o = vec4(-2.0, 0.0, 0.0, 0.0);
+  } else {
+    o = vec4(-1.0, 0.0, 0.0, 0.0);
+  }
+}`;
 
-    const colorScheme = {
-      smooth: (i, maxIter, zSq) => {
-        if (i >= maxIter) return [10, 12, 20];
-        const log_zn = Math.log(zSq) / 2;
-        const nu = Math.log(Math.log(zSq) / Math.log(4)) / Math.log(2);
-        const smooth = i + 1 - nu;
-        return hslToRgb((smooth * 2 + 200) / 360, 0.7, 0.5);
-      },
-      fire: (i, maxIter, zSq) => {
-        if (i >= maxIter) return [0, 0, 0];
-        const smooth = i + 1 - Math.log(Math.log(zSq) / Math.log(4)) / Math.log(2);
-        return hslToRgb((smooth * 3) / 360, 0.9, 0.5);
-      },
-      electric: (i, maxIter, zSq) => {
-        if (i >= maxIter) return [0, 5, 15];
-        const smooth = i + 1 - Math.log(Math.log(zSq) / Math.log(4)) / Math.log(2);
-        return hslToRgb((180 + smooth * 10) / 360, 0.8, 0.6);
-      },
-      mono: (i, maxIter) => {
-        if (i >= maxIter) return [0, 0, 0];
-        const v = Math.floor(255 * (1 - i / maxIter));
-        return [v, v, v];
-      },
-      loci: (i, maxIter) => {
-        if (i >= maxIter) return [0, 0, 0];
-        const v = (i % 2 === 0) ? 200 : 50;
-        const h = (i * 20) % 360;
-        return hslToRgb(h / 360, 0.6, 0.5);
+const SHADE_GLSL = `
+uniform sampler2D u_pal;
+uniform vec3 u_interior, u_edge;
+uniform vec2 u_win;            // (smooth iteration count at start of window, 1 / window length)
+uniform float u_cycles, u_offset;
+uniform bool u_relief, u_edges;
+uniform vec2 u_light;
+vec3 shade(vec4 d, float pxPerB) {
+  if (d.x < 0.0) return u_interior;
+  float t = u_cycles * max(d.x - u_win.x, 0.0) * u_win.y + u_offset;
+  vec3 c = texture(u_pal, vec2(t, 0.5)).rgb;
+  if (u_relief) {
+    float l = (dot(d.zw, u_light) + 1.4) / 2.4;
+    c *= 0.42 + 0.72 * clamp(l, 0.0, 1.0);
+  }
+  if (u_edges) {
+    float px = d.y * pxPerB;
+    c = mix(c, u_edge, 0.8 * (1.0 - smoothstep(0.15, 0.9, px)));
+  }
+  return c;
+}`;
+
+const COLOR_FS = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+uniform sampler2D u_top, u_bot;
+uniform bool u_hasTop, u_hasBot;
+uniform vec4 u_xfTop, u_xfBot;    // (k = w_screen / w_layer, shift.x, shift.y, first finished row)
+uniform vec2 u_resTop, u_resBot;
+uniform vec2 u_screen;
+uniform vec3 u_bg;
+out vec4 o;
+${SHADE_GLSL}
+vec4 sampleLayer(sampler2D tex, vec2 res, vec4 xf, vec2 p) {
+  vec2 t = (p * xf.x + xf.yz + 0.5) * res - 0.5;
+  vec2 fl = floor(t), f = t - fl;
+  ivec2 i0 = ivec2(fl);
+  float pxPerB = u_screen.x / xf.x;
+  vec3 acc = vec3(0.0);
+  float ws = 0.0;
+  for (int j = 0; j < 2; j++) for (int i = 0; i < 2; i++) {
+    ivec2 q = i0 + ivec2(i, j);
+    if (q.x < 0 || q.y < 0 || q.x >= int(res.x) || q.y >= int(res.y) || float(q.y) < xf.w) continue;
+    vec4 d = texelFetch(tex, q, 0);
+    if (d.x == -2.0) continue;
+    float wt = (i == 0 ? 1.0 - f.x : f.x) * (j == 0 ? 1.0 - f.y : f.y);
+    acc += wt * shade(d, pxPerB);
+    ws += wt;
+  }
+  return vec4(acc, ws);
+}
+void main() {
+  vec2 p = gl_FragCoord.xy / u_screen - 0.5;
+  vec4 a = u_hasTop ? sampleLayer(u_top, u_resTop, u_xfTop, p) : vec4(0.0);
+  vec3 col = a.rgb;
+  float rest = 1.0 - a.a;
+  if (rest > 0.001) {
+    vec4 b = u_hasBot ? sampleLayer(u_bot, u_resBot, u_xfBot, p) : vec4(0.0);
+    col += rest * (b.a > 0.001 ? b.rgb / b.a : u_bg);
+  }
+  o = vec4(col, 1.0);
+}`;
+
+const JULIA_FS = `#version 300 es
+precision highp float;
+precision highp int;
+uniform vec2 u_c, u_res;
+uniform float u_half;
+uniform int u_maxIter;
+out vec4 o;
+${SHADE_GLSL}
+vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+void main() {
+  vec2 z = (gl_FragCoord.xy / u_res - 0.5) * 2.0 * u_half;
+  vec2 der = vec2(1.0, 0.0);
+  float r2 = dot(z, z);
+  int n;
+  bool esc = false;
+  for (n = 0; n < u_maxIter; n++) {
+    der = 2.0 * cmul(z, der);
+    z = cmul(z, z) + u_c;
+    r2 = dot(z, z);
+    if (r2 > ${BAIL2.toExponential()}) { esc = true; break; }
+  }
+  vec4 d = vec4(-1.0, 0.0, 0.0, 0.0);
+  if (esc) {
+    float lz = 0.5 * log(r2);
+    float Dmax = max(abs(der.x), abs(der.y));
+    vec2 Ds = der / Dmax;
+    float b = 2.0 * sqrt(r2) * lz / (Dmax * length(Ds));
+    if (!(b >= 0.0)) b = 0.0;
+    vec2 u = vec2(z.x * Ds.x + z.y * Ds.y, z.y * Ds.x - z.x * Ds.y);
+    float ul = length(u);
+    d = vec4(max(float(n + 1) + 1.0 - log2(lz), 0.0), b / (2.0 * u_half), ul > 0.0 ? u / ul : vec2(0.0));
+  }
+  o = vec4(shade(d, u_res.x), 1.0);
+}`;
+
+function makeProgram(g, fsSrc) {
+  const sh = (type, src) => {
+    const s = g.createShader(type);
+    g.shaderSource(s, src); g.compileShader(s);
+    if (!g.getShaderParameter(s, g.COMPILE_STATUS)) throw new Error(g.getShaderInfoLog(s));
+    return s;
+  };
+  const p = g.createProgram();
+  g.attachShader(p, sh(g.VERTEX_SHADER, VS));
+  g.attachShader(p, sh(g.FRAGMENT_SHADER, fsSrc));
+  g.linkProgram(p);
+  if (!g.getProgramParameter(p, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(p));
+  const U = {};
+  const n = g.getProgramParameter(p, g.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const info = g.getActiveUniform(p, i); U[info.name] = g.getUniformLocation(p, info.name); }
+  return { p, U };
+}
+function makePaletteTexture(g) {
+  const t = g.createTexture();
+  g.bindTexture(g.TEXTURE_2D, t);
+  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
+  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
+  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.REPEAT);
+  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE);
+  return t;
+}
+function uploadPalette(g, t) {
+  g.bindTexture(g.TEXTURE_2D, t);
+  g.texImage2D(g.TEXTURE_2D, 0, g.RGBA8, 512, 1, 0, g.RGBA, g.UNSIGNED_BYTE, paletteLUT(PALETTES[opts.palette]));
+}
+const rgb = (h) => hex3(h).map((v) => v / 255);
+function setShadeUniforms(g, U, win) {
+  const P = PALETTES[opts.palette];
+  g.uniform3fv(U.u_interior, rgb(P.interior));
+  g.uniform3fv(U.u_edge, rgb(P.edge));
+  g.uniform2f(U.u_win, win[0], 1 / Math.max(1, win[1] - win[0]));
+  g.uniform1f(U.u_cycles, opts.cycles);
+  g.uniform1f(U.u_offset, opts.offset);
+  g.uniform1i(U.u_relief, opts.relief ? 1 : 0);
+  g.uniform1i(U.u_edges, opts.edges ? 1 : 0);
+  g.uniform2f(U.u_light, Math.SQRT1_2, Math.SQRT1_2);
+}
+
+let dataProg, colorProg;
+try {
+  dataProg = makeProgram(gl, DATA_FS);
+  colorProg = makeProgram(gl, COLOR_FS);
+} catch (e) { fail('The renderer did not compile on this GPU: ' + e.message); }
+const palTex = makePaletteTexture(gl);
+uploadPalette(gl, palTex);
+
+/* layers: float textures holding (nu, distance bound, normal) per pixel */
+let layers = [], complete = null, job = null;
+function makeLayer(W, H) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA32F, W, H);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) fail('Float render targets are not usable on this GPU.');
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { tex, fbo, has: false, cx: 0n, cy: 0n, w: 1, rw: 1, rh: 1, rowDone: 1 };
+}
+
+/* ================================================================
+   Reference orbits, computed in a worker (BigInt fixed point when deep)
+   ================================================================ */
+const WORKER_SRC = `
+onmessage = (e) => {
+  const { id, cx, cy, bits, prec, maxIter, bail2 } = e.data;
+  const CX = BigInt(cx), CY = BigInt(cy);
+  const L = maxIter + 1;
+  const o = new Float64Array(2 * L);
+  let n = 1, escaped = false;
+  if (prec <= 53) {
+    const cr = Number(CX) / 2 ** bits, ci = Number(CY) / 2 ** bits;
+    let zr = 0, zi = 0;
+    for (; n < L; n++) {
+      const t = zr * zr - zi * zi + cr; zi = 2 * zr * zi + ci; zr = t;
+      o[2 * n] = zr; o[2 * n + 1] = zi;
+      if (zr * zr + zi * zi > bail2) { escaped = true; n++; break; }
+    }
+  } else {
+    const P = BigInt(prec), P1 = P - 1n, S = P - 60n, sh = BigInt(bits - prec), T60 = 2 ** 60;
+    const cr = CX >> sh, ci = CY >> sh;
+    let zr = 0n, zi = 0n;
+    for (; n < L; n++) {
+      const zr2 = (zr * zr) >> P, zi2 = (zi * zi) >> P;
+      zi = ((zr * zi) >> P1) + ci;
+      zr = zr2 - zi2 + cr;
+      const a = Number(zr >> S) / T60, b = Number(zi >> S) / T60;
+      o[2 * n] = a; o[2 * n + 1] = b;
+      if (a * a + b * b > bail2) { escaped = true; n++; break; }
+    }
+  }
+  const orbit = o.slice(0, 2 * n);
+  postMessage({ id, len: n, escaped, orbit }, [orbit.buffer]);
+};`;
+const workerURL = URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' }));
+let worker = null, refReq = null, ref = null, refSeq = 0;
+function startWorker() { worker = new Worker(workerURL); worker.onmessage = onRef; }
+startWorker();
+
+const MIN_W = 1e-30, MAX_W = 12, MAX_ITER = 250000;
+/* custom polynomial mode: f is iterated from each pixel z (floats, so zoom stops near 1e-5) */
+let polyMode = false, poly = null, polyR = 2, polyBail2 = 2500, polySrc = '';
+const POLY_MIN_W = 1e-5, POLY_MAX_DEG = 16;
+const modeKey = () => polyMode ? 'p:' + polySrc : 'm';
+// parse a polynomial in z: + - * / ^ ( ), numbers, i; products may be implicit (2z, (z+1)(z-1))
+function parsePolynomial(src) {
+  const trim = (a) => { let k = a.length - 1; while (k > 0 && a[k][0] === 0 && a[k][1] === 0) k--; return a.slice(0, k + 1); };
+  const add = (a, b, sg = 1) => trim(Array.from({ length: Math.max(a.length, b.length) }, (_, i) => {
+    const x = a[i] || [0, 0], y = b[i] || [0, 0];
+    return [x[0] + sg * y[0], x[1] + sg * y[1]];
+  }));
+  const mul = (a, b) => {
+    const out = Array.from({ length: a.length + b.length - 1 }, () => [0, 0]);
+    a.forEach((x, i) => b.forEach((y, j) => {
+      out[i + j][0] += x[0] * y[0] - x[1] * y[1];
+      out[i + j][1] += x[0] * y[1] + x[1] * y[0];
+    }));
+    return trim(out);
+  };
+  const s = src.replace(/\s+/g, '').replace(/\u2212/g, '-');
+  let p = 0;
+  const peek = () => s[p] || '', eat = (c) => (s[p] === c ? (p++, true) : false);
+  const digit = (c) => c >= '0' && c <= '9';
+  const err = (m) => new Error(m);
+  const startsImplicit = (c) => c === 'z' || c === 'i' || c === '(' || digit(c) || c === '.';
+  function number() {
+    let t = '';
+    while (digit(peek())) t += s[p++];
+    if (eat('.')) { t += '.'; while (digit(peek())) t += s[p++]; }
+    if (t === '' || t === '.') throw err('A number or z was expected.');
+    return parseFloat(t);
+  }
+  function primary() {
+    if (eat('(')) { const e = expr(); if (!eat(')')) throw err('A closing parenthesis is missing.'); return e; }
+    if (eat('z')) return [[0, 0], [1, 0]];
+    if (eat('i')) return [[0, 1]];
+    const n = number();
+    return eat('i') ? [[0, n]] : [[n, 0]];
+  }
+  function factor() {
+    let sign = 1;
+    for (;;) { if (eat('+')) continue; if (eat('-')) { sign = -sign; continue; } break; }
+    let b = primary();
+    if (eat('^')) {
+      let t = ''; while (digit(peek())) t += s[p++];
+      if (t === '') throw err('Powers must be non-negative integers.');
+      let n = parseInt(t, 10), r = [[1, 0]];
+      for (let base = b; n > 0; n >>= 1, base = mul(base, base)) if (n & 1) r = mul(r, base);
+      b = r;
+    }
+    return sign < 0 ? b.map(([x, y]) => [-x, -y]) : b;
+  }
+  function term() {
+    let t = factor();
+    for (;;) {
+      if (eat('*')) { t = mul(t, factor()); continue; }
+      if (eat('/')) {
+        const d = factor();
+        if (d.length !== 1) throw err('You can only divide by a constant.');
+        const [a, b] = d[0], m = a * a + b * b;
+        if (m === 0) throw err('Division by zero.');
+        t = t.map(([x, y]) => [(x * a + y * b) / m, (y * a - x * b) / m]);
+        continue;
       }
-    };
+      if (startsImplicit(peek())) { t = mul(t, factor()); continue; }
+      return t;
+    }
+  }
+  function expr() {
+    let e = term();
+    for (;;) {
+      if (eat('+')) e = add(e, term());
+      else if (eat('-')) e = add(e, term(), -1);
+      else return e;
+    }
+  }
+  const out = expr();
+  if (p < s.length) throw err(`Unexpected “${peek()}”.`);
+  return out;
+}
+// MathQuill LaTeX → the plain syntax above
+function latexToPlain(l) {
+  let s = l.replace(/\\left|\\right/g, '').replace(/\\cdot|\\times/g, '*').replace(/\\(?:[ ,;:!]|quad|qquad)/g, '');
+  let prev;
+  do { prev = s; s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '(($1)/($2))'); } while (s !== prev);
+  s = s.replace(/\^\{([^{}]*)\}/g, '^$1');
+  if (/\\[a-zA-Z]/.test(s)) throw new Error('Use only z, i, numbers, + − ·, fractions and powers.');
+  return s.replace(/[{}]/g, '');
+}
+const plainToLatex = (s) => s.replace(/\*/g, '\\cdot ').replace(/\^(\d+)/g, '^{$1}');
+// |z| > R forces escape for a_n z^n + … with n ≥ 2
+function escapeRadius(c) {
+  const n = c.length - 1;
+  let sum = 0;
+  for (let k = 0; k < n; k++) sum += Math.hypot(c[k][0], c[k][1]);
+  return Math.max(2, 2 * (1 + sum) / Math.hypot(c[n][0], c[n][1]));
+}
+let iterMult = 1;
+// iterFloor: raised when many visible pixels escape near the limit; dropped after zooming out 8x
+let iterFloor = 0, iterFloorW = 0;
+function iterAuto(w) {
+  const zd = Math.max(0, Math.log10(4 / w));
+  const base = 400 + 70 * zd ** 1.7;
+  return iterFloor && w < 8 * iterFloorW ? Math.max(base, iterFloor) : base;
+}
+function iterFor(w) { return Math.min(MAX_ITER, Math.max(64, Math.round(iterAuto(w) * iterMult))); }
+function precFor(w) { return w > 1e-11 ? 53 : 32 * Math.ceil((Math.log2(1 / w) + 64) / 32); }
 
-    // --- State & Config ---
-    const mC = document.getElementById('mandelbrotCanvas'),
-      mCtx = mC.getContext('2d'),
-      jC = document.getElementById('juliaCanvas'),
-      jCtx = jC.getContext('2d'),
-      jHeader = document.getElementById('julia-coord'),
-      coordDisp = document.getElementById('coord-display'),
-      iterLabel = document.getElementById('iter-val');
+function refCovers(r, cx, cy, w, N) {
+  if (!r) return false;
+  const dx = fd(cx - r.cx), dy = fd(cy - r.cy);
+  if (Math.hypot(dx, dy) > 3 * w) return false;
+  if (r.prec < precFor(w)) return false;
+  if (!r.escaped && r.N < N) return false;
+  return true;
+}
+function requestRef(cx, cy, w) {
+  const N = Math.min(MAX_ITER, Math.max(iterFor(w), Math.round(iterFor(w / 64) * 1.05)));
+  const prec = precFor(w / 64);
+  if (refReq) { worker.terminate(); startWorker(); }
+  refReq = { id: ++refSeq, cx, cy, N, prec, w, t0: performance.now() };
+  worker.postMessage({ id: refReq.id, cx: cx.toString(), cy: cy.toString(), bits: FB, prec, maxIter: N, bail2: BAIL2 });
+}
+function onRef(e) {
+  const r = e.data;
+  if (!refReq || r.id !== refReq.id) return;
+  const req = refReq; refReq = null;
+  const rows = Math.ceil(r.len / 4096);
+  const data = new Float32Array(4096 * rows * 2);
+  data.set(r.orbit);
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, 4096, rows, 0, gl.RG, gl.FLOAT, data);
+  if (job && !job.poly) job = null;  // a running job used the old reference
+  if (ref) gl.deleteTexture(ref.tex);
+  ref = { cx: req.cx, cy: req.cy, N: req.N, prec: req.prec, len: r.len, escaped: r.escaped, orbit: r.orbit, tex, ms: performance.now() - req.t0 };
+  pointDirty = true;
+}
 
-    let bounds = { xmin: -2.1, xmax: 0.9, ymin: -1.2, ymax: 1.2 };
-    let juliaC = { re: -0.8, im: 0.156 };
-    let config = {
-      maxIter: 300,
-      ssFactor: 2,
-      pxScale: 1,
-      colorMode: 'smooth',
-      liveJulia: true,
-      autoAspect: true,
-      perfMode: 'balanced'
-    };
+/* ================================================================
+   View state and geometry
+   ================================================================ */
+const view = { cx: 0n, cy: 0n, w: 3.5 };
+let viewVersion = 0, viewMoved = true;
+let cssW = 1, cssH = 1, devW = 1, devH = 1;
+let anchor = null;                   // recent zoom focus, preferred spot for the next reference
+const panel = $('control-panel');
+const clampW = (w) => Math.min(polyMode ? Math.max(MAX_W, 4 * polyR) : MAX_W, Math.max(polyMode ? POLY_MIN_W : MIN_W, w));
+function setView(cx, cy, w) { view.cx = cx; view.cy = cy; view.w = clampW(w); viewMoved = true; }
+function offsetAt(x, y) { const s = view.w / cssW; return [(x - cssW / 2) * s, (cssH / 2 - y) * s]; }
+function pointAt(x, y) { const [ox, oy] = offsetAt(x, y); return { cx: view.cx + fx(ox), cy: view.cy + fx(oy) }; }
+function zoomAbout(x, y, f) {
+  const w1 = clampW(view.w * f), k = w1 / view.w;
+  const [ox, oy] = offsetAt(x, y);
+  anchor = { cx: view.cx + fx(ox), cy: view.cy + fx(oy), t: performance.now() };
+  setView(view.cx + fx(ox * (1 - k)), view.cy + fx(oy * (1 - k)), w1);
+}
+function panBy(dx, dy) { const s = view.w / cssW; setView(view.cx - fx(dx * s), view.cy + fx(dy * s), view.w); }
+const isSheet = () => window.matchMedia('(max-width: 719px)').matches;
+function freeRect() {
+  const r = { x0: 0, y0: 0, x1: cssW, y1: cssH };
+  if (panel.classList.contains('collapsed')) return r;
+  const pr = panel.getBoundingClientRect();
+  if (isSheet()) r.y1 = Math.max(cssH * 0.4, pr.top - 8);
+  else r.x1 = Math.max(cssW * 0.4, pr.left - 8);
+  return r;
+}
+function viewFor(cx, cy, sx, sy = sx) {
+  const fr = freeRect(), fw = fr.x1 - fr.x0, fh = fr.y1 - fr.y0;
+  const s = Math.max(sx / (fw * 0.9), sy / (fh * 0.9));
+  const ox = ((fr.x0 + fr.x1) / 2 - cssW / 2) * s, oy = (cssH / 2 - (fr.y0 + fr.y1) / 2) * s;
+  return { cx: cx - fx(ox), cy: cy - fx(oy), w: clampW(s * cssW) };
+}
 
-    function fixAspectRatio() {
-      if (!config.autoAspect) return;
-      const aspect = window.innerWidth / window.innerHeight;
-      const currentW = bounds.xmax - bounds.xmin;
-      const currentH = bounds.ymax - bounds.ymin;
-      const centerRe = (bounds.xmin + bounds.xmax) / 2;
-      const centerIm = (bounds.ymin + bounds.ymax) / 2;
+function resize() {
+  cssW = Math.max(1, window.innerWidth); cssH = Math.max(1, window.innerHeight);
+  let dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cssW * cssH * dpr * dpr > 5.2e6) dpr = Math.max(1, Math.sqrt(5.2e6 / (cssW * cssH)));
+  devW = Math.round(cssW * dpr); devH = Math.round(cssH * dpr);
+  canvas.width = devW; canvas.height = devH;
+  const ov = $('overlay'); ov.width = devW; ov.height = devH;
+  for (const L of layers) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
+  layers = [makeLayer(devW, devH), makeLayer(devW, devH)];
+  complete = null; job = null;
+  viewMoved = true;
+  sizeJulia();
+}
 
-      if (currentW / currentH > aspect) {
-        // bounds too wide
-        const newH = currentW / aspect;
-        bounds.ymin = centerIm - newH / 2;
-        bounds.ymax = centerIm + newH / 2;
-      } else {
-        // bounds too tall
-        const newW = currentH * aspect;
-        bounds.xmin = centerRe - newW / 2;
-        bounds.xmax = centerRe + newW / 2;
+/* ================================================================
+   Progressive rendering: low-resolution pass, then full resolution,
+   in bands paced by GPU fences
+   ================================================================ */
+let loScale = 0.3, bandPx = 60000, fence = null, fenceT = 0;
+let glitchRounds = 0, buf = null;
+const MAX_ROUNDS = 3;
+let win = [1.5, 40], winT = null;
+let dirty = true;
+
+function startJob(phase) {
+  const target = layers[0] === complete ? layers[1] : layers[0];
+  const s = phase === 'lo' ? loScale : 1;
+  const rw = Math.max(8, Math.round(devW * s)), rh = Math.max(8, Math.round(devH * s));
+  const N = iterFor(view.w);
+  Object.assign(target, { has: true, cx: view.cx, cy: view.cy, w: view.w, rw, rh, rowDone: rh, phase, N, glitched: false, key: modeKey() });
+  job = { phase, layer: target, N, ref: polyMode ? null : ref, poly: polyMode ? poly : null, bail2: polyBail2, version: viewVersion, allowEnd: glitchRounds >= MAX_ROUNDS, t0: performance.now() };
+}
+function issueBand() {
+  const L = job.layer, r = job.ref;
+  const rows = Math.min(L.rowDone, Math.max(2, Math.round(bandPx / L.rw)));
+  const y0 = L.rowDone - rows;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+  gl.viewport(0, 0, L.rw, L.rh);
+  gl.enable(gl.SCISSOR_TEST);
+  gl.scissor(0, y0, L.rw, rows);
+  gl.useProgram(dataProg.p);
+  const U = dataProg.U;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, job.poly ? palTex : r.tex);
+  gl.uniform1i(U.u_ref, 0);
+  gl.uniform1i(U.u_mode, job.poly ? 1 : 0);
+  if (job.poly) {
+    const P = job.poly, d = P.length - 1, buf2 = new Float32Array(34);
+    P.forEach(([x, y], k) => { buf2[2 * k] = x; buf2[2 * k + 1] = y; });
+    gl.uniform2fv(U['u_coef[0]'], buf2);
+    gl.uniform1i(U.u_deg, d);
+    gl.uniform1f(U.u_bail2, job.bail2);
+    gl.uniform1f(U.u_logD, Math.log(d));
+    gl.uniform2f(U.u_center, fd(L.cx), fd(L.cy));
+  } else {
+    gl.uniform1i(U.u_refLen, r.len);
+    gl.uniform1i(U.u_refEscaped, r.escaped ? 1 : 0);
+    gl.uniform1i(U.u_allowEnd, job.allowEnd ? 1 : 0);
+    gl.uniform2f(U.u_dc0, fd(L.cx - r.cx), fd(L.cy - r.cy));
+  }
+  gl.uniform2f(U.u_span, L.w, L.w * cssH / cssW);
+  gl.uniform2f(U.u_res, L.rw, L.rh);
+  gl.uniform1i(U.u_maxIter, job.N);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.disable(gl.SCISSOR_TEST);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  L.rowDone = y0;
+  fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+  fenceT = performance.now();
+  gl.flush();
+  dirty = true;
+}
+function finishLo() {
+  const L = job.layer;
+  const n = L.rw * L.rh;
+  if (!buf || buf.length < 4 * n) buf = new Float32Array(4 * n);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+  gl.readPixels(0, 0, L.rw, L.rh, gl.RGBA, gl.FLOAT, buf);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  const step = Math.max(1, Math.floor(n / 30000));
+  const sample = [];
+  let best = -1, bestD = Infinity;
+  for (let i = 0; i < n; i++) {
+    const v = buf[4 * i];
+    if (v === -2) {
+      const x = i % L.rw - L.rw / 2, y = Math.floor(i / L.rw) - L.rh / 2, dd = x * x + y * y;
+      if (dd < bestD) { bestD = dd; best = i; }
+    } else if (v >= 0 && i % step === 0) sample.push(v);
+  }
+  let tail = 0;
+  if (sample.length > 20) {
+    sample.sort((a, b) => a - b);
+    const lo = sample[Math.floor(sample.length * 0.03)], hi = sample[Math.floor(sample.length * 0.97)];
+    const a = lo, b = Math.max(hi, lo + 4);
+    if (!winT) win = [a, b];
+    winT = [a, b];
+    tail = sample[Math.floor(sample.length * 0.99)];
+  }
+  return { glitch: best, tail };
+}
+function onJobDone(now) {
+  const L = job.layer;
+  complete = L;
+  if (job.phase === 'lo') {
+    const ms = now - job.t0;
+    if (ms > 140) loScale = Math.max(0.1, loScale * 0.75);
+    else if (ms < 35) loScale = Math.min(0.5, loScale * 1.2);
+    const { glitch: g, tail } = finishLo();
+    if (job.version === viewVersion && tail > 0.6 * job.N && job.N < MAX_ITER) {
+      // many pixels escape just before the limit: the black is probably not all in M
+      const base = 400 + 70 * Math.max(0, Math.log10(4 / view.w)) ** 1.7;
+      const next = Math.min(MAX_ITER / iterMult, 24 * base, 2.5 * job.N / iterMult);
+      if (next > iterAuto(view.w) * 1.01) {
+        iterFloor = next; iterFloorW = view.w;
+        job = null; viewMoved = true;
+        return;
       }
     }
-
-    let needsUpdate = true;
-    let needsJuliaUpdate = true;
-
-    // --- Interaction Logic ---
-    function updateUIValues() {
-      iterLabel.innerText = config.maxIter;
-      jHeader.innerText = `${juliaC.re.toFixed(4)}, ${juliaC.im.toFixed(4)}`;
+    if (g >= 0 && glitchRounds < MAX_ROUNDS) {
+      glitchRounds++;
+      L.glitched = true;
+      const x = g % L.rw, y = Math.floor(g / L.rw);
+      const ox = ((x + 0.5) / L.rw - 0.5) * L.w, oy = ((y + 0.5) / L.rh - 0.5) * L.w * cssH / cssW;
+      job = null;
+      requestRef(L.cx + fx(ox), L.cy + fx(oy), view.w);
+      return;
     }
-
-    function worldToScreen(re, im) {
-      const x = (re - bounds.xmin) / (bounds.xmax - bounds.xmin) * mC.width;
-      const y = (im - bounds.ymin) / (bounds.ymax - bounds.ymin) * mC.height;
-      return [x, y];
+    const stale = job.version !== viewVersion;
+    job = null;
+    if (!stale) startJob('hi');
+  } else {
+    job = null;
+  }
+}
+const NO_FENCE = !!window.__mbNoFence;   // set only by the headless test page
+function schedule(now) {
+  if (NO_FENCE) { if (fence) { gl.deleteSync(fence); fence = null; } bandPx = devW * devH; }
+  if (fence) {
+    if (gl.getSyncParameter(fence, gl.SYNC_STATUS) !== gl.SIGNALED) return;
+    gl.deleteSync(fence); fence = null;
+    const ms = now - fenceT;
+    if (ms < 22) bandPx = Math.min(devW * devH, bandPx * 1.5);
+    else if (ms > 45) bandPx = Math.max(4096, bandPx * 0.6);
+  }
+  if (job && job.layer.rowDone <= 0) onJobDone(now);
+  if (job && job.phase === 'hi' && job.version !== viewVersion) job = null;
+  if (job && job.layer.key !== modeKey()) job = null;
+  if (!job) {
+    const N = iterFor(view.w);
+    if (polyMode && !poly) return;
+    if (!polyMode && !refCovers(ref, view.cx, view.cy, view.w, N)) {
+      if (!refReq || !refCovers(refReq, view.cx, view.cy, view.w, N)) {
+        const useA = anchor && now - anchor.t < 1500 && refCovers({ cx: anchor.cx, cy: anchor.cy, prec: 1e9, escaped: true }, view.cx, view.cy, view.w * 0.25, 0);
+        if (useA) requestRef(anchor.cx, anchor.cy, anchor.wFinal ? Math.min(view.w, anchor.wFinal) : view.w);
+        else requestRef(view.cx, view.cy, view.w);
+      }
+      return;
     }
+    if (refReq && !polyMode) return;  // a glitch-driven reference is on its way
+    const same = complete && complete.key === modeKey() && complete.cx === view.cx && complete.cy === view.cy && complete.w === view.w && complete.N === N && complete.key === modeKey();
+    if (!same || complete.glitched) startJob('lo');
+    else if (complete.phase === 'lo') startJob('hi');
+    else return;
+  }
+  if (job) issueBand();
+}
 
-    function screenToWorld(sx, sy) {
-      const re = bounds.xmin + sx / mC.width * (bounds.xmax - bounds.xmin);
-      const im = bounds.ymin + sy / mC.height * (bounds.ymax - bounds.ymin);
-      return [re, im];
+function layerXf(L) {
+  const k = view.w / L.w;
+  return [k, fd(view.cx - L.cx) / L.w, fd(view.cy - L.cy) / (L.w * cssH / cssW), L.rowDone];
+}
+function drawColor() {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, devW, devH);
+  gl.useProgram(colorProg.p);
+  const U = colorProg.U;
+  const top = job ? job.layer : null, bot = complete;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, top ? top.tex : layers[0].tex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, bot ? bot.tex : layers[1].tex);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, palTex);
+  gl.uniform1i(U.u_top, 0); gl.uniform1i(U.u_bot, 1); gl.uniform1i(U.u_pal, 2);
+  gl.uniform1i(U.u_hasTop, top ? 1 : 0);
+  gl.uniform1i(U.u_hasBot, bot ? 1 : 0);
+  if (top) { gl.uniform4fv(U.u_xfTop, layerXf(top)); gl.uniform2f(U.u_resTop, top.rw, top.rh); }
+  if (bot) { gl.uniform4fv(U.u_xfBot, layerXf(bot)); gl.uniform2f(U.u_resBot, bot.rw, bot.rh); }
+  gl.uniform2f(U.u_screen, devW, devH);
+  gl.uniform3fv(U.u_bg, rgb(PALETTES[opts.palette].interior));
+  setShadeUniforms(gl, U, win);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+/* ================================================================
+   The parameter under the pointer (or pinned): escape, cycle, Julia set
+   ================================================================ */
+let pin = { cx: parseFx('-0.1225611668766536'), cy: parseFx('0.7448617666197442') };
+let hover = null, pointDirty = true, info = null;
+
+function analyzePoly(z0x, z0y) {
+  const N = Math.min(iterFor(view.w), 100000), P = poly, d = P.length - 1, R2 = polyR * polyR;
+  let zx = z0x, zy = z0y, fpx = 1, fpy = 0;
+  const orbit = [zx, zy];
+  const step = () => {
+    let fx_ = P[d][0], fy_ = P[d][1], px = 0, py = 0;
+    for (let k = d - 1; k >= 0; k--) {
+      const tx = px * zx - py * zy + fx_; py = px * zy + py * zx + fy_; px = tx;
+      const ux = fx_ * zx - fy_ * zy + P[k][0]; fy_ = fx_ * zy + fy_ * zx + P[k][1]; fx_ = ux;
     }
-
-    // --- Rendering Engine ---
-    function drawFractal(ctx, canvas, scale, params) {
-      const W = canvas.width, H = canvas.height;
-      const img = ctx.createImageData(W, H);
-      const data = img.data;
-
-      const { xmin, xmax, ymin, ymax, maxIter, colorFn, julia } = params;
-      const dx = (xmax - xmin) / W;
-      const dy = (ymax - ymin) / H;
-
-      for (let y = 0; y < H; y++) {
-        const ci = ymin + y * dy;
-        for (let x = 0; x < W; x++) {
-          const cr = xmin + x * dx;
-
-          let zr, zi, c_re, c_im;
-          if (julia) {
-            zr = cr; zi = ci;
-            c_re = julia.re; c_im = julia.im;
-          } else {
-            zr = 0; zi = 0;
-            c_re = cr; c_im = ci;
-          }
-
-          let i = 0;
-          let zr2 = zr * zr, zi2 = zi * zi;
-          while (zr2 + zi2 < 16 && i < maxIter) {
-            zi = 2 * zr * zi + c_im;
-            zr = zr2 - zi2 + c_re;
-            zr2 = zr * zr;
-            zi2 = zi * zi;
-            i++;
-          }
-
-          const [r, g, b] = colorFn(i, maxIter, zr2 + zi2);
-          const idx = (y * W + x) * 4;
-          data[idx] = r;
-          data[idx + 1] = g;
-          data[idx + 2] = b;
-          data[idx + 3] = 255;
-        }
+    fpx = px; fpy = py; zx = fx_; zy = fy_;
+    return zx * zx + zy * zy;
+  };
+  for (let n = 1; n <= N; n++) {
+    const r2 = step();
+    if (orbit.length < 1200) orbit.push(zx, zy);
+    if (!(r2 <= R2)) return { kind: 'escape', n, orbit };
+  }
+  let tx = zx, ty = zy, power = 1, lam = 1, k = 0, found = false;
+  step();
+  while (k < 80000) {
+    const ex = zx - tx, ey = zy - ty;
+    if (ex * ex + ey * ey < 1e-22 * (1 + tx * tx + ty * ty)) { found = true; break; }
+    if (power === lam) { tx = zx; ty = zy; power *= 2; lam = 0; }
+    step(); lam++; k++;
+  }
+  if (!found) return { kind: 'bounded', N, orbit };
+  let logMod = 0;
+  for (let i = 0; i < lam; i++) { step(); logMod += Math.log(Math.hypot(fpx, fpy)); }
+  return { kind: 'cycle', p: lam, lam: Math.exp(logMod), cycle: [], orbit };
+}
+function analyze(pcx, pcy) {
+  if (polyMode) return poly ? analyzePoly(fd(pcx), fd(pcy)) : { kind: 'unknown', orbit: [] };
+  const N = Math.min(iterFor(view.w), 100000);
+  const orbit = [0, 0];
+  let zx = 0, zy = 0, dzx = 0, dzy = 0, lost = false;
+  let step;
+  if (ref && view.w < 1e-9 && refCovers(ref, pcx, pcy, view.w * 4, 0)) {
+    const Z = ref.orbit, L = ref.len, esc = ref.escaped;
+    const dcx = fd(pcx - ref.cx), dcy = fd(pcy - ref.cy);
+    let m = 0, dx = 0, dy = 0, Zx = 0, Zy = 0;
+    step = () => {
+      const ndx = 2 * (zx * dzx - zy * dzy) + 1, ndy = 2 * (zx * dzy + zy * dzx);
+      dzx = ndx; dzy = ndy;
+      const ax = 2 * Zx + dx, ay = 2 * Zy + dy;
+      const tx = ax * dx - ay * dy + dcx;
+      dy = ax * dy + ay * dx + dcy; dx = tx;
+      m++; Zx = Z[2 * m]; Zy = Z[2 * m + 1];
+      zx = Zx + dx; zy = Zy + dy;
+      const r2 = zx * zx + zy * zy;
+      if (r2 <= BAIL2) {
+        if (r2 < dx * dx + dy * dy) { dx = zx; dy = zy; m = 0; Zx = Zy = 0; }
+        else if (m >= L - 1) { if (esc) lost = true; dx = zx; dy = zy; m = 0; Zx = Zy = 0; }
       }
-      ctx.putImageData(img, 0, 0);
+      return r2;
+    };
+  } else {
+    const cx = fd(pcx), cy = fd(pcy);
+    step = () => {
+      const ndx = 2 * (zx * dzx - zy * dzy) + 1, ndy = 2 * (zx * dzy + zy * dzx);
+      dzx = ndx; dzy = ndy;
+      const t = zx * zx - zy * zy + cx;
+      zy = 2 * zx * zy + cy; zx = t;
+      return zx * zx + zy * zy;
+    };
+  }
+  let n2 = -1;
+  for (let n = 1; n <= N; n++) {
+    const r2 = step();
+    if (orbit.length < 1200) orbit.push(zx, zy);
+    if (n2 < 0 && r2 > 4) n2 = n;
+    if (r2 > BAIL2) {
+      const lz = 0.5 * Math.log(r2);
+      return { kind: 'escape', n: n2, nu: n + 1 - Math.log2(lz), b: 2 * Math.sqrt(r2) * lz / Math.hypot(dzx, dzy), orbit };
     }
+    if (lost) return { kind: 'unknown', orbit };
+  }
+  // Brent's cycle detection, with a tolerance, on the bounded orbit
+  let tx = zx, ty = zy, power = 1, lam = 1, k = 0, found = false;
+  step();
+  while (k < 80000 && !lost) {
+    const ex = zx - tx, ey = zy - ty;
+    if (ex * ex + ey * ey < 1e-22 * (1 + tx * tx + ty * ty)) { found = true; break; }
+    if (power === lam) { tx = zx; ty = zy; power *= 2; lam = 0; }
+    step(); lam++; k++;
+  }
+  if (!found) return { kind: lost ? 'unknown' : 'bounded', N, orbit };
+  const p = lam, cycle = [];
+  let logMod = 0;
+  for (let i = 0; i < p; i++) {
+    logMod += Math.log(2 * Math.hypot(zx, zy));
+    if (cycle.length < 512) cycle.push(zx, zy);
+    step();
+  }
+  return { kind: 'cycle', p, lam: Math.exp(logMod), cycle, orbit };
+}
 
-    function draw() {
-      if (needsUpdate) {
-        const logicalW = window.innerWidth;
-        const logicalH = window.innerHeight;
-
-        // During interaction, we lower quality for performance
-        let activeSS = isDragging ? 1 : config.ssFactor;
-        let activePX = isDragging ? Math.max(config.pxScale, 2) : config.pxScale;
-        let activeIter = isDragging ? Math.min(config.maxIter, 150) : config.maxIter;
-
-        if (config.perfMode === 'high-perf') {
-          activeIter = Math.min(activeIter, 200);
-          activePX = Math.max(activePX, 2);
-        } else if (config.perfMode === 'high-quality') {
-          activeIter = Math.max(activeIter, 500);
-          activePX = 1;
-        }
-
-        mC.width = (logicalW / activePX) * activeSS;
-        mC.height = (logicalH / activePX) * activeSS;
-        mC.style.width = logicalW + 'px';
-        mC.style.height = logicalH + 'px';
-
-        drawFractal(mCtx, mC, activeSS, {
-          ...bounds,
-          maxIter: activeIter,
-          colorFn: colorScheme[config.colorMode],
-          julia: null
-        });
-
-        // Draw Julia indicator dot
-        const [sx, sy] = worldToScreen(juliaC.re, juliaC.im);
-        mCtx.fillStyle = '#fff';
-        mCtx.shadowBlur = 10;
-        mCtx.shadowColor = 'white';
-        mCtx.beginPath();
-        mCtx.arc(sx * config.ssFactor, sy * config.ssFactor, 6 * config.ssFactor, 0, Math.PI * 2);
-        mCtx.fill();
-        mCtx.shadowBlur = 0;
-
-        needsUpdate = false;
-      }
-
-      if (needsJuliaUpdate) {
-        const jSize = 300;
-        jC.width = jSize;
-        jC.height = jSize;
-        drawFractal(jCtx, jC, 1, {
-          xmin: -2, xmax: 2, ymin: -2, ymax: 2,
-          maxIter: Math.min(config.maxIter, 500),
-          colorFn: colorScheme[config.colorMode],
-          julia: juliaC
-        });
-        needsJuliaUpdate = false;
-        updateUIValues();
-      }
-
-      requestAnimationFrame(draw);
+/* Julia set panel */
+const jcanvas = $('julia'), jover = $('julia-orbit');
+const jgl = jcanvas.getContext('webgl2', { antialias: false, alpha: false });
+let juliaProg = null, jPal = null, juliaDirty = true;
+if (jgl) {
+  try { juliaProg = makeProgram(jgl, JULIA_FS); } catch (e) { console.error(e); }
+  jPal = makePaletteTexture(jgl); uploadPalette(jgl, jPal);
+}
+const J_HALF = 2.0;
+function sizeJulia() {
+  const r = jcanvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const s = Math.max(64, Math.round(r.width * dpr));
+  if (jcanvas.width !== s) { jcanvas.width = jcanvas.height = s; jover.width = jover.height = s; }
+  juliaDirty = true;
+}
+function renderJulia() {
+  if (polyMode) return;
+  const P = activePoint();
+  const c = [fd(P.cx), fd(P.cy)];
+  if (jgl && juliaProg) {
+    const U = juliaProg.U;
+    jgl.viewport(0, 0, jcanvas.width, jcanvas.height);
+    jgl.useProgram(juliaProg.p);
+    jgl.activeTexture(jgl.TEXTURE0); jgl.bindTexture(jgl.TEXTURE_2D, jPal);
+    jgl.uniform1i(U.u_pal, 0);
+    jgl.uniform2f(U.u_c, c[0], c[1]);
+    jgl.uniform2f(U.u_res, jcanvas.width, jcanvas.height);
+    jgl.uniform1f(U.u_half, J_HALF);
+    jgl.uniform1i(U.u_maxIter, 700);
+    setShadeUniforms(jgl, U, [1.5, 30]);
+    jgl.drawArrays(jgl.TRIANGLES, 0, 3);
+  }
+  drawOrbit();
+}
+function drawOrbit() {
+  const ctx = jover.getContext('2d');
+  const S = jover.width, k = S / (2 * J_HALF), dpr = S / Math.max(1, jover.clientWidth);
+  ctx.clearRect(0, 0, S, S);
+  if (!info) return;
+  const X = (x) => (x + J_HALF) * k, Y = (y) => (J_HALF - y) * k;
+  const o = info.orbit;
+  const count = Math.min(o.length / 2, 400);
+  ctx.lineJoin = 'round';
+  for (let pass = 0; pass < 2; pass++) {
+    ctx.beginPath();
+    for (let i = 0; i < count; i++) {
+      const x = o[2 * i], y = o[2 * i + 1];
+      if (Math.abs(x) > 50 || Math.abs(y) > 50) break;
+      if (i === 0) ctx.moveTo(X(x), Y(y)); else ctx.lineTo(X(x), Y(y));
     }
+    ctx.strokeStyle = pass === 0 ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = (pass === 0 ? 3 : 1.1) * dpr;
+    ctx.stroke();
+  }
+  for (let i = 0; i < Math.min(count, 60); i++) {
+    const x = o[2 * i], y = o[2 * i + 1];
+    ctx.beginPath(); ctx.arc(X(x), Y(y), (i === 0 ? 3.2 : 2) * dpr, 0, 2 * Math.PI);
+    ctx.fillStyle = i === 0 ? '#ffb547' : '#ffffff';
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = dpr;
+    ctx.fill(); ctx.stroke();
+  }
+  if (info.kind === 'cycle') {
+    const cyc = info.cycle;
+    for (let i = 0; i < cyc.length / 2 && i < 256; i++) {
+      ctx.beginPath(); ctx.arc(X(cyc[2 * i]), Y(cyc[2 * i + 1]), 5.5 * dpr, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#ffb547'; ctx.lineWidth = 1.6 * dpr; ctx.stroke();
+    }
+  }
+}
 
-    // --- Inputs ---
-    document.getElementById('maxIter').oninput = (e) => {
-      config.maxIter = parseInt(e.target.value);
-      needsUpdate = true; needsJuliaUpdate = true;
-    };
-    document.getElementById('ssFactor').onchange = (e) => {
-      config.ssFactor = parseInt(e.target.value);
-      needsUpdate = true;
-    };
-    document.getElementById('colorMode').onchange = (e) => {
-      config.colorMode = e.target.value;
-      needsUpdate = true; needsJuliaUpdate = true;
-    };
-    document.getElementById('liveJulia').onchange = (e) => {
-      config.liveJulia = e.target.checked;
-    };
-    document.getElementById('autoAspect').onchange = (e) => {
-      config.autoAspect = e.target.checked;
-      if (config.autoAspect) { fixAspectRatio(); needsUpdate = true; }
-    };
-    document.getElementById('pxScale').oninput = (e) => {
-      config.pxScale = parseInt(e.target.value);
-      document.getElementById('px-val').innerText = config.pxScale;
-      needsUpdate = true;
-    };
-    document.getElementById('perfMode').onchange = (e) => {
-      config.perfMode = e.target.value;
-      needsUpdate = true;
-    };
+/* ================================================================
+   Panel readouts
+   ================================================================ */
+const el = {
+  chip: $('point-chip'), cre: $('c-re'), cim: $('c-im'), status: $('status'), cap: $('julia-caption'),
+  vre: $('v-re'), vim: $('v-im'), vw: $('v-w'), vn: $('v-n'), vref: $('v-ref'),
+  scale: $('scalebar'), scaleLabel: $('scale-label'), progress: $('progress'),
+};
+const activePoint = () => hover || pin;
+const digitsFor = () => Math.min(60, Math.max(5, Math.ceil(-Math.log10(view.w / cssW)) + 1));
+function updatePoint() {
+  const P = activePoint();
+  info = analyze(P.cx, P.cy);
+  const nd = digitsFor();
+  el.chip.textContent = hover ? 'Pointer' : 'Pinned';
+  el.chip.className = 'chip ' + (hover ? 'pointer' : 'pinned');
+  setTex(el.cre, texFx(P.cx, nd));
+  setTex(el.cim, texFx(P.cy, nd));
+  let s, cap;
+  if (polyMode) {
+    if (info.kind === 'escape') s = `The orbit of $z$ escapes: $|f^{\\circ n}(z)| > R = ${texNum(polyR, 3)}$ first at $n = ${texInt(info.n)}$, so $z \\notin K_f$.`;
+    else if (info.kind === 'cycle' && info.lam > 1 + 1e-6) s = `The orbit of $z$ lands on a repelling cycle of period $p = ${texInt(info.p)}$, $|\\lambda| = ${texNum(info.lam, 3)}$, so $z$ is in the Julia set $J_f$.`;
+    else if (info.kind === 'cycle') s = `The orbit of $z$ is attracted to a cycle of period $p = ${texInt(info.p)}$ with multiplier $|\\lambda| = ${texNum(info.lam, 3)}$, so $z$ is in the interior of $K_f$.`;
+    else if (info.kind === 'bounded') s = `Bounded for $N = ${texInt(info.N)}$ iterations, with no attracting cycle found.`;
+    else s = 'Enter a polynomial of degree at least $2$.';
+    setMix(el.status, s);
+    return;
+  }
+  if (info.kind === 'escape') {
+    s = `Escapes: $|f_c^{\\circ n}(0)| > 2$ first at $n = ${texInt(info.n)}$. Distance estimate $b = ${texNum(info.b, 3)}$, with $\\tfrac14 b < \\operatorname{dist}(c, \\mathcal M) < b$.`;
+    cap = 'Since $c \\notin \\mathcal M$, the filled Julia set $K_c$ is a Cantor set. The white path is the orbit of $0$.';
+  } else if (info.kind === 'cycle' && info.lam > 1 + 1e-6) {
+    s = `On $\\partial\\mathcal M$: the orbit of $0$ lands on a repelling cycle of period $p = ${texInt(info.p)}$, multiplier $|\\lambda| = ${texNum(info.lam, 3)}$, so $c$ is a Misiurewicz point.`;
+    cap = `Since $c \\in \\mathcal M$, $K_c$ is connected; for a Misiurewicz point it is a dendrite with no interior. The orbit of $0$ (white) lands on the repelling ${info.p === 1 ? 'fixed point' : `$${texInt(info.p)}$-cycle`} (rings).`;
+  } else if (info.kind === 'cycle') {
+    s = `In $\\mathcal M$: the orbit of $0$ is attracted to a cycle of period $p = ${texInt(info.p)}$ with multiplier $|\\lambda| = ${texNum(info.lam, 3)}$.`;
+    cap = `Since $c \\in \\mathcal M$, $K_c$ is connected. The orbit of $0$ (white) falls onto the attracting ${info.p === 1 ? 'fixed point' : `$${texInt(info.p)}$-cycle`} (rings).`;
+  } else if (info.kind === 'bounded') {
+    s = `Bounded for $N = ${texInt(info.N)}$ iterations, with no attracting cycle found.`;
+    cap = 'If $c \\in \\mathcal M$, then $K_c$ is connected; otherwise it is a Cantor set. The white path is the orbit of $0$.';
+  } else {
+    s = '<span class="dim">Refining the reference orbit…</span>';
+    cap = 'The white path is the orbit of $0$.';
+  }
+  if (info.kind === 'unknown') el.status.innerHTML = s, el.status._t = s; else setMix(el.status, s);
+  setMix(el.cap, cap);
+  juliaDirty = true;
+}
+function updateViewReadout() {
+  const nd = digitsFor();
+  setTex(el.vre, texFx(view.cx, nd));
+  setTex(el.vim, texFx(view.cy, nd) + '\\,i');
+  setTex(el.vw, texNum(view.w, 3));
+  setTex(el.vn, 'N = ' + texInt(iterFor(view.w)));
+  // scale bar
+  const per = view.w / cssW, target = per * 110;
+  const e = Math.floor(Math.log10(target)), base = 10 ** e;
+  const m = target / base >= 5 ? 5 : target / base >= 2 ? 2 : 1;
+  el.scale.style.width = (m * base / per).toFixed(1) + 'px';
+  setTex(el.scaleLabel, texNum(m * base, 1));
+}
+function updateRefReadout() {
+  let s;
+  if (refReq) s = 'Computing a reference orbit…';
+  else if (!ref) s = '';
+  else {
+    const pts = texInt(ref.len), prec = ref.prec <= 53 ? 'double precision' : `$${ref.prec}$-bit fixed point`;
+    s = `Reference orbit: $${pts}$ points in ${prec}${ref.escaped ? '' : ', bounded'}.`;
+  }
+  if (job && job.phase === 'hi') {
+    const pr = 1 - job.layer.rowDone / job.layer.rh;
+    s += ` Rendering $${Math.round(pr * 100)}\\%$.`;
+  }
+  setMix(el.vref, s);
+}
 
-    mC.addEventListener('mousemove', e => {
-      const [re, im] = screenToWorld(e.clientX, e.clientY);
-      coordDisp.innerText = `z = ${re.toFixed(4)} + ${im.toFixed(4)}i`;
-      if (config.liveJulia) {
-        juliaC = { re, im };
-        needsJuliaUpdate = true;
-        needsUpdate = true; // Updates the dot
-      }
-    });
+/* ================================================================
+   Pin marker on the picture
+   ================================================================ */
+const octx = $('overlay').getContext('2d');
+function drawOverlay() {
+  octx.clearRect(0, 0, devW, devH);
+  const s = cssW / view.w, r = devW / cssW;
+  const x = (cssW / 2 + fd(pin.cx - view.cx) * s) * r, y = (cssH / 2 - fd(pin.cy - view.cy) * s) * r;
+  if (x < -20 || y < -20 || x > devW + 20 || y > devH + 20) return;
+  octx.lineWidth = 3.2 * r; octx.strokeStyle = 'rgba(0,0,0,0.55)';
+  octx.beginPath(); octx.arc(x, y, 7 * r, 0, 2 * Math.PI); octx.stroke();
+  octx.lineWidth = 1.6 * r; octx.strokeStyle = '#ffb547';
+  octx.beginPath(); octx.arc(x, y, 7 * r, 0, 2 * Math.PI); octx.stroke();
+  octx.beginPath(); octx.arc(x, y, 1.6 * r, 0, 2 * Math.PI); octx.fillStyle = '#ffb547'; octx.fill();
+}
 
-    mC.addEventListener('mousedown', e => {
-      if (e.button === 0) { // Left click sets but also allows dragging
-        const [re, im] = screenToWorld(e.clientX, e.clientY);
-        juliaC = { re, im };
-        needsJuliaUpdate = true;
-        needsUpdate = true;
-      }
-    });
+/* ================================================================
+   Animation: smooth zoom-and-pan (van Wijk & Nuij) and quick zooms
+   ================================================================ */
+let anim = null;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function flyTo(target) {
+  const u1x = fd(target.cx - view.cx), u1y = fd(target.cy - view.cy);
+  const u1 = Math.hypot(u1x, u1y), w0 = view.w, w1 = target.w, rho = 1.42;
+  if (reduceMotion) { setView(target.cx, target.cy, target.w); return; }
+  let S, wAt, remAt;
+  if (u1 < 1e-9 * Math.max(w0, w1)) {
+    S = Math.abs(Math.log(w1 / w0)) / rho;
+    const sg = w1 < w0 ? -1 : 1;
+    wAt = (s) => w0 * Math.exp(sg * rho * s);
+    remAt = (s) => u1 * (S > 0 ? 1 - s / S : 0);
+  } else {
+    const b0 = (w1 * w1 - w0 * w0 + rho ** 4 * u1 * u1) / (2 * w0 * rho * rho * u1);
+    const b1 = (w1 * w1 - w0 * w0 - rho ** 4 * u1 * u1) / (2 * w1 * rho * rho * u1);
+    const r0 = -Math.asinh(b0), r1 = -Math.asinh(b1);
+    S = (r1 - r0) / rho;
+    const C = w0 * Math.cosh(r0) / (rho * rho);
+    wAt = (s) => w0 * Math.cosh(r0) / Math.cosh(rho * s + r0);
+    remAt = (s) => C * Math.sinh(rho * (S - s)) / (Math.cosh(rho * S + r0) * Math.cosh(rho * s + r0));
+  }
+  iterFloor = 0;
+  if (!(S > 0) || !isFinite(S)) { setView(target.cx, target.cy, target.w); return; }
+  const dirx = u1 > 0 ? u1x / u1 : 0, diry = u1 > 0 ? u1y / u1 : 0;
+  const T = Math.min(7000, 500 + 210 * S);
+  // keep the reference at the destination for the whole flight
+  if (!polyMode && !refCovers(ref, target.cx, target.cy, target.w, iterFor(target.w))) requestRef(target.cx, target.cy, target.w);
+  anchor = { cx: target.cx, cy: target.cy, t: performance.now() + T, wFinal: target.w };
+  anim = { t0: performance.now(), T, step: (f) => {
+    const e = f < 0.5 ? 4 * f * f * f : 1 - (-2 * f + 2) ** 3 / 2;
+    const s = S * e, rem = remAt(s);
+    if (f >= 1) setView(target.cx, target.cy, target.w);
+    else setView(target.cx - fx(dirx * rem), target.cy - fx(diry * rem), wAt(s));
+  } };
+}
+function quickZoom(x, y, factor) {
+  if (reduceMotion) { zoomAbout(x, y, factor); return; }
+  let last = 0;
+  anim = { t0: performance.now(), T: 320, step: (f) => {
+    const e = 1 - (1 - f) ** 3;
+    zoomAbout(x, y, factor ** (e - last)); last = e;
+  } };
+}
 
-    // Simple Drag & Zoom
-    let isDragging = false, lastX, lastY;
-    mC.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
-    window.addEventListener('mouseup', () => isDragging = false);
-    window.addEventListener('mousemove', e => {
-      if (!isDragging) return;
-      const dx = (e.clientX - lastX) / mC.width * (bounds.xmax - bounds.xmin);
-      const dy = (e.clientY - lastY) / mC.height * (bounds.ymax - bounds.ymin);
-      bounds.xmin -= dx; bounds.xmax -= dx;
-      bounds.ymin -= dy; bounds.ymax -= dy;
-      lastX = e.clientX; lastY = e.clientY;
-      needsUpdate = true;
-    });
+/* ================================================================
+   Pointer, wheel, keyboard
+   ================================================================ */
+const stage = $('stage');
+const pointers = new Map();
+let drag = null, pinch = null;
+function localXY(e) { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+stage.addEventListener('pointerdown', (e) => {
+  stage.setPointerCapture(e.pointerId);
+  const [x, y] = localXY(e);
+  pointers.set(e.pointerId, { x, y });
+  anim = null;
+  if (pointers.size === 1) { drag = { x, y, x0: x, y0: y, moved: false }; pinch = null; }
+  else if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    if (drag) drag.moved = true;
+  }
+});
+stage.addEventListener('pointermove', (e) => {
+  const [x, y] = localXY(e);
+  if (pointers.has(e.pointerId)) {
+    pointers.get(e.pointerId).x = x; pointers.get(e.pointerId).y = y;
+    if (pointers.size >= 2 && pinch) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      panBy(mx - pinch.mx, my - pinch.my);
+      if (d > 0 && pinch.d > 0) zoomAbout(mx, my, pinch.d / d);
+      pinch = { d, mx, my };
+    } else if (drag) {
+      if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) > 4) { drag.moved = true; stage.classList.add('dragging'); }
+      if (drag.moved) { panBy(x - drag.x, y - drag.y); }
+      drag.x = x; drag.y = y;
+    }
+  }
+  if (e.pointerType === 'mouse') { hover = pointAt(x, y); hover.x = x; hover.y = y; pointDirty = true; }
+});
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (pointers.size === 0) {
+    if (drag && !drag.moved && e.type === 'pointerup') { pin = pointAt(drag.x, drag.y); pointDirty = true; overlayDirty = true; }
+    drag = null; pinch = null;
+    stage.classList.remove('dragging');
+  } else if (pointers.size === 1) {
+    const [a] = [...pointers.values()];
+    drag = { x: a.x, y: a.y, x0: a.x, y0: a.y, moved: true }; pinch = null;
+  }
+}
+stage.addEventListener('pointerup', endPointer);
+stage.addEventListener('pointercancel', endPointer);
+stage.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !pointers.size) { hover = null; pointDirty = true; } });
+stage.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  anim = null;
+  const [x, y] = localXY(e);
+  let dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? cssH : 1);
+  const k = e.ctrlKey ? 0.01 : 0.0018;
+  zoomAbout(x, y, Math.exp(Math.max(-1.5, Math.min(1.5, dy * k))));
+}, { passive: false });
+stage.addEventListener('dblclick', (e) => { const [x, y] = localXY(e); quickZoom(x, y, e.shiftKey ? 4 : 0.25); });
+window.addEventListener('keydown', (e) => {
+  if (e.target.closest && e.target.closest('input, button')) return;
+  const fr = freeRect(), cx = (fr.x0 + fr.x1) / 2, cy = (fr.y0 + fr.y1) / 2;
+  const step = Math.min(cssW, cssH) * 0.12;
+  const k = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key];
+  if (k) { anim = null; panBy(k[0], k[1]); e.preventDefault(); }
+  else if (e.key === '+' || e.key === '=') { quickZoom(cx, cy, 0.5); e.preventDefault(); }
+  else if (e.key === '-' || e.key === '_') { quickZoom(cx, cy, 2); e.preventDefault(); }
+});
 
-    mC.addEventListener('wheel', e => {
-      e.preventDefault();
-      const zoom = e.deltaY > 0 ? 1.1 : 0.9;
-      const [mx, my] = screenToWorld(e.clientX, e.clientY);
-      bounds.xmin = mx + (bounds.xmin - mx) * zoom;
-      bounds.xmax = mx + (bounds.xmax - mx) * zoom;
-      bounds.ymin = my + (bounds.ymin - my) * zoom;
-      bounds.ymax = my + (bounds.ymax - my) * zoom;
-      needsUpdate = true;
-    }, { passive: false });
+/* ================================================================
+   Controls
+   ================================================================ */
+const LANDMARKS = [
+  { name: 'The whole set', re: '-0.765', im: '0', box: [2.62, 2.32], desc: 'The main cardioid, the period-$2$ disk, and their decorations.' },
+  { name: 'Seahorse valley', re: '-0.7453', im: '0.1127', box: [0.012], desc: 'The cleft between the cardioid and the period-$2$ disk.' },
+  { name: 'Elephant valley', re: '0.2925', im: '0.0150', box: [0.03], desc: 'Near the cusp of the cardioid at $c = \\tfrac14$.' },
+  { name: 'Period-3 island', re: '-1.7548776662466927', im: '0', box: [0.045], desc: 'A small copy of $\\mathcal M$ on the real axis.' },
+  { name: 'Feigenbaum point', re: '-1.4011551890920506', im: '0', box: [0.004], desc: 'Period doubling accumulates here; zooming by $\\delta \\approx 4.669$ repeats the picture.' },
+  { name: 'Misiurewicz point $c = i$', re: '0', im: '1', box: [0.06], pin: ['0', '1'], desc: 'The orbit $0 \\mapsto i \\mapsto i - 1 \\mapsto -i \\mapsto \\cdots$ is preperiodic. Near $i$, $\\mathcal M$ looks like $J_i$ (Tan Lei).' },
+  { name: 'Douady rabbit', re: '-0.1226', im: '0.7449', box: [0.42], pin: ['-0.1225611668766536', '0.7448617666197442'], desc: 'The period-$3$ bulb, pinned at its center, where $K_c$ is the rabbit.' },
+  { name: 'Period-39 minibrot', re: '-0.7436423016578859461185973194337778358742', im: '0.1318265198125947234991930123055191513102', box: [9e-6], desc: 'A copy of $\\mathcal M$ in seahorse valley, found by Newton’s method on $f_c^{\\circ 39}(0) = 0$.' },
+  { name: 'Period-998 minibrot', re: '-0.7436438870371588707780645434936425750476', im: '0.131825904205312292821097354874767265263', box: [2.6e-15], desc: 'A copy of $\\mathcal M$ about $10^{-15}$ across, far beyond double precision.' },
+  { name: 'Deep spiral', re: '-0.743643887037158704752191506114774', im: '0.131825904205311970493132056385139', box: [4e-24], desc: 'Seahorse valley at width $10^{-24}$, with fixed-point reference orbits.' },
+];
+const lmBox = $('landmarks');
+LANDMARKS.forEach((L, i) => {
+  const b = document.createElement('button');
+  b.className = 'lm'; b.type = 'button'; b.id = 'lm-' + i;
+  b.innerHTML = `<span class="nm">${mixTex(L.name)}</span><span class="dp">${tex(texNum(L.box[0], 2))}</span><span class="ds">${mixTex(L.desc)}</span>`;
+  b.addEventListener('click', () => {
+    lmBox.querySelectorAll('.lm').forEach((x) => x.classList.toggle('active', x === b));
+    if (L.pin) { pin = { cx: parseFx(L.pin[0]), cy: parseFx(L.pin[1]) }; pointDirty = true; overlayDirty = true; }
+    flyTo(viewFor(parseFx(L.re), parseFx(L.im), L.box[0], L.box[1] ?? L.box[0]));
+  });
+  lmBox.appendChild(b);
+});
+const palBox = $('palettes');
+PALETTES.forEach((P, i) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'pal' + (i === opts.palette ? ' active' : ''); b.id = 'pal-' + P.id;
+  const grad = P.stops.map(([t, h]) => `${h} ${(t * 100).toFixed(1)}%`).join(', ');
+  b.innerHTML = `<span class="sw" style="background: linear-gradient(90deg, ${grad})"></span><span>${P.name}</span>`;
+  b.addEventListener('click', () => {
+    opts.palette = i;
+    palBox.querySelectorAll('.pal').forEach((x) => x.classList.toggle('active', x === b));
+    uploadPalette(gl, palTex);
+    if (jgl) uploadPalette(jgl, jPal);
+    dirty = true; juliaDirty = true;
+  });
+  palBox.appendChild(b);
+});
+const bindToggle = (id, key) => $(id).addEventListener('change', (e) => { opts[key] = e.target.checked; dirty = true; juliaDirty = true; });
+bindToggle('opt-relief', 'relief'); bindToggle('opt-edges', 'edges'); bindToggle('opt-cycle', 'cycle');
+const cyclesIn = $('opt-cycles'), cyclesOut = $('opt-cycles-out');
+const syncCycles = () => { opts.cycles = parseFloat(cyclesIn.value); cyclesOut.textContent = opts.cycles.toFixed(1); dirty = true; juliaDirty = true; };
+cyclesIn.addEventListener('input', syncCycles); syncCycles();
+const multIn = $('iter-mult'), multOut = $('iter-mult-out');
+const syncMult = () => {
+  iterMult = 2 ** parseFloat(multIn.value);
+  multOut.innerHTML = tex('\\times' + texNum(iterMult, 3));
+  viewMoved = true; pointDirty = true;
+};
+multIn.addEventListener('input', syncMult); syncMult();
+$('home-btn').addEventListener('click', () => { lmBox.querySelectorAll('.lm').forEach((x) => x.classList.toggle('active', x.id === 'lm-0')); flyTo(homeView()); });
+$('collapse-btn').addEventListener('click', () => {
+  const c = panel.classList.toggle('collapsed');
+  $('collapse-btn').setAttribute('aria-label', c ? 'Expand panel' : 'Collapse panel');
+  if (!c) setTimeout(sizeJulia, 480);
+});
+const homeView = () => polyMode ? viewFor(0n, 0n, 2 * Math.min(polyR, 3), 2 * Math.min(polyR, 3)) : viewFor(parseFx('-0.765'), 0n, 2.62, 2.32);
+const pmsg = $('poly-msg');
+let mf = null;
+function compilePoly(plain) {
+  try {
+    const src = plain ?? latexToPlain(mf ? mf.latex() : '');
+    const c = parsePolynomial(src);
+    if (c.length - 1 < 2) throw new Error('The degree must be at least 2.');
+    if (c.length - 1 > POLY_MAX_DEG) throw new Error(`The degree can be at most ${POLY_MAX_DEG}.`);
+    if (c.some(([x, y]) => !isFinite(x) || !isFinite(y))) throw new Error('A coefficient is not a finite number.');
+    poly = c; polySrc = src; polyR = escapeRadius(c);
+    polyBail2 = Math.max(polyR, 50) ** 2;
+    pmsg.classList.remove('err');
+    setMix(pmsg, `Degree $${c.length - 1}$; every orbit leaving the disk $|z| \\le ${texNum(polyR, 3)}$ escapes.`);
+    viewMoved = true; pointDirty = true;
+    return true;
+  } catch (e) {
+    pmsg.classList.add('err');
+    pmsg._t = null; pmsg.textContent = e.message;
+    return false;
+  }
+}
+function setMode(p, plainPoly) {
+  polyMode = p;
+  $('mode-m').classList.toggle('active', !p); $('mode-p').classList.toggle('active', p);
+  $('m-intro').hidden = p; $('p-intro').hidden = !p;
+  $('julia-wrap').hidden = p; $('julia-caption').hidden = p; $('lm-sec').hidden = p;
+  $('point-title').textContent = p ? 'Point' : 'Parameter';
+  setTex($('lab-re'), p ? '\\operatorname{Re} z' : '\\operatorname{Re} c');
+  setTex($('lab-im'), p ? '\\operatorname{Im} z' : '\\operatorname{Im} c');
+  iterFloor = 0; anim = null; job = null; winT = null;
+  if (p) {
+    if (!mf && window.MathQuill) {
+      const MQ = MathQuill.getInterface(2);
+      let t = 0;
+      mf = MQ.MathField($('poly-field'), {
+        spaceBehavesLikeTab: true,
+        handlers: { edit: () => { clearTimeout(t); t = setTimeout(() => { if (compilePoly()) { const h = homeView(); setView(h.cx, h.cy, h.w); } }, 350); } },
+      });
+    }
+    const plain = plainPoly || polySrc || '(z-1)(z+1)(z+0.3i)+0.2';
+    if (mf) mf.latex(plainToLatex(plain));
+    compilePoly(plain);
+    pin = { cx: 0n, cy: 0n }; hover = null;
+  } else {
+    pin = { cx: parseFx('-0.1225611668766536'), cy: parseFx('0.7448617666197442') };
+  }
+  const h = homeView(); setView(h.cx, h.cy, h.w);
+  pointDirty = true; overlayDirty = true; juliaDirty = true;
+}
+$('mode-m').addEventListener('click', () => { if (polyMode) setMode(false); });
+$('mode-p').addEventListener('click', () => { if (!polyMode) setMode(true); });
 
-    window.onresize = () => { fixAspectRatio(); needsUpdate = true; };
+/* ================================================================
+   Main loop
+   ================================================================ */
+let overlayDirty = true, lastT = performance.now(), lastReadout = 0;
+window.addEventListener('resize', () => { resize(); overlayDirty = true; });
+function tick(now) {
+  requestAnimationFrame(tick);
+  const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (anim) {
+    const f = Math.min(1, (now - anim.t0) / anim.T);
+    anim.step(f);
+    if (f >= 1) anim = null;
+  }
+  if (viewMoved) {
+    viewMoved = false; viewVersion++; glitchRounds = 0; dirty = true; overlayDirty = true;
+    if (hover && hover.x !== undefined) { const h = pointAt(hover.x, hover.y); hover.cx = h.cx; hover.cy = h.cy; pointDirty = true; }
+    updateViewReadout();
+  }
+  try { schedule(now); } catch (e) { console.error(e); }
+  if (winT) {
+    const a = 1 - Math.exp(-dt / 0.3);
+    const d0 = winT[0] - win[0], d1 = winT[1] - win[1];
+    if (Math.abs(d0) + Math.abs(d1) > 1e-3 * (1 + Math.abs(winT[1] - winT[0]))) { win = [win[0] + d0 * a, win[1] + d1 * a]; dirty = true; }
+  }
+  if (opts.cycle) { opts.offset = (opts.offset + dt * 0.05) % 1; dirty = true; juliaDirty = true; }
+  if (dirty) { drawColor(); dirty = false; }
+  if (overlayDirty) { drawOverlay(); overlayDirty = false; }
+  if (pointDirty) { pointDirty = false; updatePoint(); }
+  if (juliaDirty) { juliaDirty = false; renderJulia(); }
+  if (now - lastReadout > 150) { lastReadout = now; updateRefReadout(); }
+  const prog = job && job.phase === 'hi' ? 1 - job.layer.rowDone / job.layer.rh : 0;
+  el.progress.classList.toggle('on', !!(job && job.phase === 'hi'));
+  el.progress.style.width = (prog * 100).toFixed(1) + '%';
+}
 
-    fixAspectRatio();
-    draw();
-  </script>
+resize();
+const h0 = homeView();
+setView(h0.cx, h0.cy, h0.w);
+lmBox.querySelector('#lm-0').classList.add('active');
+{ const q = new URLSearchParams(location.search).get('poly'); if (q) setMode(true, q); }
+requestAnimationFrame(tick);
+
+// a small hook for checking the renderer from the console
+window.mandelbrot = {
+  view, get ref() { return ref; }, get job() { return job; }, get info() { return info; }, get complete() { return complete && { phase: complete.phase, rw: complete.rw }; }, get win() { return win; },
+  go(re, im, w) { setView(parseFx(re), parseFx(im), w); },
+  fly(i) { document.getElementById('lm-' + i).click(); },
+  get state() { return { viewVersion, glitchRounds, iterFloor, loScale, bandPx, N: iterFor(view.w), job: job && { phase: job.phase, N: job.N, rowDone: job.layer.rowDone, rh: job.layer.rh, allowEnd: job.allowEnd }, complete: complete && { phase: complete.phase, N: complete.N, glitched: complete.glitched }, refReq: !!refReq, ref: ref && { len: ref.len, esc: ref.escaped, N: ref.N, prec: ref.prec } }; },
+  probe(re, im) { const r = analyze(parseFx(re), parseFx(im)); delete r.orbit; delete r.cycle; return r; },
+  jump(i) {
+    const L = LANDMARKS[i];
+    iterFloor = 0;
+    if (L.pin) { pin = { cx: parseFx(L.pin[0]), cy: parseFx(L.pin[1]) }; pointDirty = true; overlayDirty = true; }
+    const v = viewFor(parseFx(L.re), parseFx(L.im), L.box[0], L.box[1] ?? L.box[0]);
+    setView(v.cx, v.cy, v.w);
+  },
+};
+})();
+</script>
 <!-- golg-nav-bootstrap -->
 <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
 </body>
-
 </html>

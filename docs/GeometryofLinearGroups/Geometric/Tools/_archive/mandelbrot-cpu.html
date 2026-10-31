@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mandelbrot & Julia Explorer</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --panel-bg: rgba(20, 25, 35, 0.85);
+      --accent: #00d2ff;
+      --text: #e0e6ed;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: 'Inter', -apple-system, sans-serif;
+      color: var(--text);
+    }
+
+    canvas {
+      display: block;
+      cursor: crosshair;
+    }
+
+    #ui-overlay {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 280px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      z-index: 100;
+      user-select: none;
+    }
+
+    .control-group {
+      margin-bottom: 15px;
+    }
+
+    .control-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #8892b0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .control-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .control-group select {
+      width: 100%;
+      background: #1a1f29;
+      border: 1px solid #333;
+      color: white;
+      padding: 5px;
+      border-radius: 4px;
+    }
+
+    #juliaWindow {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 300px;
+      height: 300px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+    }
+
+    #juliaHeader {
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: bold;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    #juliaCanvas {
+      flex: 1;
+      cursor: default;
+    }
+
+    .coord-display {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--accent);
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 10px;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+
+    button {
+      background: var(--accent);
+      border: none;
+      color: #000;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .back-btn {
+      margin-bottom: 10px;
+      width: 100%;
+    }
+
+    #status {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 12px;
+      color: #8892b0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="status">Left Click: Set Julia Parameter | Drag: Pan | Wheel: Zoom</div>
+
+  <div id="ui-overlay">
+    <button class="back-btn" onclick="window.location.href='../../index.html'">← Back</button>
+
+    <div class="control-group">
+      <label>Fractal</label>
+      <select id="fractalMode">
+        <option value="mandel">Mandelbrot &amp; Julia (z² + c)</option>
+        <option value="poly">Custom polynomial f(z)</option>
+      </select>
+    </div>
+
+    <div class="control-group" id="polyGroup" style="display:none">
+      <label>f(z) =</label>
+      <input type="text" id="polyInput" spellcheck="false" value="(z-1)*(z+1)*(z+0.3i) + 0.2"
+        style="width:100%; box-sizing:border-box;" title="Polynomial in z: + − * ^ ( ), numbers, i; products may be implicit, as in 2z or (z+1)(z−1)">
+      <div id="polyMsg" style="font-size:11px; margin-top:4px; color:#8892b0;"></div>
+    </div>
+
+    <div class="control-group">
+      <label>Iteration Limit: <span id="iter-val">300</span></label>
+      <input type="range" id="maxIter" min="100" max="2000" step="50" value="300">
+    </div>
+
+    <div class="control-group">
+      <label>Super Sampling (Sharpness)</label>
+      <select id="ssFactor">
+        <option value="1">1x (Fast)</option>
+        <option value="2" selected>2x (Standard)</option>
+        <option value="3">3x (Retina)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Coloring Mode</label>
+      <select id="colorMode">
+        <option value="smooth">Deep Ocean (Smooth)</option>
+        <option value="fire">Solar Flare</option>
+        <option value="electric">Electric Blue</option>
+        <option value="mono">Classic Monochrome</option>
+        <option value="loci">Escape Loci (Bands)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Performance Profile</label>
+      <select id="perfMode">
+        <option value="balanced">Balanced</option>
+        <option value="high-quality">High Quality (Slow)</option>
+        <option value="high-perf">Max Performance</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Pixel Scale: <span id="px-val">1</span></label>
+      <input type="range" id="pxScale" min="1" max="4" step="1" value="1">
+    </div>
+
+    <div class="control-group" style="display:flex; align-items:center; gap:10px;">
+      <input type="checkbox" id="liveJulia" checked>
+      <label style="margin:0;">Live Julia Tracking</label>
+    </div>
+
+    <div class="control-group" style="display:flex; align-items:center; gap:10px;">
+      <input type="checkbox" id="autoAspect" checked>
+      <label style="margin:0;">Auto Aspect Ratio</label>
+    </div>
+  </div>
+
+  <div id="juliaWindow">
+    <div id="juliaHeader">Julia Set: c = <span id="julia-coord">0, 0</span></div>
+    <canvas id="juliaCanvas"></canvas>
+  </div>
+
+  <div class="coord-display" id="coord-display">z = 0.000 + 0.000i</div>
+
+  <canvas id="mandelbrotCanvas"></canvas>
+
+  <script>
+    // --- Math & Core ---
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1 / 6) return p + (q - p) * 6 * t;
+          if (t < 1 / 2) return q;
+          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+          return p;
+        };
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+      }
+      return [r * 255, g * 255, b * 255];
+    }
+
+    const colorScheme = {
+      smooth: (i, maxIter, zSq) => {
+        if (i >= maxIter) return [10, 12, 20];
+        const log_zn = Math.log(zSq) / 2;
+        const nu = Math.log(Math.log(zSq) / Math.log(4)) / Math.log(2);
+        const smooth = i + 1 - nu;
+        return hslToRgb((smooth * 2 + 200) / 360, 0.7, 0.5);
+      },
+      fire: (i, maxIter, zSq) => {
+        if (i >= maxIter) return [0, 0, 0];
+        const smooth = i + 1 - Math.log(Math.log(zSq) / Math.log(4)) / Math.log(2);
+        return hslToRgb((smooth * 3) / 360, 0.9, 0.5);
+      },
+      electric: (i, maxIter, zSq) => {
+        if (i >= maxIter) return [0, 5, 15];
+        const smooth = i + 1 - Math.log(Math.log(zSq) / Math.log(4)) / Math.log(2);
+        return hslToRgb((180 + smooth * 10) / 360, 0.8, 0.6);
+      },
+      mono: (i, maxIter) => {
+        if (i >= maxIter) return [0, 0, 0];
+        const v = Math.floor(255 * (1 - i / maxIter));
+        return [v, v, v];
+      },
+      loci: (i, maxIter) => {
+        if (i >= maxIter) return [0, 0, 0];
+        const v = (i % 2 === 0) ? 200 : 50;
+        const h = (i * 20) % 360;
+        return hslToRgb(h / 360, 0.6, 0.5);
+      }
+    };
+
+    // --- State & Config ---
+    const mC = document.getElementById('mandelbrotCanvas'),
+      mCtx = mC.getContext('2d'),
+      jC = document.getElementById('juliaCanvas'),
+      jCtx = jC.getContext('2d'),
+      jHeader = document.getElementById('julia-coord'),
+      coordDisp = document.getElementById('coord-display'),
+      iterLabel = document.getElementById('iter-val');
+
+    let bounds = { xmin: -2.1, xmax: 0.9, ymin: -1.2, ymax: 1.2 };
+    let juliaC = { re: -0.8, im: 0.156 };
+    let config = {
+      maxIter: 300,
+      ssFactor: 2,
+      pxScale: 1,
+      colorMode: 'smooth',
+      liveJulia: true,
+      autoAspect: true,
+      perfMode: 'balanced'
+    };
+
+    function fixAspectRatio() {
+      if (!config.autoAspect) return;
+      const aspect = window.innerWidth / window.innerHeight;
+      const currentW = bounds.xmax - bounds.xmin;
+      const currentH = bounds.ymax - bounds.ymin;
+      const centerRe = (bounds.xmin + bounds.xmax) / 2;
+      const centerIm = (bounds.ymin + bounds.ymax) / 2;
+
+      if (currentW / currentH > aspect) {
+        // bounds too wide
+        const newH = currentW / aspect;
+        bounds.ymin = centerIm - newH / 2;
+        bounds.ymax = centerIm + newH / 2;
+      } else {
+        // bounds too tall
+        const newW = currentH * aspect;
+        bounds.xmin = centerRe - newW / 2;
+        bounds.xmax = centerRe + newW / 2;
+      }
+    }
+
+    let needsUpdate = true;
+    let needsJuliaUpdate = true;
+
+    // --- Interaction Logic ---
+    function updateUIValues() {
+      iterLabel.innerText = config.maxIter;
+      jHeader.innerText = `${juliaC.re.toFixed(4)}, ${juliaC.im.toFixed(4)}`;
+    }
+
+    function worldToScreen(re, im) {
+      const x = (re - bounds.xmin) / (bounds.xmax - bounds.xmin) * mC.width;
+      const y = (im - bounds.ymin) / (bounds.ymax - bounds.ymin) * mC.height;
+      return [x, y];
+    }
+
+    function screenToWorld(sx, sy) {
+      const re = bounds.xmin + sx / mC.width * (bounds.xmax - bounds.xmin);
+      const im = bounds.ymin + sy / mC.height * (bounds.ymax - bounds.ymin);
+      return [re, im];
+    }
+
+    // --- Custom polynomials (from the retired julia.html) ---
+    // f(z) is iterated from each pixel z; the picture is its escape time. A polynomial
+    // a_n zⁿ + … with n ≥ 2 sends |z| > R = max(2, 2(1 + Σ_{k<n} |a_k|)/|a_n|) to infinity,
+    // so that is the escape radius.
+    function parsePolynomial(src) {
+      // coefficient arrays [[re, im], …], index k ↔ z^k
+      const trim = (a) => { let k = a.length - 1; while (k > 0 && a[k][0] === 0 && a[k][1] === 0) k--; return a.slice(0, k + 1); };
+      const add = (a, b, sg = 1) => trim(Array.from({ length: Math.max(a.length, b.length) }, (_, i) => {
+        const x = a[i] || [0, 0], y = b[i] || [0, 0];
+        return [x[0] + sg * y[0], x[1] + sg * y[1]];
+      }));
+      const mul = (a, b) => {
+        const out = Array.from({ length: a.length + b.length - 1 }, () => [0, 0]);
+        a.forEach((x, i) => b.forEach((y, j) => {
+          out[i + j][0] += x[0] * y[0] - x[1] * y[1];
+          out[i + j][1] += x[0] * y[1] + x[1] * y[0];
+        }));
+        return trim(out);
+      };
+      const s = src.replace(/\s+/g, '').replace(/\u2212/g, '-');
+      let p = 0;
+      const peek = () => s[p] || '', eat = (c) => (s[p] === c ? (p++, true) : false);
+      const digit = (c) => c >= '0' && c <= '9';
+      const err = (m) => new Error(`Parse error at ${p}: ${m}`);
+      // a new factor may follow without '*' (2z, (z+1)(z−1)) — but not a sign: that is + or −
+      const startsImplicit = (c) => c === 'z' || c === 'i' || c === '(' || digit(c) || c === '.';
+      function number() {
+        let t = '';
+        while (digit(peek())) t += s[p++];
+        if (eat('.')) { t += '.'; while (digit(peek())) t += s[p++]; }
+        if (t === '' || t === '.') throw err('number expected');
+        if (peek() === 'e' || peek() === 'E') {
+          t += s[p++]; if (peek() === '+' || peek() === '-') t += s[p++];
+          if (!digit(peek())) throw err('invalid exponent');
+          while (digit(peek())) t += s[p++];
+        }
+        return parseFloat(t);
+      }
+      function primary() {
+        if (eat('(')) { const e = expr(); if (!eat(')')) throw err("missing ')'"); return e; }
+        if (eat('z')) return [[0, 0], [1, 0]];
+        if (eat('i')) return [[0, 1]];
+        const n = number();
+        return eat('i') ? [[0, n]] : [[n, 0]];
+      }
+      function factor() {
+        let sign = 1;
+        for (;;) { if (eat('+')) continue; if (eat('-')) { sign = -sign; continue; } break; }
+        let b = primary();
+        if (eat('^')) {
+          let t = ''; while (digit(peek())) t += s[p++];
+          if (t === '') throw err('a non-negative integer exponent expected');
+          let n = parseInt(t, 10), r = [[1, 0]];
+          for (let base = b; n > 0; n >>= 1, base = mul(base, base)) if (n & 1) r = mul(r, base);
+          b = r;
+        }
+        return sign < 0 ? b.map(([x, y]) => [-x, -y]) : b;
+      }
+      function term() {
+        let t = factor();
+        for (;;) {
+          if (eat('*')) { t = mul(t, factor()); continue; }
+          if (startsImplicit(peek())) { t = mul(t, factor()); continue; }
+          return t;
+        }
+      }
+      function expr() {
+        let e = term();
+        for (;;) {
+          if (eat('+')) e = add(e, term());
+          else if (eat('-')) e = add(e, term(), -1);
+          else return e;
+        }
+      }
+      const out = expr();
+      if (p < s.length) throw new Error(`Unexpected '${peek()}' at ${p}`);
+      return out;
+    }
+    function escapeRadius(coeffs) {
+      const n = coeffs.length - 1;
+      if (n < 2) return 2;
+      let sum = 0;
+      for (let k = 0; k < n; k++) sum += Math.hypot(coeffs[k][0], coeffs[k][1]);
+      return Math.max(2, 2 * (1 + sum) / Math.hypot(coeffs[n][0], coeffs[n][1]));
+    }
+
+    // --- Rendering Engine ---
+    function drawFractal(ctx, canvas, scale, params) {
+      const W = canvas.width, H = canvas.height;
+      const img = ctx.createImageData(W, H);
+      const data = img.data;
+
+      const { xmin, xmax, ymin, ymax, maxIter, colorFn, julia, poly } = params;
+      const dx = (xmax - xmin) / W;
+      const dy = (ymax - ymin) / H;
+      if (poly) {
+        const n = poly.length - 1, ar = poly.map(c => c[0]), ai = poly.map(c => c[1]);
+        const R = escapeRadius(poly), R2 = R * R;
+        for (let y = 0; y < H; y++) {
+          const zi0 = ymin + y * dy;
+          for (let x = 0; x < W; x++) {
+            let zr = xmin + x * dx, zi = zi0, i = 0, m2 = zr * zr + zi * zi;
+            while (m2 <= R2 && i < maxIter) {
+              let wr = ar[n], wi = ai[n];                 // Horner
+              for (let k = n - 1; k >= 0; k--) {
+                const tr = wr * zr - wi * zi + ar[k];
+                wi = wr * zi + wi * zr + ai[k]; wr = tr;
+              }
+              zr = wr; zi = wi; m2 = zr * zr + zi * zi; i++;
+            }
+            const [r, g, b] = colorFn(i, maxIter, Math.max(m2, 16));
+            const idx = (y * W + x) * 4;
+            data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+        return;
+      }
+
+      for (let y = 0; y < H; y++) {
+        const ci = ymin + y * dy;
+        for (let x = 0; x < W; x++) {
+          const cr = xmin + x * dx;
+
+          let zr, zi, c_re, c_im;
+          if (julia) {
+            zr = cr; zi = ci;
+            c_re = julia.re; c_im = julia.im;
+          } else {
+            zr = 0; zi = 0;
+            c_re = cr; c_im = ci;
+          }
+
+          let i = 0;
+          let zr2 = zr * zr, zi2 = zi * zi;
+          while (zr2 + zi2 < 16 && i < maxIter) {
+            zi = 2 * zr * zi + c_im;
+            zr = zr2 - zi2 + c_re;
+            zr2 = zr * zr;
+            zi2 = zi * zi;
+            i++;
+          }
+
+          const [r, g, b] = colorFn(i, maxIter, zr2 + zi2);
+          const idx = (y * W + x) * 4;
+          data[idx] = r;
+          data[idx + 1] = g;
+          data[idx + 2] = b;
+          data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    function draw() {
+      if (needsUpdate) {
+        const logicalW = window.innerWidth;
+        const logicalH = window.innerHeight;
+
+        // During interaction, we lower quality for performance
+        let activeSS = isDragging ? 1 : config.ssFactor;
+        let activePX = isDragging ? Math.max(config.pxScale, 2) : config.pxScale;
+        let activeIter = isDragging ? Math.min(config.maxIter, 150) : config.maxIter;
+
+        if (config.perfMode === 'high-perf') {
+          activeIter = Math.min(activeIter, 200);
+          activePX = Math.max(activePX, 2);
+        } else if (config.perfMode === 'high-quality') {
+          activeIter = Math.max(activeIter, 500);
+          activePX = 1;
+        }
+
+        mC.width = (logicalW / activePX) * activeSS;
+        mC.height = (logicalH / activePX) * activeSS;
+        mC.style.width = logicalW + 'px';
+        mC.style.height = logicalH + 'px';
+
+        drawFractal(mCtx, mC, activeSS, {
+          ...bounds,
+          maxIter: activeIter,
+          colorFn: colorScheme[config.colorMode],
+          julia: null,
+          poly: config.mode === 'poly' ? config.poly : null
+        });
+        if (config.mode === 'poly') { needsUpdate = false; requestAnimationFrame(draw); return; }
+
+        // Draw Julia indicator dot
+        const [sx, sy] = worldToScreen(juliaC.re, juliaC.im);
+        mCtx.fillStyle = '#fff';
+        mCtx.shadowBlur = 10;
+        mCtx.shadowColor = 'white';
+        mCtx.beginPath();
+        mCtx.arc(sx * config.ssFactor, sy * config.ssFactor, 6 * config.ssFactor, 0, Math.PI * 2);
+        mCtx.fill();
+        mCtx.shadowBlur = 0;
+
+        needsUpdate = false;
+      }
+
+      if (needsJuliaUpdate) {
+        const jSize = 300;
+        jC.width = jSize;
+        jC.height = jSize;
+        drawFractal(jCtx, jC, 1, {
+          xmin: -2, xmax: 2, ymin: -2, ymax: 2,
+          maxIter: Math.min(config.maxIter, 500),
+          colorFn: colorScheme[config.colorMode],
+          julia: juliaC
+        });
+        needsJuliaUpdate = false;
+        updateUIValues();
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // --- Inputs ---
+    document.getElementById('maxIter').oninput = (e) => {
+      config.maxIter = parseInt(e.target.value);
+      needsUpdate = true; needsJuliaUpdate = true;
+    };
+    document.getElementById('ssFactor').onchange = (e) => {
+      config.ssFactor = parseInt(e.target.value);
+      needsUpdate = true;
+    };
+    document.getElementById('colorMode').onchange = (e) => {
+      config.colorMode = e.target.value;
+      needsUpdate = true; needsJuliaUpdate = true;
+    };
+    document.getElementById('liveJulia').onchange = (e) => {
+      config.liveJulia = e.target.checked;
+    };
+    document.getElementById('autoAspect').onchange = (e) => {
+      config.autoAspect = e.target.checked;
+      if (config.autoAspect) { fixAspectRatio(); needsUpdate = true; }
+    };
+    document.getElementById('pxScale').oninput = (e) => {
+      config.pxScale = parseInt(e.target.value);
+      document.getElementById('px-val').innerText = config.pxScale;
+      needsUpdate = true;
+    };
+    document.getElementById('perfMode').onchange = (e) => {
+      config.perfMode = e.target.value;
+      needsUpdate = true;
+    };
+
+    // custom polynomial mode
+    const polyInput = document.getElementById('polyInput'), polyMsg = document.getElementById('polyMsg');
+    function compilePoly() {
+      try {
+        config.poly = parsePolynomial(polyInput.value);
+        const n = config.poly.length - 1;
+        polyMsg.style.color = '#8892b0';
+        polyMsg.textContent = n < 2 ? `degree ${n}: nothing to iterate (degree ≥ 2 is interesting)`
+          : `degree ${n}, escape radius ${escapeRadius(config.poly).toPrecision(3)}`;
+      } catch (e) {
+        polyMsg.style.color = '#ff8a8a';
+        polyMsg.textContent = e.message;
+      }
+      needsUpdate = true;
+    }
+    function setMode(mode) {
+      config.mode = mode;
+      document.getElementById('fractalMode').value = mode;
+      document.getElementById('polyGroup').style.display = mode === 'poly' ? '' : 'none';
+      document.getElementById('juliaWindow').style.display = mode === 'poly' ? 'none' : '';
+      document.getElementById('status').innerText = mode === 'poly'
+        ? 'Escape time of f | Drag: Pan | Wheel: Zoom'
+        : 'Left Click: Set Julia Parameter | Drag: Pan | Wheel: Zoom';
+      bounds = mode === 'poly' ? { xmin: -2, xmax: 2, ymin: -1.5, ymax: 1.5 } : { xmin: -2.1, xmax: 0.9, ymin: -1.2, ymax: 1.2 };
+      fixAspectRatio();
+      if (mode === 'poly') compilePoly();
+      needsUpdate = true; needsJuliaUpdate = true;
+    }
+    document.getElementById('fractalMode').onchange = (e) => setMode(e.target.value);
+    polyInput.addEventListener('keydown', e => { if (e.key === 'Enter') compilePoly(); });
+    polyInput.addEventListener('change', compilePoly);
+
+    mC.addEventListener('mousemove', e => {
+      const [re, im] = screenToWorld(e.clientX, e.clientY);
+      coordDisp.innerText = `z = ${re.toFixed(4)} + ${im.toFixed(4)}i`;
+      if (config.liveJulia && config.mode !== 'poly') {
+        juliaC = { re, im };
+        needsJuliaUpdate = true;
+        needsUpdate = true; // Updates the dot
+      }
+    });
+
+    mC.addEventListener('mousedown', e => {
+      if (e.button === 0 && config.mode !== 'poly') { // Left click sets but also allows dragging
+        const [re, im] = screenToWorld(e.clientX, e.clientY);
+        juliaC = { re, im };
+        needsJuliaUpdate = true;
+        needsUpdate = true;
+      }
+    });
+
+    // Simple Drag & Zoom
+    let isDragging = false, lastX, lastY;
+    mC.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      const dx = (e.clientX - lastX) / mC.width * (bounds.xmax - bounds.xmin);
+      const dy = (e.clientY - lastY) / mC.height * (bounds.ymax - bounds.ymin);
+      bounds.xmin -= dx; bounds.xmax -= dx;
+      bounds.ymin -= dy; bounds.ymax -= dy;
+      lastX = e.clientX; lastY = e.clientY;
+      needsUpdate = true;
+    });
+
+    mC.addEventListener('wheel', e => {
+      e.preventDefault();
+      const zoom = e.deltaY > 0 ? 1.1 : 0.9;
+      const [mx, my] = screenToWorld(e.clientX, e.clientY);
+      bounds.xmin = mx + (bounds.xmin - mx) * zoom;
+      bounds.xmax = mx + (bounds.xmax - mx) * zoom;
+      bounds.ymin = my + (bounds.ymin - my) * zoom;
+      bounds.ymax = my + (bounds.ymax - my) * zoom;
+      needsUpdate = true;
+    }, { passive: false });
+
+    window.onresize = () => { fixAspectRatio(); needsUpdate = true; };
+
+    const urlPoly = new URLSearchParams(location.search).get('poly');
+    if (urlPoly) polyInput.value = urlPoly;
+    config.mode = 'mandel';
+    if (urlPoly) setMode('poly');
+    fixAspectRatio();
+    draw();
+  </script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+
+</html>
