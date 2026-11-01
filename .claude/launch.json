@@ -2,6 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "eigenreelKnotMosaic",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nThreadingHTTPServer((\"\", 8822), H).serve_forever()'"
+      ],
+      "port": 8822,
+      "openPath": "/docs/EigenReel/knotMosaic/"
+    },
+    {
       "name": "sunoPrep",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
