@@ -24,6 +24,9 @@ import { PolyView } from './polyView.js';
 import { KnotView } from './knotView.js';
 import { CuspView } from './cuspView.js';
 import { SurgeryPlot } from './surgeryPlot.js';
+import { FoldView, STAGES, captionAt } from './foldView.js';
+import { foldModel } from './menasco.js';
+import { FOLD } from './foldData.js';
 
 const BY_ID = new Map(CENSUS.map((e) => [e.id, e]));
 const PATH_N = 240;
@@ -41,7 +44,11 @@ const state = {
     highlight: -1,
     plotCache: new Map(),
     mq: [],
+    fold: { f: 0, playing: false, dir: 1, model: null, dirty: true },
 };
+const FOLD_STAGES = 6;
+const FOLD_SECONDS = 16;            // knot → polyhedron, at full speed
+const FOLD_VIEW_DIR = [0.25, -0.78, 0.62];
 
 // ---------------- setup ----------------
 
@@ -50,6 +57,7 @@ const texLayer = $('tex-layer');
 const poly = new PolyView(stage, texLayer);
 const knot = new KnotView(stage, texLayer);
 const cusp = new CuspView($('cusp-canvas'), texLayer);
+const foldView = new FoldView(stage);
 const plot = new SurgeryPlot($('surgery-plot'), { onPick: (pt) => { setSlopeFields([{ p: pt.p, q: pt.q }]); fill(); } });
 
 function themeColors() {
@@ -66,6 +74,8 @@ function applyTheme() {
     poly.setColors({ pair: c.pal, edge: c.edge, core: c.core, ink: c.ink, sphere: c.accent, light: c.light });
     knot.setColors({ knot: c.light ? '#3b4257' : '#dfe6f5', torus: c.accent, slope: c.slope, mer: c.mer, lon: c.lon });
     cusp.setColors({ tet: c.pal, ink: c.ink, core: c.core, slope: c.slope, mer: c.mer, lon: c.lon, light: c.light });
+    foldView.setColors({ pair: c.pal, edge: c.edge, ink: c.ink, knot: c.light ? '#3b4257' : '#dfe6f5', shaded: c.accent, white: c.ink, sphere: c.accent, light: c.light });
+    state.fold.dirty = true;
     plot.render();
     state.dirty = true;
 }
@@ -83,6 +93,7 @@ function setTheme(light, save = true) {
 function fitView() {
     if (state.view === 'knot') stage.fit(1.3);
     else if (state.view === 'poly') stage.fit(1.05);
+    else if (state.view === 'fold') stage.fit(2.1);
 }
 
 function layoutInsets() {
@@ -108,6 +119,11 @@ function loadManifold(id, { slopes = null, s = null, dir = 1, play = false, view
     poly.showGhost(null);
     cusp.setManifold(state.tri);
     knot.setKnot(entry.curve || null);
+    const fd = FOLD[entry.id] || null;
+    state.fold.model = fd ? foldModel(fd, state.tri) : null;
+    foldView.setManifold(fd, state.fold.model, state.tri, state.sol.shapes(state.sol.completeState()));
+    state.fold.playing = false;
+    state.fold.dirty = true;
     state.slopes = slopes || new Array(entry.nCusp).fill(null);
     state.path = null;
     state.s = 0;
@@ -124,7 +140,10 @@ function loadManifold(id, { slopes = null, s = null, dir = 1, play = false, view
     renderDrillTab();
     if (state.slopes.some(Boolean)) computePath({ s, play });
     else { setCompleteFrame(); renderFillResults(); }
-    setView(view || (entry.curve ? state.view : (state.view === 'knot' ? 'poly' : state.view)));
+    let v0 = view || state.view;
+    if (v0 === 'knot' && !entry.curve) v0 = 'poly';
+    if (v0 === 'fold' && !foldReady()) v0 = entry.curve ? 'knot' : 'poly';
+    setView(v0);
     computePlot();
     syncURL();
 }
@@ -231,14 +250,31 @@ function setPlaying(on) {
 
 // ---------------- views ----------------
 
+const foldReady = () => !!state.fold.model?.supported;
+
 function setView(v) {
     if (v === 'knot' && !state.entry.curve) v = 'poly';
+    if (v === 'fold' && !foldReady()) v = 'poly';
+    const was = state.view;
     state.view = v;
     document.querySelectorAll('.view-chip[data-view]').forEach((b) => {
         b.classList.toggle('active', b.dataset.view === v);
         if (b.dataset.view === 'knot') b.disabled = !state.entry.curve;
+        if (b.dataset.view === 'fold') {
+            b.disabled = !foldReady();
+            b.title = foldReady() ? 'The knot folding into its two ideal polyhedra, and back'
+                : 'The fold needs an alternating diagram (the census knots up to seven crossings)';
+        }
     });
     $('cusp-modes').hidden = v !== 'cusp';
+    // the fold has its own timeline and camera
+    $('fold-bar').hidden = v !== 'fold';
+    $('timeline').classList.toggle('suppressed', v === 'fold');
+    if (v === 'fold' && was !== 'fold') stage.look(FOLD_VIEW_DIR);
+    if (v !== 'fold' && was === 'fold') stage.reset();
+    if (v !== 'fold') setFoldPlaying(false);
+    foldView.setVisible(v === 'fold');
+    if (v === 'fold') { renderFoldBar(); state.fold.dirty = true; }
     knot.setVisible(v === 'knot');
     poly.setVisible(v === 'poly');
     $('canvas3d').hidden = v === 'cusp';
@@ -248,10 +284,40 @@ function setView(v) {
     $('view-caption').innerHTML = mix({
         knot: 'The knot in $S^3$, the boundary torus of a neighbourhood, its meridian $m$ and Seifert longitude $l$, and the filling slope $p\\,m + q\\,l$. Drag to turn.',
         poly: 'The ideal tetrahedra in the Poincaré ball (or the Klein model, where they are straight). Assembled, they form a fundamental polyhedron $D$; faces of the same color are glued by the face pairings $g_k$. Drag to turn, scroll to zoom.',
+        fold: 'The knot folds into two ideal polyhedra (Menasco, after Thurston): cut along both checkerboard surfaces, shrink the overpasses and underpasses to points, and the halves above and below the plane become ideal tetrahedra, glued region to region with a twist. Play it backwards to fold the polyhedron into the knot.',
         cusp: 'The view from the cusp: the tetrahedra meet a horosphere in triangles, which tile the plane by the holonomy of the cusp torus. As the cone angle grows, the tiling winds around the core; in log coordinates $w = \\log(z - c)$ it stays a lattice and the filling curve is a vertical segment of length $\\theta$, which closes up at $\\theta = 2\\pi$. Scroll to zoom, drag to pan.',
     }[v]);
     state.dirty = true;
 }
+
+// ---------------- the fold ----------------
+
+function setFold(f) {
+    state.fold.f = Math.max(0, Math.min(FOLD_STAGES, f));
+    foldView.setF(state.fold.f);
+    $('fold-scrub').value = String(Math.round(state.fold.f * 200));
+    $('fold-caption').innerHTML = mix(captionAt(state.fold.f));
+    state.fold.dirty = true;
+}
+function setFoldPlaying(on) {
+    state.fold.playing = on;
+    $('fold-play').classList.toggle('playing', on);
+    if (on) {
+        if (state.fold.dir > 0 && state.fold.f >= FOLD_STAGES - 1e-6) setFold(0);
+        if (state.fold.dir < 0 && state.fold.f <= 1e-6) setFold(FOLD_STAGES);
+    }
+}
+function renderFoldBar() {
+    $('fold-ticks').innerHTML = STAGES.slice(1, -1).map((st) => `<span class="tick" style="left:${(100 * st.at) / FOLD_STAGES}%"></span>`).join('');
+    $('fold-labels').innerHTML = STAGES.map((st, i) => {
+        const tr = i === 0 ? 'translateX(0)' : i === STAGES.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)';
+        return `<span style="left:${(100 * st.at) / FOLD_STAGES}%; transform:${tr}">${st.label === 'D' ? tex('D') : esc(st.label)}</span>`;
+    }).join('');
+    $('fold-dir').textContent = state.fold.dir > 0 ? 'unfold →' : '← fold';
+    setFold(state.fold.f);
+}
+/** Snap a dragged fold position to the stage boundaries. */
+const snapFold = (f) => (Math.abs(f - Math.round(f)) < 0.07 ? Math.round(f) : f);
 
 // ---------------- Manifold tab ----------------
 
@@ -335,6 +401,7 @@ function cuspedPoincareLink() {
 // ---------------- Unfold tab ----------------
 
 const UNFOLD_STEPS = [
+    { title: 'Fold the knot into polyhedra', fold: true, text: 'Cut the complement along the checkerboard surfaces and shrink the over- and underpasses: two ideal polyhedra, glued with a twist (Menasco). Play it backwards to fold them into the knot.', go: () => { setView('fold'); setFold(0); state.fold.dir = 1; renderFoldBar(); setFoldPlaying(true); } },
     { title: 'The knot', text: 'The complement of the knot is the manifold; its hyperbolic structure is made of ideal tetrahedra whose vertices all lie on the knot.', go: () => { setView('knot'); } },
     { title: 'Ideal tetrahedra', text: 'Cut along the triangulation: ideal tetrahedra, vertices at infinity. Faces of the same color are glued; the arrows mark which edges become one edge.', go: () => { setView('poly'); setAssembly(0); } },
     { title: 'Unfold into hyperbolic space', text: 'Glue the tetrahedra across the faces of a maximal tree, one at a time: a fundamental polyhedron for the holonomy.', go: () => { setView('poly'); setAssembly(0); state.unfoldPlaying = true; } },
@@ -346,8 +413,12 @@ function renderUnfoldTab() {
     const e = state.entry, tri = state.tri;
     const tree = e.nTet - 1;
     $('unfold-sub').innerHTML = mix(`$${nameTex(e.id)}$ is made of ${e.nTet} ideal tetrahedra with ${tri.facePairs.length} pairs of glued faces: ${tree === 1 ? 'one glues' : `${tree} glue`} the tetrahedra into a polyhedron along SnapPy's maximal tree, and the other ${tri.nOrig} are its face pairings.`);
-    $('unfold-steps').innerHTML = UNFOLD_STEPS.map((s, i) => `
-        <button class="step" data-step="${i}"><span class="num">${i + 1}</span><span><span class="st">${esc(s.title)}</span><br><span class="sd">${mix(s.text.replace('π₁', '$\\pi_1$'))}</span></span></button>`).join('');
+    $('unfold-steps').innerHTML = UNFOLD_STEPS.map((s, i) => {
+        const off = s.fold && !foldReady();
+        const text = off ? 'The fold into Menasco\'s two polyhedra needs an alternating diagram: here, the census knots from $4_1$ to $7_4$.' : s.text;
+        return `
+        <button class="step${off ? ' disabled' : ''}" data-step="${i}" ${off ? 'disabled' : ''}><span class="num">${i + 1}</span><span><span class="st">${esc(s.title)}</span><br><span class="sd">${mix(text.replace('π₁', '$\\pi_1$'))}</span></span></button>`;
+    }).join('');
     const pal = palette();
     const gens = [];
     for (const fp of tri.facePairs) if (fp.gen > 0) gens.push(fp);
@@ -757,6 +828,8 @@ function renderHelp() {
         <p>${mix('Run the same path backwards: the cone angle along a closed geodesic shrinks to $0$, the geodesic moves off to infinity and becomes a cusp, and the volume increases to that of the drilled manifold.')}</p>
         <h4>The pictures</h4>
         <p>${mix('<b>Knot</b>: the knot with its meridian $m$, Seifert longitude $l$ and the filling slope on the boundary torus. <b>Polyhedron</b>: the tetrahedra developed into $\\mathbb H^3$ (Klein or Poincaré ball) along a maximal tree, forming a fundamental polyhedron; matching colors are glued, arrows mark the edge classes, and during a filling the core geodesic is drawn. <b>Cusp</b>: the horospherical cross-section, tiled by the holonomy; in a filling the tiles wind around the core, and the filling curve closes into a circle at $\\theta = 2\\pi$.').replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>')}</p>
+        <h4>Folding</h4>
+        <p>${mix('The <b>Fold</b> view shows where the polyhedron sits in the knot complement (Menasco, after Thurston). Put a crossing arc at each crossing and cut along both checkerboard surfaces: the halves above and below the projection plane are balls $P^+$ and $P^-$. Shrinking the overpasses (underpasses) to points makes them ideal polyhedra whose vertices are the crossings, whose edges are the crossing arcs, and whose faces are the regions; each region of $P^+$ is glued to the same region of $P^-$, turned one step. Collapsing the two-sided regions leaves, for the figure-eight knot, Thurston\'s two regular ideal tetrahedra: exactly SnapPy\'s triangulation, so the fold ends in the Polyhedron view\'s $D$, with the same face colors and edge arrows. Longer twist regions leave two-valent vertices, so in general each half is coned from one of its vertices into ideal tetrahedra (with flip tetrahedra where the two cuts of a region disagree); SnapPy checks that the result is the knot\'s complement and supplies its shapes, and each region is drawn as the triangles it is cut into. Play it backwards to fold $D$ into the knot. Available for the alternating census knots, $4_1$ to $7_4$.').replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>')}</p>
         <h4>Where the numbers come from</h4>
         <p>${mix('The triangulations, peripheral curves and presentations are exported from SnapPy (tools/make_census.py); the 3D knots are SnapPy\'s diagrams relaxed by Möbius energy and checked against SnapPy, chirality included. Everything else is computed here: Newton\'s method on the gluing equations, the Bloch–Wigner volume, the developing map and holonomy. The tests compare volumes, core geodesics, homology and traces with SnapPy.')}</p>
         <p>${mix('The "Open in poincare" links send the holonomy to the Dirichlet domain tool: in decimals for computed groups, or as poincare\'s exact presets where it has one.')}</p>`;
@@ -783,7 +856,12 @@ function wire() {
         document.querySelectorAll('.tab-content').forEach((c) => c.classList.toggle('active', c.id === `tab-${b.dataset.tab}`));
         if (b.dataset.tab === 'unfold' && state.view === 'cusp') setView('poly');
     }));
-    $('collapse-btn').addEventListener('click', () => { $('control-panel').classList.toggle('collapsed'); setTimeout(layoutInsets, 480); });
+    $('collapse-btn').addEventListener('click', () => {
+        const c = $('control-panel').classList.toggle('collapsed');
+        document.documentElement.classList.toggle('panel-collapsed', c);
+        setTimeout(layoutInsets, 700);          // and on transitionend, below
+    });
+    $('control-panel').addEventListener('transitionend', (e) => { if (e.target === $('control-panel') && e.propertyName === 'width') layoutInsets(); });
     $('help-btn').addEventListener('click', () => openModal('help-modal'));
     $('theme-btn').addEventListener('click', () => setTheme(!isLight()));
     $('examples-btn').addEventListener('click', () => openModal('example-modal'));
@@ -794,6 +872,9 @@ function wire() {
         if (b.dataset.cuspMode === 'log' && !state.path) banner(mix('Log coordinates need a deformed cusp: fill a slope first (the complete cusp has no core).'), 'info');
     }));
     $('play-btn').addEventListener('click', () => setPlaying(!state.playing));
+    $('fold-play').addEventListener('click', () => setFoldPlaying(!state.fold.playing));
+    $('fold-dir').addEventListener('click', () => { state.fold.dir = -state.fold.dir; renderFoldBar(); if (!state.fold.playing) setFoldPlaying(true); });
+    $('fold-scrub').addEventListener('input', () => { setFoldPlaying(false); setFold(snapFold(+$('fold-scrub').value / 200)); });
     $('dir-btn').addEventListener('click', () => { state.dir = -state.dir; renderReadout(); if (!state.playing) setPlaying(true); });
     $('scrub').addEventListener('input', () => { setPlaying(false); setS(snapS(+$('scrub').value / 1000)); });
     $('fill-btn').addEventListener('click', fill);
@@ -803,6 +884,8 @@ function wire() {
     document.querySelectorAll('#model-seg .seg-opt').forEach((b) => b.addEventListener('click', () => {
         document.querySelectorAll('#model-seg .seg-opt').forEach((x) => x.classList.toggle('active', x === b));
         poly.setModel(b.dataset.model);
+        foldView.setModel(b.dataset.model);
+        state.fold.dirty = true;
         state.dirty = true;
     }));
     const opt = () => {
@@ -816,6 +899,7 @@ function wire() {
     $('reset-view').addEventListener('click', () => { stage.reset(); fitView(); cusp.resetView(); });
     document.addEventListener('keydown', (e) => {
         if (e.target.closest('input, textarea, .mq-editable-field, [contenteditable="true"]')) return;
+        if (e.key === ' ' && state.view === 'fold') { e.preventDefault(); setFoldPlaying(!state.fold.playing); return; }
         if (e.key === ' ' && state.path) { e.preventDefault(); setPlaying(!state.playing); }
         if (e.key === 'h' || e.key === 'H') $('collapse-btn').click();
         if (e.key === 'ArrowRight' && state.path) { setPlaying(false); setS(state.s + 1 / PATH_N); }
@@ -838,6 +922,13 @@ function loop(t) {
         if (s <= 0) { s = 0; setPlaying(false); }
         setS(s);
     }
+    if (state.fold.playing) {
+        let f = state.fold.f + state.fold.dir * dt * FOLD_STAGES / FOLD_SECONDS;
+        if (f >= FOLD_STAGES) { f = FOLD_STAGES; setFoldPlaying(false); }
+        if (f <= 0) { f = 0; setFoldPlaying(false); }
+        setFold(f);
+    }
+    if (state.view === 'fold' && state.fold.dirty) { state.fold.dirty = false; foldView.update(); }
     if (state.unfoldPlaying) {
         const a = Math.min(1, state.assembly + dt / (0.9 * state.tri.n + 0.6));
         setAssembly(a);
@@ -887,4 +978,4 @@ layoutInsets();
 requestAnimationFrame(loop);
 
 // handy from the console
-window.dehn = { state, loadManifold, setS, setView, setAssembly, CENSUS, poly, cusp, knot, stage };
+window.dehn = { state, loadManifold, setS, setView, setAssembly, setFold, CENSUS, poly, cusp, knot, stage, foldView };

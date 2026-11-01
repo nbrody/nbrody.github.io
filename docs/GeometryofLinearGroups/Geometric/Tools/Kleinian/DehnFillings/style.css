@@ -842,8 +842,30 @@ html.embed-mode { --panel-space: 0px; }
     .readout { min-width: 0; font-size: 11.5px; }
     .dir-btn { display: none; }
     #control-panel.collapsed { width: 52px; left: auto; right: 16px; }
+    html.panel-collapsed .timeline { bottom: 16px; right: 84px; }
 }
 
 .cusp-modes { display: inline-flex; gap: 4px; padding-left: 8px; margin-left: 2px; border-left: 1px solid var(--hairline-strong); }
 .cusp-modes[hidden] { display: none; }
 .view-chip.sub { padding: 6px 10px; font-size: 12px; }
+
+/* the fold timeline */
+.timeline.suppressed { display: none; }
+html.panel-collapsed { --panel-space: 92px; }
+.fold-bar .scrub { accent-color: var(--accent); }
+.fold-bar .scrub-ticks .tick { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.fold-bar { flex-wrap: wrap; row-gap: 4px; }
+.fold-caption {
+    order: -1;
+    flex-basis: 100%;
+    padding: 0 6px 0 4px;
+    min-height: 2.9em;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink);
+}
+.fold-caption .katex { font-size: 1.02em; }
+.step.disabled { opacity: 0.5; cursor: default; }
+@media (max-width: 768px) {
+    .fold-caption { font-size: 12px; min-height: 0; }
+}

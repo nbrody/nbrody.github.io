@@ -70,6 +70,15 @@ export class Stage {
         this.controls.update();
     }
 
+    /** Look at the origin from the direction dir (z up), keeping the distance. */
+    look(dir) {
+        const d = this.camera.position.distanceTo(this.controls.target) || 4.3;
+        const n = Math.hypot(...dir);
+        this.camera.position.set(dir[0] / n * d, dir[1] / n * d, dir[2] / n * d);
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+    }
+
     reset(distance = 4.3) {
         const s = distance / Math.hypot(0.35, 4.2, 0.9);
         this.camera.position.set(0.35 * s, -4.2 * s, 0.9 * s);

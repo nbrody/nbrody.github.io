@@ -24,11 +24,12 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump when the js changes.
-            const APP_VERSION = '2026-10-25c';
+            const APP_VERSION = '2026-11-01b';
             window.APP_VERSION = APP_VERSION;
             const im = { imports: { three: '../vendor/three/three.module.js', 'three/addons/': '../vendor/three/addons/' } };
             const mods = ['main', 'complex', 'volume', 'triangulation', 'solver', 'develop', 'homology', 'census',
-                'export', 'ui', 'knotView', 'polyView', 'cuspView', 'surgeryPlot', 'hyperbolic', 'stage', 'linking'];
+                'export', 'ui', 'knotView', 'polyView', 'cuspView', 'surgeryPlot', 'hyperbolic', 'stage', 'linking',
+                'foldView', 'menasco', 'foldData'];
             for (const m of mods) im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             document.write(`<script type="importmap">${JSON.stringify(im)}<\/script>`);
         })();
@@ -50,6 +51,7 @@
 <!-- views of the picture -->
 <div id="view-bar" class="view-bar" role="tablist" aria-label="Picture">
     <button class="view-chip active" data-view="knot" role="tab">Knot</button>
+    <button class="view-chip" data-view="fold" role="tab" title="The knot folding into its two ideal polyhedra, and back">Fold</button>
     <button class="view-chip" data-view="poly" role="tab">Polyhedron</button>
     <button class="view-chip" data-view="cusp" role="tab">Cusp</button>
     <span class="cusp-modes" id="cusp-modes" hidden>
@@ -71,6 +73,21 @@
         <div id="scrub-labels" class="scrub-labels"></div>
     </div>
     <div id="readout" class="readout"></div>
+</div>
+
+<!-- the fold timeline: knot ↔ polyhedra -->
+<div id="fold-bar" class="timeline fold-bar" hidden>
+    <button id="fold-play" class="play-btn" aria-label="Play the fold" title="Play (space)">
+        <svg class="icon-play" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>
+        <svg class="icon-pause" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg>
+    </button>
+    <button id="fold-dir" class="dir-btn" title="Unfold the knot into polyhedra, or fold the polyhedra into the knot"></button>
+    <div class="scrub-wrap">
+        <div id="fold-ticks" class="scrub-ticks"></div>
+        <input id="fold-scrub" class="scrub" type="range" min="0" max="1200" step="1" value="0" aria-label="Fold">
+        <div id="fold-labels" class="scrub-labels"></div>
+    </div>
+    <div id="fold-caption" class="fold-caption"></div>
 </div>
 
 <div id="control-panel">
