@@ -236,13 +236,38 @@
   @media (max-width: 768px) {
     #control-panel { width: calc(100vw - 40px); max-width: 360px; }
   }
+
+  /* deep zoom additions */
+  #stage { touch-action: none; }
+  #progress {
+    position: fixed; top: 0; left: 0; height: 2px; width: 0; z-index: 60; pointer-events: none;
+    background: linear-gradient(90deg, var(--accent), var(--primary));
+    opacity: 0; transition: opacity 0.3s ease;
+  }
+  #progress.on { opacity: 0.9; }
+  #coords { display: flex; flex-direction: column; gap: 1px; max-width: min(560px, calc(100vw - 28px)); }
+  #coords:empty { display: none; }
+  #coords .z { color: var(--text); overflow-wrap: anywhere; }
+  #coords .sp { color: var(--text-muted); }
+  .readout {
+    display: grid; grid-template-columns: auto 1fr; gap: 3px 10px;
+    font-size: 0.76rem; font-variant-numeric: tabular-nums;
+  }
+  .readout .k { color: var(--text-muted); }
+  .readout .v { color: var(--text); text-align: right; overflow-wrap: anywhere; }
+  #refStatus { min-height: 1.45em; }
+  .toggle-btn:disabled { opacity: 0.45; cursor: default; }
+  .toggle-btn:disabled:hover { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+  .info-section p { margin: 0 0 8px; }
+  .info-section p:last-child { margin: 0; }
 </style>
 </head>
 <body>
-<div id="stage" class="orbit-mode">
+<div id="stage" class="orbit-mode" aria-label="Newton fractal: drag to pan, scroll to zoom, click to track an orbit">
   <canvas id="glcanvas"></canvas>
   <canvas id="overlay"></canvas>
 </div>
+<div id="progress"></div>
 <div id="coords"></div>
 
 <div id="control-panel">
@@ -296,6 +321,24 @@
     </div>
 
     <div class="control-group">
+      <p class="group-title">View</p>
+      <div class="readout">
+        <span class="k">Center</span><span class="v" id="vRe"></span>
+        <span class="k"></span><span class="v" id="vIm"></span>
+        <span class="k">Height</span><span class="v" id="vSpan"></span>
+        <span class="k">Iterations</span><span class="v" id="vIter"></span>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="zoomIn">Zoom +</button>
+        <button class="btn" id="zoomOut">Zoom −</button>
+        <button class="btn" id="resetView">Reset</button>
+      </div>
+      <button class="toggle-btn" id="diveBtn">Dive 1000× into the nearest basin boundary</button>
+      <p class="hint" id="refStatus"></p>
+      <p class="hint">Drag to pan · scroll or pinch to zoom · double-click zooms in 4× (Shift: out) · arrow keys pan, + and − zoom. Zooming goes down to heights near 10⁻³⁰.</p>
+    </div>
+
+    <div class="control-group">
       <p class="group-title">Rendering</p>
       <div class="control-row">
         <span class="control-label">Coloring</span>
@@ -315,20 +358,12 @@
         <span class="control-label label-val" id="bandVal">18</span>
       </div>
       <div class="control-row" style="flex-wrap:wrap; gap:12px">
+        <label class="chk"><input type="checkbox" id="chkSmooth" checked> Smooth</label>
         <label class="chk"><input type="checkbox" id="chkCircle"> Unit circle</label>
         <label class="chk"><input type="checkbox" id="chkRoots" checked> Roots</label>
         <label class="chk"><input type="checkbox" id="chkAxes"> Axes</label>
       </div>
-    </div>
-
-    <div class="control-group">
-      <p class="group-title">View</p>
-      <div class="control-row">
-        <button class="btn" id="zoomIn">Zoom +</button>
-        <button class="btn" id="zoomOut">Zoom −</button>
-        <button class="btn" id="resetView">Reset</button>
-      </div>
-      <p class="hint">Drag to pan · scroll to zoom · double-click to zoom in.</p>
+      <p class="hint">The iteration count is a base: deeper views add about 8 steps per factor of 10, and more when many pixels are still unresolved.</p>
     </div>
 
     <div class="control-group">
@@ -337,19 +372,28 @@
     </div>
 
     <div class="info-section">
-      A <b>Pisot number</b> is a real algebraic integer θ &gt; 1 all of whose Galois
+      <p>A <b>Pisot number</b> is a real algebraic integer θ &gt; 1 all of whose Galois
       conjugates lie strictly inside the unit circle. A <b>Salem number</b> is a real
       algebraic integer τ &gt; 1 whose conjugates all lie on or inside the unit circle
       with at least one on it (so τ⁻¹ is a conjugate and the rest have modulus exactly 1).
       The plane is shaded by how fast Newton's method z ↦ z − p(z)/p′(z) converges;
       the basins of the conjugates tile ℂ in a fractal pattern. Click any point to
-      watch its orbit find a conjugate.
+      watch its orbit find a conjugate.</p>
+      <p><b>Deep zoom.</b> Below a height of about 10⁻², the picture is drawn by
+      perturbation. One orbit Z₀, Z₁, … is computed in exact fixed-point arithmetic,
+      and each pixel tracks only its offset δₙ = zₙ − Zₙ in single precision, using
+      δₙ₊₁ = δₙ (δₙA + RₙB) / (p′(Zₙ) + δₙB), where Rₙ = Zₙ − Zₙ₊₁ and
+      A = Σ (k−1) pₖ δₙᵏ⁻², B = Σ k pₖ δₙᵏ⁻² come from the Taylor coefficients pₖ of p
+      at Zₙ. The large terms cancel exactly in this form, so a pixel keeps its full
+      relative precision while it shadows the reference. Once it separates, it carries on
+      with ordinary single-precision Newton steps.</p>
     </div>
 
   </div>
 </div>
 
 <script>
+(function () {
 'use strict';
 
 // ---------- polynomial catalogue (coefficients: highest degree first) ----------
@@ -378,6 +422,41 @@ const SALEM = [
   { name: '≈ 1.722084 (smallest of degree 4)',       coeffs: [1, -1, -1, -1, 1] },
 ];
 const MAXD = 20; // shader-side maximum degree
+
+// ---------- fixed-point coordinates: integers scaled by 2^256 ----------
+const FB = 256, FBn = 256n, SCALE = 2 ** 256;
+const fx = (x) => BigInt(Math.round(x * SCALE));
+const fd = (b) => Number(b) / SCALE;
+function decParts(b, nd) {
+  const neg = b < 0n; if (neg) b = -b;
+  const p10 = 10n ** BigInt(nd);
+  let ip = b >> FBn;
+  let f = ((b & ((1n << FBn) - 1n)) * p10 + (1n << (FBn - 1n))) >> FBn;
+  if (f >= p10) { f -= p10; ip += 1n; }
+  return { neg, ip: ip.toString(), fr: f.toString().padStart(nd, '0') };
+}
+// digits after the point come in groups of five, split by thin spaces so long ones wrap cleanly
+function fmtFx(b, nd) {
+  const { neg, ip, fr } = decParts(b, nd);
+  const zero = ip === '0' && /^0*$/.test(fr);
+  return (neg && !zero ? '−' : '') + ip + '.' + fr.match(/.{1,5}/g).join('\u2009');
+}
+function fmtFxC(x, y, nd) {
+  const yNeg = y < 0n;
+  return `${fmtFx(x, nd)} ${yNeg ? '−' : '+'} ${fmtFx(yNeg ? -y : y, nd)}i`;
+}
+const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+const sup = (n) => (n < 0 ? '⁻' : '') + String(Math.abs(n)).split('').map((c) => SUP[+c]).join('');
+function sci(x, sig = 2) {
+  if (!isFinite(x)) return '∞';
+  if (x === 0) return '0';
+  const ax = Math.abs(x);
+  if (ax >= 1e-3 && ax < 1e5) return String(Number(x.toPrecision(sig + 1)));
+  let e = Math.floor(Math.log10(ax));
+  let m = Number((x / 10 ** e).toPrecision(sig));
+  if (Math.abs(m) >= 10) { m /= 10; e += 1; }
+  return (m === 1 ? '' : m + ' × ') + '10' + sup(e);
+}
 
 // ---------- complex / root utilities ----------
 function findRoots(coeffs) {
@@ -437,6 +516,28 @@ function classifyRoots(roots) {
   return { type, largest };
 }
 
+// evaluate a real-coefficient polynomial (highest first) at a complex point
+function hornerC(c, z) {
+  let re = c[0] || 0, im = 0;
+  for (let i = 1; i < c.length; i++) {
+    const r = re * z[0] - im * z[1] + c[i];
+    im = re * z[1] + im * z[0];
+    re = r;
+  }
+  return [re, im];
+}
+// K = |p''(r) / (2 p'(r))|: near a simple root, Newton steps satisfy s_{n+1} ≈ K s_n²
+function rootConstants(coeffs, roots) {
+  const d = coeffs.length - 1;
+  const d1 = coeffs.slice(0, d).map((a, i) => a * (d - i));
+  const d2 = d1.slice(0, d - 1).map((a, i) => a * (d - 1 - i));
+  return roots.map((r) => {
+    const a = hornerC(d1, r), b = d2.length ? hornerC(d2, r) : [0, 0];
+    const k = Math.hypot(b[0], b[1]) / (2 * Math.hypot(a[0], a[1]));
+    return isFinite(k) ? Math.min(k, 1e6) : 1e6;
+  });
+}
+
 function formatPoly(coeffs) {
   const sup = '⁰¹²³⁴⁵⁶⁷⁸⁹';
   const pow = e => e === 1 ? 'z' : 'z' + String(e).split('').map(d => sup[+d]).join('');
@@ -460,143 +561,451 @@ function fmtC(z, digits = 4) {
   return `${z[0].toFixed(digits)} ${z[1] < 0 ? '−' : '+'} ${Math.abs(z[1]).toFixed(digits)}i`;
 }
 
-// ---------- WebGL setup ----------
-const glCanvas = document.getElementById('glcanvas');
-const gl = glCanvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: false });
+/* ================================================================
+   Reference orbits, computed in workers (BigInt fixed point when deep)
+   ================================================================ */
+// This function runs inside the workers (it is stringified), so it may not use
+// anything from the page's scope.
+function workerMain() {
+  // Taylor coefficients p_k(Z), k = 1..d, scaled by a common factor so the largest
+  // has modulus 1, written as float32 pairs from out[o + 4] on.
+  function taylorInto(c, Zr, Zi, out, o) {
+    const d = c.length - 1;
+    const ar = new Float64Array(d + 1), ai = new Float64Array(d + 1);
+    if (Zr * Zr + Zi * Zi <= 1) {
+      for (let j = 0; j <= d; j++) ar[j] = c[d - j];
+      for (let i = 0; i < d; i++) for (let j = d - 1; j >= i; j--) {
+        const xr = ar[j + 1], xi = ai[j + 1];
+        ar[j] += Zr * xr - Zi * xi; ai[j] += Zr * xi + Zi * xr;
+      }
+    } else {
+      // with u = 1/Z: p_k(Z) is proportional to q_k u^(k-1), where q is the Taylor
+      // shift by 1 of b_j = a_j u^(d-j); everything stays bounded for large |Z|
+      const s = Math.max(Math.abs(Zr), Math.abs(Zi)), a = Zr / s, b = Zi / s, q = (a * a + b * b) * s;
+      const ur = a / q, ui = -b / q;
+      let wr = 1, wi = 0;
+      for (let j = d; j >= 0; j--) {
+        ar[j] = c[d - j] * wr; ai[j] = c[d - j] * wi;
+        const t = wr * ur - wi * ui; wi = wr * ui + wi * ur; wr = t;
+      }
+      for (let i = 0; i < d; i++) for (let j = d - 1; j >= i; j--) { ar[j] += ar[j + 1]; ai[j] += ai[j + 1]; }
+      let vr = 1, vi = 0;
+      for (let k = 1; k <= d; k++) {
+        const xr = ar[k], xi = ai[k];
+        ar[k] = xr * vr - xi * vi; ai[k] = xr * vi + xi * vr;
+        const t = vr * ur - vi * ui; vi = vr * ui + vi * ur; vr = t;
+      }
+    }
+    let mx = 0;
+    for (let k = 1; k <= d; k++) mx = Math.max(mx, Math.hypot(ar[k], ai[k]));
+    if (!(mx > 0) || !isFinite(mx)) mx = 1;
+    for (let k = 1; k <= d; k++) { const t = o + 4 + 2 * (k - 1); out[t] = ar[k] / mx; out[t + 1] = ai[k] / mx; }
+  }
+
+  // one Newton step in double precision; returns the step s = p(z)/p'(z)
+  function stepD(c, zr, zi) {
+    const d = c.length - 1;
+    if (zr * zr + zi * zi <= 1) {
+      let pr = c[0], pi = 0, qr = c[0] * d, qi = 0;
+      for (let k = 1; k <= d; k++) {
+        const t = pr * zr - pi * zi + c[k]; pi = pr * zi + pi * zr; pr = t;
+        if (k < d) { const t2 = qr * zr - qi * zi + c[k] * (d - k); qi = qr * zi + qi * zr; qr = t2; }
+      }
+      const q = qr * qr + qi * qi;
+      return [(pr * qr + pi * qi) / q, (pi * qr - pr * qi) / q];
+    }
+    const s = Math.max(Math.abs(zr), Math.abs(zi)), a = zr / s, b = zi / s, q0 = (a * a + b * b) * s;
+    const ur = a / q0, ui = -b / q0;
+    let Ar = 0, Ai = 0, Br = 0, Bi = 0;
+    for (let i = d; i >= 0; i--) {
+      const t = Ar * ur - Ai * ui + c[i]; Ai = Ar * ui + Ai * ur; Ar = t;
+      const t2 = Br * ur - Bi * ui + c[i] * (d - i); Bi = Br * ui + Bi * ur; Br = t2;
+    }
+    const q = Br * Br + Bi * Bi;
+    const wr = (Ar * Br + Ai * Bi) / q, wi = (Ai * Br - Ar * Bi) / q;
+    return [zr * wr - zi * wi, zr * wi + zi * wr];
+  }
+
+  // fixed point: integers scaled by 2^P
+  function fixedCoeffs(c, prec) {
+    const d = c.length - 1;
+    const toB = (x) => BigInt(Math.round(x * 2 ** prec));
+    return { cB: c.map(toB), dB: c.slice(0, d).map((a, i) => toB(a * (d - i))) };
+  }
+  function stepB(cB, dB, P, zr, zi) {
+    const d = cB.length - 1;
+    let pr = cB[0], pi = 0n;
+    for (let k = 1; k <= d; k++) { const t = ((pr * zr - pi * zi) >> P) + cB[k]; pi = (pr * zi + pi * zr) >> P; pr = t; }
+    let qr = dB[0], qi = 0n;
+    for (let k = 1; k < d; k++) { const t = ((qr * zr - qi * zi) >> P) + dB[k]; qi = (qr * zi + qi * zr) >> P; qr = t; }
+    const den = qr * qr + qi * qi;
+    if (den === 0n) return null;
+    return [((pr * qr + pi * qi) << P) / den, ((pi * qr - pr * qi) << P) / den];
+  }
+
+  // The orbit of (cx, cy) with, for every step m, the texels
+  // [Z_m, R_m = Z_m - Z_{m+1}] and the normalised Taylor coefficients of p at Z_m.
+  function refOrbit(msg) {
+    const { cx, cy, bits, prec, maxIter, coeffs: c, keep } = msg;
+    const d = c.length - 1, T = 1 + Math.ceil(d / 2), F = 4 * T, cap = maxIter + 2;
+    const data = new Float32Array(F * cap), zd = new Float64Array(2 * cap), rd = new Float64Array(2 * cap);
+    const ptsX = [], ptsY = [];
+    let len = 0, conv = false, status = 'maxed';
+    const push = (Zr, Zi, Rr, Ri, bx, by) => {
+      const o = len * F;
+      data[o] = Zr; data[o + 1] = Zi; data[o + 2] = Rr; data[o + 3] = Ri;
+      taylorInto(c, Zr, Zi, data, o);
+      zd[2 * len] = Zr; zd[2 * len + 1] = Zi; rd[2 * len] = Rr; rd[2 * len + 1] = Ri;
+      if (keep) { ptsX.push(bx); ptsY.push(by); }
+      len++;
+    };
+    if (prec <= 53) {
+      let zr = Number(BigInt(cx)) / 2 ** bits, zi = Number(BigInt(cy)) / 2 ** bits;
+      const toFx = (x) => keep ? (BigInt(Math.round(x * 2 ** 64)) << BigInt(bits - 64)).toString() : '';
+      for (let m = 0; m <= maxIter; m++) {
+        const [sr, si] = stepD(c, zr, zi);
+        if (!isFinite(sr) || !isFinite(si)) { push(zr, zi, 0, 0, toFx(zr), toFx(zi)); status = 'critical'; break; }
+        if (Math.hypot(sr, si) <= 1e-14 * Math.max(1, Math.hypot(zr, zi))) {
+          push(zr, zi, 0, 0, toFx(zr), toFx(zi)); conv = true; status = 'converged'; break;
+        }
+        push(zr, zi, sr, si, toFx(zr), toFx(zi));
+        zr -= sr; zi -= si;
+      }
+    } else {
+      const P = BigInt(prec), sh = BigInt(bits - prec), sc = 2 ** -prec;
+      const { cB, dB } = fixedCoeffs(c, prec);
+      const tol = 1n << 32n;   // |s| below 2^16 ulp: the orbit has reached its root
+      let zr = BigInt(cx) >> sh, zi = BigInt(cy) >> sh;
+      for (let m = 0; m <= maxIter; m++) {
+        const Zr = Number(zr) * sc, Zi = Number(zi) * sc;
+        const bx = keep ? (zr << sh).toString() : '', by = keep ? (zi << sh).toString() : '';
+        const s = stepB(cB, dB, P, zr, zi);
+        if (!s) { push(Zr, Zi, 0, 0, bx, by); status = 'critical'; break; }
+        const [sr, si] = s;
+        if (sr * sr + si * si <= tol) { push(Zr, Zi, 0, 0, bx, by); conv = true; status = 'converged'; break; }
+        push(Zr, Zi, Number(sr) * sc, Number(si) * sc, bx, by);
+        zr -= sr; zi -= si;
+      }
+    }
+    return { len, conv, status, T, data: data.slice(0, F * len), zd: zd.slice(0, 2 * len), rd: rd.slice(0, 2 * len), ptsX, ptsY };
+  }
+
+  // which root (index into roots) the exact orbit of (zr, zi) reaches; -1 for none
+  function classify(cB, dB, P, prec, zr, zi, maxIter, roots) {
+    const sc = 2 ** -prec;
+    const thr = BigInt(Math.round(1e-9 * 2 ** prec)) ** 2n;
+    for (let m = 0; m < maxIter; m++) {
+      const s = stepB(cB, dB, P, zr, zi);
+      if (!s) return -1;
+      zr -= s[0]; zi -= s[1];
+      if (s[0] * s[0] + s[1] * s[1] < thr) {
+        const x = Number(zr) * sc, y = Number(zi) * sc;
+        let best = -1, bd = 1e-8;
+        roots.forEach((r, i) => { const q = (x - r[0]) ** 2 + (y - r[1]) ** 2; if (q < bd) { bd = q; best = i; } });
+        return best;
+      }
+    }
+    return -1;
+  }
+  // bisect between two points in different basins to a point of the Julia set
+  function boundary(msg) {
+    const { bits, prec, maxIter, coeffs: c, roots, steps } = msg;
+    const P = BigInt(prec), sh = BigInt(bits - prec);
+    const { cB, dB } = fixedCoeffs(c, prec);
+    let ax = BigInt(msg.ax) >> sh, ay = BigInt(msg.ay) >> sh, bx = BigInt(msg.bx) >> sh, by = BigInt(msg.by) >> sh;
+    const ka = classify(cB, dB, P, prec, ax, ay, maxIter, roots);
+    const kb = classify(cB, dB, P, prec, bx, by, maxIter, roots);
+    if (ka === kb) return { ok: false };
+    for (let i = 0; i < steps; i++) {
+      const mx = (ax + bx) >> 1n, my = (ay + by) >> 1n;
+      if (classify(cB, dB, P, prec, mx, my, maxIter, roots) === ka) { ax = mx; ay = my; } else { bx = mx; by = my; }
+    }
+    return { ok: true, x: (((ax + bx) >> 1n) << sh).toString(), y: (((ay + by) >> 1n) << sh).toString() };
+  }
+  // polish the double-precision roots to fixed point, for markers in deep views
+  function refineRoots(msg) {
+    const { bits, prec, coeffs: c, roots } = msg;
+    const P = BigInt(prec), sh = BigInt(bits - prec);
+    const { cB, dB } = fixedCoeffs(c, prec);
+    return roots.map(([x, y]) => {
+      let zr = BigInt(Math.round(x * 2 ** 60)) << (P - 60n), zi = BigInt(Math.round(y * 2 ** 60)) << (P - 60n);
+      for (let m = 0; m < 200; m++) {
+        const s = stepB(cB, dB, P, zr, zi);
+        if (!s) break;
+        zr -= s[0]; zi -= s[1];
+        if (s[0] * s[0] + s[1] * s[1] <= 1n << 32n) break;
+      }
+      return [(zr << sh).toString(), (zi << sh).toString()];
+    });
+  }
+
+  self.onmessage = (e) => {
+    const msg = e.data;
+    if (msg.type === 'ref') {
+      const r = refOrbit(msg);
+      self.postMessage({ type: 'ref', id: msg.id, ...r }, [r.data.buffer, r.zd.buffer, r.rd.buffer]);
+    } else if (msg.type === 'boundary') {
+      self.postMessage({ type: 'boundary', id: msg.id, ...boundary(msg) });
+    } else if (msg.type === 'roots') {
+      self.postMessage({ type: 'roots', id: msg.id, key: msg.key, roots: refineRoots(msg) });
+    }
+  };
+}
+const workerURL = URL.createObjectURL(new Blob(['(' + workerMain.toString() + ')();'], { type: 'text/javascript' }));
+
+// ---------- DOM ----------
+const $ = (id) => document.getElementById(id);
+const stage = $('stage');
+const glCanvas = $('glcanvas');
+const overlay = $('overlay');
+const octx = overlay.getContext('2d');
+const panel = $('control-panel');
+const polySelect = $('polySelect');
+const errBox = $('err');
+const orbitStatus = $('orbitStatus');
+function showError(msg) { errBox.style.display = 'block'; errBox.textContent = msg; }
+
+/* ================================================================
+   WebGL 2: data pass (Newton, direct or perturbed) → float layers → color pass
+   ================================================================ */
+const gl = glCanvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'high-performance' });
+let glOK = !!gl;
+if (!gl) showError('WebGL2 is required but not available in this browser.');
+else if (!gl.getExtension('EXT_color_buffer_float')) {
+  glOK = false;
+  showError('This page needs float render targets (EXT_color_buffer_float), which this GPU does not provide.');
+}
 
 const VS = `#version 300 es
-in vec2 a_pos;
-void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
+const vec2 P[3] = vec2[3](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+void main() { gl_Position = vec4(P[gl_VertexID], 0.0, 1.0); }`;
 
-const FS = `#version 300 es
+// Each pixel stores (smooth convergence time T, root index). In perturbation mode the
+// pixel follows delta = z - Z_m, with Z_m read from the reference texture.
+const DATA_FS = `#version 300 es
 precision highp float;
-out vec4 outColor;
+precision highp int;
+precision highp sampler2D;
+uniform sampler2D u_ref;      // per reference step: u_T texels, 4096 per row
+uniform bool u_pert, u_refConv;
+uniform int u_T, u_refBase, u_refLen;
+uniform vec2 u_dc0;           // layer center minus the reference point Z_base
+uniform vec2 u_center;        // layer center (direct mode)
+uniform vec2 u_span;          // layer width and height in complex units
+uniform vec2 u_res;
+uniform int u_maxIter, u_deg;
+uniform float u_c[${MAXD + 1}];   // p, highest degree first
+uniform float u_tau2, u_L2;
+uniform vec2 u_roots[${MAXD}];
+uniform float u_rootK[${MAXD}];
+layout(location = 0) out vec4 o;
 
-uniform vec2  u_center;     // complex-plane center
-uniform float u_span;       // vertical span in complex units
-uniform vec2  u_res;        // canvas resolution (pixels)
-uniform int   u_degree;
-uniform float u_coeffs[${MAXD + 1}];   // p, highest degree first
-uniform float u_dcoeffs[${MAXD}];      // p', highest degree first
-uniform vec2  u_roots[${MAXD}];
-uniform int   u_maxIter;
-uniform float u_bands;      // iterations mapped onto full palette
-uniform int   u_mode;       // 0 = spectrum, 1 = by root
+vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+vec2 cdiv(vec2 a, vec2 b) { return vec2(dot(a, b), a.y * b.x - a.x * b.y) / dot(b, b); }
+vec4 refTexel(int i) { return texelFetch(u_ref, ivec2(i & 4095, i >> 12), 0); }
+vec2 refCoef(int b, int k) { vec4 t = refTexel(b + 1 + ((k - 1) >> 1)); return ((k - 1) & 1) == 0 ? t.xy : t.zw; }
 
-vec2 cmul(vec2 a, vec2 b) { return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x); }
-vec2 cdiv(vec2 a, vec2 b) {
-  float d = dot(b, b);
-  return vec2(dot(a, b), a.y*b.x - a.x*b.y) / d;
+// s = p(z) / p'(z); for |z| > 1 written in u = 1/z so nothing overflows
+vec2 newtonStep(vec2 z) {
+  float dg = float(u_deg);
+  if (dot(z, z) <= 1.0) {
+    vec2 p = vec2(u_c[0], 0.0), dp = vec2(u_c[0] * dg, 0.0);
+    for (int k = 1; k <= ${MAXD}; k++) {
+      if (k > u_deg) break;
+      p = cmul(p, z) + vec2(u_c[k], 0.0);
+      if (k < u_deg) dp = cmul(dp, z) + vec2(u_c[k] * (dg - float(k)), 0.0);
+    }
+    return cdiv(p, dp);
+  }
+  vec2 u = vec2(z.x, -z.y) / dot(z, z);
+  vec2 A = vec2(0.0), B = vec2(0.0);
+  for (int i = ${MAXD}; i >= 0; i--) {
+    if (i > u_deg) continue;
+    A = cmul(A, u) + vec2(u_c[i], 0.0);
+    B = cmul(B, u) + vec2(u_c[i] * (dg - float(i)), 0.0);
+  }
+  return cmul(z, cdiv(A, B));
 }
+
+void main() {
+  vec2 off = (gl_FragCoord.xy / u_res - 0.5) * u_span;
+  bool pert = u_pert;
+  int m = u_refBase;
+  vec2 dl = u_dc0 + off;
+  vec2 z = pert ? refTexel(m * u_T).xy + dl : u_center + off;
+  vec2 s = vec2(0.0);
+  bool done = false;
+  int n;
+  for (n = 0; n < u_maxIter; n++) {
+    if (pert) {
+      int b = m * u_T;
+      vec4 t0 = refTexel(b);
+      vec2 R = t0.zw;
+      vec2 A = vec2(0.0), B = vec2(0.0);
+      for (int k = ${MAXD}; k >= 2; k--) {
+        if (k > u_deg) continue;
+        vec2 pk = refCoef(b, k);
+        A = cmul(A, dl) + float(k - 1) * pk;
+        B = cmul(B, dl) + float(k) * pk;
+      }
+      // delta' = N(Z + delta) - N(Z), with the O(delta) terms cancelled algebraically
+      vec2 dn = cdiv(cmul(dl, cmul(dl, A) + cmul(R, B)), refCoef(b, 1) + cmul(dl, B));
+      s = R + dl - dn;
+      vec2 Zn;
+      if (m + 1 < u_refLen) { m++; Zn = refTexel(m * u_T).xy; }
+      else if (u_refConv) Zn = t0.xy;                // the reference sits on its root
+      else { Zn = t0.xy - R; pert = false; }         // the reference ran out: go on directly
+      dl = dn;
+      z = Zn + dl;
+      // far from the reference: single precision on z itself is now enough
+      if (dot(dl, dl) > u_tau2 * max(u_L2, dot(Zn, Zn))) pert = false;
+    } else {
+      s = newtonStep(z);
+      z -= s;
+    }
+    float s2 = dot(s, s);
+    if (!(s2 < 1.0e30)) break;            // a pole or an overflow
+    if (s2 < 1.0e-6) { done = true; break; }
+  }
+  if (!done) { o = vec4(-1.0, -1.0, 0.0, 0.0); return; }
+  int best = 0;
+  float bd = 1.0e30;
+  for (int k = 0; k < ${MAXD}; k++) {
+    if (k >= u_deg) break;
+    vec2 q = z - u_roots[k];
+    float dd = dot(q, q);
+    if (dd < bd) { bd = dd; best = k; }
+  }
+  // u_{n+1} = u_n^2 in the quadratic regime, so T is the same whichever step we stop at;
+  // T is the (fractional) step at which u falls below 1e-6, the old banding threshold
+  float u = clamp(u_rootK[best] * length(s), 1.0e-30, 0.5);
+  o = vec4(float(n) + log2(-13.815511 / log(u)), float(best), 0.0, 0.0);
+}`;
+
+const COLOR_FS = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+uniform sampler2D u_top, u_bot;
+uniform bool u_hasTop, u_hasBot;
+uniform vec4 u_xfTop, u_xfBot;    // (k = h_screen / h_layer, shift.x, shift.y, first finished row)
+uniform vec2 u_resTop, u_resBot;
+uniform vec2 u_screen;
+uniform float u_win0, u_bands;
+uniform int u_mode;               // 0 = spectrum, 1 = by root
+uniform bool u_smooth;
+out vec4 o;
 
 // palette: green core -> blues -> purple -> dark red -> red -> orange -> yellow
 vec3 spectrum(float t) {
   const int N = 10;
   vec3 stops[N] = vec3[](
-    vec3(0.72, 0.90, 0.35),  // pale green
-    vec3(0.23, 0.63, 0.26),  // green
-    vec3(0.05, 0.45, 0.34),  // deep green
-    vec3(0.15, 0.47, 0.75),  // blue
-    vec3(0.14, 0.27, 0.62),  // deep blue
-    vec3(0.30, 0.16, 0.58),  // indigo
-    vec3(0.45, 0.09, 0.30),  // maroon
-    vec3(0.72, 0.13, 0.13),  // red
-    vec3(0.93, 0.42, 0.06),  // orange
-    vec3(1.00, 0.92, 0.35)   // yellow
+    vec3(0.72, 0.90, 0.35), vec3(0.23, 0.63, 0.26), vec3(0.05, 0.45, 0.34),
+    vec3(0.15, 0.47, 0.75), vec3(0.14, 0.27, 0.62), vec3(0.30, 0.16, 0.58),
+    vec3(0.45, 0.09, 0.30), vec3(0.72, 0.13, 0.13), vec3(0.93, 0.42, 0.06),
+    vec3(1.00, 0.92, 0.35)
   );
   float x = clamp(t, 0.0, 1.0) * float(N - 1);
-  int i = int(floor(x));
-  i = min(i, N - 2);
+  int i = min(int(floor(x)), N - 2);
   return mix(stops[i], stops[i + 1], fract(x));
 }
-
 vec3 hsl2rgb(float h, float s, float l) {
   vec3 k = mod(vec3(0.0, 8.0, 4.0) + h * 12.0, 12.0);
   float a = s * min(l, 1.0 - l);
   return l - a * max(min(min(k - 3.0, 9.0 - k), vec3(1.0)), vec3(-1.0));
 }
-
+vec3 shade(vec4 d) {
+  if (d.x < 0.0) return vec3(1.0, 0.95, 0.45);   // no convergence
+  float T = u_smooth ? d.x : floor(d.x);
+  float t = clamp((T - u_win0) / u_bands, 0.0, 1.0);
+  if (u_mode == 0) return spectrum(t);
+  float hue = fract(d.y * 0.618034 + 0.15);
+  return hsl2rgb(hue, 0.75, clamp(0.62 - 0.5 * t, 0.10, 0.62));
+}
+vec4 sampleLayer(sampler2D tex, vec2 res, vec4 xf, vec2 p) {
+  vec2 t = (p * xf.x + xf.yz + 0.5) * res - 0.5;
+  vec2 fl = floor(t), f = t - fl;
+  ivec2 i0 = ivec2(fl);
+  vec3 acc = vec3(0.0);
+  float ws = 0.0;
+  for (int j = 0; j < 2; j++) for (int i = 0; i < 2; i++) {
+    ivec2 q = i0 + ivec2(i, j);
+    if (q.x < 0 || q.y < 0 || q.x >= int(res.x) || q.y >= int(res.y) || float(q.y) < xf.w) continue;
+    float wt = (i == 0 ? 1.0 - f.x : f.x) * (j == 0 ? 1.0 - f.y : f.y);
+    acc += wt * shade(texelFetch(tex, q, 0));
+    ws += wt;
+  }
+  return vec4(acc, ws);
+}
 void main() {
-  float pxScale = u_span / u_res.y;
-  vec2 z = u_center + (gl_FragCoord.xy - 0.5 * u_res) * pxScale;
-
-  int it = -1;
-  for (int i = 0; i < 400; i++) {
-    if (i >= u_maxIter) break;
-    // Horner evaluation of p and p'
-    vec2 p = vec2(u_coeffs[0], 0.0);
-    for (int k = 1; k <= ${MAXD}; k++) {
-      if (k > u_degree) break;
-      p = cmul(p, z) + vec2(u_coeffs[k], 0.0);
-    }
-    vec2 dp = vec2(u_dcoeffs[0], 0.0);
-    for (int k = 1; k <= ${MAXD - 1}; k++) {
-      if (k > u_degree - 1) break;
-      dp = cmul(dp, z) + vec2(u_dcoeffs[k], 0.0);
-    }
-    if (dot(dp, dp) < 1e-24) break;
-    vec2 step = cdiv(p, dp);
-    z -= step;
-    if (dot(step, step) < 1e-12) { it = i; break; }
+  vec2 p = gl_FragCoord.xy / u_screen - 0.5;
+  vec4 a = u_hasTop ? sampleLayer(u_top, u_resTop, u_xfTop, p) : vec4(0.0);
+  vec3 col = a.rgb;
+  float rest = 1.0 - a.a;
+  if (rest > 0.001) {
+    vec4 b = u_hasBot ? sampleLayer(u_bot, u_resBot, u_xfBot, p) : vec4(0.0);
+    col += rest * (b.a > 0.001 ? b.rgb / b.a : vec3(0.008, 0.024, 0.09));
   }
-
-  if (it < 0) { outColor = vec4(1.0, 0.95, 0.45, 1.0); return; }  // no convergence
-
-  float t = clamp(float(it) / u_bands, 0.0, 1.0);
-  vec3 col;
-  if (u_mode == 0) {
-    col = spectrum(t);
-  } else {
-    // nearest root -> hue
-    int best = 0;
-    float bd = 1e30;
-    for (int k = 0; k < ${MAXD}; k++) {
-      if (k >= u_degree) break;
-      vec2 d = z - u_roots[k];
-      float dd = dot(d, d);
-      if (dd < bd) { bd = dd; best = k; }
-    }
-    float hue = fract(float(best) * 0.618034 + 0.15);
-    float l = clamp(0.62 - 0.5 * t, 0.10, 0.62);
-    col = hsl2rgb(hue, 0.75, l);
-  }
-  outColor = vec4(col, 1.0);
+  o = vec4(col, 1.0);
 }`;
 
-let program = null;
-let uni = {};
-if (!gl) {
-  const errBox0 = document.getElementById('err');
-  errBox0.style.display = 'block';
-  errBox0.textContent = 'WebGL2 is required but not available in this browser.';
-} else {
-  const compile = (type, src) => {
+function makeProgram(fsSrc) {
+  const sh = (type, src) => {
     const s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      throw new Error(gl.getShaderInfoLog(s));
-    }
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
     return s;
   };
-  program = gl.createProgram();
-  gl.attachShader(program, compile(gl.VERTEX_SHADER, VS));
-  gl.attachShader(program, compile(gl.FRAGMENT_SHADER, FS));
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    throw new Error(gl.getProgramInfoLog(program));
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, VS));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fsSrc));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const U = {};
+  const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); U[info.name] = gl.getUniformLocation(p, info.name); }
+  return { p, U };
+}
+function makeFloatTexture(W, H, data) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, data);
+  return tex;
+}
+
+let dataProg = null, colorProg = null, dummyTex = null;
+if (glOK) {
+  try {
+    dataProg = makeProgram(DATA_FS);
+    colorProg = makeProgram(COLOR_FS);
+    dummyTex = makeFloatTexture(1, 1, new Float32Array(4));
+  } catch (e) {
+    glOK = false;
+    showError('The renderer did not compile on this GPU: ' + e.message);
   }
-  gl.useProgram(program);
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const loc = gl.getAttribLocation(program, 'a_pos');
-  gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  for (const name of ['u_center', 'u_span', 'u_res', 'u_degree', 'u_coeffs',
-                      'u_dcoeffs', 'u_roots', 'u_maxIter', 'u_bands', 'u_mode']) {
-    uni[name] = gl.getUniformLocation(program, name);
+}
+
+/* layers: float textures holding (T, root index) per pixel */
+let layers = [], complete = null, job = null;
+function makeLayer(W, H) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA32F, W, H);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+    glOK = false;
+    showError('Float render targets are not usable on this GPU.');
   }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { tex, fbo, has: false, cx: 0n, cy: 0n, span: 1, rw: 1, rh: 1, rowDone: 1 };
 }
 
 // ---------- state ----------
@@ -605,12 +1014,14 @@ const state = {
   presetIndex: { pisot: 1, salem: 0 },   // default: z^4 - z^3 - 1
   coeffs: PISOT[1].coeffs.slice(),
   roots: [],
+  rootK: [],
+  rootsFx: [],
+  L: 1,                // largest root modulus: the scale of the dynamics
   classification: null,
-  center: { x: 0.25, y: 0 },
-  span: 2.8,
   maxIter: 80,
   bands: 18,
   mode: 1,
+  smooth: true,
   showCircle: false,
   showRoots: true,
   showAxes: false,
@@ -618,20 +1029,307 @@ const state = {
   orbitSpeed: 4,       // steps per second
   followCam: false,
 };
+let polyKey = '';
 
-// orbit: { pts: [[re,im],...], start, targetIdx (root index or -1), status }
-let orbit = null;
-// animation: t = fractional step position; pulse = seconds since arrival
-const anim = { t: 0, playing: false, pulse: 0, last: 0, raf: 0, running: false };
+const HOME = { x: 0.25, y: 0, span: 2.8 };
+const MIN_SPAN = 1e-30, MAX_SPAN = 1e4, MAX_ITER = 6000;
+const PERT_SPAN = 1e-2;   // below this height (times the root scale) pixels perturb around a reference
+const TAU = 0.1;          // a pixel leaves perturbation once |delta| > TAU * max(L, |Z|)
+const view = { cx: fx(HOME.x), cy: fx(HOME.y), span: HOME.span };   // span = complex height of the canvas
+let viewVersion = 0, viewMoved = true;
+let cssW = 1, cssH = 1, devW = 1, devH = 1;
+let anchor = null;        // recent zoom focus: the preferred spot for the next reference
 
-// ---------- DOM ----------
-const overlay = document.getElementById('overlay');
-const octx = overlay.getContext('2d');
-const stage = document.getElementById('stage');
-const polySelect = document.getElementById('polySelect');
-const errBox = document.getElementById('err');
-const orbitStatus = document.getElementById('orbitStatus');
+function setView(cx, cy, span) {
+  view.cx = cx; view.cy = cy;
+  view.span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, span));
+  viewMoved = true;
+}
+const needsRef = (span) => span < PERT_SPAN * Math.max(1, state.L);
 
+let iterFloor = 0, iterFloorSpan = 0;
+function iterAuto(span) { return state.maxIter + 8 * Math.max(0, Math.log10(3 / span)); }
+function iterFor(span) {
+  let n = iterAuto(span);
+  if (iterFloor && span < 8 * iterFloorSpan) n = Math.max(n, iterFloor);
+  return Math.min(MAX_ITER, Math.round(n));
+}
+function precFor(span) { return span > 1e-10 ? 53 : 32 * Math.ceil((Math.log2(1 / span) + 64) / 32); }
+const digitsFor = (span) => Math.min(34, Math.max(5, Math.ceil(-Math.log10(span / Math.max(1, cssH))) + 1));
+
+/* ================================================================
+   Reference orbits
+   ================================================================ */
+let refWorker = null, refReq = null, ref = null, refSeq = 0;
+let auxWorker = null, auxSeq = 0, orbitReq = null, diveReq = null, rootsReq = null;
+function startRefWorker() { refWorker = new Worker(workerURL); refWorker.onmessage = onRefMessage; }
+function startAuxWorker() { auxWorker = new Worker(workerURL); auxWorker.onmessage = onAuxMessage; }
+
+function buildRef(msg, req) {
+  const texels = msg.len * msg.T, rows = Math.max(1, Math.ceil(texels / 4096));
+  const buf = new Float32Array(4096 * rows * 4);
+  buf.set(msg.data.subarray(0, texels * 4));
+  return {
+    id: req.id, key: req.key, prec: req.prec, N: req.N, span: req.span,
+    len: msg.len, conv: msg.conv, status: msg.status, T: msg.T,
+    tex: glOK ? makeFloatTexture(4096, rows, buf) : null,
+    ptsX: msg.ptsX.map(BigInt), ptsY: msg.ptsY.map(BigInt), zd: msg.zd, rd: msg.rd,
+  };
+}
+function dropRef(r) {
+  if (!r || !r.tex || r === ref || (orbit && r === orbit.ref)) return;
+  if (job && job.ref === r) job = null;
+  gl.deleteTexture(r.tex);
+  r.tex = null;
+}
+function requestRef(cx, cy, span) {
+  const N = Math.min(MAX_ITER, Math.max(iterFor(span), Math.round(iterFor(span / 64) * 1.05)));
+  const prec = precFor(span / 64);
+  if (refReq) { refWorker.terminate(); startRefWorker(); }
+  refReq = { id: ++refSeq, cx, cy, N, prec, span, key: polyKey };
+  refWorker.postMessage({ type: 'ref', id: refReq.id, cx: cx.toString(), cy: cy.toString(), bits: FB, prec, maxIter: N, coeffs: state.coeffs, keep: true });
+}
+function onRefMessage(e) {
+  const msg = e.data;
+  if (!refReq || msg.id !== refReq.id) return;
+  const req = refReq; refReq = null;
+  if (req.key !== polyKey) return;
+  const old = ref;
+  ref = buildRef(msg, req);
+  if (job && job.ref === old) job = null;   // a running job used the old reference
+  dropRef(old);
+  pickMemo.v = -1;
+}
+
+// the step k of reference r that can serve the current view, or -1
+function refBase(r, span, N) {
+  if (!r || !r.tex || r.key !== polyKey || r.prec < precFor(span)) return -1;
+  const lim = 3 * span;
+  const fits = (k) => r.conv || r.len - 1 - k >= N;
+  const dist = (k) => Math.hypot(fd(view.cx - r.ptsX[k]), fd(view.cy - r.ptsY[k]));
+  if (fits(0) && dist(0) <= lim) return 0;
+  let best = -1, bd = lim;
+  for (let k = 1; k < r.ptsX.length && fits(k); k++) {
+    const dd = dist(k);
+    if (dd <= bd) { bd = dd; best = k; }
+  }
+  return best;
+}
+const pickMemo = { v: -1, N: 0, res: null };
+function pickRef(N) {
+  if (pickMemo.v === viewVersion && pickMemo.N === N) return pickMemo.res;
+  let res = null;
+  const k = refBase(ref, view.span, N);
+  if (k >= 0) res = { r: ref, k };
+  else if (orbit && orbit.ref) {
+    const k2 = refBase(orbit.ref, view.span, N);
+    if (k2 >= 0) res = { r: orbit.ref, k: k2 };
+  }
+  pickMemo.v = viewVersion; pickMemo.N = N; pickMemo.res = res;
+  return res;
+}
+function reqCovers(q, N) {
+  return q && q.key === polyKey && q.prec >= precFor(view.span) && q.N >= N &&
+    Math.hypot(fd(view.cx - q.cx), fd(view.cy - q.cy)) <= 3 * view.span;
+}
+
+/* ================================================================
+   Progressive rendering: a low-resolution pass, then full resolution
+   in bands paced by GPU fences
+   ================================================================ */
+let loScale = 0.3, bandPx = 60000, fence = null, fenceT = 0, readBuf = null;
+let win0 = 0, win0T = null;
+let dirty = true, loSnap = null, lastUse = null;
+
+function startJob(phase, use) {
+  const target = layers[0] === complete ? layers[1] : layers[0];
+  const s = phase === 'lo' ? loScale : 1;
+  const rw = Math.max(8, Math.round(devW * s)), rh = Math.max(8, Math.round(devH * s));
+  const N = iterFor(view.span);
+  Object.assign(target, { has: true, cx: view.cx, cy: view.cy, span: view.span, rw, rh, rowDone: rh, phase, N, key: polyKey });
+  job = { phase, layer: target, N, ref: use ? use.r : null, base: use ? use.k : 0, version: viewVersion, t0: performance.now() };
+  lastUse = use;
+}
+function issueBand() {
+  const L = job.layer, r = job.ref;
+  const rows = Math.min(L.rowDone, Math.max(2, Math.round(bandPx / L.rw)));
+  const y0 = L.rowDone - rows;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+  gl.viewport(0, 0, L.rw, L.rh);
+  gl.enable(gl.SCISSOR_TEST);
+  gl.scissor(0, y0, L.rw, rows);
+  gl.useProgram(dataProg.p);
+  const U = dataProg.U;
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, r ? r.tex : dummyTex);
+  gl.uniform1i(U.u_ref, 0);
+  gl.uniform1i(U.u_pert, r ? 1 : 0);
+  if (r) {
+    gl.uniform1i(U.u_T, r.T);
+    gl.uniform1i(U.u_refBase, job.base);
+    gl.uniform1i(U.u_refLen, r.len);
+    gl.uniform1i(U.u_refConv, r.conv ? 1 : 0);
+    gl.uniform2f(U.u_dc0, fd(L.cx - r.ptsX[job.base]), fd(L.cy - r.ptsY[job.base]));
+  } else {
+    gl.uniform1i(U.u_T, 1); gl.uniform1i(U.u_refBase, 0); gl.uniform1i(U.u_refLen, 1);
+    gl.uniform1i(U.u_refConv, 0); gl.uniform2f(U.u_dc0, 0, 0);
+  }
+  gl.uniform2f(U.u_center, fd(L.cx), fd(L.cy));
+  gl.uniform2f(U.u_span, L.span * cssW / cssH, L.span);
+  gl.uniform2f(U.u_res, L.rw, L.rh);
+  gl.uniform1i(U.u_maxIter, job.N);
+  const deg = state.coeffs.length - 1;
+  gl.uniform1i(U.u_deg, deg);
+  const cf = new Float32Array(MAXD + 1);
+  state.coeffs.forEach((a, i) => { cf[i] = a; });
+  gl.uniform1fv(U['u_c[0]'], cf);
+  gl.uniform1f(U.u_tau2, TAU * TAU);
+  gl.uniform1f(U.u_L2, state.L * state.L);
+  const rootsFlat = new Float32Array(MAXD * 2), ks = new Float32Array(MAXD);
+  state.roots.forEach((z, i) => { rootsFlat[2 * i] = z[0]; rootsFlat[2 * i + 1] = z[1]; ks[i] = state.rootK[i]; });
+  gl.uniform2fv(U['u_roots[0]'], rootsFlat);
+  gl.uniform1fv(U['u_rootK[0]'], ks);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.disable(gl.SCISSOR_TEST);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  L.rowDone = y0;
+  fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+  fenceT = performance.now();
+  gl.flush();
+  dirty = true;
+}
+// read the low-resolution layer back: color window, iteration budget, Dive targets
+function finishLo() {
+  const L = job.layer, n = L.rw * L.rh;
+  if (!readBuf || readBuf.length < 4 * n) readBuf = new Float32Array(4 * n);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+  gl.readPixels(0, 0, L.rw, L.rh, gl.RGBA, gl.FLOAT, readBuf);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  const cls = new Int8Array(n);
+  const step = Math.max(1, Math.floor(n / 30000));
+  const sample = [];
+  let unresolved = 0;
+  for (let i = 0; i < n; i++) {
+    const v = readBuf[4 * i];
+    if (v < 0) { cls[i] = -1; unresolved++; }
+    else { cls[i] = readBuf[4 * i + 1]; if (i % step === 0) sample.push(v); }
+  }
+  loSnap = { cls, rw: L.rw, rh: L.rh, cx: L.cx, cy: L.cy, span: L.span, key: L.key };
+  let tail = 0;
+  if (sample.length > 20) {
+    sample.sort((a, b) => a - b);
+    // shallow views keep the absolute count; deep ones start the palette near their fastest pixels
+    const lo = Math.max(0, sample[Math.floor(sample.length * 0.01)] - 2);
+    if (win0T === null) win0 = lo;
+    win0T = lo;
+    tail = sample[Math.floor(sample.length * 0.995)];
+  }
+  return { tail, unresolved: unresolved / n };
+}
+function onJobDone(now) {
+  const L = job.layer;
+  complete = L;
+  if (job.phase === 'lo') {
+    const ms = now - job.t0;
+    if (ms > 140) loScale = Math.max(0.1, loScale * 0.75);
+    else if (ms < 35) loScale = Math.min(0.5, loScale * 1.2);
+    const { tail, unresolved } = finishLo();
+    if (job.version === viewVersion && unresolved > 0.002 && tail > 0.7 * job.N && job.N < MAX_ITER) {
+      // pixels are still converging near the limit: the unresolved ones probably just need more steps
+      const next = Math.min(MAX_ITER, 2 * job.N, Math.round(6 * iterAuto(view.span)));
+      if (next > iterFor(view.span)) {
+        iterFloor = next; iterFloorSpan = view.span;
+        job = null; viewMoved = true;
+        return;
+      }
+    }
+    const stale = job.version !== viewVersion;
+    const use = job.ref ? { r: job.ref, k: job.base } : null;
+    job = null;
+    if (!stale) startJob('hi', use);
+  } else {
+    job = null;
+  }
+}
+const NO_FENCE = !!window.__nfNoFence;   // set only by a headless test page
+function schedule(now) {
+  if (NO_FENCE) { if (fence) { gl.deleteSync(fence); fence = null; } bandPx = devW * devH; }
+  if (fence) {
+    if (gl.getSyncParameter(fence, gl.SYNC_STATUS) !== gl.SIGNALED) return;
+    gl.deleteSync(fence); fence = null;
+    const ms = now - fenceT;
+    if (ms < 22) bandPx = Math.min(devW * devH, bandPx * 1.5);
+    else if (ms > 45) bandPx = Math.max(4096, bandPx * 0.6);
+  }
+  if (job && job.layer.rowDone <= 0) onJobDone(now);
+  if (job && job.phase === 'hi' && job.version !== viewVersion) job = null;
+  if (job && job.layer.key !== polyKey) job = null;
+  if (job && job.ref && !job.ref.tex) job = null;
+  if (!job) {
+    const N = iterFor(view.span);
+    let use = null;
+    if (needsRef(view.span)) {
+      use = pickRef(N);
+      if (!use) {
+        if (!reqCovers(refReq, N)) {
+          const useA = anchor && now - anchor.t < 1500 &&
+            Math.hypot(fd(view.cx - anchor.cx), fd(view.cy - anchor.cy)) <= 0.75 * view.span;
+          if (useA) requestRef(anchor.cx, anchor.cy, anchor.spanFinal ? Math.min(view.span, anchor.spanFinal) : view.span);
+          else requestRef(view.cx, view.cy, view.span);
+        }
+        return;
+      }
+    }
+    const same = complete && complete.key === polyKey && complete.cx === view.cx && complete.cy === view.cy &&
+      complete.span === view.span && complete.N === N;
+    if (!same) startJob('lo', use);
+    else if (complete.phase === 'lo') startJob('hi', use);
+    else return;
+  }
+  if (job) issueBand();
+}
+
+function layerXf(L) {
+  return [view.span / L.span, fd(view.cx - L.cx) / (L.span * cssW / cssH), fd(view.cy - L.cy) / L.span, L.rowDone];
+}
+function drawColor() {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, devW, devH);
+  gl.useProgram(colorProg.p);
+  const U = colorProg.U;
+  const top = job ? job.layer : null, bot = complete;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, top ? top.tex : layers[0].tex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, bot ? bot.tex : layers[1].tex);
+  gl.uniform1i(U.u_top, 0); gl.uniform1i(U.u_bot, 1);
+  gl.uniform1i(U.u_hasTop, top ? 1 : 0);
+  gl.uniform1i(U.u_hasBot, bot ? 1 : 0);
+  if (top) { gl.uniform4fv(U.u_xfTop, layerXf(top)); gl.uniform2f(U.u_resTop, top.rw, top.rh); }
+  if (bot) { gl.uniform4fv(U.u_xfBot, layerXf(bot)); gl.uniform2f(U.u_resBot, bot.rw, bot.rh); }
+  gl.uniform2f(U.u_screen, devW, devH);
+  gl.uniform1f(U.u_win0, win0);
+  gl.uniform1f(U.u_bands, state.bands);
+  gl.uniform1i(U.u_mode, state.mode);
+  gl.uniform1i(U.u_smooth, state.smooth ? 1 : 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+function resize() {
+  cssW = Math.max(1, stage.clientWidth); cssH = Math.max(1, stage.clientHeight);
+  let dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cssW * cssH * dpr * dpr > 5.2e6) dpr = Math.max(1, Math.sqrt(5.2e6 / (cssW * cssH)));
+  devW = Math.round(cssW * dpr); devH = Math.round(cssH * dpr);
+  for (const c of [glCanvas, overlay]) { c.width = devW; c.height = devH; }
+  if (glOK) {
+    for (const L of layers) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
+    layers = [makeLayer(devW, devH), makeLayer(devW, devH)];
+  }
+  complete = null; job = null;
+  viewMoved = true; overlayDirty = true;
+}
+
+/* ================================================================
+   Polynomial
+   ================================================================ */
 function populateSelect() {
   const list = state.family === 'salem' ? SALEM : PISOT;
   polySelect.innerHTML = '';
@@ -646,32 +1344,39 @@ function populateSelect() {
 
 function setPolynomial(coeffs) {
   if (coeffs.length - 1 > MAXD) {
-    errBox.style.display = 'block';
-    errBox.textContent = `Degree at most ${MAXD} supported.`;
+    showError(`Degree at most ${MAXD} supported.`);
     return;
   }
   if (coeffs.length < 3 || coeffs[0] === 0) {
-    errBox.style.display = 'block';
-    errBox.textContent = 'Need degree ≥ 2 with nonzero leading coefficient.';
+    showError('Need degree ≥ 2 with nonzero leading coefficient.');
     return;
   }
-  errBox.style.display = 'none';
+  if (glOK) errBox.style.display = 'none';
   state.coeffs = coeffs.slice();
   state.roots = findRoots(coeffs);
+  state.rootK = rootConstants(coeffs, state.roots);
+  state.rootsFx = state.roots.map(([x, y]) => [fx(x), fx(y)]);
+  state.L = Math.max(1e-2, ...state.roots.map((r) => Math.hypot(r[0], r[1])));
   state.classification = classifyRoots(state.roots);
-  // re-track the existing orbit start point under the new map
-  if (orbit) startOrbit(orbit.start);
+  polyKey = coeffs.join(',');
+  // references and pictures of the old map are useless now
+  if (refReq) { refWorker.terminate(); startRefWorker(); refReq = null; }
+  job = null; iterFloor = 0; win0T = null; loSnap = null; pickMemo.v = -1;
+  viewMoved = true; overlayDirty = true;
+  rootsReq = { id: ++auxSeq, key: polyKey };
+  auxWorker.postMessage({ type: 'roots', id: rootsReq.id, key: polyKey, bits: FB, prec: 224, coeffs: state.coeffs, roots: state.roots });
+  // re-track the existing (or still pending) orbit start point under the new map
+  const again = orbit ? [orbit.start[0], orbit.start[1], orbit.clickSpan] : orbitReq ? [orbitReq.cx, orbitReq.cy, orbitReq.clickSpan] : null;
+  if (again) startOrbit(...again);
   updateInfo();
-  render();
 }
 
 function updateInfo() {
-  document.getElementById('polyDisplay').textContent = formatPoly(state.coeffs);
+  $('polyDisplay').textContent = formatPoly(state.coeffs);
   const cl = state.classification;
   const tagNames = { pisot: 'Pisot', salem: 'Salem', other: 'neither Pisot nor Salem' };
-  document.getElementById('classLine').innerHTML =
-    `<span class="tag ${cl.type}">${tagNames[cl.type]}</span>`;
-  const nl = document.getElementById('numberLine');
+  $('classLine').innerHTML = `<span class="tag ${cl.type}">${tagNames[cl.type]}</span>`;
+  const nl = $('numberLine');
   if (cl.type === 'pisot') {
     nl.innerHTML = `Pisot number θ = <b>${cl.largest.toFixed(8)}</b>; all conjugates lie strictly inside the unit circle.`;
   } else if (cl.type === 'salem') {
@@ -686,7 +1391,7 @@ function updateRootTable() {
   const rows = state.roots
     .map((z, i) => ({ z, i, m: Math.hypot(z[0], z[1]) }))
     .sort((a, b) => b.m - a.m);
-  const tbl = document.getElementById('rootTable');
+  const tbl = $('rootTable');
   tbl.innerHTML = '<tr><td>root</td><td>|z|</td></tr>';
   for (const { z, i, m } of rows) {
     const tr = document.createElement('tr');
@@ -699,57 +1404,74 @@ function updateRootTable() {
   }
 }
 
-// ---------- orbit tracking ----------
-function newtonOrbit(z0) {
-  const c = state.coeffs, deg = c.length - 1;
-  const d = [];
-  for (let i = 0; i < deg; i++) d.push(c[i] * (deg - i));
-  const pts = [[z0[0], z0[1]]];
-  let zr = z0[0], zi = z0[1];
-  let status = 'maxed';
-  for (let s = 0; s < 400; s++) {
-    // Horner for p and p'
-    let pr = c[0], pi = 0;
-    for (let k = 1; k <= deg; k++) {
-      const r = pr * zr - pi * zi + c[k];
-      pi = pr * zi + pi * zr;
-      pr = r;
-    }
-    let dr = d[0], di = 0;
-    for (let k = 1; k < deg; k++) {
-      const r = dr * zr - di * zi + d[k];
-      di = dr * zi + di * zr;
-      dr = r;
-    }
-    const dd = dr * dr + di * di;
-    if (dd < 1e-30) { status = 'critical'; break; }
-    const wr = (pr * dr + pi * di) / dd;
-    const wi = (pi * dr - pr * di) / dd;
-    zr -= wr; zi -= wi;
-    pts.push([zr, zi]);
-    if (wr * wr + wi * wi < 1e-24) { status = 'converged'; break; }
-    if (zr * zr + zi * zi > 1e12) { status = 'diverged'; break; }
+/* ================================================================
+   Orbit tracking (the orbit is computed exactly, so it is right at any depth)
+   ================================================================ */
+// orbit: { start, pts: [[bx, by], ...] (fixed point), n (last shown index), segs,
+//          segMax, targetIdx, status, clickSpan, ref (usable as a render reference) }
+let orbit = null;
+const ORBIT_MAX = 400;
+// animation: t = fractional step position; pulse = seconds since arrival
+const anim = { t: 0, playing: false, pulse: 0, running: false };
+
+function startOrbit(bx, by, clickSpan) {
+  if (orbitReq) { auxWorker.terminate(); startAuxWorker(); resendAux(); }
+  const prec = precFor(MIN_SPAN);
+  orbitReq = { id: ++auxSeq, cx: bx, cy: by, key: polyKey, prec, N: ORBIT_MAX, span: MIN_SPAN, clickSpan };
+  auxWorker.postMessage({ type: 'ref', id: orbitReq.id, cx: bx.toString(), cy: by.toString(), bits: FB, prec, maxIter: ORBIT_MAX, coeffs: state.coeffs, keep: true });
+  if (!orbit) orbitStatus.textContent = 'Computing the orbit…';
+}
+// a restarted aux worker loses its queue: send the pending requests again
+function resendAux() {
+  if (rootsReq) auxWorker.postMessage({ type: 'roots', id: rootsReq.id, key: rootsReq.key, bits: FB, prec: 224, coeffs: state.coeffs, roots: state.roots });
+  if (diveReq) auxWorker.postMessage(diveReq.msg);
+}
+function onAuxMessage(e) {
+  const msg = e.data;
+  if (msg.type === 'ref' && orbitReq && msg.id === orbitReq.id) {
+    const req = orbitReq; orbitReq = null;
+    if (req.key !== polyKey) return;
+    const old = orbit;
+    const r = buildRef(msg, req);
+    orbit = makeOrbit(r, req);
+    if (old) dropRef(old.ref);
+    pickMemo.v = -1;
+    anim.t = 0; anim.pulse = 0; anim.playing = true;
+    updateOrbitStatus();
+    updateRootTable();
+    overlayDirty = true;
+  } else if (msg.type === 'roots' && rootsReq && msg.id === rootsReq.id) {
+    rootsReq = null;
+    if (msg.key === polyKey) { state.rootsFx = msg.roots.map(([x, y]) => [BigInt(x), BigInt(y)]); overlayDirty = true; }
+  } else if (msg.type === 'boundary' && diveReq && msg.id === diveReq.id) {
+    const req = diveReq; diveReq = null;
+    diveDone(msg, req);
   }
-  // nearest root
-  let targetIdx = -1, best = Infinity;
-  state.roots.forEach((r, i) => {
-    const dx = zr - r[0], dy = zi - r[1];
-    const dist = dx * dx + dy * dy;
-    if (dist < best) { best = dist; targetIdx = i; }
-  });
-  if (best > 1e-6) targetIdx = -1;
-  return { pts, start: [z0[0], z0[1]], targetIdx, status };
 }
 
-function startOrbit(z0) {
-  orbit = newtonOrbit(z0);
-  anim.t = 0;
-  anim.pulse = 0;
-  anim.playing = true;
-  anim.last = performance.now();
-  updateOrbitStatus();
-  updateRootTable();
-  startAnimLoop();
+function makeOrbit(r, req) {
+  const pts = r.ptsX.map((x, i) => [x, r.ptsY[i]]);
+  // shown up to the first Newton step below 1e-12 (or an escape past 1e12)
+  let n = r.len - 1, status = r.status === 'critical' ? 'critical' : 'maxed';
+  for (let m = 0; m < r.len; m++) {
+    const zr = r.zd[2 * m], zi = r.zd[2 * m + 1], sr = r.rd[2 * m], si = r.rd[2 * m + 1];
+    if (zr * zr + zi * zi > 1e24) { n = m; status = 'diverged'; break; }
+    if (sr * sr + si * si < 1e-24) { n = Math.min(m + 1, r.len - 1); status = 'converged'; break; }
+  }
+  if (status === 'critical') n = r.len - 1;
+  const zx = r.zd[2 * n], zy = r.zd[2 * n + 1];
+  let targetIdx = -1, best = Infinity;
+  state.roots.forEach((q, i) => {
+    const dd = (zx - q[0]) ** 2 + (zy - q[1]) ** 2;
+    if (dd < best) { best = dd; targetIdx = i; }
+  });
+  if (best > 1e-6) targetIdx = -1;
+  const segs = [], segMax = [];
+  for (let i = 0; i < n; i++) {
+    segs.push(Math.hypot(fd(pts[i + 1][0] - pts[i][0]), fd(pts[i + 1][1] - pts[i][1])));
+    segMax.push(Math.max(segs[i], i ? segMax[i - 1] : 0));
+  }
+  return { start: [req.cx, req.cy], pts, n, segs, segMax, targetIdx, status, clickSpan: req.clickSpan, ref: r };
 }
 
 function updateOrbitStatus() {
@@ -757,7 +1479,7 @@ function updateOrbitStatus() {
     orbitStatus.textContent = 'No orbit yet — click anywhere on the fractal.';
     return;
   }
-  const n = orbit.pts.length - 1;
+  const n = orbit.n;
   const stepShown = Math.min(Math.floor(anim.t), n);
   let tail;
   if (orbit.targetIdx >= 0) {
@@ -769,155 +1491,135 @@ function updateOrbitStatus() {
   } else {
     tail = `→ no root reached after ${n} steps`;
   }
-  orbitStatus.innerHTML = `z₀ = ${fmtC(orbit.start)} ${tail}` +
+  const nd = Math.min(34, digitsFor(orbit.clickSpan) - 1);
+  orbitStatus.innerHTML = `z₀ = ${fmtFxC(orbit.start[0], orbit.start[1], Math.max(4, nd))} ${tail}` +
     (anim.playing ? ` · step ${stepShown}/${n}` : '');
 }
 
-// current animated dot position (plane coords) and the active hop length
-function orbitDotPlane() {
-  const end = orbit.pts.length - 1;
+// current animated dot position (fixed point) and the active hop length
+function orbitDot() {
+  const end = orbit.n;
   const t = Math.min(anim.t, end);
   const full = Math.floor(t);
-  if (full >= end) {
-    const a = orbit.pts[Math.max(end - 1, 0)], b = orbit.pts[end];
-    return { pos: [b[0], b[1]], segLen: Math.hypot(b[0] - a[0], b[1] - a[1]) };
-  }
+  if (full >= end) return { pos: orbit.pts[end], segLen: orbit.segs[Math.max(end - 1, 0)] || 0, k: end };
   const a = orbit.pts[full], b = orbit.pts[full + 1];
-  const frac = t - full;
-  const e = frac * frac * (3 - 2 * frac);
-  return {
-    pos: [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e],
-    segLen: Math.hypot(b[0] - a[0], b[1] - a[1]),
-  };
+  const f = t - full, e = f * f * (3 - 2 * f);
+  return { pos: [a[0] + fx(fd(b[0] - a[0]) * e), a[1] + fx(fd(b[1] - a[1]) * e)], segLen: orbit.segs[full], k: full };
 }
 
-// the fractal is rendered in float32, so don't chase convergence below this span
+// the follow-cam never zooms in past 1e-3 once the orbit has made a macroscopic hop,
+// and never deeper than where the orbit was started
 const FOLLOW_MIN_SPAN = 1e-3;
 const FOLLOW_MAX_SPAN = 3.5;
-
-function startAnimLoop() {
-  cancelAnimationFrame(anim.raf);
-  anim.running = true;
-  const tick = now => {
-    const dt = Math.min((now - anim.last) / 1000, 0.1);
-    anim.last = now;
-    let more = false;
-    if (orbit) {
-      const end = orbit.pts.length - 1;
-      if (anim.t < end) {
-        anim.t = Math.min(anim.t + dt * state.orbitSpeed, end);
-        anim.playing = anim.t < end;
-        more = true;
-        if (Math.floor(anim.t) !== Math.floor(anim.t - dt * state.orbitSpeed)) updateOrbitStatus();
-      } else if (anim.pulse < 2.0) {
-        anim.playing = false;
-        anim.pulse += dt;
-        more = true;
-      }
-      if (!anim.playing && anim.t >= end && anim.pulse === 0) updateOrbitStatus();
-    }
-    let camMoved = false;
-    if (state.followCam && orbit) {
-      const { pos, segLen } = orbitDotPlane();
-      const targetSpan = Math.min(FOLLOW_MAX_SPAN, Math.max(FOLLOW_MIN_SPAN, segLen * 6));
-      const kc = Math.min(1, dt * 5);
-      const ks = Math.min(1, dt * 2.5);
-      state.center.x += (pos[0] - state.center.x) * kc;
-      state.center.y += (pos[1] - state.center.y) * kc;
-      state.span += (targetSpan - state.span) * ks;
-      camMoved = true;
-    }
-    if (camMoved) render(); else drawOverlay();
-    if (more) {
-      anim.raf = requestAnimationFrame(tick);
-    } else {
-      anim.running = false;
-      updateOrbitStatus();
-    }
-  };
-  anim.raf = requestAnimationFrame(tick);
-}
-
-// ---------- rendering ----------
-function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const w = stage.clientWidth, h = stage.clientHeight;
-  for (const c of [glCanvas, overlay]) {
-    c.width = Math.round(w * dpr);
-    c.height = Math.round(h * dpr);
+let statusDirty = false;
+function stepOrbit(dt) {
+  anim.running = false;
+  if (!orbit) return;
+  const end = orbit.n;
+  if (anim.t < end) {
+    const before = Math.floor(anim.t);
+    anim.t = Math.min(anim.t + dt * state.orbitSpeed, end);
+    anim.playing = anim.t < end;
+    if (Math.floor(anim.t) !== before || !anim.playing) statusDirty = true;
+    anim.running = true;
+  } else if (anim.pulse < 2.0) {
+    if (anim.playing) { anim.playing = false; statusDirty = true; }
+    anim.pulse += dt;
+    anim.running = true;
   }
-  render();
+  if (!anim.running) return;
+  overlayDirty = true;
+  if (state.followCam) {
+    const { pos, segLen, k } = orbitDot();
+    const macro = (orbit.segMax[Math.min(k, orbit.segMax.length - 1)] || 0) > 1e-2;
+    const floor = macro ? FOLLOW_MIN_SPAN : Math.max(MIN_SPAN, Math.min(FOLLOW_MIN_SPAN, 0.5 * orbit.clickSpan));
+    const target = Math.min(FOLLOW_MAX_SPAN, Math.max(floor, segLen * 6));
+    const kc = Math.min(1, dt * 5), ks = Math.min(1, dt * 2.5);
+    const ls = Math.log(view.span);
+    setView(view.cx + fx(fd(pos[0] - view.cx) * kc), view.cy + fx(fd(pos[1] - view.cy) * kc),
+      Math.exp(ls + (Math.log(target) - ls) * ks));
+  }
 }
 
-function render() {
-  if (!gl || !state.roots.length) return;
-  const w = glCanvas.width, h = glCanvas.height;
-  gl.viewport(0, 0, w, h);
-  const deg = state.coeffs.length - 1;
-  const cf = new Float32Array(MAXD + 1);
-  const dcf = new Float32Array(MAXD);
-  for (let i = 0; i <= deg; i++) cf[i] = state.coeffs[i];
-  for (let i = 0; i < deg; i++) dcf[i] = state.coeffs[i] * (deg - i);
-  const rootsFlat = new Float32Array(MAXD * 2);
-  state.roots.forEach((z, i) => { rootsFlat[2 * i] = z[0]; rootsFlat[2 * i + 1] = z[1]; });
-
-  gl.uniform2f(uni.u_center, state.center.x, state.center.y);
-  gl.uniform1f(uni.u_span, state.span);
-  gl.uniform2f(uni.u_res, w, h);
-  gl.uniform1i(uni.u_degree, deg);
-  gl.uniform1fv(uni.u_coeffs, cf);
-  gl.uniform1fv(uni.u_dcoeffs, dcf);
-  gl.uniform2fv(uni.u_roots, rootsFlat);
-  gl.uniform1i(uni.u_maxIter, state.maxIter);
-  gl.uniform1f(uni.u_bands, state.bands);
-  gl.uniform1i(uni.u_mode, state.mode);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
-  drawOverlay();
-}
-
-function planeToPx(x, y) {
-  const w = overlay.width, h = overlay.height;
-  const s = h / state.span;   // px per complex unit
-  return [w / 2 + (x - state.center.x) * s, h / 2 - (y - state.center.y) * s];
-}
-
+/* ================================================================
+   Overlay: roots, unit circle, axes, the tracked orbit
+   ================================================================ */
+let overlayDirty = true;
 function lerpColor(a, b, t) {
   return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
 }
 const ORBIT_C0 = [125, 211, 252];   // sky
 const ORBIT_C1 = [255, 235, 120];   // gold
 
+// clip a segment to a box well outside the canvas, so huge coordinates never reach canvas
+function clipSeg(x0, y0, x1, y1, W, H) {
+  const m = 64, lo = [-m, -m], hi = [W + m, H + m];
+  let t0 = 0, t1 = 1;
+  const dx = x1 - x0, dy = y1 - y0;
+  const P = [-dx, dx, -dy, dy], Q = [x0 - lo[0], hi[0] - x0, y0 - lo[1], hi[1] - y0];
+  for (let i = 0; i < 4; i++) {
+    if (P[i] === 0) { if (Q[i] < 0) return null; continue; }
+    const r = Q[i] / P[i];
+    if (P[i] < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
+    else { if (r < t0) return null; if (r < t1) t1 = r; }
+  }
+  return [x0 + t0 * dx, y0 + t0 * dy, x0 + t1 * dx, y0 + t1 * dy];
+}
+
+function drawUnitCircle(W, H, s, lineW) {
+  octx.strokeStyle = '#d4c22a';
+  octx.lineWidth = lineW;
+  if (s < 2e4) {   // the whole circle is a reasonable canvas arc
+    const cx = W / 2 - fd(view.cx) * s, cy = H / 2 + fd(view.cy) * s;
+    if (cx + s < -10 || cx - s > W + 10 || cy + s < -10 || cy - s > H + 10) return;
+    octx.beginPath(); octx.arc(cx, cy, s, 0, 2 * Math.PI); octx.stroke();
+    return;
+  }
+  // deep: the visible arc, measured from the circle point nearest the view center
+  const r2 = view.cx * view.cx + view.cy * view.cy;
+  const mod = Math.sqrt(fd(r2 >> FBn));
+  if (!(mod > 0)) return;
+  const dist = fd((r2 - (1n << (2n * FBn))) >> FBn) / (mod + 1);   // |c| - 1, exactly enough
+  if (Math.abs(dist) * s > 2 * (W + H)) return;
+  const ux = fd(view.cx) / mod, uy = fd(view.cy) / mod, vx = -uy, vy = ux;
+  const thMax = 1.5 * Math.hypot(W, H) / s;
+  octx.beginPath();
+  for (let i = 0; i <= 96; i++) {
+    const th = thMax * (2 * i / 96 - 1), sh = Math.sin(th / 2);
+    const a = -2 * sh * sh - dist, b = Math.sin(th);
+    const x = W / 2 + (ux * a + vx * b) * s, y = H / 2 - (uy * a + vy * b) * s;
+    if (i === 0) octx.moveTo(x, y); else octx.lineTo(x, y);
+  }
+  octx.stroke();
+}
+
 function drawOverlay() {
-  const w = overlay.width, h = overlay.height;
-  octx.clearRect(0, 0, w, h);
-  const s = h / state.span;
-  const px = Math.max(1, h / 800);
-  const gold = '#d4c22a';
+  const W = overlay.width, H = overlay.height;
+  octx.clearRect(0, 0, W, H);
+  const s = H / view.span;   // px per complex unit
+  const px = Math.max(1, H / 800);
+  const X = (bx) => W / 2 + fd(bx - view.cx) * s;
+  const Y = (by) => H / 2 - fd(by - view.cy) * s;
+  const onScreen = (x, y, m = 40) => x > -m && y > -m && x < W + m && y < H + m;
 
   if (state.showAxes) {
     octx.save();
     octx.strokeStyle = 'rgba(255,255,255,0.35)';
     octx.lineWidth = px;
-    const [ox, oy] = planeToPx(0, 0);
+    const ox = X(0n), oy = Y(0n);
     octx.beginPath();
-    octx.moveTo(0, oy); octx.lineTo(w, oy);
-    octx.moveTo(ox, 0); octx.lineTo(ox, h);
+    if (oy > -10 && oy < H + 10) { octx.moveTo(0, oy); octx.lineTo(W, oy); }
+    if (ox > -10 && ox < W + 10) { octx.moveTo(ox, 0); octx.lineTo(ox, H); }
     octx.stroke();
     octx.restore();
   }
-  if (state.showCircle) {
-    const [cx, cy] = planeToPx(0, 0);
-    octx.strokeStyle = gold;
-    octx.lineWidth = px;
-    octx.beginPath();
-    octx.arc(cx, cy, s, 0, 2 * Math.PI);
-    octx.stroke();
-  }
+  if (state.showCircle) drawUnitCircle(W, H, s, px);
   if (state.showRoots) {
-    const r = Math.max(2.5, h / 240);
-    octx.fillStyle = gold;
-    for (const z of state.roots) {
-      const [rx, ry] = planeToPx(z[0], z[1]);
+    const r = Math.max(2.5, H / 240);
+    octx.fillStyle = '#d4c22a';
+    for (const [bx, by] of state.rootsFx) {
+      const rx = X(bx), ry = Y(by);
+      if (!onScreen(rx, ry)) continue;
       octx.beginPath();
       octx.arc(rx, ry, r, 0, 2 * Math.PI);
       octx.fill();
@@ -926,232 +1628,356 @@ function drawOverlay() {
 
   // ----- orbit trail -----
   if (orbit && orbit.pts.length > 1) {
-    const end = orbit.pts.length - 1;
+    const end = orbit.n;
     const t = Math.min(anim.t, end);
     const full = Math.floor(t);
     const frac = t - full;
+    const P = orbit.pts.slice(0, end + 1).map(([bx, by]) => [X(bx), Y(by)]);
+    const col = (i) => lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? Math.min(i, end - 1) / (end - 1) : 0);
 
     // visited segments, colored along the sky->gold ramp
     octx.lineWidth = Math.max(1.5, 1.5 * px);
     octx.lineCap = 'round';
-    for (let i = 0; i < full; i++) {
-      const [x0, y0] = planeToPx(orbit.pts[i][0], orbit.pts[i][1]);
-      const [x1, y1] = planeToPx(orbit.pts[i + 1][0], orbit.pts[i + 1][1]);
-      octx.strokeStyle = lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? i / (end - 1) : 0);
-      octx.globalAlpha = 0.9;
-      octx.beginPath();
-      octx.moveTo(x0, y0); octx.lineTo(x1, y1);
-      octx.stroke();
-    }
+    octx.globalAlpha = 0.9;
+    const seg = (a, b, i) => {
+      const c = clipSeg(a[0], a[1], b[0], b[1], W, H);
+      if (!c) return;
+      octx.strokeStyle = col(i);
+      octx.beginPath(); octx.moveTo(c[0], c[1]); octx.lineTo(c[2], c[3]); octx.stroke();
+    };
+    for (let i = 0; i < full && i < end; i++) seg(P[i], P[i + 1], i);
     // partial current segment + moving dot
-    let dot = planeToPx(orbit.pts[full][0], orbit.pts[full][1]);
+    let dot = P[Math.min(full, end)];
     if (full < end && frac > 0) {
-      const a = orbit.pts[full], b = orbit.pts[full + 1];
-      // ease the hop within each step
-      const e = frac * frac * (3 - 2 * frac);
-      const mx = a[0] + (b[0] - a[0]) * e, my = a[1] + (b[1] - a[1]) * e;
-      const [x0, y0] = planeToPx(a[0], a[1]);
-      const m = planeToPx(mx, my);
-      octx.strokeStyle = lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? full / (end - 1) : 0);
-      octx.beginPath();
-      octx.moveTo(x0, y0); octx.lineTo(m[0], m[1]);
-      octx.stroke();
-      dot = m;
-    } else if (t >= end) {
-      dot = planeToPx(orbit.pts[end][0], orbit.pts[end][1]);
+      const { pos } = orbitDot();
+      dot = [X(pos[0]), Y(pos[1])];
+      seg(P[full], dot, full);
     }
     octx.globalAlpha = 1;
 
     // visited vertices
     const vr = Math.max(2, 2 * px);
-    for (let i = 0; i <= full; i++) {
-      const [vx, vy] = planeToPx(orbit.pts[i][0], orbit.pts[i][1]);
-      octx.fillStyle = lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? Math.min(i, end - 1) / (end - 1) : 0);
-      octx.beginPath();
-      octx.arc(vx, vy, vr, 0, 2 * Math.PI);
-      octx.fill();
+    for (let i = 0; i <= Math.min(full, end); i++) {
+      if (!onScreen(P[i][0], P[i][1])) continue;
+      octx.fillStyle = col(i);
+      octx.beginPath(); octx.arc(P[i][0], P[i][1], vr, 0, 2 * Math.PI); octx.fill();
     }
 
     // start marker (ring)
-    const [sx, sy] = planeToPx(orbit.start[0], orbit.start[1]);
-    octx.strokeStyle = 'rgba(255,255,255,0.9)';
-    octx.lineWidth = Math.max(1.5, 1.5 * px);
-    octx.beginPath();
-    octx.arc(sx, sy, Math.max(5, 5 * px), 0, 2 * Math.PI);
-    octx.stroke();
+    const sx = X(orbit.start[0]), sy = Y(orbit.start[1]);
+    if (onScreen(sx, sy)) {
+      octx.strokeStyle = 'rgba(255,255,255,0.9)';
+      octx.lineWidth = Math.max(1.5, 1.5 * px);
+      octx.beginPath(); octx.arc(sx, sy, Math.max(5, 5 * px), 0, 2 * Math.PI); octx.stroke();
+    }
 
     // moving dot with glow
-    octx.save();
-    octx.shadowColor = '#ffffff';
-    octx.shadowBlur = 12 * px;
-    octx.fillStyle = '#ffffff';
-    octx.beginPath();
-    octx.arc(dot[0], dot[1], Math.max(4, 4 * px), 0, 2 * Math.PI);
-    octx.fill();
-    octx.restore();
+    if (onScreen(dot[0], dot[1])) {
+      octx.save();
+      octx.shadowColor = '#ffffff';
+      octx.shadowBlur = 12 * px;
+      octx.fillStyle = '#ffffff';
+      octx.beginPath(); octx.arc(dot[0], dot[1], Math.max(4, 4 * px), 0, 2 * Math.PI); octx.fill();
+      octx.restore();
+    }
 
     // arrival pulse at the limiting root
     if (anim.t >= end && anim.pulse > 0 && orbit.targetIdx >= 0) {
-      const root = state.roots[orbit.targetIdx];
-      const [rx, ry] = planeToPx(root[0], root[1]);
-      const phase = (anim.pulse % 1.0);
-      octx.strokeStyle = `rgba(255,255,255,${(1 - phase) * 0.8})`;
-      octx.lineWidth = Math.max(2, 2 * px);
-      octx.beginPath();
-      octx.arc(rx, ry, (6 + 26 * phase) * px, 0, 2 * Math.PI);
-      octx.stroke();
+      const rx = P[end][0], ry = P[end][1];
+      const phase = anim.pulse % 1.0;
+      if (onScreen(rx, ry, 80)) {
+        octx.strokeStyle = `rgba(255,255,255,${(1 - phase) * 0.8})`;
+        octx.lineWidth = Math.max(2, 2 * px);
+        octx.beginPath(); octx.arc(rx, ry, (6 + 26 * phase) * px, 0, 2 * Math.PI); octx.stroke();
+      }
     }
   }
 }
 
-// ---------- interaction ----------
-function clientToPlane(clientX, clientY) {
-  const rect = stage.getBoundingClientRect();
-  const s = state.span / stage.clientHeight;
-  return [
-    state.center.x + (clientX - rect.left - rect.width / 2) * s,
-    state.center.y - (clientY - rect.top - rect.height / 2) * s,
-  ];
+/* ================================================================
+   Readouts
+   ================================================================ */
+const el = { vRe: $('vRe'), vIm: $('vIm'), vSpan: $('vSpan'), vIter: $('vIter'), ref: $('refStatus'), coords: $('coords'), progress: $('progress'), dive: $('diveBtn') };
+let hover = null;
+function setText(node, s) { if (node._t !== s) { node._t = s; node.textContent = s; } }
+function setHTML(node, s) { if (node._t !== s) { node._t = s; node.innerHTML = s; } }
+function updateViewReadout() {
+  const nd = digitsFor(view.span);
+  setText(el.vRe, fmtFx(view.cx, nd));
+  setText(el.vIm, (view.cy < 0n ? '− ' : '+ ') + fmtFx(view.cy < 0n ? -view.cy : view.cy, nd) + 'i');
+  setText(el.vSpan, sci(view.span, 3));
+  setText(el.vIter, String(iterFor(view.span)));
+  el.dive.disabled = view.span <= MIN_SPAN * 1.0001;
+  updateCoords();
+}
+function updateCoords() {
+  if (!hover) { setHTML(el.coords, ''); return; }
+  const nd = digitsFor(view.span);
+  setHTML(el.coords, `<span class="z">${fmtFxC(hover.cx, hover.cy, nd)}</span><span class="sp">height ${sci(view.span, 3)}</span>`);
+}
+function updateRefReadout() {
+  let s;
+  if (diveReq) s = 'Looking for a point on the Julia set…';
+  else if (!needsRef(view.span)) s = 'Single-precision Newton steps; perturbation starts below height 10⁻².';
+  else if (refReq && !(job && job.ref)) s = 'Computing a reference orbit…';
+  else {
+    const r = (job && job.ref) || (lastUse && lastUse.r);
+    if (!r) s = '';
+    else {
+      const prec = r.prec <= 53 ? 'double precision' : `${r.prec}-bit fixed point`;
+      const k = (job && job.ref) ? job.base : (lastUse ? lastUse.k : 0);
+      const steps = r.conv ? `${r.len - 1} steps to its root` : `${r.len} steps`;
+      s = `Reference orbit: ${steps} in ${prec}${r === (orbit && orbit.ref) ? `, the tracked orbit from step ${k}` : ''}.`;
+    }
+  }
+  if (job && job.phase === 'hi') s += ` Rendering ${Math.round((1 - job.layer.rowDone / job.layer.rh) * 100)}%.`;
+  setText(el.ref, s);
 }
 
+/* ================================================================
+   Camera: smooth zoom-and-pan (van Wijk & Nuij) and quick zooms
+   ================================================================ */
+let flight = null;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function freeRect() {
+  const r = { x0: 0, y0: 0, x1: cssW, y1: cssH };
+  if (panel.classList.contains('collapsed')) return r;
+  const pr = panel.getBoundingClientRect();
+  if (cssW >= 760) r.x1 = Math.max(cssW * 0.4, pr.left - 8);
+  else r.y0 = Math.min(cssH * 0.6, pr.bottom + 8);
+  return r;
+}
+function viewFor(cx, cy, size) {
+  const fr = freeRect(), fw = fr.x1 - fr.x0, fh = fr.y1 - fr.y0;
+  const s = Math.max(size / (fw * 0.9), size / (fh * 0.9));
+  const ox = ((fr.x0 + fr.x1) / 2 - cssW / 2) * s, oy = (cssH / 2 - (fr.y0 + fr.y1) / 2) * s;
+  return { cx: cx - fx(ox), cy: cy - fx(oy), span: s * cssH };
+}
+function flyTo(target) {
+  const u1x = fd(target.cx - view.cx), u1y = fd(target.cy - view.cy);
+  const u1 = Math.hypot(u1x, u1y), w0 = view.span, w1 = Math.min(MAX_SPAN, Math.max(MIN_SPAN, target.span)), rho = 1.42;
+  if (reduceMotion) { setView(target.cx, target.cy, w1); return; }
+  let S, wAt, remAt;
+  if (u1 < 1e-9 * Math.max(w0, w1)) {
+    S = Math.abs(Math.log(w1 / w0)) / rho;
+    const sg = w1 < w0 ? -1 : 1;
+    wAt = (s) => w0 * Math.exp(sg * rho * s);
+    remAt = (s) => u1 * (S > 0 ? 1 - s / S : 0);
+  } else {
+    const b0 = (w1 * w1 - w0 * w0 + rho ** 4 * u1 * u1) / (2 * w0 * rho * rho * u1);
+    const b1 = (w1 * w1 - w0 * w0 - rho ** 4 * u1 * u1) / (2 * w1 * rho * rho * u1);
+    const r0 = -Math.asinh(b0), r1 = -Math.asinh(b1);
+    S = (r1 - r0) / rho;
+    const C = w0 * Math.cosh(r0) / (rho * rho);
+    wAt = (s) => w0 * Math.cosh(r0) / Math.cosh(rho * s + r0);
+    remAt = (s) => C * Math.sinh(rho * (S - s)) / (Math.cosh(rho * S + r0) * Math.cosh(rho * s + r0));
+  }
+  iterFloor = 0;
+  if (!(S > 0) || !isFinite(S)) { setView(target.cx, target.cy, w1); return; }
+  const dirx = u1 > 0 ? u1x / u1 : 0, diry = u1 > 0 ? u1y / u1 : 0;
+  const T = Math.min(7000, 500 + 210 * S);
+  // keep the reference at the destination for the whole flight
+  if (needsRef(w1)) {
+    const N = iterFor(w1);
+    const r = ref && ref.key === polyKey && ref.prec >= precFor(w1) && (ref.conv || ref.len > N) &&
+      Math.hypot(fd(target.cx - ref.ptsX[0]), fd(target.cy - ref.ptsY[0])) <= 3 * w1;
+    if (!r) requestRef(target.cx, target.cy, w1);
+  }
+  anchor = { cx: target.cx, cy: target.cy, t: performance.now() + T, spanFinal: w1 };
+  flight = { t0: performance.now(), T, step: (f) => {
+    const e = f < 0.5 ? 4 * f * f * f : 1 - (-2 * f + 2) ** 3 / 2;
+    const s = S * e, rem = remAt(s);
+    if (f >= 1) setView(target.cx, target.cy, w1);
+    else setView(target.cx - fx(dirx * rem), target.cy - fx(diry * rem), wAt(s));
+  } };
+}
+function offsetAt(x, y) { const s = view.span / cssH; return [(x - cssW / 2) * s, (cssH / 2 - y) * s]; }
+function pointAt(x, y) { const [ox, oy] = offsetAt(x, y); return { cx: view.cx + fx(ox), cy: view.cy + fx(oy) }; }
+function zoomAbout(x, y, f) {
+  const s1 = Math.min(MAX_SPAN, Math.max(MIN_SPAN, view.span * f)), k = s1 / view.span;
+  const [ox, oy] = offsetAt(x, y);
+  anchor = { cx: view.cx + fx(ox), cy: view.cy + fx(oy), t: performance.now() };
+  setView(view.cx + fx(ox * (1 - k)), view.cy + fx(oy * (1 - k)), s1);
+}
+function panBy(dx, dy) { const s = view.span / cssH; setView(view.cx - fx(dx * s), view.cy + fx(dy * s), view.span); }
+function quickZoom(x, y, factor) {
+  if (reduceMotion) { zoomAbout(x, y, factor); return; }
+  let last = 0;
+  flight = { t0: performance.now(), T: 320, step: (f) => {
+    const e = 1 - (1 - f) ** 3;
+    zoomAbout(x, y, factor ** (e - last)); last = e;
+  } };
+}
 // user grabbed the camera while the follow-cam was flying it: hand over control
 function breakFollow() {
   if (state.followCam && anim.running) {
     state.followCam = false;
-    document.getElementById('chkFollow').checked = false;
+    $('chkFollow').checked = false;
   }
 }
 
-let drag = null;
-let dragOrigin = null;
-let dragMoved = false;
-stage.addEventListener('mousedown', e => {
-  drag = { x: e.clientX, y: e.clientY };
-  dragOrigin = { x: e.clientX, y: e.clientY };
-  dragMoved = false;
-  stage.classList.add('dragging');
-});
-window.addEventListener('mousemove', e => {
-  const s = state.span / stage.clientHeight;
-  if (drag) {
-    if (dragOrigin && Math.hypot(e.clientX - dragOrigin.x, e.clientY - dragOrigin.y) > 4) dragMoved = true;
-    if (dragMoved) breakFollow();
-    state.center.x -= (e.clientX - drag.x) * s;
-    state.center.y += (e.clientY - drag.y) * s;
-    drag = { x: e.clientX, y: e.clientY };
-    render();
+/* ================================================================
+   Dive: bisect exactly onto the Julia set near the middle of the view, then fly in
+   ================================================================ */
+const DIVE = 1000;
+function dive() {
+  if (diveReq || view.span <= MIN_SPAN * 1.0001) return;
+  const S = loSnap;
+  if (!S || S.key !== polyKey) { flashRef('Wait for the picture to finish, then try again.'); return; }
+  const fr = freeRect();
+  // the target spot in layer pixels (the layer covers the whole canvas)
+  const sc = S.span / view.span;
+  const tx = ((fr.x0 + fr.x1) / 2 / cssW - 0.5) / sc * S.rw + S.rw / 2 + fd(view.cx - S.cx) / (S.span * cssW / cssH) * S.rw;
+  const ty = (0.5 - (fr.y0 + fr.y1) / 2 / cssH) / sc * S.rh + S.rh / 2 + fd(view.cy - S.cy) / S.span * S.rh;
+  let best = null, bd = Infinity;
+  for (let y = 0; y < S.rh; y++) for (let x = 0; x < S.rw; x++) {
+    const i = y * S.rw + x, c = S.cls[i];
+    const dd = (x + 0.5 - tx) ** 2 + (y + 0.5 - ty) ** 2;
+    if (dd >= bd) continue;
+    if (x + 1 < S.rw && S.cls[i + 1] !== c) { bd = dd; best = [x, y, x + 1, y]; }
+    else if (y + 1 < S.rh && S.cls[i + S.rw] !== c) { bd = dd; best = [x, y, x, y + 1]; }
   }
-  const [zx, zy] = clientToPlane(e.clientX, e.clientY);
-  document.getElementById('coords').textContent =
-    `${zx.toFixed(5)} ${zy < 0 ? '−' : '+'} ${Math.abs(zy).toFixed(5)}i`;
-});
-window.addEventListener('mouseup', () => {
-  drag = null;
-  stage.classList.remove('dragging');
-});
-stage.addEventListener('click', e => {
-  if (dragMoved || !state.orbitMode) return;
-  const [zx, zy] = clientToPlane(e.clientX, e.clientY);
-  startOrbit([zx, zy]);
-});
-
-function zoomAt(clientX, clientY, factor) {
-  const rect = stage.getBoundingClientRect();
-  const s = state.span / stage.clientHeight;
-  const zx = state.center.x + (clientX - rect.left - rect.width / 2) * s;
-  const zy = state.center.y - (clientY - rect.top - rect.height / 2) * s;
-  state.span *= factor;
-  const s2 = state.span / stage.clientHeight;
-  state.center.x = zx - (clientX - rect.left - rect.width / 2) * s2;
-  state.center.y = zy + (clientY - rect.top - rect.height / 2) * s2;
-  render();
+  if (!best) { flashRef('This view lies inside a single basin; zoom out or pan to a boundary first.'); return; }
+  const at = (x, y) => [S.cx + fx(((x + 0.5) / S.rw - 0.5) * S.span * cssW / cssH), S.cy + fx(((y + 0.5) / S.rh - 0.5) * S.span)];
+  const [a, b] = [at(best[0], best[1]), at(best[2], best[3])];
+  const target = Math.max(MIN_SPAN, view.span / DIVE);
+  const prec = precFor(target / 64);
+  const steps = Math.ceil(Math.log2(Math.hypot(fd(b[0] - a[0]), fd(b[1] - a[1])) / (target * 1e-3))) + 2;
+  const msg = { type: 'boundary', id: ++auxSeq, ax: a[0].toString(), ay: a[1].toString(), bx: b[0].toString(), by: b[1].toString(),
+    bits: FB, prec, maxIter: Math.min(MAX_ITER, 2 * iterFor(target)), coeffs: state.coeffs, roots: state.roots, steps: Math.max(4, steps) };
+  diveReq = { id: msg.id, msg, key: polyKey, span: target };
+  auxWorker.postMessage(msg);
+  el.dive.disabled = true;
 }
-stage.addEventListener('wheel', e => {
-  e.preventDefault();
+function diveDone(msg, req) {
+  el.dive.disabled = view.span <= MIN_SPAN * 1.0001;
+  if (req.key !== polyKey) return;
+  if (!msg.ok) { flashRef('The boundary moved at full precision; try Dive again.'); return; }
   breakFollow();
-  zoomAt(e.clientX, e.clientY, Math.exp(e.deltaY * 0.0015));
-}, { passive: false });
-stage.addEventListener('dblclick', e => zoomAt(e.clientX, e.clientY, 0.5));
+  flyTo(viewFor(BigInt(msg.x), BigInt(msg.y), req.span * 0.9));
+}
+let flashT = 0;
+function flashRef(s) { setText(el.ref, s); flashT = performance.now() + 2500; }
 
-// touch: one-finger pan (tap = orbit), two-finger pinch
-let touches = null;
-let touchStart = null;
-stage.addEventListener('touchstart', e => {
-  touches = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
-  if (e.touches.length === 1) touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, moved: false };
-}, { passive: true });
-stage.addEventListener('touchmove', e => {
-  e.preventDefault();
-  const now = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
-  const s = state.span / stage.clientHeight;
-  if (touches && touches.length === 1 && now.length === 1) {
-    if (touchStart && Math.hypot(now[0].x - touchStart.x, now[0].y - touchStart.y) > 8) touchStart.moved = true;
-    if (touchStart && touchStart.moved) breakFollow();
-    state.center.x -= (now[0].x - touches[0].x) * s;
-    state.center.y += (now[0].y - touches[0].y) * s;
-    render();
-  } else if (touches && touches.length === 2 && now.length === 2) {
-    if (touchStart) touchStart.moved = true;
+/* ================================================================
+   Pointer, wheel, keyboard
+   ================================================================ */
+const pointers = new Map();
+let drag = null, pinch = null;
+function localXY(e) { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+stage.addEventListener('pointerdown', (e) => {
+  stage.setPointerCapture(e.pointerId);
+  const [x, y] = localXY(e);
+  pointers.set(e.pointerId, { x, y });
+  flight = null;
+  if (pointers.size === 1) { drag = { x, y, x0: x, y0: y, moved: false }; pinch = null; }
+  else if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    if (drag) drag.moved = true;
     breakFollow();
-    const d0 = Math.hypot(touches[0].x - touches[1].x, touches[0].y - touches[1].y);
-    const d1 = Math.hypot(now[0].x - now[1].x, now[0].y - now[1].y);
-    if (d1 > 0) zoomAt((now[0].x + now[1].x) / 2, (now[0].y + now[1].y) / 2, d0 / d1);
   }
-  touches = now;
+});
+stage.addEventListener('pointermove', (e) => {
+  const [x, y] = localXY(e);
+  if (pointers.has(e.pointerId)) {
+    pointers.get(e.pointerId).x = x; pointers.get(e.pointerId).y = y;
+    if (pointers.size >= 2 && pinch) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      panBy(mx - pinch.mx, my - pinch.my);
+      if (d > 0 && pinch.d > 0) zoomAbout(mx, my, pinch.d / d);
+      pinch = { d, mx, my };
+    } else if (drag) {
+      const thr = e.pointerType === 'mouse' ? 4 : 8;
+      if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) > thr) { drag.moved = true; stage.classList.add('dragging'); breakFollow(); }
+      if (drag.moved) panBy(x - drag.x, y - drag.y);
+      drag.x = x; drag.y = y;
+    }
+  }
+  if (e.pointerType === 'mouse') { hover = pointAt(x, y); hover.x = x; hover.y = y; updateCoords(); }
+});
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (pointers.size === 0) {
+    if (drag && !drag.moved && e.type === 'pointerup' && state.orbitMode) {
+      const p = pointAt(drag.x, drag.y);
+      startOrbit(p.cx, p.cy, view.span);
+    }
+    drag = null; pinch = null;
+    stage.classList.remove('dragging');
+  } else if (pointers.size === 1) {
+    const [a] = [...pointers.values()];
+    drag = { x: a.x, y: a.y, x0: a.x, y0: a.y, moved: true }; pinch = null;
+  }
+}
+stage.addEventListener('pointerup', endPointer);
+stage.addEventListener('pointercancel', endPointer);
+stage.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !pointers.size) { hover = null; updateCoords(); } });
+stage.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  flight = null;
+  breakFollow();
+  const [x, y] = localXY(e);
+  const dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? cssH : 1);
+  const k = e.ctrlKey ? 0.01 : 0.0015;
+  zoomAbout(x, y, Math.exp(Math.max(-1.5, Math.min(1.5, dy * k))));
 }, { passive: false });
-stage.addEventListener('touchend', e => {
-  if (touchStart && !touchStart.moved && e.touches.length === 0 && state.orbitMode) {
-    const rect = stage.getBoundingClientRect();
-    const s = state.span / stage.clientHeight;
-    const zx = state.center.x + (touchStart.x - rect.left - rect.width / 2) * s;
-    const zy = state.center.y - (touchStart.y - rect.top - rect.height / 2) * s;
-    startOrbit([zx, zy]);
-  }
-  touchStart = null;
-  touches = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
-}, { passive: true });
+stage.addEventListener('dblclick', (e) => { const [x, y] = localXY(e); breakFollow(); quickZoom(x, y, e.shiftKey ? 4 : 0.25); });
+window.addEventListener('keydown', (e) => {
+  if (e.target.closest && e.target.closest('input, select, textarea, button')) return;
+  const fr = freeRect(), cx = (fr.x0 + fr.x1) / 2, cy = (fr.y0 + fr.y1) / 2;
+  const step = Math.min(cssW, cssH) * 0.12;
+  const k = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key];
+  if (k) { flight = null; breakFollow(); panBy(k[0], k[1]); e.preventDefault(); }
+  else if (e.key === '+' || e.key === '=') { breakFollow(); quickZoom(cx, cy, 0.5); e.preventDefault(); }
+  else if (e.key === '-' || e.key === '_') { breakFollow(); quickZoom(cx, cy, 2); e.preventDefault(); }
+});
 
-// ---------- controls ----------
+/* ================================================================
+   Controls
+   ================================================================ */
 // FLIP-style collapse: measure both end states, animate between them explicitly
 // (a bare width/height transition can't animate from the content-determined
 // height), and freeze the innards' width so nothing reflows while the box folds.
-function setPanelCollapsed(panel, collapsed) {
-  const frozen = panel.querySelectorAll('.panel-header, .panel-content');
-  const from = panel.getBoundingClientRect();
-  panel.classList.toggle('collapsed', collapsed);
-  panel.style.transition = 'none';
-  panel.style.width = '';
-  panel.style.height = '';
-  const to = panel.getBoundingClientRect();
+function setPanelCollapsed(p, collapsed) {
+  const frozen = p.querySelectorAll('.panel-header, .panel-content');
+  const from = p.getBoundingClientRect();
+  p.classList.toggle('collapsed', collapsed);
+  p.style.transition = 'none';
+  p.style.width = '';
+  p.style.height = '';
+  const to = p.getBoundingClientRect();
   const wide = Math.max(from.width, to.width) - 2;   // inside the 1px borders
-  for (const el of frozen) el.style.minWidth = wide + 'px';
-  panel.style.width = from.width + 'px';
-  panel.style.height = from.height + 'px';
-  void panel.offsetWidth;   // commit the start state before re-enabling the transition
-  panel.style.transition = '';
-  panel.style.width = to.width + 'px';
-  panel.style.height = to.height + 'px';
-  clearTimeout(panel._collapseTimer);
-  panel._collapseTimer = setTimeout(() => {
-    panel.style.width = '';
-    panel.style.height = '';
-    for (const el of frozen) el.style.minWidth = '';
+  for (const node of frozen) node.style.minWidth = wide + 'px';
+  p.style.width = from.width + 'px';
+  p.style.height = from.height + 'px';
+  void p.offsetWidth;   // commit the start state before re-enabling the transition
+  p.style.transition = '';
+  p.style.width = to.width + 'px';
+  p.style.height = to.height + 'px';
+  clearTimeout(p._collapseTimer);
+  p._collapseTimer = setTimeout(() => {
+    p.style.width = '';
+    p.style.height = '';
+    for (const node of frozen) node.style.minWidth = '';
   }, 420);
 }
-document.getElementById('collapseBtn').addEventListener('click', e => {
-  const panel = document.getElementById('control-panel');
+$('collapseBtn').addEventListener('click', (e) => {
   const collapsed = !panel.classList.contains('collapsed');
   setPanelCollapsed(panel, collapsed);
   e.currentTarget.title = collapsed ? 'Expand panel' : 'Collapse panel';
+  e.currentTarget.setAttribute('aria-label', collapsed ? 'Expand panel' : 'Collapse panel');
 });
-document.getElementById('familySeg').addEventListener('click', e => {
+$('familySeg').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   state.family = b.dataset.family;
   for (const btn of document.querySelectorAll('#familySeg button')) btn.classList.toggle('active', btn === b);
   const isCustom = state.family === 'custom';
-  document.getElementById('presetBlock').style.display = isCustom ? 'none' : '';
-  document.getElementById('customBlock').style.display = isCustom ? '' : 'none';
+  $('presetBlock').style.display = isCustom ? 'none' : '';
+  $('customBlock').style.display = isCustom ? '' : 'none';
   if (isCustom) applyCustom();
   else {
     populateSelect();
@@ -1165,85 +1991,169 @@ polySelect.addEventListener('change', () => {
   setPolynomial(list[+polySelect.value].coeffs);
 });
 function applyCustom() {
-  const raw = document.getElementById('customCoeffs').value;
+  const raw = $('customCoeffs').value;
   const coeffs = raw.split(/[,\s]+/).filter(x => x.length).map(Number);
-  if (coeffs.some(isNaN)) {
-    errBox.style.display = 'block';
-    errBox.textContent = 'Could not parse coefficients.';
+  if (coeffs.some((x) => !isFinite(x))) {
+    showError('Could not parse coefficients.');
     return;
   }
   setPolynomial(coeffs);
 }
-document.getElementById('customCoeffs').addEventListener('keydown', e => { if (e.key === 'Enter') applyCustom(); });
-document.getElementById('customCoeffs').addEventListener('change', applyCustom);
+$('customCoeffs').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyCustom(); });
+$('customCoeffs').addEventListener('change', applyCustom);
 
-document.getElementById('orbitToggle').addEventListener('click', e => {
+$('orbitToggle').addEventListener('click', (e) => {
   state.orbitMode = !state.orbitMode;
   e.target.classList.toggle('active', state.orbitMode);
   e.target.textContent = state.orbitMode ? 'Click the plane to track an orbit' : 'Orbit tracking off';
   stage.classList.toggle('orbit-mode', state.orbitMode);
 });
-document.getElementById('speedSlider').addEventListener('input', e => {
+$('speedSlider').addEventListener('input', (e) => {
   state.orbitSpeed = +e.target.value;
-  document.getElementById('speedVal').textContent = e.target.value;
+  $('speedVal').textContent = e.target.value;
 });
-document.getElementById('chkFollow').addEventListener('change', e => {
-  state.followCam = e.target.checked;
-  // catch up with an in-flight orbit as soon as the box is ticked
-  if (state.followCam && orbit && anim.running) anim.last = performance.now();
-});
-document.getElementById('replayBtn').addEventListener('click', () => {
+$('chkFollow').addEventListener('change', (e) => { state.followCam = e.target.checked; });
+$('replayBtn').addEventListener('click', () => {
   if (!orbit) return;
-  anim.t = 0; anim.pulse = 0; anim.playing = true; anim.last = performance.now();
-  startAnimLoop();
+  anim.t = 0; anim.pulse = 0; anim.playing = true;
+  statusDirty = true; overlayDirty = true;
 });
-document.getElementById('clearBtn').addEventListener('click', () => {
+$('clearBtn').addEventListener('click', () => {
+  if (orbitReq) { auxWorker.terminate(); startAuxWorker(); orbitReq = null; resendAux(); }
+  const old = orbit;
   orbit = null;
-  cancelAnimationFrame(anim.raf);
-  anim.playing = false;
-  anim.running = false;
+  if (old) dropRef(old.ref);
+  pickMemo.v = -1;
+  anim.playing = false; anim.running = false;
   updateOrbitStatus();
   updateRootTable();
-  drawOverlay();
+  overlayDirty = true;
 });
 
-document.getElementById('colorSeg').addEventListener('click', e => {
+$('colorSeg').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   state.mode = +b.dataset.mode;
   for (const btn of document.querySelectorAll('#colorSeg button')) btn.classList.toggle('active', btn === b);
-  render();
+  dirty = true;
 });
-document.getElementById('iterSlider').addEventListener('input', e => {
+$('iterSlider').addEventListener('input', (e) => {
   state.maxIter = +e.target.value;
-  document.getElementById('iterVal').textContent = e.target.value;
-  render();
+  $('iterVal').textContent = e.target.value;
+  iterFloor = 0;
+  viewMoved = true;
 });
-document.getElementById('bandSlider').addEventListener('input', e => {
+$('bandSlider').addEventListener('input', (e) => {
   state.bands = +e.target.value;
-  document.getElementById('bandVal').textContent = e.target.value;
-  render();
+  $('bandVal').textContent = e.target.value;
+  dirty = true;
 });
+$('chkSmooth').addEventListener('change', (e) => { state.smooth = e.target.checked; dirty = true; });
 for (const [id, key] of [['chkCircle', 'showCircle'], ['chkRoots', 'showRoots'], ['chkAxes', 'showAxes']]) {
-  document.getElementById(id).addEventListener('change', e => {
+  $(id).addEventListener('change', (e) => {
     state[key] = e.target.checked;
-    drawOverlay();
+    overlayDirty = true;
   });
 }
-document.getElementById('zoomIn').addEventListener('click', () => { breakFollow(); state.span *= 0.6; render(); });
-document.getElementById('zoomOut').addEventListener('click', () => { breakFollow(); state.span /= 0.6; render(); });
-document.getElementById('resetView').addEventListener('click', () => {
+function zoomCenter(f) {
+  const fr = freeRect();
   breakFollow();
-  state.center = { x: 0.25, y: 0 };
-  state.span = 2.8;
-  render();
+  quickZoom((fr.x0 + fr.x1) / 2, (fr.y0 + fr.y1) / 2, f);
+}
+$('zoomIn').addEventListener('click', () => zoomCenter(0.6));
+$('zoomOut').addEventListener('click', () => zoomCenter(1 / 0.6));
+$('resetView').addEventListener('click', () => {
+  breakFollow();
+  flyTo({ cx: fx(HOME.x), cy: fx(HOME.y), span: HOME.span });
 });
+el.dive.addEventListener('click', dive);
+
+/* ================================================================
+   Main loop
+   ================================================================ */
+let lastT = performance.now(), lastReadout = 0;
+function frame(now) {
+  const dt = Math.min(0.1, Math.max(0, (now - lastT) / 1000)); lastT = now;
+  if (flight) {
+    const f = Math.min(1, (now - flight.t0) / flight.T);
+    flight.step(f);
+    if (f >= 1) flight = null;
+  }
+  stepOrbit(dt);
+  if (statusDirty) { statusDirty = false; updateOrbitStatus(); }
+  if (viewMoved) {
+    viewMoved = false; viewVersion++; dirty = true; overlayDirty = true;
+    if (hover && hover.x !== undefined) { const h = pointAt(hover.x, hover.y); hover.cx = h.cx; hover.cy = h.cy; }
+    updateViewReadout();
+  }
+  if (glOK) {
+    try { schedule(now); } catch (e) { console.error(e); }
+    if (win0T !== null) {
+      const a = 1 - Math.exp(-dt / 0.3), d0 = win0T - win0;
+      if (Math.abs(d0) > 1e-3) { win0 += d0 * a; dirty = true; }
+    }
+    if (dirty) { drawColor(); dirty = false; }
+  }
+  if (overlayDirty) { drawOverlay(); overlayDirty = false; }
+  if (now - lastReadout > 150 && now > flashT) { lastReadout = now; updateRefReadout(); }
+  const prog = job && job.phase === 'hi' ? 1 - job.layer.rowDone / job.layer.rh : 0;
+  el.progress.classList.toggle('on', !!(job && job.phase === 'hi'));
+  el.progress.style.width = (prog * 100).toFixed(1) + '%';
+}
+function tick(now) { requestAnimationFrame(tick); frame(now); }
 
 // ---------- boot ----------
 window.addEventListener('resize', resize);
+startRefWorker();
+startAuxWorker();
+resize();
 populateSelect();
 setPolynomial(state.coeffs);
-resize();
+updateOrbitStatus();
+requestAnimationFrame(tick);
+
+// a small hook for checking the renderer from the console or a headless test
+window.newton = {
+  view,
+  go(re, im, span) { flight = null; setView(parseFx(re), parseFx(im), span); },
+  fly(re, im, span) { flyTo({ cx: parseFx(re), cy: parseFx(im), span }); },
+  frame(t) { frame(t ?? performance.now()); },
+  dive,
+  get state() {
+    return {
+      viewVersion, span: view.span, N: iterFor(view.span), iterFloor, loScale, bandPx, win0,
+      job: job && { phase: job.phase, N: job.N, rowDone: job.layer.rowDone, rh: job.layer.rh, base: job.base, pert: !!job.ref },
+      complete: complete && { phase: complete.phase, N: complete.N, rw: complete.rw },
+      refReq: !!refReq, ref: ref && { len: ref.len, conv: ref.conv, prec: ref.prec, N: ref.N },
+      orbit: orbit && { n: orbit.n, status: orbit.status, target: orbit.targetIdx, t: anim.t },
+      diving: !!diveReq,
+    };
+  },
+  orbitAt(re, im) { startOrbit(parseFx(re), parseFx(im), view.span); },
+  // the finished layer's value at layer pixel (x, y), with that pixel's center in fixed point
+  probe(x, y) {
+    const L = complete;
+    if (!L) return null;
+    const px = new Float32Array(4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+    gl.readPixels(x, y, 1, 1, gl.RGBA, gl.FLOAT, px);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const re = L.cx + fx(((x + 0.5) / L.rw - 0.5) * L.span * cssW / cssH);
+    const im = L.cy + fx(((y + 0.5) / L.rh - 0.5) * L.span);
+    return { T: px[0], root: px[1], re: re.toString(), im: im.toString(), rw: L.rw, rh: L.rh };
+  },
+  get coeffs() { return state.coeffs.slice(); },
+  get roots() { return state.roots.map((r) => r.slice()); },
+  get rootK() { return state.rootK.slice(); },
+};
+function parseFx(str) {
+  let s = String(str).trim(), neg = false;
+  if (s[0] === '-') { neg = true; s = s.slice(1); } else if (s[0] === '+') s = s.slice(1);
+  const [ip, fp = ''] = s.split('.');
+  const v = (BigInt((ip || '0') + fp) << FBn) / 10n ** BigInt(fp.length);
+  return neg ? -v : v;
+}
+})();
 </script>
 <!-- golg-nav-bootstrap -->
 <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
