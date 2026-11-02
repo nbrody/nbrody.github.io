@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Riemann Zeta Explorer</title>
+<meta name="description" content="The Riemann zeta function as a deep-zoom domain-colored picture: zeros, the critical strip, Hardy's Z, Gram points and Lehmer's pair.">
+<link rel="stylesheet" href="../../../Geometric/Tools/Kleinian/vendor/fonts/tutorial.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage" aria-label="The Riemann zeta function on the s-plane: drag to pan, scroll to zoom, click to pin a point">
+  <canvas id="gl"></canvas>
+  <canvas id="overlay"></canvas>
+  <div id="labels" aria-hidden="true"></div>
+</div>
+<div id="progress"></div>
+<div id="hud"><span id="scale-label"></span><div id="scalebar"></div></div>
+
+<aside id="control-panel" aria-label="Controls">
+  <div class="tab-navigation">
+    <button class="tab-btn active" data-tab="explore">Explore</button>
+    <button class="tab-btn" data-tab="view">View</button>
+    <button class="tab-btn" data-tab="info">Info</button>
+    <button id="home-btn" class="collapse-btn" title="Back to the critical strip" aria-label="Back to the critical strip">
+      <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2.5 7.5 8 3l5.5 4.5M4 6.5V13h3V9.5h2V13h3V6.5"/></svg>
+    </button>
+    <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+      <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+    </button>
+    <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
+      <span class="collapse-icon">×</span>
+    </button>
+  </div>
+
+  <div class="panel-content">
+    <!-- Explore -->
+    <div id="tab-explore" class="tab-content active">
+      <div>
+        <h2 class="panel-title">The Riemann Zeta Function</h2>
+        <p class="panel-subtitle" data-mix="$\zeta(s) = \sum_{n \ge 1} n^{-s} = \prod_p (1 - p^{-s})^{-1}$ for $\operatorname{Re} s > 1$, continued to $\mathbb C \setminus \{1\}$. Each pixel $s = \sigma + it$ is colored by $\arg \zeta(s)$."></p>
+      </div>
+
+      <div class="control-group">
+        <div class="cayley-selector" role="group" aria-label="Function">
+          <span class="cayley-label">Function</span>
+          <div class="cayley-options">
+            <button class="fn-opt active" data-fn="zeta" data-tex="\zeta(s)"></button>
+            <button class="fn-opt" data-fn="xi" data-tex="\xi(s)"></button>
+          </div>
+        </div>
+        <p class="label-hint" id="fn-hint" data-mix="The colors show $\arg\zeta(s)$; the bands and grid are level sets of $\log|\zeta(s)|$ and $\arg\zeta(s)$."></p>
+      </div>
+
+      <div class="control-group" id="point-group">
+        <div class="control-row"><span class="control-label grow">Point</span><span id="point-chip" class="chip pinned">Pinned</span></div>
+        <div class="kv">
+          <span class="k" data-tex="s"></span><span class="v" id="v-s"></span>
+          <span class="k" id="lab-f"></span><span class="v" id="v-f"></span>
+          <span class="k" id="lab-abs"></span><span class="v" id="v-abs"></span>
+          <span class="k" id="lab-arg"></span><span class="v" id="v-arg"></span>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="cayley-selector" role="group" aria-label="Inset">
+          <span class="cayley-label">Inset</span>
+          <div class="cayley-options">
+            <button class="inset-opt active" data-inset="path" title="The image of the vertical line through s under ζ">Path</button>
+            <button class="inset-opt" data-inset="Z" title="Hardy's Z function near the height of s">Hardy Z</button>
+          </div>
+        </div>
+        <div class="inset-wrap"><canvas id="inset"></canvas><div id="inset-labels" aria-hidden="true"></div><span class="inset-label" id="inset-label"></span></div>
+        <div class="caption" id="inset-caption"></div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Landmarks</span>
+        <div class="landmarks" id="landmarks"></div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Go to</span>
+        <form class="control-row goto" id="goto-t-form">
+          <label for="goto-t" class="goto-lab">Height <span data-tex="t"></span></label>
+          <input id="goto-t" class="number-input" type="text" inputmode="decimal" placeholder="1e6" spellcheck="false" autocomplete="off">
+          <button type="submit" class="btn btn-add-alt">Go</button>
+        </form>
+        <form class="control-row goto" id="goto-n-form">
+          <label for="goto-n" class="goto-lab">Zero <span data-tex="\rho_n,\ n"></span></label>
+          <input id="goto-n" class="number-input" type="text" inputmode="numeric" placeholder="100000" spellcheck="false" autocomplete="off">
+          <button type="submit" class="btn btn-add-alt">Go</button>
+        </form>
+        <p class="label-hint small" id="goto-msg" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <!-- View -->
+    <div id="tab-view" class="tab-content">
+      <div>
+        <h2 class="panel-title">View Options</h2>
+        <p class="panel-subtitle">The picture is computed on the GPU, first coarsely and then at full resolution.</p>
+      </div>
+
+      <div class="control-group">
+        <div class="kv">
+          <span class="k">Center</span><span class="v" id="v-c"></span>
+          <span class="k">Width</span><span class="v" id="v-w"></span>
+        </div>
+        <p class="label-hint small" id="v-m"></p>
+        <p class="label-hint small" id="v-ref"></p>
+        <button id="copy-link" class="btn btn-add-alt" title="The URL encodes the center, width, pinned point, function and palette.">Copy link to this view</button>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Palette</span>
+        <div class="palettes" id="palettes"></div>
+        <div class="toggle-grid">
+          <button class="toggle-btn" data-opt="rings" title="Darken toward each level set of log|f(s)|, in steps of 2π/m">Modulus bands</button>
+          <button class="toggle-btn" data-opt="grid" title="Thin level lines of log|f(s)| and arg f(s), in steps of 2π/m: they meet in little squares, because log f is conformal">Conformal grid</button>
+          <button class="toggle-btn" data-opt="relief" title="Light log|f(s)| as a surface: zeros are pits and the pole is a peak">Relief</button>
+          <button class="toggle-btn" data-opt="cycle" title="Rotate the palette slowly">Cycle colors</button>
+        </div>
+        <div class="cayley-selector">
+          <span class="cayley-label">Lines</span>
+          <input id="opt-lines" class="opacity-slider" type="range" min="2" max="24" step="1" value="8" aria-label="Lines per turn">
+          <output id="opt-lines-out" class="slider-out"></output>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Overlays</span>
+        <div class="toggle-grid">
+          <button class="toggle-btn" data-opt="strip" title="The lines σ = 0 and σ = 1, and the critical line σ = 1/2 (dashed)">Critical strip</button>
+          <button class="toggle-btn" data-opt="zeros" title="Zeros on the critical line, found as sign changes of Hardy's Z(t), with their indices">Zeros</button>
+          <button class="toggle-btn" data-opt="coords" title="Values of σ along the top and of t along the left">Coordinates</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div id="tab-info" class="tab-content">
+      <div>
+        <h2 class="panel-title">About the Picture</h2>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">What the colors mean</h3>
+        <p data-mix="Each pixel $s = \sigma + it$ gets the color of $\arg\zeta(s)$; in the Spectrum palette the positive reals are red, then yellow, green, cyan, blue and magenta counterclockwise."></p>
+        <p data-mix="The bands and thin lines are level sets of $\log|\zeta(s)|$ and of $\arg\zeta(s)$ in steps of $2\pi/m$. Since $\log\zeta$ is conformal they cross at right angles, in little squares. Every color meets at a zero, counterclockwise; around the pole at $s = 1$ they run clockwise."></p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">How ζ is computed</h3>
+        <p data-mix="Below height $t = 100$, by Euler–Maclaurin summation with $B_2, \dots, B_{20}$. Above it, by the Riemann–Siegel formula with the corrections $C_0, \dots, C_3$ for every $\sigma$ (J. Arias de Reyna, 2011): $\zeta(s) = R(s) + \chi(s)\,\overline{R(1 - \bar s)}$. Left of the strip, by $\zeta(s) = \chi(s)\,\zeta(1 - s)$."></p>
+        <p data-mix="The GPU works in single precision, which cannot hold the phases $t \log n$ at large heights. So the phases $n^{-it_0}$, and those of $\chi$, $\Gamma$ and $e^{-i\vartheta(t_0)}$, are computed in double precision at the center of the view, and each pixel multiplies them by small corrections, as the Mandelbrot viewer does with its reference orbit."></p>
+        <p data-mix="The readouts, the inset and the zeros are computed in double precision. Zeros on the critical line are sign changes of Hardy’s $Z(t)$, and their indices come from $N(T) = \theta(T)/\pi + 1 + S(T)$, with $S(T)$ the variation of $\arg\zeta$ along $[\tfrac12 + iT, 2 + iT]$."></p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">Controls</h3>
+        <p data-mix="Drag to pan; scroll or pinch to zoom. Double-click zooms in by $4\times$ (Shift: out). Click pins a point; arrow keys pan, and $+$ and $-$ zoom."></p>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div id="message" hidden></div>
+
+<script type="module" src="js/main.js"></script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>
