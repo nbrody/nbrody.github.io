@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Recreate Riley's picture of the Riley slice.
 
-   Each pixel rho is coloured by the number of faces of the Ford domain of
+   Each pixel rho is colored by the number of faces of the Ford domain of
    < A, E >  (A = z+1, E = 1/(rho z)), i.e. the Ford domain of Riley's group
    < A, B >, B = (1 0; rho 1), taken with respect to both of its cusps.  The
    white lens is the complement of the Riley slice.  See fordCore.js.
@@ -29,10 +29,10 @@
              settle is redone the same way.  On test windows at the cusps
              rho = 4, 2i and along the boundary it agrees with max exactly.
      max     every sample gets its own verdict (slow; for checking high).
-   Colours: --bg (the outermost region), --lens, --alpha with --under (regions
+   Colors: --bg (the outermost region), --lens, --alpha with --under (regions
    blended over a backdrop, as index.html draws them at 70%), --undecided
    (show undecided samples).  --counts FILE caches the face counts, so a
-   recolour does not recompute.                                             */
+   recolor does not recompute.                                             */
 
 const { Worker, isMainThread, parentPort, workerData } = require("worker_threads");
 const path = require("path");
@@ -122,7 +122,7 @@ function makeLens(boundary, band) {
 }
 
 /* ---- a sample's own verdict ----------------------------------------------------
-   A closure seeded with a neighbour's faces is fast, but near the cusp rho = 4
+   A closure seeded with a neighbor's faces is fast, but near the cusp rho = 4
    it can stop at a self-consistent face set that is not the Ford domain
    (about 1 sample in 130 there), and so can one grown from E alone, more
    rarely.  Inside the lens near rho = 2i closures also stop at face sets
@@ -304,14 +304,14 @@ if (!isMainThread) {
   const finish = (st) => {
     if (G.kind === "wedge")                        // the quadrant from its half
       for (let v = 0; v < rowLen; v++) for (let u = v + 1; u < rowLen; u++) counts[u * rowLen + v] = counts[v * rowLen + u];
-    // colours, averaged over the aa x aa block in linear light
+    // colors, averaged over the aa x aa block in linear light
     const hex = s => { const v = parseInt(s.replace("#", ""), 16); return [v >> 16, (v >> 8) & 255, v & 255]; };
     const lin = Float64Array.from({ length: 256 }, (_, c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
     const enc = x => { x = x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055; return Math.round(255 * Math.min(1, Math.max(0, x))); };
     const lensC = hex(o.lens), bgC = o.bg && hex(o.bg), underC = o.under && hex(o.under);
     const undC = o.undecided ? hex(o.undecided) : lensC;
     const LUT = new Map();
-    const colourOf = v => {
+    const colorOf = v => {
       let c = LUT.get(v);
       if (c) return c;
       if (v < 0) c = undC;
@@ -336,7 +336,7 @@ if (!isMainThread) {
     for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
       let R = 0, Gn = 0, B = 0;
       for (let j = 0; j < o.aa; j++) for (let i = 0; i < o.aa; i++) {
-        const c = colourOf(at(px * o.aa + i, py * o.aa + j));
+        const c = colorOf(at(px * o.aa + i, py * o.aa + j));
         R += c[0]; Gn += c[1]; B += c[2];
       }
       const k = 3 * (py * W + px);

@@ -520,8 +520,8 @@
       <div class="control-group">
         <p class="group-title">Plane</p>
         <div class="seg" id="planeSeg">
-          <button data-plane="rho" class="active">ρ &mdash; Riley slice</button>
-          <button data-plane="sqrt">√ρ &mdash; square root</button>
+          <button data-plane="rho">ρ &mdash; Riley slice</button>
+          <button data-plane="sqrt" class="active">√ρ &mdash; square root</button>
         </div>
         <div class="control-row">
           <button class="btn" id="resetView">Reset view</button>
@@ -538,7 +538,7 @@
           <label class="chk"><input type="checkbox" id="fillOuter"> Fill outermost</label>
         </div>
         <div class="control-row">
-          <span class="control-label">Colour by</span>
+          <span class="control-label">Color by</span>
           <div class="seg" id="regionModeSeg">
             <button data-mode="level" class="active">Face count</button>
             <button data-mode="sig">Signature</button>
@@ -569,7 +569,7 @@
       </div>
 
       <div class="control-group">
-        <p class="group-title">Ray colours</p>
+        <p class="group-title">Ray colors</p>
         <select class="select-input" id="preset">
           <option value="classic">Classic rainbow</option>
           <option value="fire">Fire</option>
@@ -604,10 +604,10 @@
           <span class="label-val" data-out="val">80</span>
         </div>
         <div class="toggle-row">
-          <label class="chk"><input type="checkbox" id="wheel"> Full colour wheel</label>
+          <label class="chk"><input type="checkbox" id="wheel"> Full color wheel</label>
         </div>
         <div id="slopeLegend" style="display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11.5px; color:var(--ink-dim)"
-          title="The ray colour of a few slopes p/q (upper half plane; the lower half mirrors them unless the full wheel is on)"></div>
+          title="The ray color of a few slopes p/q (upper half plane; the lower half mirrors them unless the full wheel is on)"></div>
         <button class="btn" id="randomize">Random palette</button>
       </div>
 
@@ -672,7 +672,7 @@
           $\Gamma_\rho = \langle X, Y \rangle$, with $X = \left(\begin{smallmatrix}1&1\\0&1\end{smallmatrix}\right)$
           and $Y = \left(\begin{smallmatrix}1&0\\\rho&1\end{smallmatrix}\right)$, fails to be free and discrete;
           its complement is the <b>Riley slice</b>.</p>
-        <p>The coloured curves are the Keen–Series <b>pleating rays</b>: for each slope $p/q$, the
+        <p>The colored curves are the Keen–Series <b>pleating rays</b>: for each slope $p/q$, the
           branch of $\Phi_{p/q}^{-1}\big((-\infty, -2]\big)$ asymptotic to $\arg\rho = \pi p/q$, traced
           inward from $\infty$ by Newton continuation. They are pairwise disjoint and land on the
           $p/q$ cusp. The dots are the roots of the Farey polynomials $\Phi_{p/q} + 2$.</p>
@@ -691,7 +691,7 @@
       </div>
       <div class="info-section">
         <h3 class="info-title">Ford regions at both cusps</h3>
-        <p>Riley's original picture. The colour counts the faces of the Ford domain of
+        <p>Riley's original picture. The color counts the faces of the Ford domain of
           $\langle X, E \rangle$, $E(z) = 1/(\rho z)$, which swaps the cusps $\infty$ and $0$ and
           conjugates $X$ to $Y$: the Ford domain of $\Gamma_\rho$ taken at <b>both</b> of its cusps
           (Riley's palette: 1 black, 3 blue, 5 green, 7 red, …).</p>
@@ -715,7 +715,7 @@
           $|\Phi_{p/q}(\rho)| = 2$.</p>
         <p>Its edges record which visible isometric circles overlap, $|C - C' - n| < r + r'$:
           crossing an edge wall relinks the face graph without changing the faces, carving each
-          fan into the curvilinear panels of Jørgensen's picture. Colour = face pairs, shade =
+          fan into the curvilinear panels of Jørgensen's picture. Color = face pairs, shade =
           linking class. The first wall is the Lyndon–Ullman circle $|\rho - 2| = 2$, not Riley's
           $|\rho| = 4$: it misses the faces of the cusp at $0$.</p>
       </div>
@@ -733,7 +733,7 @@
         <p>It follows the cursor like the Julia set beside a Mandelbrot set. <b>Limit set</b>: the
           limit set of $\Gamma_\rho$, which is $X$-periodic, by a depth-first search over reduced
           words beginning with $Y^{\pm 1}$. A branch stops when the images of three of its limit
-          points lie within a pixel, and its colour records the first two letters ($Y\cdots$
+          points lie within a pixel, and its color records the first two letters ($Y\cdots$
           indigo, $Y^{-1}\cdots$ teal).</p>
         <p><b>Polyhedron</b>: the Ford domain of the chosen group, ray-cast in upper half-space.
           The hemispheres are its faces (those of the cusp at $0$ lighter), the glass walls
@@ -855,7 +855,7 @@ const R0 = 30.0, XLIM = 5.6, YLIM = 3.67;   // R0 must be large: the q branches
                                             // started too far in lands on the
                                             // WRONG one -- at R0 = 7.2 a third
                                             // of the slopes hop a branch and
-                                            // then cross their neighbours.
+                                            // then cross their neighbors.
                                             // R0 > 4.47^2 also keeps the ray
                                             // truncation circle off-screen
                                             // in the sqrt plane.
@@ -971,7 +971,7 @@ function traceRay(ev, slope) {
   for (let it = 0; it < 12; it++) {             // moving target (-|Phi(z)|)
     e = ev(zr, zi);                             // lets the iterate drift
     const rr = e[0] + T, ri = e[1];             // radially inward and hop
-    const gr = e[2], gi = e[3];                 // onto a neighbouring branch
+    const gr = e[2], gi = e[3];                 // onto a neighboring branch
     const gden = gr * gr + gi * gi || 1e-300;
     zr -= (rr * gr + ri * gi) / gden;
     zi -= (ri * gr - rr * gi) / gden;
@@ -1506,7 +1506,7 @@ function hslRgb(h, s, l) {
 let regionMode = "level";
 const regionPal = { name: "rainbow", cycle: 9, hue: 0 };   // FordCore.PALETTES
 const CLEAR = [0, 0, 0, 0];
-/* colour of a region with `count` Ford faces (palette from fordCore.js);
+/* color of a region with `count` Ford faces (palette from fordCore.js);
    count 1 -- the outermost region -- stays clear unless "Fill outermost" */
 function countColor(count) {
   if (count <= 0) return CLEAR;
@@ -1517,7 +1517,7 @@ function colorForId(id) {              // one-cusp (algebraic) engine
   const s = sigList[id];
   if (!s || !s.n) return CLEAR;
   if (regionMode === "level") {
-    // colour by face pairs (n pairs <-> 2n - 1 faces in the palette's
+    // color by face pairs (n pairs <-> 2n - 1 faces in the palette's
     // indexing), darkened stepwise by linking-edge classes so the triangle
     // subdivision inside each fan stays visible
     const c = countColor(2 * s.n - 1);
@@ -1635,7 +1635,7 @@ async function computeFordLayer() {
 /* ------- two-cusp engine: Riley's picture, exact, in workers ---------------
    fordCore.js computes the Ford domain of <X, E>, E(z) = 1/(rho z) -- the
    Ford domain of <X, Y> at BOTH cusps.  Its face count is what Riley's
-   colours show.  Workers are built from fordCoreFactory's source text, so
+   colors show.  Workers are built from fordCoreFactory's source text, so
    this runs from file:// too.  Rows go out interlaced (every 8th first), in
    batches of two with three in flight per worker so the workers keep going
    while the main thread is busy tracing rays.  Each row is scanned by
@@ -1823,7 +1823,7 @@ const stage = document.getElementById("stage");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 let view = { cx: 0, cy: 0, scale: 1 };
-let plane = "rho";
+let plane = "sqrt";
 
 function fitView() { view = { cx: 0, cy: 0, scale: 0 }; }
 fitView();
@@ -2025,7 +2025,7 @@ function wallCurves() {
   return list;
 }
 
-/* Swatches for a few slopes, coloured exactly as the rays are (hueForSlope). */
+/* Swatches for a few slopes, colored exactly as the rays are (hueForSlope). */
 let slopeLegendKey = "";
 function renderSlopeLegend() {
   const el = document.getElementById("slopeLegend");
@@ -2482,20 +2482,35 @@ async function makeExact(s) {
 const PC_URL = "../../../../PresentationCalc/";
 const PC_SECONDS = 180;
 let pcFrame = null, pcTimer = 0;
-function pcState(ex) {
+/* How far Poincaré's search has to reach at a dot, cusp or bead of slope p/q.
+   It keeps a wall only when the wall's word has at most 6 x (word length)
+   letters, and the faces around the new parabolic (or elliptic) need W_{p/q}:
+   2q letters in X, Y, and 4q in A = (1 z; 0 1), S = (0 -1; 1 0) of the sqrt
+   plane, where Y = S A^-1 S costs three.  So word length ceil(len / 6): the
+   16/27 cusp needs 9 (18 for the sqrt form), one more than the default 8.
+   Checked on the cusps 3/7 ... 19/45: each verifies at exactly this length
+   or shorter.  A domain at slope p/q has at most about 2q faces.          */
+function searchLimits(s, sqrtForm = false) {
+  const q = s && s.q > 0 ? s.q : 0;
+  return { depth: Math.min(32, Math.max(8, Math.ceil((sqrtForm ? 4 : 2) * q / 6))),
+           faces: Math.min(256, Math.max(96, 3 * q)) };
+}
+function pcState(ex, limits) {
   const exactRat = ex.deg === 1;                 // F = w + c: rho = -c, no field needed
   return {
     v: 1, anti: [false, false],
     mats: [["1", "1", "0", "1"], ["1", "0", exactRat ? String(-ex.F[0]) : "w", "1"]],
     consts: exactRat ? [] : [{ name: "w", poly: polyLatex(ex.F, "w"), near: { re: ex.x, im: ex.y } }],
+    ...limits,
   };
 }
-function pcLink(ex) {                            // the poincare permalink format PresentationCalc reads
-  const bytes = new TextEncoder().encode(JSON.stringify(pcState(ex)));
+function permalinkHash(state) {                  // poincare's #s= permalink, which PresentationCalc reads too
+  const bytes = new TextEncoder().encode(JSON.stringify(state));
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
-  return PC_URL + "#s=" + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return "#s=" + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
+function pcLink(s) { return PC_URL + permalinkHash(pcState(s.exact, searchLimits(s))); }
 function stopPresentationCalc() {
   clearInterval(pcTimer); pcTimer = 0;
   if (pcFrame) { pcFrame.remove(); pcFrame = null; }
@@ -2510,7 +2525,7 @@ function startPresentationCalc(s) {
   pcFrame.tabIndex = -1;
   pcFrame.title = "PresentationCalc (hidden)";
   pcFrame.style.cssText = "position:fixed; left:-12000px; top:0; width:960px; height:720px; border:0; visibility:hidden";
-  pcFrame.src = pcLink(s.exact);
+  pcFrame.src = pcLink(s);
   document.body.appendChild(pcFrame);
   renderPC(s);
   pcTimer = setInterval(() => readPresentationCalc(s), 700);
@@ -2569,7 +2584,7 @@ function renderPC(s) {
   const pc = s.pc;
   let html = `<div class="pc-head">PresentationCalc`;
   if (pc && !pc.error) html += ` <span class="pc-state">${pc.done ? "" : pc.timeout ? "stopped after " + PC_SECONDS + " s" : "computing…"}</span>`;
-  html += ` <a class="pc-open" href="${pcLink(s.exact)}" target="_blank" rel="noopener" title="The full report, in a new tab">report ↗</a></div>`;
+  html += ` <a class="pc-open" href="${pcLink(s)}" target="_blank" rel="noopener" title="The full report, in a new tab">report ↗</a></div>`;
   if (!pc) html += `<div class="pc-row"><span class="pc-text">waiting for the exact value…</span></div>`;
   else if (pc.error) html += `<div class="pc-row"><span class="pc-text">${pc.error}</span></div>`;
   else if (!pc.rows.length) html += `<div class="pc-row"><span class="pc-text">starting…</span></div>`;
@@ -2597,15 +2612,18 @@ exportBtn.addEventListener("click", () => {
     : `../poincare/?riley=${num(sel.x)},${num(sel.y)}`;
   const ex = sel.exact;
   if (ex && ex.F && ex.deg <= 32) {
-    // exact: rho is the root of an irreducible integer polynomial nearest `near`
-    // (the Dirichlet tool adjoins it as a root row w; z = +-sqrt(w))
-    const near = `${ex.x.toPrecision(17)},${ex.y.toPrecision(17)}`;
-    const poly = encodeURIComponent(polyLatex(ex.F, "w"));
+    // exact: rho is the root of an irreducible integer polynomial nearest `near`,
+    // adjoined in the Dirichlet tool as a root row w (z = +-sqrt(w)).  Sent as
+    // its permalink, which also carries the word length and face cap.
+    const w = { name: "w", poly: polyLatex(ex.F, "w"), near: { re: ex.x, im: ex.y } };
     const [wr, wi] = csqrt(sel.x, sel.y);
     const principal = wr * sel.zx + wi * sel.zy >= 0;
-    url = plane === "sqrt"
-      ? `../poincare/?rileyzroot=${poly}&near=${near}&zsign=${principal ? 1 : -1}`
-      : `../poincare/?rileyroot=${poly}&near=${near}`;
+    const group = plane === "sqrt"
+      ? { mats: [["1", "z", "0", "1"], ["0", "-1", "1", "0"]],
+          consts: [w, ["z", (principal ? "" : "-") + "\\sqrt{w}"]] }
+      : { mats: [["1", "w", "0", "1"], ["1", "0", "1", "1"]], consts: [w] };
+    url = "../poincare/" + permalinkHash({ v: 1, anti: [false, false], ...group,
+                                           ...searchLimits(sel, plane === "sqrt") });
   }
   window.open(url, "_blank");
 });
@@ -3266,7 +3284,7 @@ void main() { gl_Position = vec4(aP, 0.0, 1.0); }`;
 precision highp float;
 precision highp int;
 precision highp sampler2D;
-uniform sampler2D uS;          // row 0: centre x, centre y, radius; row 1: rgb
+uniform sampler2D uS;          // row 0: center x, center y, radius; row 1: rgb
 uniform int uN;
 uniform vec2 uRes;
 uniform vec3 uEye, uFwd, uRight, uUp;
@@ -3454,7 +3472,7 @@ void main() {
     gl.uniform1f(U.uTan, tan);
     gl.uniform1f(U.uXH, scene.XH); gl.uniform1f(U.uYH, scene.YH); gl.uniform1f(U.uTop, scene.top);
     gl.uniform1f(U.uBY, scene.BY); gl.uniform1f(U.uR2, scene.BY < scene.YH ? 1 : 0);
-    if (isLight()) {                               // the stage colour, --stage-bg
+    if (isLight()) {                               // the stage color, --stage-bg
       gl.uniform3f(U.uBg, 0.969, 0.973, 0.98);
       gl.uniform3f(U.uFloor, 0.905, 0.918, 0.94);
       gl.uniform3f(U.uAccent, 0.388, 0.4, 0.945);

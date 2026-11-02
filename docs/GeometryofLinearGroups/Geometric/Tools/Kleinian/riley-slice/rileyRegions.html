@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Riley's Regions</title>
-<meta name="description" content="Riley's picture of the Riley slice, recomputed: each colour counts the faces of the Ford domain of ⟨A,B⟩ taken at both cusps (the Ford domain of the extension by z ↦ 1/(ρz)).">
+<meta name="description" content="Riley's picture of the Riley slice, recomputed: each color counts the faces of the Ford domain of ⟨A,B⟩ taken at both cusps (the Ford domain of the extension by z ↦ 1/(ρz)).">
 <style>
   :root {
     --bg: #0b1020; --panel: #121a2e; --line: rgba(255,255,255,0.10);
@@ -83,7 +83,7 @@
 
   <aside>
     <h1>Riley's regions</h1>
-    <p class="lede">Each colour counts the faces of the Ford domain of
+    <p class="lede">Each color counts the faces of the Ford domain of
       ⟨A, B⟩, A = (1 1; 0 1), B = (1 0; ρ 1), <b>taken at both of its cusps</b>.
       Hover over the slice to see that domain, click to pin it, scroll to zoom, drag to pan.</p>
     <div class="pal">
@@ -92,7 +92,7 @@
       <span class="hue">Hue</span><input class="hue" type="range" id="hue" min="0" max="359" step="1"><output class="hue" id="hueOut"></output>
     </div>
     <div class="legend" id="legend"></div>
-    <div id="readout"><span class="hint">Hover over the coloured region.</span></div>
+    <div id="readout"><span class="hint">Hover over the colored region.</span></div>
     <canvas id="ford"></canvas>
     <div class="key">
       <span><i style="background:#c9d4ea"></i>face of g ∈ Γ<sub>ρ</sub></span>
@@ -101,7 +101,7 @@
     </div>
     <ul id="faces"></ul>
 
-    <h2>What the colours are</h2>
+    <h2>What the colors are</h2>
     <p>Γ<sub>ρ</sub> = ⟨A, B⟩ has two cusps, ∞ (fixed by A) and 0 (fixed by B).
       The involution <span class="math">E(z) = 1/(ρz)</span> swaps them and conjugates
       A to B, so Γ̂ = ⟨A, E⟩ contains Γ<sub>ρ</sub> with index 2. The Ford domain of Γ̂
@@ -368,7 +368,7 @@ function showFord(rho) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.fillStyle = "#070b16"; g.fillRect(0, 0, W, H);
   faceList.innerHTML = "";
-  if (!rho) { readout.innerHTML = `<span class="hint">Hover over the coloured region.</span>`; return; }
+  if (!rho) { readout.innerHTML = `<span class="hint">Hover over the colored region.</span>`; return; }
   const [x, y] = rho;
   const mod = Math.hypot(x, y), arg = Math.atan2(y, x) * 180 / Math.PI;
   const rhoStr = `ρ = ${x.toFixed(4)} ${y < 0 ? "−" : "+"} ${Math.abs(y).toFixed(4)}i`;

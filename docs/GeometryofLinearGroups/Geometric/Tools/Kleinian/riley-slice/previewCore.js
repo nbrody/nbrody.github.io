@@ -191,7 +191,7 @@ function previewCoreFactory() {
     [13, 148, 136], [5, 150, 105], [8, 145, 178],        // Y^-1 X, Y^-1 Y^-1, Y^-1 X^-1
   ];
 
-  /* The whole picture, rasterised into W x H RGBA.  A coarse search first
+  /* The whole picture, rasterized into W x H RGBA.  A coarse search first
      measures L0 to frame the view, then the fine search runs at `px` device
      pixels.  `frame` (optional) pins the view instead.                     */
   function limitSetImage(rr, ri, o) {

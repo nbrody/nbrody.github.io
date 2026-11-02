@@ -8,7 +8,7 @@
    infinity is the Ford domain of Gamma_rho taken with respect to both cusps:
    the points of the slab no closer to any horoball of either cusp orbit than
    to the horoball at infinity (horoballs at infinity and 0 swapped by E).
-   Riley's colours count its faces: black 1, blue 3, green 5, red 7, ...
+   Riley's colors count its faces: black 1, blue 3, green 5, red 7, ...
 
    Elements are words  E A^n1 E A^n2 ... A^nk E,  stored as [n1, ..., nk]
    ([] is E).  Left multiplication by A^m does not move an isometric circle and
@@ -28,7 +28,7 @@
 
    Face sets are NOT closed under taking suffixes, so faces are found by
    Poincare-style closure: repeatedly add the products f A^(+-1) g of faces
-   until nothing new is visible.  Seeded with the faces of a neighbouring
+   until nothing new is visible.  Seeded with the faces of a neighboring
    parameter this converges in about one round.                             */
 
 function fordCoreFactory() {
@@ -59,7 +59,7 @@ function fordCoreFactory() {
     for (let i = word.length - 1; i >= 0; i--) M = leftEAn(E, word[i], M);
     return M;
   }
-  // isometric circle |cz + d| = 1: centre -d/c (x reduced mod 1), radius 1/|c|
+  // isometric circle |cz + d| = 1: center -d/c (x reduced mod 1), radius 1/|c|
   function circleOfMatrix(M) {
     const cr = M[4], ci = M[5], dr = M[6], di = M[7];
     const c2 = cr * cr + ci * ci;
@@ -242,7 +242,7 @@ function fordCoreFactory() {
 
   /* Ford domain at rho by closure.  group: "ext" (Gamma^, Riley's picture) or
      "gamma" (Gamma_rho at the cusp infinity only).  seed: words to start from
-     (e.g. a neighbour's faces).  Returns {faces, complete, capped, nondiscrete}.
+     (e.g. a neighbor's faces).  Returns {faces, complete, capped, nondiscrete}.
 
      Shimizu's lemma: a discrete group containing A = z + 1 has |c| >= 1 for
      every element (a b; c d) not fixing infinity, i.e. every isometric circle
@@ -322,7 +322,7 @@ function fordCoreFactory() {
     if (opts.polys) faces = visibleItems(faces, true);
     return { faces: faces.map(faceOut), complete, capped, hidden, nondiscrete, stab };
   }
-  // a hash of the face set (order-free), for colouring by type
+  // a hash of the face set (order-free), for coloring by type
   function typeHash(faces) {
     const ks = faces.map(f => f.key).sort((a, b) => a - b);
     let h = 2166136261 >>> 0;
@@ -452,10 +452,10 @@ function fordCoreFactory() {
   /* A Ford domain keeps its combinatorics -- and then, by Poincare's theorem,
      stays the Ford domain -- until one of finitely many "slacks" changes
      sign.  Each slack is a real algebraic function of rho once the isometric
-     circles are (their centres and radii are rational in rho, rho-bar):
+     circles are (their centers and radii are rational in rho, rho-bar):
        out/cross/in  two nearby circles start to touch, cross or nest
        V             a vertex (three hemispheres meeting in H^3) sinks to the
-                     sphere at infinity: power of the radical centre -> 0
+                     sphere at infinity: power of the radical center -> 0
        Vl            a fourth circle reaches a vertex
        Ql            a corner of the ideal boundary (two circles crossing on
                      the edge of the covered region) is covered by a third
@@ -466,7 +466,7 @@ function fordCoreFactory() {
      reaches a corner, and only sometimes does an existing face show it.  A
      slack that vanishes identically (tangencies at parabolic fixed points)
      is dropped.                                                            */
-  function circlesAbs(words, rr, ri, into) {  // centres NOT reduced mod 1
+  function circlesAbs(words, rr, ri, into) {  // centers NOT reduced mod 1
     const E = makeE(rr, ri);
     const er = E[2], ei = E[3], fr = E[4], fi = E[5];         // E = (0 e; f 0)
     const C = into || words.map(() => ({ x: 0, y: 0, r: 0 }));
@@ -489,7 +489,7 @@ function fordCoreFactory() {
     }
     return C;
   }
-  // circle of f A^k g from the matrices of f and g (centre not reduced)
+  // circle of f A^k g from the matrices of f and g (center not reduced)
   function productCircle(f, k, g, o) {
     const xar = g.ar + k * g.cr, xai = g.ai + k * g.ci, xbr = g.br + k * g.dr, xbi = g.bi + k * g.di;
     const cr = f.cr * xar - f.ci * xai + f.dr * g.cr - f.di * g.ci;
@@ -501,7 +501,7 @@ function fordCoreFactory() {
     return o;
   }
   const powAt = (c, k, px, py) => c.r * c.r - (px - c.x - k) ** 2 - (py - c.y) ** 2;
-  function radicalCentre(a, b, kb, c, kc) {   // of circles a, b + kb, c + kc
+  function radicalCenter(a, b, kb, c, kc) {   // of circles a, b + kb, c + kc
     const bx = b.x + kb, cx = c.x + kc;
     const ea = a.x * a.x + a.y * a.y - a.r * a.r;
     const m11 = 2 * (bx - a.x), m12 = 2 * (b.y - a.y), m21 = 2 * (cx - a.x), m22 = 2 * (c.y - a.y);
@@ -594,7 +594,7 @@ function fordCoreFactory() {
         for (let v = u + 2; v < cross.length; v += 2) {
           const l = cross[v], kl = cross[v + 1];
           if (l < i) continue;
-          const p = radicalCentre(a, C0[j], kj, C0[l], kl);
+          const p = radicalCenter(a, C0[j], kj, C0[l], kl);
           if (!p) continue;
           const P = powAt(a, 0, p[0], p[1]);
           if (P <= TOL * a.r * a.r) continue;
@@ -640,7 +640,7 @@ function fordCoreFactory() {
       }
     };
     for (const v of verts) {
-      const p = radicalCentre(C0[v[0]], C0[v[1]], v[2], C0[v[3]], v[4]);
+      const p = radicalCenter(C0[v[0]], C0[v[1]], v[2], C0[v[3]], v[4]);
       watch(p[0], p[1], MARGIN + Math.sqrt(Math.max(0, powAt(C0[v[0]], 0, p[0], p[1]))), v[5]);
     }
     for (const q of corners) {
@@ -668,7 +668,7 @@ function fordCoreFactory() {
         else out[t++] = (a.r - b.r - d) / a.r;
       }
       for (const [i, j, kj, l, kl, cv] of verts) {
-        const a = C[i], p = radicalCentre(a, C[j], kj, C[l], kl);
+        const a = C[i], p = radicalCenter(a, C[j], kj, C[l], kl);
         if (!p) { for (let w = 0; w <= cv.length; w += 2) out[t++] = -1; continue; }
         const P = powAt(a, 0, p[0], p[1]), r2 = a.r * a.r;
         out[t++] = P / r2;
