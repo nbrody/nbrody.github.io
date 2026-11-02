@@ -141,11 +141,13 @@ export function createDelaunayView() {
     });
     let built = null;               // { result, meshes }
     let labels = [];                // { el, home, out }
+    let pickData = null;            // { pos (home ball), idx, triPiece }: the face mesh, for double-clicks
 
     function clear() {
         group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
         group.clear();
         built = null;
+        pickData = null;
     }
 
     /**
@@ -154,8 +156,8 @@ export function createDelaunayView() {
      * lines are drawn between them: lines go only where the boundary bends.
      */
     function faceGeometry(R, colors) {
-        const pos = [], dir = [], col = [], idx = [];
-        for (const f of R.raw) {
+        const pos = [], dir = [], col = [], idx = [], triPiece = [];
+        for (const [pi, f] of R.raw.entries()) {
             const c = colors[f.region] || [0.7, 0.7, 0.8];
             const P = pieceCorners(f);
             const pl = planeOf(finiteK(P[0], f.ideal[0]), finiteK(P[1], f.ideal[1]),
@@ -182,7 +184,8 @@ export function createDelaunayView() {
                 for (let a = 0; a < N; a++) {
                     for (let b = 0; b < N - a; b++) {
                         idx.push(at(a, b), at(a + 1, b), at(a, b + 1));
-                        if (b < N - a - 1) idx.push(at(a + 1, b), at(a + 1, b + 1), at(a, b + 1));
+                        triPiece.push(pi);
+                        if (b < N - a - 1) { idx.push(at(a + 1, b), at(a + 1, b + 1), at(a, b + 1)); triPiece.push(pi); }
                     }
                 }
             }
@@ -192,6 +195,7 @@ export function createDelaunayView() {
         geo.setAttribute('a_dir', new THREE.Float32BufferAttribute(dir, 3));
         geo.setAttribute('a_color', new THREE.Float32BufferAttribute(col, 3));
         geo.setIndex(idx);
+        pickData = { pos, idx, triPiece };
         return geo;
     }
 
@@ -336,6 +340,39 @@ export function createDelaunayView() {
         },
         get result() { return built ? built.result : null; },
 
+        /**
+         * The boundary facet under a world-space ray (index into R.raw), or −1:
+         * the face mesh is carried through the scene isometry S as the shader
+         * does, and the nearest triangle hit wins.
+         */
+        pick(ray, S, uhs) {
+            if (!pickData || !group.visible) return -1;
+            const L = lorentzMatrix(S), P = pickData.pos;
+            const n = P.length / 3, W = new Float64Array(P.length);
+            for (let i = 0; i < n; i++) {
+                const x = P[3 * i], y = P[3 * i + 1], z = P[3 * i + 2];
+                const r2 = Math.min(x * x + y * y + z * z, 0.9999995), f = 1 / (1 - r2);
+                const v = [2 * x * f, 2 * y * f, 2 * z * f, (1 + r2) * f];
+                const H = [0, 1, 2, 3].map(r => L[4 * r] * v[0] + L[4 * r + 1] * v[1] + L[4 * r + 2] * v[2] + L[4 * r + 3] * v[3]);
+                let bx = H[0] / (1 + H[3]), by = H[1] / (1 + H[3]), bz = H[2] / (1 + H[3]);
+                if (uhs) {
+                    const D = Math.max(bx * bx + by * by + (1 - bz) * (1 - bz), 1e-12), b2 = bx * bx + by * by + bz * bz;
+                    [bx, by, bz] = [2 * bx / D, (1 - b2) / D, 2 * by / D];
+                }
+                W[3 * i] = bx; W[3 * i + 1] = by; W[3 * i + 2] = bz;
+            }
+            const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), hit = new THREE.Vector3();
+            let best = -1, bestD = Infinity;
+            const I = pickData.idx;
+            for (let t = 0; t < I.length; t += 3) {
+                a.fromArray(W, 3 * I[t]); b.fromArray(W, 3 * I[t + 1]); c.fromArray(W, 3 * I[t + 2]);
+                if (!ray.intersectTriangle(a, b, c, false, hit)) continue;
+                const d = hit.distanceToSquared(ray.origin);
+                if (d < bestD) { bestD = d; best = pickData.triPiece[t / 3]; }
+            }
+            return best;
+        },
+
         // ---------------- the plane picture ----------------
 
         /**
@@ -347,9 +384,7 @@ export function createDelaunayView() {
         planarDomain(R, S, colors) {
             if (!R || !R.ok || R.dim !== 2 || !R.convex) return null;
             const L = lorentzMatrix(S), Si = S.inv().normalized();
-            const centre = new THREE.Vector3();
-            for (const v of R.vertices) centre.addScaledVector(finiteK(v.k, v.ideal), 1);
-            centre.multiplyScalar(1 / R.vertices.length);
+            const centre = R.centre.clone();
             const walls = R.raw.map(f => {
                 const [A, B] = pieceCorners(f);
                 const d = B.clone().sub(A);
@@ -363,7 +398,14 @@ export function createDelaunayView() {
                     pairing: { matrix: S.mul(f.el.m).mul(Si).normalized(), partner: f.partner }
                 };
             });
-            return { walls, colors: R.raw.map(f => colors[f.region] || [0.7, 0.7, 0.8]) };
+            // Where the plane shader starts its walk (Klein, scene frame): the
+            // polygon's centre, as far from its sides and corners as can be, so
+            // that no segment from it runs along a side.
+            const v = new THREE.Vector4(centre.x, 0, centre.z, 1).applyMatrix4(new THREE.Matrix4().set(...L));
+            return {
+                walls, colors: R.raw.map(f => colors[f.region] || [0.7, 0.7, 0.8]),
+                centre: new THREE.Vector3(v.x / v.w, 0, v.z / v.w)
+            };
         },
 
         // ---------------- face labels ----------------

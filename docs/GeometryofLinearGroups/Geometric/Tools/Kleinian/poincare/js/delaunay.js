@@ -48,8 +48,9 @@
  * The boundary. Facets whose two sides are not both in the domain are paired
  * by group elements. Neighbouring facets paired by the same element form one
  * side of the face pairing (it may bend: two Delaunay triangles paired as a
- * unit); facets meeting at the angle π form one geometric face (so the
- * subdivision itself is never drawn). A facet lying in a mirror is paired
+ * unit). A face as drawn is a flat part of one side, so lines go where a
+ * pairing ends (even across a flat join) and, thinner, where a side bends;
+ * the subdivision itself is never drawn. A facet lying in a mirror is paired
  * with itself. Relators: each edge cycle (corner cycle in the plane) gives
  * (its product)^m with m the product's order, and a side paired with itself
  * by an involution gives s² = 1.
@@ -551,9 +552,11 @@ export function computeDelaunayDomain(home, { dim = 3, frame = null } = {}) {
         });
         sides.forEach((S, si) => { S.pair = pairOfSide[si]; S.sign = pairs[S.pair].minus === si ? -1 : 1; });
 
-        // Geometric faces: neighbouring facets that meet at the angle π.
+        // Faces as drawn: neighbouring facets that meet at the angle π AND are
+        // paired by the same element (so the subdivision is never drawn, but a
+        // change of pairing always is, flat or not).
         const gf = makeUF(raw.length);
-        for (const [i, j] of neighbours) if (flat(i, j)) gf.union(i, j);
+        for (const [i, j] of neighbours) if (raw[i].region === raw[j].region && flat(i, j)) gf.union(i, j);
         const faceOf = new Map(), faces = [];
         raw.forEach((f, i) => {
             const r = gf.find(i);
@@ -602,24 +605,24 @@ export function computeDelaunayDomain(home, { dim = 3, frame = null } = {}) {
             });
         }
 
-        // ---- corners (2D): the walk goes round every point where the pairing
-        // changes (a fold point of a side paired with itself is one); a corner
-        // drawn is a point where the boundary turns.
+        // ---- corners (2D): where the boundary turns or the pairing changes (the
+        // fold point of a side paired with itself is one). The walk goes round each.
         if (dim === 2) {
             for (const [v, list] of atVert) {
                 const bends = list.length !== 2 || !flat(list[0], list[1]);
-                if (bends || new Set(list.map(i => raw[i].region)).size >= 2) verts[v].walk = true;
-                if (bends) verts[v].corner = true;
+                if (bends || new Set(list.map(i => raw[i].region)).size >= 2) verts[v].walk = verts[v].corner = true;
             }
         }
 
-        // ---- lines to draw: where the boundary bends ----
+        // ---- lines to draw: where one pairing meets another (an edge), or where
+        // one pairing bends (a fold); never across a flat join inside a pairing ----
         const lines = [];
         if (dim === 3) {
             for (const [k, list] of atSeg) {
-                if (list.length !== 2 || flat(list[0], list[1])) continue;
-                const [a, b2] = k.split(',').map(Number);
+                if (list.length !== 2) continue;
                 const same = raw[list[0]].region === raw[list[1]].region;
+                if (same && flat(list[0], list[1])) continue;
+                const [a, b2] = k.split(',').map(Number);
                 lines.push({ a, b: b2, kind: same ? 'fold' : 'edge', chain: segChain.has(k) ? segChain.get(k) : -1 });
             }
         }

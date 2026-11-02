@@ -29,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-11-02a';
+            const APP_VERSION = '2026-11-02b';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -48,6 +48,8 @@
                 im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             }
             document.write(`<script type="importmap">${JSON.stringify(im)}<\/script>`);
+            // The stylesheet too: a deploy must never pair new markup with a cached style.css.
+            document.write(`<link rel="stylesheet" href="style.css?v=${APP_VERSION}">`);
         })();
     </script>
 
@@ -62,7 +64,6 @@
         })();
     </script>
 
-    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>

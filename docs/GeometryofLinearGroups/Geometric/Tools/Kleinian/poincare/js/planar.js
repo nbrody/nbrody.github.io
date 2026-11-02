@@ -61,6 +61,13 @@ const fragmentShader = `
     uniform int u_sel;
     uniform int u_selPartner;
     uniform float u_opacity;
+    uniform bool u_walk;        // fold by walking from u_centre (any convex polygon), not by the nearest wall
+    uniform vec2 u_centre;      // a point inside the polygon, Klein coordinates on P
+    // With u_walk: the Dirichlet polygon of the same group, folded into first.
+    uniform vec4 u_fwalls[${PLANAR_MAX_WALLS}];
+    uniform mat4 u_fpair[${PLANAR_MAX_WALLS}];
+    uniform float u_fflag[${PLANAR_MAX_WALLS}];      // 1 if the pairing reverses P's orientation, −1 if unpaired
+    uniform int u_fcount;
 
     float mdot(vec4 a, vec4 b) { return dot(a.xyz, b.xyz) - a.w * b.w; }
 
@@ -95,7 +102,63 @@ const fragmentShader = `
             int folds = 0;
             float parity = 0.0;
             bool resolved = false;
+            if (u_walk) {
+                // A polygon that is not a Dirichlet domain. The nearest-wall fold
+                // below is only sure for a Dirichlet domain, so: (1) fold into
+                // the group's Dirichlet polygon that way, which brings the point
+                // near the middle; (2) walk the short segment from the centre of
+                // this polygon to it (straight in the Klein model), tile by tile:
+                // cross the first side it leaves by, carry both ends through that
+                // side's pairing, and go on — right for any convex fundamental polygon.
+                bool inside = true;
+                for (int j = 0; j < ${PLANAR_MAX_WALLS}; j++) {
+                    if (j >= u_wallCount) break;
+                    if (mdot(u_walls[j], X) > 1e-6) { inside = false; break; }
+                }
+                for (int it = 0; it < 96; it++) {
+                    if (inside) break;
+                    float worst = 1e-6; int k = -1;
+                    for (int j = 0; j < ${PLANAR_MAX_WALLS}; j++) {
+                        if (j >= u_fcount) break;
+                        float v = mdot(u_fwalls[j], X);
+                        if (v > worst) { worst = v; k = j; }
+                    }
+                    if (k < 0 || u_fflag[k] < -0.5) break;
+                    X = u_fpair[k] * X;
+                    X.y = 0.0;
+                    X /= sqrt(max(1e-12, -mdot(X, X)));
+                    parity += u_fflag[k];
+                }
+                vec2 y = u_centre, x = X.xz / X.w;
+                for (int it = 0; it < 96; it++) {
+                    vec2 d = x - y;
+                    float tmin = 1.0; int k = -1;
+                    for (int j = 0; j < ${PLANAR_MAX_WALLS}; j++) {
+                        if (j >= u_wallCount) break;
+                        vec2 a = u_walls[j].xz;
+                        float den = dot(a, d);
+                        if (den <= 1e-12) continue;                 // not moving out through this side
+                        float t = (u_walls[j].w - dot(a, y)) / den;
+                        if (t > 1e-7 && t < tmin) { tmin = t; k = j; }
+                    }
+                    if (k < 0) { resolved = true; break; }
+                    if (u_wallColor[k].w < -0.5) break;              // unpaired wall: cannot continue
+                    vec2 yc = y + tmin * d;
+                    vec4 Y = u_pair[k] * vec4(yc.x, 0.0, yc.y, 1.0);
+                    vec4 Z = u_pair[k] * vec4(x.x, 0.0, x.y, 1.0);
+                    // y lands on the partner side; nudge it inside, so that rounding at a
+                    // corner where many tiles meet cannot leave it outside the polygon.
+                    y = mix(Y.xz / Y.w, u_centre, 2e-4);
+                    x = Z.xz / Z.w;
+                    parity += u_wallColor[k].w;
+                    folds++;
+                }
+                float x2 = min(dot(x, x), 0.9999999);
+                X = vec4(x.x, 0.0, x.y, 1.0) / sqrt(1.0 - x2);
+                if (!inside) folds = max(folds, 1);            // only the polygon itself is home
+            }
             for (int it = 0; it < 96; it++) {
+                if (u_walk) break;
                 float worst = 1e-6; int k = -1;
                 for (int j = 0; j < ${PLANAR_MAX_WALLS}; j++) {
                     if (j >= u_wallCount) break;
@@ -167,6 +230,12 @@ export function createPlanarView(scene, shared) {
         u_sel: { value: -1 },
         u_selPartner: { value: -1 },
         u_opacity: { value: 1 },
+        u_walk: { value: false },
+        u_centre: { value: new THREE.Vector2() },
+        u_fwalls: { value: Array.from({ length: PLANAR_MAX_WALLS }, () => new THREE.Vector4()) },
+        u_fpair: { value: Array.from({ length: PLANAR_MAX_WALLS }, () => new THREE.Matrix4()) },
+        u_fflag: { value: new Array(PLANAR_MAX_WALLS).fill(0) },
+        u_fcount: { value: 0 },
     };
     const material = new THREE.ShaderMaterial({
         uniforms, vertexShader, fragmentShader,
@@ -198,6 +267,31 @@ export function createPlanarView(scene, shared) {
          */
         update(domain, colors) {
             slotOfWall = [];
+            // A polygon that is not a Dirichlet domain brings a point inside it to
+            // walk from, and the group's Dirichlet domain (`fold`) to fold into first.
+            uniforms.u_walk.value = !!(domain && domain.centre);
+            uniforms.u_fcount.value = 0;
+            if (domain && domain.centre) {
+                uniforms.u_centre.value.set(domain.centre.x, domain.centre.z);
+                let n = 0;
+                for (const w of (domain.fold ? domain.fold.walls : [])) {
+                    const W = planeCovector(w.cov);
+                    if (!W) continue;
+                    if (n >= PLANAR_MAX_WALLS) { n = 0; break; }
+                    uniforms.u_fwalls.value[n].copy(W);
+                    if (w.pairing) {
+                        const L = lorentzMatrix(w.pairing.matrix);
+                        uniforms.u_fpair.value[n].set(...L);
+                        const det = w.pairing.matrix.anti ? -1 : 1;
+                        uniforms.u_fflag.value[n] = det * Math.sign(L[5] || 1) < 0 ? 1 : 0;
+                    } else {
+                        uniforms.u_fpair.value[n].identity();
+                        uniforms.u_fflag.value[n] = -1;
+                    }
+                    n++;
+                }
+                uniforms.u_fcount.value = n;
+            }
             if (!domain) { uniforms.u_wallCount.value = 0; return true; }
             let n = 0;
             for (let i = 0; i < domain.walls.length; i++) {

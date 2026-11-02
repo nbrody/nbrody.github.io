@@ -96,8 +96,8 @@ export function renderDelaunayInfo(R, ctx) {
             (kind ? `<span class="std-gen-type">${kind}</span>` : '') + '</div>';
     }).join('') + '</div>';
     html += `<div class="inv-hint dl-note">${D2
-        ? 'Sides of one colour are glued by one pairing. Corners are drawn only where the boundary turns; a side paired with itself is folded at its midpoint.'
-        : 'Faces of one colour are glued by one pairing, which may carry on round a bend (a thin line). Thick lines are where two pairings meet; flat joins are not drawn.'}</div>`;
+        ? 'Sides of one colour are glued by one pairing; a side paired with itself is folded at its midpoint, a corner of the polygon. Double-click a side to roll the polygon across it.'
+        : 'Faces of one colour are glued by one pairing. A thick line is where one pairing ends and the next begins, even where the surface is flat; a thin line is a bend inside one pairing. Double-click a face to roll the domain across it.'}</div>`;
     box.innerHTML = html;
     box.querySelectorAll('.dl-gen').forEach(el => el.addEventListener('click', (e) => {
         const P = R.pairs[+el.dataset.k];

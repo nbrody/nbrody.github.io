@@ -17,9 +17,8 @@ import { setupControlPanel, readBoundedInteger, updateToggleBtn } from './contro
 import { createDomainService } from './domainService.js';
 import { matToArr } from './compute.js';
 import {
-    app, sceneMatrix, outerFrame, sceneAction, homeGenerators, wordToMatrix, viewIsDirty, displayFrame
+    app, sceneMatrix, outerFrame, sceneAction, homeGenerators, wordToMatrix, viewIsDirty
 } from './app.js';
-import { kleinToBall } from './polyhedron.js';
 import {
     installResult, retargetScene, displayedDomain, standardGenerators, faceColors, invalidateFaceColors, pairColors
 } from './domain.js';
@@ -166,38 +165,6 @@ function rebuildDelaunay() {
     syncDomainVisibility();
 }
 
-// The Delaunay domain is centred on a Dirichlet VERTEX, not on the basepoint
-// (its cells are the convex hulls round the vertices), so while it is shown the
-// camera is moved to bring its centre to the middle: app.focus, a camera move
-// outside every other frame and never a group element (as for unwrapping).
-let dlFocusAnim = 0;
-function delaunayFocusTarget() {
-    const R = dl.result;
-    if (!dl.on || !R || !R.ok || !R.centre) return null;
-    const S0 = displayFrame().mul(app.viewMatrix).mul(app.basepoint).normalized();
-    const x = applyMatrixToBall(S0, kleinToBall(R.centre));
-    const r = x.length();
-    if (r < 1e-6) return null;
-    return translationTowards(x.clone().normalize(), -2 * Math.atanh(Math.min(r, 0.999999)));
-}
-function animateDelaunayFocus(target, ms = 650) {
-    const I = Matrix2x2.identity();
-    const F0 = app.focus || I, F1 = target || I;
-    let X = null;
-    try { X = F1.mul(F0.inv()).normalized().log(); } catch (e) { X = null; }
-    const id = ++dlFocusAnim;
-    if (!X || ms <= 0 || document.hidden) { app.focus = target; if (app.scene) onSceneMoved(); return; }
-    const start = performance.now();
-    const step = (now) => {
-        if (id !== dlFocusAnim) return;
-        const t = Math.min(1, (now - start) / ms), e = t * t * (3 - 2 * t);
-        app.focus = t < 1 ? Matrix2x2.exp(new Matrix2x2(X.a.mul(e), X.b.mul(e), X.c.mul(e), X.d.mul(e))).mul(F0).normalized() : target;
-        if (app.scene) onSceneMoved({ fast: t < 1 });
-        if (t < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-}
-
 /** Show the Delaunay domain instead of the Dirichlet one (or back). */
 function setDelaunay(on, { quiet = false } = {}) {
     on = !!on;
@@ -217,7 +184,6 @@ function setDelaunay(on, { quiet = false } = {}) {
     updateEdgeCycles();
     syncMaterial();
     if (app.scene) onSceneMoved();
-    animateDelaunayFocus(on ? delaunayFocusTarget() : null);
     rebuildFaceLabels();
     showDelaunayInfo();
     if (app.home) updatePermalink();
@@ -391,6 +357,7 @@ function onSceneMoved({ fast = false } = {}) {
     loadDomainUniforms(D, faceColors(D));
     delaunayView.setFrame(sceneMatrix(), view.model === 'uhs');
     const dlPlane = planar.on && delaunayShowing() ? delaunayView.planarDomain(dl.result, sceneMatrix(), dl.colors) : null;
+    if (dlPlane) dlPlane.fold = app.scene;              // the plane shader folds into the Dirichlet polygon first
     if (planar.on && !(dlPlane ? planarView.update(dlPlane, dlPlane.colors) : planarView.update(app.scene, faceColors(app.scene)))) {
         setBanner('warning', `2D view unavailable: the polygon has more than ${PLANAR_MAX_WALLS} edges.`);
         setPlanar(false);
@@ -508,7 +475,6 @@ function afterInstall(result, ms) {
         const R = delaunayResult();
         if (R && !R.ok) setBanner('warning', `No Delaunay domain, so the Dirichlet domain is shown. ${R.message}`);
         rebuildDelaunay();
-        animateDelaunayFocus(delaunayFocusTarget(), 350);
     }
     onSceneMoved();
     syncMaterial();
@@ -840,7 +806,7 @@ function setPlanar(on) {
     inspect.planar = on;
     clearFaceSelection();
     syncPlanarControls();
-    if (dl.on) { rebuildDelaunay(); animateDelaunayFocus(delaunayFocusTarget(), 0); }
+    if (dl.on) rebuildDelaunay();
     syncMaterial();
     if (on) framePlanarCamera(camera, controls, view.model); else setModelCamera();
     if (app.scene) onSceneMoved();
@@ -1232,7 +1198,24 @@ function initUI() {
         handleFaceClick(hit.index, e.shiftKey, () => { if (layers.showTiling) updateTiling(); });
     });
     renderer.domElement.addEventListener('dblclick', (e) => {
-        if (insideView.isActive() || app.animating || delaunayShowing()) return;
+        if (insideView.isActive() || app.animating) return;
+        if (delaunayShowing()) {
+            // Roll the Delaunay domain across the face under the cursor: the
+            // copy across a face f is s⁻¹·U, s the pairing carrying f to its partner.
+            const R = dl.result, ray = rayFromEvent(e);
+            let idx = -1;
+            if (planar.on) {
+                const plane = delaunayView.planarDomain(R, sceneMatrix(), dl.colors);
+                if (plane) idx = planarPick(ray, plane, view.model === 'uhs').index;
+            } else {
+                idx = delaunayView.pick(ray, sceneMatrix(), view.model === 'uhs');
+            }
+            const f = idx >= 0 ? R.raw[idx] : null;
+            if (!f) return;
+            const g = f.el.inv();
+            try { animateMatrix(wordToMatrix(g.w), [...g.w]); } catch (err) { /* */ }
+            return;
+        }
         const hit = pickAt(e);
         if (hit.index < 0) return;
         // Roll the domain across THIS face: apply the element g whose wall it
