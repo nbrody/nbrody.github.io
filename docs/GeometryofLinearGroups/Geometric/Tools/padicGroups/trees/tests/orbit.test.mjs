@@ -91,3 +91,18 @@ test('the drawn tree contains the orbit and stays within budget', () => {
         assert.ok(tree.size <= 3200 + 6000, ex.name);
     }
 });
+
+test('the drawn neighbourhood of a single vertex is the whole ball, the way up to ∞ included', () => {
+    for (const [p, r] of [[3n, 3], [7n, 2], [2n, 5]]) {
+        const P = new Place(new GlobalField(null), p);
+        const tree = generateTree(P, [O], { radius: r, budget: 100000 });
+        const q = Number(p);
+        const ball = 1 + (q + 1) * (q ** r - 1) / (q - 1);
+        assert.equal(tree.size, ball, `p = ${p}, radius ${r}`);
+        // every vertex within distance r of ⌊0⌋₀ hangs in the tree
+        let count = 0;
+        const walk = (n) => { count++; assert.ok(P.dist(O, n.vt) <= r); n.children.forEach(walk); };
+        walk(tree.root);
+        assert.equal(count, ball);
+    }
+});

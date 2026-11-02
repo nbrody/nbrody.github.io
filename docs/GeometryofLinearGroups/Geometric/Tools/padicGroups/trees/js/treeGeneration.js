@@ -46,28 +46,34 @@ export function generateTree(place, orbitVertices, { radius = 2, budget = 2400, 
         hull = hullOf(verts, rootK);
     }
 
-    // Thicken by balls, shrinking the radius until it fits.
+    // Thicken by balls, shrinking the radius until it fits: everything within distance r of
+    // the orbit, by one breadth-first search from all of it at once. The search runs through
+    // hull vertices too (marking them as already drawn must not stop it, or the branches
+    // beyond them, such as the way up towards ∞, stay bare).
     let used = radius, included = null;
     for (let r = radius; r >= 0; r--) {
         const inc = new Map(hull);
-        let ok = true;
+        const seen = new Set();
+        let frontier = [];
         for (const v of verts) {
-            let frontier = [v];
-            for (let s = 0; s < r && ok; s++) {
-                const next = [];
-                for (const u of frontier) {
-                    for (const w of place.neighbors(u)) {
-                        if (w.k < rootK) continue;
-                        const id = place.id(w);
-                        if (inc.has(id)) continue;
-                        inc.set(id, w);
-                        next.push(w);
-                    }
-                    if (inc.size > budget) { ok = false; break; }
+            const id = place.id(v);
+            if (!seen.has(id)) { seen.add(id); frontier.push(v); }
+        }
+        let ok = true;
+        for (let s = 0; s < r && ok; s++) {
+            const next = [];
+            for (const u of frontier) {
+                for (const w of place.neighbors(u)) {
+                    if (w.k < rootK) continue;
+                    const id = place.id(w);
+                    if (seen.has(id)) continue;
+                    seen.add(id);
+                    next.push(w);
+                    if (!inc.has(id)) inc.set(id, w);
                 }
-                frontier = next;
+                if (inc.size > budget) { ok = false; break; }
             }
-            if (!ok) break;
+            frontier = next;
         }
         if (ok || r === 0) { used = r; included = inc; break; }
     }

@@ -112,6 +112,74 @@ code {
     display: block;
     width: 100%;
     height: 100%;
+    cursor: grab;
+    touch-action: none;
+}
+
+#tree-vis:active {
+    cursor: grabbing;
+}
+
+/* LaTeX labels over the canvas (typeset by MathJax; placed by treeVis.js) */
+#tree-labels {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.tree-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    white-space: nowrap;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--ink);
+    filter: drop-shadow(0 0 1.5px var(--bg)) drop-shadow(0 0 2.5px var(--bg));
+    will-change: transform, opacity;
+}
+
+.tree-label.small { font-size: 12px; }
+.tree-label.dim { color: var(--ink-dim); font-size: 16px; }
+.tree-label.faint { color: var(--ink-faint); }
+.tree-label.current { color: #f9a8d4; }
+.tree-label.link { color: #c7d2fe; }
+.tree-label.caption {
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--glass);
+    border: 1px solid var(--hairline-strong);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-size: 15px;
+    filter: none;
+}
+html.light .tree-label.current { color: #be185d; }
+html.light .tree-label.link { color: #4338ca; }
+
+/* the generator buttons show g_i, or g_i^{-1} while ⌘/Ctrl is held */
+#isometry-controls .iso-inv,
+#isometry-controls.inverse .iso-fwd { display: none; }
+#isometry-controls.inverse .iso-inv { display: inline; }
+
+.word-tex { color: var(--ink); }
+
+/* the label of the vertex under the pointer */
+.tree-tip {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--glass);
+    border: 1px solid var(--hairline-strong);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: var(--ink);
+    font: 500 12.5px/1.4 var(--font);
+    white-space: nowrap;
 }
 
 /* ---------------- Floating panel ---------------- */
@@ -1082,129 +1150,28 @@ mjx-container[jax="SVG"][display="true"] {
     height: 7px;
 }
 
-/* ---------------- The tree (SVG) ---------------- */
-#tree-vis .k-label {
-    fill: var(--ink-faint);
-    font-family: var(--font);
-}
+/* legend colours, as treeVis.js paints them */
+.sw-base { border: 2.5px solid #fde68a; }
+.sw-current { background: #f472b6; border-color: #fdf2f8; }
+.sw-orbit { background: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
+.sw-tree { background: linear-gradient(90deg, #67d7ee, #9aa6f6, #c49af2); }
+.sw-hull { background: linear-gradient(90deg, #c9f1fa, #e3e3fc); height: 4px; }
+.sw-cell { background: rgba(244, 114, 182, 0.45); }
+.sw-axis { background: #f8fafc; box-shadow: 0 0 6px rgba(226, 232, 255, 0.7); }
+.sw-origin { border: 2px dashed #fbbf24; }
+.sw-select { border-color: #ffffff; }
+.sw-rat { background: rgba(245, 245, 244, 0.25); }
+html.light .sw-base { border-color: #b45309; }
+html.light .sw-current { background: #db2777; border-color: #ffffff; }
+html.light .sw-orbit { background: #d97706; border-color: #ffffff; }
+html.light .sw-tree { background: linear-gradient(90deg, #2a8ea6, #5d68c4, #8458b4); }
+html.light .sw-hull { background: linear-gradient(90deg, #075f78, #3f2f99); }
+html.light .sw-cell { background: rgba(236, 72, 153, 0.35); }
+html.light .sw-axis { background: #1e1b4b; box-shadow: 0 0 6px rgba(79, 70, 229, 0.35); }
+html.light .sw-origin { border-color: #b45309; }
+html.light .sw-select { border-color: #0f172a; }
+html.light .sw-rat { background: rgba(51, 65, 85, 0.2); }
 
-#tree-vis .link {
-    stroke: #3a4256;
-    stroke-width: 1.5px;
-}
-
-#tree-vis .link.hull {
-    stroke: #60a5fa;
-    stroke-width: 2.5px;
-    opacity: 0.6;
-}
-
-#tree-vis .top-stub {
-    stroke: #3a4256;
-    stroke-width: 1.5px;
-    stroke-dasharray: 4 3;
-}
-
-#tree-vis .end-label {
-    fill: var(--ink-dim);
-    font-size: 14px;
-    font-family: var(--font);
-}
-
-#tree-vis .rational-edge {
-    stroke: #f5f5f4;
-    stroke-width: 7px;
-    stroke-linecap: round;
-    opacity: 0.17;
-    pointer-events: none;
-}
-
-#tree-vis .voronoi-edge {
-    stroke: var(--warning);
-    stroke-linecap: round;
-    pointer-events: none;
-}
-
-#tree-vis .voronoi-edge.full {
-    stroke-width: 3.5px;
-    opacity: 0.6;
-}
-
-#tree-vis .voronoi-edge.half {
-    stroke-width: 3px;
-    opacity: 0.5;
-}
-
-#tree-vis .voronoi-halo {
-    fill: var(--warning);
-    opacity: 0.15;
-}
-
-#tree-vis .origin-ring {
-    fill: none;
-    stroke: var(--warning);
-    opacity: 0.8;
-}
-
-#tree-vis .selection-ring {
-    fill: none;
-    stroke: var(--pink);
-    opacity: 0.95;
-}
-
-/* a marked element (the link's `mark`): its axis, fixed subtree, or inverted edge */
-#tree-vis .mark-glow {
-    fill: none;
-    stroke: #22d3ee;
-    stroke-width: 11px;
-    stroke-linecap: round;
-    opacity: 0.18;
-    pointer-events: none;
-}
-
-#tree-vis .mark-edge {
-    fill: none;
-    stroke: #22d3ee;
-    stroke-width: 3.5px;
-    stroke-linecap: round;
-    pointer-events: none;
-}
-
-#tree-vis .mark-arrow {
-    fill: #a5f3fc;
-    stroke: none;
-    pointer-events: none;
-}
-
-#tree-vis .mark-ring {
-    fill: none;
-    stroke: #22d3ee;
-    opacity: 0.9;
-}
-
-#tree-vis .node {
-    cursor: pointer;
-}
-
-#tree-vis .vertex-label {
-    font-family: var(--font);
-    font-size: 13px;
-    text-align: center;
-    color: var(--ink);
-    white-space: nowrap;
-    overflow: visible;
-    text-shadow: 0 0 4px var(--bg), 0 0 2px var(--bg);
-}
-
-#tree-vis .link-point {
-    fill: #f9a8d4;
-    font-family: var(--font);
-    text-anchor: middle;
-    paint-order: stroke;
-    stroke: var(--bg);
-    stroke-width: 3px;
-    pointer-events: none;
-}
 
 /* ---------------- Responsive & motion ---------------- */
 @media (max-width: 768px) {
@@ -1236,23 +1203,6 @@ mjx-container[jax="SVG"][display="true"] {
 }
 
 /* ---------------- Models ---------------- */
-#tree-vis path.link,
-#tree-vis path.voronoi-edge,
-#tree-vis path.rational-edge {
-    fill: none;
-}
-
-#tree-vis .disk-boundary {
-    fill: rgba(129, 140, 248, 0.025);
-    stroke: rgba(129, 140, 248, 0.45);
-    stroke-width: 1.5px;
-}
-
-#tree-vis .disk-ring {
-    fill: none;
-    stroke: var(--hairline);
-    stroke-dasharray: 2 4;
-}
 
 #tower-host {
     position: absolute;
@@ -1272,13 +1222,13 @@ mjx-container[jax="SVG"][display="true"] {
 .status-banner {
     --tone: var(--ink-dim);
     position: fixed;
-    top: 20px;
-    left: 72px;
+    top: 16px;
+    left: 16px;
     z-index: 200;
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    max-width: min(520px, calc(100vw - 500px));
+    max-width: min(520px, calc(100vw - 440px));
     padding: 10px 12px 10px 14px;
     font-size: 12.5px;
     font-weight: 500;
@@ -1350,7 +1300,12 @@ mjx-container[jax="SVG"][display="true"] {
 .status-banner.collapsed {
     padding: 11px;
     border-radius: 999px;
-    animation: none;
+    animation: banner-dot 0.32s var(--ease-spring);
+}
+
+@keyframes banner-dot {
+    from { opacity: 0.35; transform: scale(0.55); }
+    to { opacity: 1; transform: none; }
 }
 
 .status-banner.collapsed .status-banner-text,
@@ -1429,11 +1384,15 @@ mjx-container[jax="SVG"][display="true"] {
     color: var(--ink);
 }
 
+/* the certificate keeps the top-left corner at every width, beside the panel */
 @media (max-width: 900px) {
     .status-banner {
-        top: auto;
-        bottom: 16px;
-        left: 16px;
+        max-width: max(220px, calc(100vw - 440px));
+    }
+}
+
+@media (max-width: 480px) {
+    .status-banner {
         max-width: calc(100vw - 32px);
     }
 }
@@ -2098,7 +2057,6 @@ html.light #theme-btn .icon-moon {
 #isometry-controls:empty { display: none; }
 #isometry-controls .isometry-btn sub { font-size: 0.72em; }
 .palette-control-row { justify-content: space-between; }
-#tree-vis .vertex-label.current { color: #f0abfc; }
 .help-panel { width: min(560px, calc(100vw - 32px)); }
 .help-body { padding: 8px 22px 22px; font-size: 13px; line-height: 1.6; color: var(--ink-dim); }
 .help-body h4 { margin: 14px 0 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
@@ -2110,13 +2068,6 @@ html.hosted-mode #help-btn { display: none; }
     #isometry-controls .isometry-btn { padding: 9px 16px; font-size: 13px; }
 }
 
-/* Tree colours that follow the theme (plain vertices are styled from treeVis.js through these). */
-:root {
-    --v-plain-fill: #1f2937;
-    --v-plain-stroke: #6366f1;
-    --tree-link: #3a4256;
-    --rational-edge: #f5f5f4;
-}
 
 /* ================================================================
    Light mode (as poincare's): tokens re-declared on <html class="light">.
@@ -2213,26 +2164,12 @@ html.light .face-info {
 
 html.light {
     --pink: #db2777;
-    --v-plain-fill: #e2e8f0;
-    --v-plain-stroke: #6366f1;
-    --tree-link: #b6bfd3;
-    --rational-edge: #334155;
 }
 html.light #container {
     background:
         radial-gradient(1200px 700px at 35% 30%, rgba(99, 102, 241, 0.06), transparent 70%),
         linear-gradient(160deg, #f3f5fc 0%, var(--bg) 55%, #e6eaf4 100%);
 }
-html.light #tree-vis .link,
-html.light #tree-vis .top-stub { stroke: var(--tree-link); }
-html.light #tree-vis .link.hull { stroke: #3b82f6; opacity: 0.7; }
-html.light #tree-vis .rational-edge { stroke: var(--rational-edge); opacity: 0.12; }
-html.light #tree-vis .voronoi-edge { stroke: #f59e0b; }
-html.light #tree-vis .voronoi-halo { fill: #f59e0b; opacity: 0.18; }
-html.light #tree-vis .origin-ring { stroke: #d97706; }
-html.light #tree-vis .link-point { fill: #be185d; }
-html.light #tree-vis .vertex-label.current { color: #a21caf; }
-html.light #tree-vis .disk-boundary { fill: rgba(99, 102, 241, 0.03); stroke: rgba(99, 102, 241, 0.45); }
 html.light .example-modal-backdrop { background: rgba(23, 28, 43, 0.28); }
 html.light .example-modal-panel {
     background:

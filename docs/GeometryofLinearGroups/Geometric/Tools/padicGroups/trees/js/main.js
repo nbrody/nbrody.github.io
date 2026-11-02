@@ -1,13 +1,16 @@
-import { GlobalField, Place, unramifiedPolynomial, sub } from './localField.js';
-import { drawTree, resetZoom, analyzeTree } from './treeVis.js';
+import { GlobalField, Place, unramifiedPolynomial } from './localField.js';
+import { drawTree, animateTo, resetZoom, analyzeTree, redraw as redrawTree } from './treeVis.js';
 import { setupMatrixInput, readInputs, getInputState, applyInputState, addRootInput, freshName, setConstantsExpanded } from './matrixInput.js';
 import { serializeTowerContext } from '../../../../../assets/js/hyperbolic/tower.js';
-import { makeLetters, computeOrbit, stabilizerWords, linkPermutation, cycles, wordString, translationLength } from './groupWords.js';
+import { makeLetters, computeOrbit, stabilizerWords, linkPermutation, cycles, wordTex as lettersTex, translationLength } from './groupWords.js';
 import { generateTree } from './treeGeneration.js';
 import { EXAMPLES } from './examples.js';
-import { decide, serializeDecision, wordText, evaluateWord } from './discreteness.js';
+import { decide, serializeDecision, evaluateWord } from './discreteness.js';
+// the decisions are written in Unicode (other tools show them as text); here they become LaTeX
+import { mathLine } from '../../../../../PresentationCalc/js/texText.js';
 
 const TREE_BUDGET = 3200;
+const MIN_DRAWN = 150;            // a picture with fewer vertices is drawn farther from the orbit
 
 // ───────────────────────── state ─────────────────────────
 
@@ -16,7 +19,7 @@ const ui = {
     primeOf: null,               // a preset's element: choose the prime above p where it has positive valuation
     selectedId: null,
     rational: false,
-    model: 'halfplane',          // 'halfplane' | 'disk' | 'tower'
+    model: 'disk',               // 'disk' | 'halfplane' | 'tower'
     spread: null,                // tower growth exponent; null = automatic
     mark: null,                  // a generator's index: its axis or fixed subtree is drawn (the link's `mark`)
     theme: 'dark',               // 'dark' | 'light'
@@ -33,8 +36,12 @@ const placeCache = new Map();
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const typeset = (...els) => { if (window.MathJax && typeof MathJax.typeset === 'function') { try { MathJax.typeset(els.filter(Boolean)); } catch (e) { /* loading */ } } };
-const vertexHTML = (place, vt) => `⌊<span class="lbl">${esc(place.label(vt))}</span>⌋<sub>${vt.k}</sub>`;
 const vertexTex = (place, vt) => `\\lfloor ${place.labelTex(vt)} \\rfloor_{${vt.k}}`;
+const vertexHTML = (place, vt) => `$${vertexTex(place, vt)}$`;
+/** Text whose mathematics is Unicode (a decision, an error), with $…$ LaTeX for it, escaped for HTML. */
+const texLine = (s) => esc(mathLine(String(s ?? '')));
+/** The prime as LaTeX: ℚ_p, or K_𝔭 with its index when p splits. */
+const fieldTex = (place) => (place.F.isQ ? `\\mathbb{Q}_{${place.p}}` : 'K_{\\mathfrak p}');
 
 /** A key for a tower: equal towers (same levels, same names) give equal keys. */
 function towerKey(K) {
@@ -200,7 +207,8 @@ function henselNote(F, place) {
 // ───────────────────────── calculation ─────────────────────────
 
 function showError(msg) {
-    $('error-message').textContent = msg || '';
+    $('error-message').innerHTML = texLine(msg || '');
+    if (msg) typeset($('error-message'));
 }
 
 function readPrime() {
@@ -284,7 +292,8 @@ function calculate({ refit = false } = {}) {
         <table class="gen-table">${genRows}</table>
         <p class="meta">${orbit.wordCount.toLocaleString()} words, ${orbit.orbitMap.size.toLocaleString()} orbit vertices, ${(t1 - t0).toFixed(0)} ms${orbit.truncated ? ' — <span class="warn-text">word budget reached; shorten the word length</span>' : ''}</p>`;
     const nStab = orbit.orbitMap.get(baseId).count - 1;
-    $('summary').textContent = `${orbit.orbitMap.size.toLocaleString()} orbit vertices · d(v, g₁v) = ${place.dist(base, image)} · ${nStab} word${nStab === 1 ? '' : 's'} fixing v — details in the Info tab`;
+    $('summary').innerHTML = `${orbit.orbitMap.size.toLocaleString()} orbit vertices · $d(v, g_1 v) = ${place.dist(base, image)}$ · ${nStab} word${nStab === 1 ? '' : 's'} fixing $v$ — details in the Info tab`;
+    typeset($('summary'));
 
     renderOrbitInfo();
     renderStabilizer();
@@ -301,30 +310,45 @@ function calculate({ refit = false } = {}) {
     }
 }
 
-function updateVisualization({ refit = false, focus = false } = {}) {
+function updateVisualization({ refit = false, motion = null } = {}) {
     if (!current) return;
     const { place, orbit, base, baseId, imageId, orbitIds, currentVertex, currentId } = current;
     const radius = Math.max(0, Math.min(10, parseInt($('maxDistance').value, 10) || 0));
+    // The drawn tree comes from the orbit alone, never from W: applying an isometry moves the
+    // tree onto the same picture, with only W·v and its cell in new places.
     const verts = [base].concat([...orbit.orbitMap.values()].map((e) => e.vertex).filter((v) => place.id(v) !== baseId));
-    if (!orbitIds.has(currentId)) verts.splice(1, 0, currentVertex);        // W·v is drawn even beyond the word length
-    const tree = generateTree(place, verts, { radius, budget: TREE_BUDGET });
+    let tree = generateTree(place, verts, { radius, budget: TREE_BUDGET });
+    // A small orbit (a bounded or finite group) at a small distance is barely a tree: a vertex and
+    // its link. Draw farther out until there is a real piece of tree to look at.
+    let grown = 0;
+    for (let r = radius + 1; tree.size < MIN_DRAWN && tree.radius === tree.requestedRadius && r <= 10; r++) {
+        const t = generateTree(place, verts, { radius: r, budget: TREE_BUDGET });
+        if (t.radius < r) break;                       // the budget would cut it: keep the last one
+        tree = t;
+        grown = r;
+    }
     current.tree = tree;
     const notes = [];
-    if (tree.orbitTruncated) notes.push(`The orbit has ${orbit.orbitMap.size.toLocaleString()} vertices; the ${tree.orbitShown.toLocaleString()} nearest v are drawn.`);
+    if (grown) notes.push(`The orbit is small, so the tree is drawn to distance ${grown} from it (Max distance is ${radius}).`);
+    if (tree.orbitTruncated) notes.push(`The orbit has ${orbit.orbitMap.size.toLocaleString()} vertices; the ${tree.orbitShown.toLocaleString()} nearest $v$ are drawn.`);
     if (tree.radius < tree.requestedRadius) notes.push(`Neighbourhood distance reduced from ${tree.requestedRadius} to ${tree.radius} to keep the drawing near ${TREE_BUDGET.toLocaleString()} vertices.`);
-    $('tree-note').textContent = notes.join(' ');
+    if (!orbitIds.has(currentId)) notes.push('$W$ is longer than the word length, so $W\\cdot v$ is not in the computed orbit and its cell is measured against the orbit as computed; raise the word length for the true cell.');
+    const setNote = () => { $('tree-note').innerHTML = notes.join(' '); typeset($('tree-note')); };
+    setNote();
     const rationalOK = place.e === 1 && place.f > 1;
-    $('rational-note').textContent = rationalOK
-        ? `Vertices ⌊x⌋ₖ with x ∈ ℚ${sub(place.p)}: the ${place.pNum + 1}-regular tree of PGL₂(ℚ${sub(place.p)}) inside this ${place.q + 1}-regular one.`
-        : 'Available at an unramified prime of residue degree f > 1 (try Unramified ℚ_{p^k} under Constants).';
+    $('rational-note').innerHTML = rationalOK
+        ? `Vertices $\\lfloor x\\rfloor_k$ with $x \\in \\mathbb{Q}_{${place.p}}$: the ${place.pNum + 1}-regular tree of $\\mathsf{PGL}_2(\\mathbb{Q}_{${place.p}})$ inside this ${place.q + 1}-regular one.`
+        : 'Available at an unramified prime of residue degree $f > 1$ (try Unramified $\\mathbb{Q}_{p^k}$ under Constants).';
+    typeset($('rational-note'));
     $('toggle-rational').disabled = !rationalOK;
     const onVertexClick = (vt) => { ui.selectedId = place.id(vt); showSelected(vt); showTab('info'); jumpTo('selected-group'); };
     const notesModel = {
-        halfplane: 'Rooted at the end ∞: level k grows downward, and each vertex hangs from its parent ⌊x⌋ₖ₋₁.',
-        disk: 'Centred on the current copy W·v (on v until you apply a generator). Radius depends only on the distance to v; edges are hyperbolic geodesics, and the boundary circle is the space of ends ℙ¹(K_𝔭).',
-        tower: `Level k is a circle at height −k; a vertex sits at the angle given by its digits (over ℚ_p, x/pᵏ mod 1). Drag to orbit, scroll to zoom.`,
+        halfplane: 'Rooted at the end $\\infty$: level $k$ grows downward, and each vertex hangs from its parent $\\lfloor x\\rfloor_{k-1}$.',
+        disk: 'Centred on the base vertex $v$: radius depends only on the distance to $v$, and edges are hyperbolic geodesics running out to the ends $\\mathbb{P}^1(K_{\\mathfrak p})$.',
+        tower: 'Level $k$ is a circle at height $-k$; a vertex sits at the angle given by its digits (over $\\mathbb{Q}_p$, $x/p^k \\bmod 1$). Drag to orbit, scroll to zoom.',
     };
-    $('model-note').textContent = notesModel[ui.model];
+    $('model-note').innerHTML = notesModel[ui.model];
+    typeset($('model-note'));
     $('spread-row').hidden = ui.model !== 'tower';
     if (ui.model === 'tower') {
         $('tree-vis').style.display = 'none';
@@ -342,20 +366,21 @@ function updateVisualization({ refit = false, focus = false } = {}) {
         $('tower-host').hidden = true;
         $('tree-vis').style.display = '';
         const mark = markFor(place, current.mats);
-        current.drawn = drawTree({
-            tree, place, baseId, currentId, imageId, orbitIds, selectedId: ui.selectedId, refit, focus, model: ui.model,
-            endsLabel: place.F.isQ ? `∂T = ℙ¹(ℚ${sub(place.p)})` : '∂T = ℙ¹(K𝔭)',
+        const opts = {
+            tree, place, baseId, currentId, currentVt: currentVertex, imageId, orbitIds, selectedId: ui.selectedId, refit, model: ui.model,
+            endsTex: fieldTex(place),
             rationalSubtree: ui.rational && rationalOK,
             mark,
             onVertexClick,
             onVertexDblClick: (vt) => makeBase(vt),
-        });
+        };
+        current.drawn = motion && !refit ? animateTo(opts, motion) : drawTree(opts);
         if (mark) {
-            const g = `g${sub(mark.i + 1)}`;
-            const what = mark.hyperbolic ? `the axis of ${g}, along which it translates by ${mark.ell} in the direction of the arrows`
+            const g = `$g_{${mark.i + 1}}$`;
+            const what = mark.hyperbolic ? `the axis of ${g}, along which it translates by $\\ell = ${mark.ell}$ in the direction of the arrows`
                 : mark.target === 1 ? `the edge ${g} inverts` : `the vertices ${g} fixes`;
-            notes.push(current.drawn.marked ? `In cyan: ${what}.` : `${what[0].toUpperCase()}${what.slice(1)} is not in the drawn part of the tree; double-click a vertex to move v.`);
-            $('tree-note').textContent = notes.join(' ');
+            notes.push(current.drawn.marked ? `Lit up: ${what}.` : `${what[0].toUpperCase()}${what.slice(1)} is not in the drawn part of the tree; double-click a vertex to move $v$.`);
+            setNote();
         }
     }
 }
@@ -371,18 +396,19 @@ function makeBase(vt) {
 function renderOrbitInfo() {
     const { place, letters, orbit, base } = current;
     const entries = [...orbit.orbitMap.values()].sort((a, b) => a.minLength - b.minLength || place.dist(base, a.vertex) - place.dist(base, b.vertex));
-    const SHOW = 200;
+    const SHOW = 120;
     let html = `<p class="label-hint">${entries.length.toLocaleString()} vertices, nearest first.</p><div class="scroll-list">`;
     for (const { vertex, words, minLength } of entries.slice(0, SHOW)) {
-        const shortest = words.filter((w) => w.length === minLength).slice(0, 3).map((w) => wordString(letters, w));
-        html += `<div class="list-item"><div class="head">${vertexHTML(place, vertex)} <span class="label-hint">d = ${place.dist(base, vertex)}</span></div>`;
-        html += `<div class="sub">via ${esc(shortest.join(', '))}${words.length > 3 ? ', …' : ''}</div></div>`;
+        const shortest = words.filter((w) => w.length === minLength).slice(0, 3).map((w) => lettersTex(letters, w));
+        html += `<div class="list-item"><div class="head">${vertexHTML(place, vertex)} <span class="label-hint">$d = ${place.dist(base, vertex)}$</span></div>`;
+        html += `<div class="sub">via $${shortest.join(',\\ ')}${words.length > 3 ? ',\\ \\ldots' : ''}$</div></div>`;
     }
     if (entries.length > SHOW) html += `<p class="empty-message">… and ${(entries.length - SHOW).toLocaleString()} more</p>`;
     $('orbit-info').innerHTML = html + '</div>';
+    typeset($('orbit-info'));
 }
 
-function pointLabel(place, i) { return i === 0 ? '∞' : place.digitLabel(i - 1); }
+function pointTex(place, i) { return i === 0 ? '\\infty' : place.digitTex(i - 1); }
 
 function renderStabilizer() {
     const { place, letters, orbit, base, baseId } = current;
@@ -397,10 +423,10 @@ function renderStabilizer() {
             const perm = linkPermutation(place, orbit.actor, w, base);
             const cyc = cycles(perm);
             if (!cyc.length) action = '<span class="label-hint">acts trivially on the link</span>';
-            else if (place.q <= 16) action = cyc.map((c) => `(${c.map((i) => esc(pointLabel(place, i))).join(' ')})`).join('');
-            else action = `cycle type ${cyc.map((c) => c.length).sort((a, b) => b - a).join('·')}`;
+            else if (place.q <= 16) action = `$${cyc.map((c) => `(${c.map((i) => pointTex(place, i)).join('\\;')})`).join('')}$`;
+            else action = `cycle type $${cyc.map((c) => c.length).sort((a, b) => b - a).join('\\cdot ')}$`;
         } catch (e) { action = ''; }
-        html += `<div class="list-item word-row" style="--chip: var(--accent)"><span class="word-len">${w.length}</span><code>${esc(wordString(letters, w))}</code><span class="perm">${action}</span></div>`;
+        html += `<div class="list-item word-row" style="--chip: var(--accent)"><span class="word-len">${w.length}</span><span class="word-tex">$${lettersTex(letters, w)}$</span><span class="perm">${action}</span></div>`;
     }
     el.innerHTML = html;
 }
@@ -415,7 +441,7 @@ function showSelected(vt) {
     if (e) {
         const ws = [...e.words].sort((a, b) => a.length - b.length);
         html += `<p class="in-orbit">In the orbit, reached by ${e.count} word${e.count === 1 ? '' : 's'}:</p><div class="scroll-list">`;
-        for (const w of ws.slice(0, 10)) html += `<div class="word-row"><span class="word-len">${w.length}</span><code>${esc(wordString(letters, w))}</code></div>`;
+        for (const w of ws.slice(0, 10)) html += `<div class="word-row"><span class="word-len">${w.length}</span><span class="word-tex">$${lettersTex(letters, w)}$</span></div>`;
         if (e.count > 10) html += `<p class="label-hint">… and ${e.count - 10} more</p>`;
         html += '</div>';
     } else {
@@ -424,8 +450,8 @@ function showSelected(vt) {
     if (place.q <= 12) {
         const parent = place.parent(vt);
         html += `<p class="label-hint" style="margin-top:8px">Link $\\mathbb{P}^1(\\mathbb{F}_{${place.q}})$:</p><div class="link-list">`;
-        html += `<div><span class="pt">∞</span> ${vertexHTML(place, parent)}</div>`;
-        place.children(vt).forEach((c, r) => { html += `<div><span class="pt">${esc(place.digitLabel(r))}</span> ${vertexHTML(place, c)}</div>`; });
+        html += `<div><span class="pt">$\\infty$</span> ${vertexHTML(place, parent)}</div>`;
+        place.children(vt).forEach((c, r) => { html += `<div><span class="pt">$${place.digitTex(r)}$</span> ${vertexHTML(place, c)}</div>`; });
         html += '</div>';
     }
     html += `<button class="btn btn-add-alt" style="width:100%;margin-top:10px" id="make-base-btn">Make this the base vertex</button>`;
@@ -494,16 +520,31 @@ function verdictTitle(r) {
     return VERDICT_TEXT[r.verdict] || r.verdict;
 }
 
+// A "Discrete" verdict shows for a moment, then the banner minimizes to its green dot
+// (click the dot to read it again). Other verdicts stay open.
+const BANNER_COLLAPSE_MS = 2500;
+let bannerTimer = null;
+function collapseBannerSoon(banner) {
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(function tick() {
+        if (banner.matches(':hover')) { bannerTimer = setTimeout(tick, 800); return; }    // not while it is being read
+        banner.classList.add('collapsed');
+    }, BANNER_COLLAPSE_MS);
+}
+
 function renderVerdict(r) {
     const banner = $('status-banner');
+    clearTimeout(bannerTimer);
     const box = $('verdict-box');
     const place = current?.place;
-    const where = place ? (place.F.isQ ? `in PGL₂(ℚ${sub(place.p)})` : `at 𝔭 ${place.primes.length > 1 ? `= 𝔭${sub(place.index + 1)} ` : ''}above ${place.p}`) : '';
+    const where = place ? (place.F.isQ ? `in $\\mathsf{PGL}_2(\\mathbb{Q}_{${place.p}})$` : `at $\\mathfrak p${place.primes.length > 1 ? `_{${place.index + 1}}` : ''}$ above $${place.p}$`) : '';
+    const bannerText = banner.querySelector('.status-banner-text');
     banner.hidden = false;
     banner.classList.remove('verified', 'failed', 'warning', 'pending');
     if (r.pending) {
         banner.classList.add('pending');
-        banner.querySelector('.status-banner-text').innerHTML = `Deciding discreteness ${where}…`;
+        bannerText.innerHTML = `Deciding discreteness ${where}…`;
+        typeset(bannerText);
         box.innerHTML = '<p class="verdict-head pending">Deciding…</p><p class="label-hint">Bounded test, then Conder or Markowitz, on a worker.</p>';
         $('basis-group').hidden = true;
         $('witness-group').hidden = true;
@@ -512,11 +553,13 @@ function renderVerdict(r) {
     }
     const tone = r.verdict === 'discrete' ? 'verified' : r.verdict === 'nondiscrete' ? 'failed' : 'warning';
     banner.classList.add(tone);
-    banner.querySelector('.status-banner-text').innerHTML = `<b>${esc(verdictTitle(r))}</b> ${esc(where)}. ${esc(shortReason(r))}`;
+    banner.classList.remove('collapsed');                 // a new verdict is shown in full first
+    if (r.verdict === 'discrete') collapseBannerSoon(banner);
+    bannerText.innerHTML = `<b>${esc(verdictTitle(r))}</b> ${where}. ${texLine(shortReason(r))}`;
     const methods = { bounded: 'boundedness (Serre, Helly)', elliptic: 'an elliptic word', conder: "Conder's Nielsen test", markowitz: "Markowitz's reduction", kernel: 'a torsion-free congruence kernel + Markowitz' };
     box.innerHTML = `<p class="verdict-head ${r.verdict}">${esc(verdictTitle(r))}</p>
-        <p>${esc(r.reason || '')}</p>
-        <p class="verdict-meta">${r.method ? `Method: ${esc(methods[r.method] || r.method)}. ` : ''}${r.kernel ? `Kernel mod 𝔮 above ${r.kernel.ell}: index ${r.kernel.index}, ${r.kernel.generators} Schreier generator${r.kernel.generators === 1 ? '' : 's'}.` : ''}</p>`;
+        <p>${texLine(r.reason || '')}</p>
+        <p class="verdict-meta">${r.method ? `Method: ${esc(methods[r.method] || r.method)}. ` : ''}${r.kernel ? `Kernel mod $\\mathfrak q$ above $${r.kernel.ell}$: index $${r.kernel.index}$, ${r.kernel.generators} Schreier generator${r.kernel.generators === 1 ? '' : 's'}.` : ''}</p>`;
 
     // basis
     const bg = $('basis-group');
@@ -527,7 +570,7 @@ function renderVerdict(r) {
         $('basis-list').innerHTML = r.basis.map((b, i) => `<div class="std-gen-item basis-item" data-i="${i}" style="--chip: var(--success)"
             title="Click to apply (⌘/Ctrl-click for the inverse)">
             <span class="std-gen-word">$${wordTex(b.w)}$</span>
-            <span class="std-gen-type">${b.len != null ? `|g| = ${b.len} · ` : ''}ℓ = ${b.ell}</span></div>`).join('');
+            <span class="std-gen-type">${b.len != null ? `$|g| = ${b.len}$ · ` : ''}$\\ell = ${b.ell}$</span></div>`).join('');
         $('basis-list').querySelectorAll('.basis-item').forEach((el) => el.addEventListener('click', (e) => {
             const b = r.basis[+el.dataset.i];
             if (b && b.w.every((x) => Math.abs(x) <= (current?.mats.length ?? 0))) applyWord(b.w, e);
@@ -538,18 +581,18 @@ function renderVerdict(r) {
     wg.hidden = !r.witness;
     if (r.witness) {
         const t = r.witness.mat.tex;
-        $('witness-box').innerHTML = `<p><code>${esc(wordText(r.witness.w))}</code> is elliptic of infinite order.</p>
+        $('witness-box').innerHTML = `<p>$${wordTex(r.witness.w)}$ is elliptic of infinite order.</p>
             <div class="matrix-tex">$$\\begin{pmatrix} ${t[0]} & ${t[1]} \\\\ ${t[2]} & ${t[3]} \\end{pmatrix}$$</div>`;
     }
     // certificate log
     $('cert-log').innerHTML = certificateLog(r);
-    typeset(box, $('witness-box'), $('basis-list'));
+    typeset(bannerText, box, $('witness-box'), $('basis-list'), $('cert-log'));
 }
 
 function shortReason(r) {
     if (r.verdict === 'unknown') return 'See the Info tab.';
     if (r.method === 'bounded') return r.kind === 'finite' ? 'It fixes a point of the tree.' : 'Infinite, but it fixes a point of the tree.';
-    if (r.witness) return `${wordText(r.witness.w)} is elliptic of infinite order.`;
+    if (r.witness) return `$${wordTex(r.witness.w)}$ is elliptic of infinite order.`;
     if (r.method === 'conder') return "Conder's Nielsen test.";
     if (r.method === 'markowitz') return 'An N-reduced basis (Markowitz).';
     if (r.method === 'kernel') return 'Its torsion-free congruence kernel is free and discrete.';
@@ -558,35 +601,37 @@ function shortReason(r) {
 
 function certificateLog(r) {
     const L = [];
-    const e = (s) => esc(s);
-    L.push(`<b>Place</b>: p = ${e(r.prime || '')}, residue field of size q = ${r.q ?? '?'}; rank ${r.rank ?? '?'}.`);
+    const e = (x) => esc(x);
+    L.push(`<b>Place</b>: $p = ${e(r.prime || '')}$, residue field of size $q = ${r.q ?? '?'}$; rank ${r.rank ?? '?'}.`);
     if (r.lengths) {
-        L.push('<b>Translation lengths</b> ℓ = max(0, v(det) − 2v(tr)):');
-        for (const s of r.lengths) L.push(`  ℓ(${e(wordText(s.w))}) = ${s.ell}${s.ell === 0 ? '  (elliptic)' : ''}`);
+        L.push('<b>Translation lengths</b> $\\ell = \\max(0,\\ v(\\det) - 2v(\\operatorname{tr}))$:');
+        for (const s of r.lengths) L.push(`  $\\ell(${wordTex(s.w)}) = ${s.ell}$${s.ell === 0 ? '  (elliptic)' : ''}`);
     }
-    for (const s of r.log || []) L.push(e(s));
+    for (const s of r.log || []) L.push(texLine(s));
     if (r.conder) {
         L.push(`<b>Conder</b>: ${e(r.conder.outcome)}`);
-        for (const st of r.conder.steps || []) L.push(`  ℓ(x), ℓ(y) = ${st.lengths.join(', ')};  ℓ(xy), ℓ(x⁻¹y) = ${st.products.join(', ')}`);
+        for (const st of r.conder.steps || []) L.push(`  $\\ell(x), \\ell(y) = ${st.lengths.join(', ')}$;  $\\ell(xy), \\ell(x^{-1}y) = ${st.products.join(', ')}$`);
     }
+    // a Nielsen move as TeX: 'g·h⁻¹' with g = b_i, h = b_j
+    const moveTex = (kind, i, j) => kind.replace(/⁻¹/g, '^{-1}').replace(/·/g, '').replace('g', `b_{${i}}`).replace('h', `b_{${j}}`);
     const mk = (title, m) => {
         if (!m) return;
-        L.push(`<b>${title}</b>: ${e(m.outcome)} after ${m.moves} move${m.moves === 1 ? '' : 's'}${m.reason ? ` (${e(m.reason)})` : ''}`);
+        L.push(`<b>${title}</b>: ${e(m.outcome)} after ${m.moves} move${m.moves === 1 ? '' : 's'}${m.reason ? ` (${texLine(m.reason)})` : ''}`);
         for (const mv of (m.log || []).slice(0, 60)) {
             L.push(mv.kind === 'drop identity' || mv.kind === 'drop repeat'
                 ? `  ${e(mv.kind)}`
-                : `  b${mv.index + 1} ← ${e(mv.kind.replace('g', `b${mv.index + 1}`).replace('h', `b${mv.partner + 1}`))}: |·| ${mv.before} → ${mv.after}${mv.tie ? ' (tie, half-path order)' : ''}`);
+                : `  $b_{${mv.index + 1}} \\leftarrow ${moveTex(mv.kind, mv.index + 1, mv.partner + 1)}$: $|\\cdot|\\ ${mv.before} \\to ${mv.after}$${mv.tie ? ' (tie, half-path order)' : ''}`);
         }
         if ((m.log || []).length > 60) L.push(`  … ${m.log.length - 60} more`);
     };
     mk('Markowitz', r.markowitz);
-    if (r.kernel) L.push(`<b>Congruence kernel</b> mod 𝔮 above ${r.kernel.ell} (|O/𝔮| = ${r.kernel.q}): image of order ${r.kernel.index}, ${r.kernel.generators} Schreier generator${r.kernel.generators === 1 ? '' : 's'}.`);
+    if (r.kernel) L.push(`<b>Congruence kernel</b> mod $\\mathfrak q$ above $${r.kernel.ell}$ ($|\\mathcal{O}/\\mathfrak q| = ${r.kernel.q}$): image of order $${r.kernel.index}$, ${r.kernel.generators} Schreier generator${r.kernel.generators === 1 ? '' : 's'}.`);
     mk('Markowitz on the kernel', r.kernelMarkowitz);
     if (r.certificate) {
-        L.push('<b>N-reduced</b> (checked independently): N1 no trivial or repeated elements; N2 |xy| ≥ |x|, |y|; N3 the cancellations from the left and right leave each |x| positive.');
-        L.push(`  |b_i| = ${r.certificate.lengths.join(', ')};  N3 slack (twice) = ${r.certificate.slack.join(', ')};  ${r.certificate.checked} products checked`);
+        L.push('<b>N-reduced</b> (checked independently): N1 no trivial or repeated elements; N2 $|xy| \\ge |x|, |y|$; N3 the cancellations from the left and right leave each $|x|$ positive.');
+        L.push(`  $|b_i| = ${r.certificate.lengths.join(', ')}$;  N3 slack (twice) $= ${r.certificate.slack.join(', ')}$;  ${r.certificate.checked} products checked`);
     }
-    L.push(`<b>Verdict</b>: ${e(VERDICT_TEXT[r.verdict] || r.verdict)}. ${e(r.reason || '')}`);
+    L.push(`<b>Verdict</b>: ${e(VERDICT_TEXT[r.verdict] || r.verdict)}. ${texLine(r.reason || '')}`);
     return L.join('\n');
 }
 
@@ -621,7 +666,7 @@ function applyState(st) {
     $('vertex_k').value = String(st.vertex?.[1] ?? '0');
     $('wordLength').value = String(st.L ?? 3);
     $('maxDistance').value = String(st.r ?? 2);
-    setModel(st.model || 'halfplane', false);
+    setModel(st.model || 'disk', false);
     if (st.theme) setTheme(st.theme, false);
     ui.selectedId = null;
     ui.mark = Number.isInteger(st.mark) && st.mark >= 0 ? st.mark : null;
@@ -700,8 +745,8 @@ function setupExamples() {
         html += `<section class="example-cat"><h4 class="example-cat-title">${esc(gname)}</h4><div class="example-grid">`;
         for (const { ex, idx } of list) {
             html += `<button class="example-card" data-idx="${idx}">
-                <span class="example-card-head"><span class="example-name">${esc(ex.name)}</span>
-                    <span class="example-badges"><span class="ex-badge prime">p = ${esc(ex.p)}</span></span></span>
+                <span class="example-card-head"><span class="example-name">${ex.nameTex || texLine(ex.name)}</span>
+                    <span class="example-badges"><span class="ex-badge prime">$p = ${esc(ex.p)}$</span></span></span>
                 ${ex.note ? `<span class="example-desc">${ex.note}</span>` : ''}</button>`;
         }
         html += '</div></section>';
@@ -723,7 +768,7 @@ function setupExamples() {
     });
 }
 
-// ───────────────────────── the current element (poincare's isometry buttons, without the animation) ─────────────────────────
+// ───────────────────────── the current element (poincare's isometry buttons, animated) ─────────────────────────
 
 /** ±(i+1) → the letter index of g_{i+1}^{±1}. */
 const letterOf = (x) => (x > 0 ? 2 * (x - 1) : 2 * (-x - 1) + 1);
@@ -757,22 +802,43 @@ function locateCurrent() {
     current.currentId = current.place.id(current.currentVertex);
 }
 
-/** W ← W·g (the word appended on the right, as poincare's cumulative word). */
+/**
+ * The isometry taking the picture for the word `from` to the picture for `to`: h = W'·W⁻¹,
+ * which carries W·v (and its Dirichlet cell) to W'·v and the orbit onto itself.
+ */
+function motionBetween(from, to) {
+    const { F, place, mats } = current;
+    const hWord = reduceWord([...to, ...invertWord(from)]);
+    const H = evaluateWord(F, mats, hWord);
+    const G = place.prepare(H), Gi = place.prepare(place.adjugate(H));
+    return { forward: (vt) => place.act(G, vt), backward: (vt) => place.act(Gi, vt), ell: translationLength(place, H), tex: wordTex(hWord) };
+}
+
+/** Move the current element to `word`, animating the tree along the way. */
+function setWord(word) {
+    const from = ui.word;
+    ui.word = word;
+    locateCurrent();
+    renderCurrentElement();
+    let motion = null;
+    if (ui.model !== 'tower') { try { motion = motionBetween(from, word); } catch (e) { console.warn('motion:', e); } }
+    updateVisualization({ focus: true, motion });
+}
+
+/**
+ * W ← g·W: the word goes on the LEFT, so the tree moves by g itself (W'·W⁻¹ = g), the same
+ * isometry whatever was pressed before, and the copy W·v becomes g·(W·v). (Appending on the
+ * right, as poincare's cumulative word does, would move the tree by the conjugate W g W⁻¹.)
+ */
 function applyWord(w, e) {
     if (!current) return;
     const inv = e && (e.metaKey || e.ctrlKey);
-    ui.word = reduceWord([...ui.word, ...(inv ? invertWord(w) : w)]);
-    locateCurrent();
-    renderCurrentElement();
-    updateVisualization({ focus: true });
+    setWord(reduceWord([...(inv ? invertWord(w) : w), ...ui.word]));
 }
 
 function resetCurrent() {
     if (!current || !ui.word.length) return;
-    ui.word = [];
-    locateCurrent();
-    renderCurrentElement();
-    updateVisualization({ focus: true });
+    setWord([]);
 }
 
 function matrixTex(F, m) {
@@ -803,7 +869,8 @@ function renderCurrentElement() {
     typeset(display, info);
 }
 
-function isoLabel(i) { return `g<sub>${i + 1}</sub>${metaHeld ? '<sup>−1</sup>' : ''}`; }
+/** Both faces of a generator button, typeset once: g_i, and g_i^{-1} while ⌘/Ctrl is held. */
+function isoLabel(i) { return `<span class="iso-fwd">$g_{${i + 1}}$</span><span class="iso-inv">$g_{${i + 1}}^{-1}$</span>`; }
 
 function renderIsometryButtons() {
     const c = $('isometry-controls');
@@ -818,12 +885,13 @@ function renderIsometryButtons() {
         btn.addEventListener('click', (e) => applyWord([i + 1], e));
         c.appendChild(btn);
     });
+    typeset(c);
 }
 
 function setMetaHeld(v) {
     if (metaHeld === v) return;
     metaHeld = v;
-    document.querySelectorAll('#isometry-controls .isometry-btn').forEach((b) => { b.innerHTML = isoLabel(+b.dataset.gen); });
+    $('isometry-controls').classList.toggle('inverse', v);
 }
 
 /**
@@ -876,7 +944,7 @@ function renderUserElements() {
         if (el.word.some((x) => Math.abs(x) > current.mats.length)) err = 'uses a generator this group no longer has';
         else { try { facts = elementFacts(el.word); } catch (e) { err = e.message; } }
         item.innerHTML = `<div class="user-elem-head"><span class="std-gen-word">$w_{${idx + 1}} = ${wordTex(el.word, 24)}$</span>
-            ${facts ? `<span class="std-gen-type">${facts.ell > 0 ? `ℓ = ${facts.ell}` : 'elliptic'}</span>` : ''}
+            ${facts ? `<span class="std-gen-type">${facts.ell > 0 ? `$\\ell = ${facts.ell}$` : 'elliptic'}</span>` : ''}
             <button class="user-elem-del" title="Remove this element">✕</button></div>
             <div class="element-matrix">${err ? `<span class="elem-error">${esc(err)}</span>`
                 : `$w_{${idx + 1}}\\cdot v = ${vertexTex(current.place, facts.wv)}$, at distance ${facts.d}`}</div>`;
@@ -928,8 +996,8 @@ function setTheme(mode, redraw = true) {
     const b = $('theme-btn');
     b.title = mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
     b.setAttribute('aria-label', b.title);
-    try { localStorage.setItem('trees.theme', mode); } catch (e) { /* private mode */ }
-    if (redraw && current) { if (ui.model === 'tower') updateVisualization(); writeURL(); }
+    if (redraw) { try { localStorage.setItem('trees.theme', mode); } catch (e) { /* private mode */ } }
+    if (redraw && current) { if (ui.model === 'tower') updateVisualization(); else redrawTree(); writeURL(); }
 }
 
 const HELP = `
@@ -939,13 +1007,15 @@ const HELP = `
     <p>Type the generators (entries are exact: fractions, $i$, radicals, roots of polynomials) and the prime $p$.
         The tree updates as you type. <b>Load Example…</b> opens the library.</p>
     <h4>Generators</h4>
-    <p>The buttons along the bottom apply a generator: the current element $W$ becomes $Wg$, and the base vertex and
-        its Dirichlet cell move to the copy $W\\cdot v$ (magenta). ⌘/Ctrl-click applies $g^{-1}$. In the disk model
-        the picture recentres on $W\\cdot v$. Words typed under <b>Info → Define Element</b>, and the elements of a
+    <p>The buttons along the bottom apply a generator $g$ to the tree: the whole tree moves by $g$, sliding along its
+        axis (or turning about its fixed set, which lights up), and lands back on the same picture. Pressing $g$ always
+        moves the tree by $g$ itself. The copy $W\\cdot v$ (rose) and its Dirichlet cell move with it: $W$ becomes
+        $gW$, so after $g_1$ then $g_2$ the copy is $g_2 g_1\\cdot v$.
+        ⌘/Ctrl-click applies $g^{-1}$. Words typed under <b>Info → Define Element</b>, and the elements of a
         Nielsen basis, apply the same way.</p>
     <h4>Tree</h4>
     <p>Drag to pan, scroll to zoom. Click a vertex for its distance to $v$, the words reaching it and its link;
-        double-click to make it the base vertex. <b>View</b> switches between the half-plane, the disk and the 3D
+        double-click to make it the base vertex. <b>View</b> switches between the disk, the half-plane and the 3D
         tower.</p>
     <h4>Verdict</h4>
     <p>The banner at the top left gives the verdict; click it for the certificate in the Info tab.</p>`;
@@ -972,7 +1042,7 @@ function setupHelp() {
 // ───────────────────────── wiring ─────────────────────────
 
 function setModel(model, redraw = true) {
-    if (!['halfplane', 'disk', 'tower'].includes(model)) model = 'halfplane';
+    if (!['halfplane', 'disk', 'tower'].includes(model)) model = 'disk';
     ui.model = model;
     document.querySelectorAll('.model-opt').forEach((b) => b.classList.toggle('active', b.dataset.model === model));
     if (redraw && current) { updateVisualization({ refit: true }); writeURL(); }
@@ -1033,7 +1103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('tower-spread').addEventListener('input', () => { ui.spread = parseFloat($('tower-spread').value); if (ui.model === 'tower') updateVisualization(); });
     $('decide-again').addEventListener('click', () => startDecision());
     const banner = $('status-banner');
-    banner.querySelector('.status-banner-close').addEventListener('click', (e) => { e.stopPropagation(); banner.classList.add('collapsed'); });
+    banner.querySelector('.status-banner-close').addEventListener('click', (e) => { e.stopPropagation(); clearTimeout(bannerTimer); banner.classList.add('collapsed'); });
     banner.addEventListener('click', () => {
         if (banner.classList.contains('collapsed')) { banner.classList.remove('collapsed'); return; }
         showTab('info');
