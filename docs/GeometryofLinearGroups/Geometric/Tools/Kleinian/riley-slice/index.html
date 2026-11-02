@@ -209,6 +209,68 @@
   @media (max-width: 768px) {
     #control-panel { width: calc(100vw - 40px); max-width: 360px; }
   }
+
+  /* ============ preview window: the group under the cursor ============ */
+  #preview {
+    position: fixed; left: 14px; bottom: 46px; z-index: 90;
+    width: 400px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-light); border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #preview[hidden], #pvOpen[hidden] { display: none; }
+  #preview.big { width: min(820px, calc(100vw - 420px)); min-width: 400px; }
+  .pv-head { display: flex; align-items: center; gap: 6px; padding: 8px 8px 8px 10px; }
+  .pv-head .seg { flex: 0 0 auto; }
+  .pv-head .seg button { padding: 6px 12px; }
+  .pv-spacer { flex: 1; }
+  .pv-icon {
+    width: 28px; height: 28px; padding: 0; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.05); color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 50%; cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .pv-icon:hover { background: var(--glass-hover); color: var(--text); }
+  .pv-icon.on { background: var(--accent-dim); color: var(--text); border-color: rgba(99,102,241,0.5); }
+  .pv-stage {
+    position: relative; height: 280px; margin: 0 8px;
+    background: #f7f8fa; border-radius: 10px; overflow: hidden;
+  }
+  #preview.big .pv-stage { height: min(560px, calc(100vh - 200px)); }
+  .pv-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #pvGL { cursor: grab; touch-action: none; }
+  #pvGL.dragging { cursor: grabbing; }
+  .pv-msg {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    padding: 18px 28px; text-align: center; pointer-events: none;
+    color: #334155; font-size: 0.8rem; line-height: 1.5;
+  }
+  .pv-msg:empty { display: none; }
+  .pv-msg b { color: #0f172a; }
+  .pv-foot {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px 9px; min-height: 32px;
+    font-size: 0.72rem; color: var(--text-dim); font-variant-numeric: tabular-nums;
+  }
+  .pv-foot .pv-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pv-foot b { color: var(--text); font-weight: 600; }
+  .pv-tag {
+    display: inline-block; padding: 1px 7px; border-radius: 999px; margin-right: 4px;
+    background: rgba(255,255,255,0.08); color: var(--text); font-size: 0.66rem; letter-spacing: 0.02em;
+  }
+  .pv-tag.pin { background: var(--accent-dim); }
+  .pv-tag.exact { background: rgba(16,185,129,0.22); }
+  #pvOpen { position: fixed; left: 14px; bottom: 46px; z-index: 90; flex: none; }
+  .exact-poly { font-variant-numeric: tabular-nums; word-break: break-word; color: var(--text); }
+  @media (max-width: 768px) {
+    #preview, #preview.big { width: calc(100vw - 28px); min-width: 0; }
+    .pv-stage, #preview.big .pv-stage { height: 190px; }
+    .pv-head .seg button { padding: 6px 9px; }
+    #pvBig { display: none; }                 /* already full width */
+  }
 </style>
 </head>
 <body>
@@ -216,6 +278,38 @@
   <canvas id="canvas"></canvas>
 </div>
 <div id="status">loading…</div>
+
+<div id="preview" aria-label="Preview of the group at the point under the cursor">
+  <div class="pv-head">
+    <div class="seg" id="pvModeSeg">
+      <button data-mode="limit" class="active"
+              title="The limit set of ⟨X, Y⟩ in the z-plane (X-periodic)">Limit set</button>
+      <button data-mode="poly"
+              title="The Ford domain in upper half-space: drag to turn, scroll to zoom">Polyhedron</button>
+    </div>
+    <span class="pv-spacer"></span>
+    <button class="pv-icon" id="pvPin" title="Pinned: the preview stays on the selection. Click (or Esc) to follow the cursor again."
+            aria-label="Pin the preview" aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M9 3h6l-1 6 4 4H6l4-4-1-6zM12 13v8"
+        stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="none"/></svg>
+    </button>
+    <button class="pv-icon" id="pvBig" title="Larger preview" aria-label="Larger preview" aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    </button>
+    <button class="pv-icon" id="pvClose" title="Hide the preview" aria-label="Hide the preview">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"
+        stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>
+    </button>
+  </div>
+  <div class="pv-stage" id="pvStage">
+    <canvas id="pvCanvas"></canvas>
+    <canvas id="pvGL"></canvas>
+    <div class="pv-msg" id="pvMsg"></div>
+  </div>
+  <div class="pv-foot"><span class="pv-text" id="pvFoot">Move the cursor over the slice.</span></div>
+</div>
+<button class="btn" id="pvOpen" hidden>Show preview</button>
 
 <div id="control-panel">
   <button id="collapseBtn" title="Collapse panel" aria-label="Collapse panel">
@@ -247,11 +341,10 @@
 
     <div class="control-group">
       <p class="group-title">Selection</p>
-      <div id="selInfo" class="hint">Click a bead, cusp, or dot &mdash; or any
-        point of the plane &mdash; to inspect it.</div>
-      <canvas id="fordInset"
-              style="display:none; width:100%; height:180px; border-radius:10px;
-                     background:#0b1220; border:1px solid var(--border)"></canvas>
+      <div id="selInfo" class="hint">The preview (bottom left) shows the limit set or the
+        Ford polyhedron of the group under the cursor. Click a bead, cusp, or dot &mdash; or any
+        point of the plane &mdash; to inspect it and pin the preview there; dots and beads load
+        as exact algebraic numbers.</div>
       <div class="control-row">
         <button class="btn primary" id="exportBtn" disabled>Open in Dirichlet tool</button>
         <button class="btn" id="copyBtn" disabled>Copy ρ</button>
@@ -461,12 +554,30 @@
       Lyndon–Ullman circle |ρ − 2| = 2.
       Dot placement uses double-precision Aberth iteration, so keep dot depth
       ≲ 28: the root cluster at ±4 is badly conditioned beyond that.
+      <br><br>
+      The <b>preview</b> follows the cursor like the Julia set beside a
+      Mandelbrot set. <b>Limit set</b>: the limit set of ⟨X, Y⟩, which is
+      X-periodic, by a depth-first search over reduced words beginning with
+      Y<sup>±1</sup>; a branch stops when the images of three of its limit
+      points lie within a pixel, and its colour records the first two letters
+      (Y… indigo, Y<sup>−1</sup>… teal). <b>Polyhedron</b>: the Ford domain of
+      the chosen group, ray-cast in upper half-space &mdash; the hemispheres
+      are its faces, the glass walls Re z = ±½ close it into one period of X,
+      and the bare floor around them is its free side, where the domain of
+      discontinuity shows. Both pictures first look for a Shimizu witness.
+      A click on a dot (a root of Φ<sub>p/q</sub> + 2) or a bead (a root of
+      Φ<sub>p/q</sub> + 2cos(π/n)) factors its polynomial over ℚ, keeps the
+      irreducible factor through that root, and polishes the root with Newton
+      steps evaluated exactly; “Open exactly in Dirichlet tool” then passes
+      that factor along as a root row, so the domain there is computed in the
+      number field.
     </div>
 
   </div>
 </div>
 
-<script src="fordCore.js?v=2026-10-11"></script>
+<script src="fordCore.js?v=2026-11-01"></script>
+<script src="previewCore.js?v=2026-11-01"></script>
 <script>
 "use strict";
 
@@ -1752,6 +1863,7 @@ document.getElementById("fordEngineSeg").addEventListener("click", e => {
   draw();
   scheduleFord(0);
   if (sel) describeSelection();
+  if (pv.mode === "poly") pvRefresh();
 });
 syncRegionUI();
 
@@ -1811,62 +1923,18 @@ function wordHTML(key) {               // "m1,n1,m2,..." -> Y^m1 X^n1 Y^m2 ...
   return s;
 }
 
-const fordInsetEl = document.getElementById("fordInset");
-function drawFordInset(vis, live) {
+/* The Ford domain seen from infinity, flat: the polyhedron preview's fallback
+   when WebGL2 is missing.  Each face's power cell cut by its isometric disk;
+   a face and its partner share a hue, and faces of gE (bisectors with
+   horoballs at images of 0) are lighter.  Framed on the small faces, which
+   crowd around the junction Re z = 1/2.                                   */
+function drawFordInsetExt(faces, el) {
   const pr = window.devicePixelRatio || 1;
-  fordInsetEl.style.display = "block";
-  const W = Math.max(1, Math.round(fordInsetEl.clientWidth * pr));
-  const H = Math.max(1, Math.round(fordInsetEl.clientHeight * pr));
-  fordInsetEl.width = W; fordInsetEl.height = H;
-  const g = fordInsetEl.getContext("2d");
-  g.fillStyle = "#0b1220"; g.fillRect(0, 0, W, H);
-  let rTop = 0.3;
-  for (const f of vis) rTop = Math.max(rTop, f.r);
-  const sc = Math.min(W / 2.4, H / (2.1 * rTop));
-  const tx = x => W / 2 + (x - 0.5) * sc;
-  const ty = y => H / 2 - y * sc;
-  g.strokeStyle = "rgba(148,163,184,0.35)"; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(0, ty(0)); g.lineTo(W, ty(0)); g.stroke();
-  g.setLineDash([4, 4]);
-  for (const x of [0, 1]) {            // one X-period of the strip
-    g.beginPath(); g.moveTo(tx(x), 0); g.lineTo(tx(x), H); g.stroke();
-  }
-  g.setLineDash([]);
-  const drawFam = (f, visFlag) => {
-    for (let t = -2; t <= 2; t++) {
-      const cx = f.vx + t;
-      if ((cx + f.r) * sc + tx(0) < -20 || (cx - f.r) * sc + tx(0) > W + 20) continue;
-      g.beginPath();
-      g.arc(tx(cx), ty(f.vy), f.r * sc, 0, 2 * Math.PI);
-      if (visFlag) {
-        const hue = hashStr(f.key) % 360;
-        g.fillStyle = `hsla(${hue} 70% 60% / 0.18)`; g.fill();
-        g.strokeStyle = `hsl(${hue} 70% 62%)`; g.lineWidth = 1.5 * pr;
-      } else {
-        g.strokeStyle = "rgba(148,163,184,0.22)"; g.lineWidth = 1;
-      }
-      g.stroke();
-    }
-  };
-  for (const f of live) if (!f.seen) drawFam(f, false);
-  for (const f of vis) drawFam(f, true);
-  g.fillStyle = "rgba(148,163,184,0.8)";
-  g.font = `${10 * pr}px sans-serif`;
-  g.fillText("isometric circles, one X-period of the z-plane", 8 * pr, H - 6 * pr);
-}
-
-/* the two-cusp Ford domain seen from infinity: each face's power cell cut by
-   its isometric disk; a face and its partner share a hue, faces of gE
-   (bisectors with horoballs at images of 0) are hatched.  Framed on the
-   small faces, which crowd around the junction Re z = 1/2.                 */
-let insetHatch = null;
-function drawFordInsetExt(faces) {
-  const pr = window.devicePixelRatio || 1;
-  fordInsetEl.style.display = "block";
-  const W = Math.max(1, Math.round(fordInsetEl.clientWidth * pr));
-  const H = Math.max(1, Math.round(fordInsetEl.clientHeight * pr));
-  fordInsetEl.width = W; fordInsetEl.height = H;
-  const g = fordInsetEl.getContext("2d");
+  el.style.display = "block";
+  const W = Math.max(1, Math.round(el.clientWidth * pr));
+  const H = Math.max(1, Math.round(el.clientHeight * pr));
+  el.width = W; el.height = H;
+  const g = el.getContext("2d");
   g.fillStyle = "#0b1220"; g.fillRect(0, 0, W, H);
   let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
   for (const f of faces) {
@@ -1884,14 +1952,6 @@ function drawFordInsetExt(faces) {
   const vw = Math.min(2.2, Math.max(1.1, 1.3 * (bx1 - bx0), 1.3 * (by1 - by0) * W / H));
   const sc = W / vw, xlo = ccx - vw / 2, xhi = ccx + vw / 2;
   const tx = x => W / 2 + (x - ccx) * sc, ty = y => H / 2 - (y - ccy) * sc;
-  if (!insetHatch) {
-    const c = document.createElement("canvas"); c.width = c.height = 8;
-    const x = c.getContext("2d");
-    x.strokeStyle = "rgba(10,14,28,0.35)"; x.lineWidth = 1.6;
-    x.beginPath(); x.moveTo(-2, 10); x.lineTo(10, -2); x.moveTo(-2, 2); x.lineTo(2, -2);
-    x.moveTo(6, 10); x.lineTo(10, 6); x.stroke();
-    insetHatch = g.createPattern(c, "repeat");
-  }
   const hueOf = w => {
     if (!w.length) return null;
     const a = w.join(","), b = w.slice().reverse().map(n => -n).join(",");
@@ -1916,7 +1976,6 @@ function drawFordInsetExt(faces) {
       f.poly.forEach(([u, v], i) => i ? g.lineTo(tx(u + k), ty(v)) : g.moveTo(tx(u + k), ty(v)));
       g.closePath();
       g.fillStyle = fill; g.fill();
-      if (cross) { g.fillStyle = insetHatch; g.fill(); }
       g.restore();
       if (area > 500 * pr * pr) {
         let cx = 0, cy = 0;
@@ -1974,8 +2033,12 @@ function describeSelection() {
     lines.push(`<b>ρ = 0</b> — degenerate (Y is trivial)`);
   else
     lines.push(`<b>Point</b>`);
-  lines.push(`ρ = ${fmtC(sel.x, sel.y)}`);
-  lines.push(`√ρ = ${fmtC(sel.zx, sel.zy)}`);
+  const digits = sel.exact ? 12 : 5;
+  lines.push(`ρ = ${fmtC(sel.x, sel.y, digits)}`);
+  lines.push(`√ρ = ${fmtC(sel.zx, sel.zy, digits)}`);
+  lines.push(...exactLines(sel));
+  exportBtn.textContent = sel.exact && sel.exact.F && sel.exact.deg <= 32
+    ? "Open exactly in Dirichlet tool" : "Open in Dirichlet tool";
   if (sel.p !== undefined && sel.q !== undefined && !(sel.kind === "origin")) {
     const ev = evaluator(sel.p, sel.q);         // recursion, not Horner:
     const e = ev(sel.x, sel.y);                 // Horner is noise out here
@@ -1989,12 +2052,13 @@ function describeSelection() {
       denominator &le; ${DOMINANT_Q}, W<sub>${d.p}/${d.q}</sub> has the smallest trace here,
       |Φ<sub>${d.p}/${d.q}</sub>(ρ)| = ${d.a.toPrecision(4)}`);
   }
-  if (sel.kind === "origin" || inRegionPoly(sel.x, sel.y)) {
+  if (sel.kind === "origin" || (inRegionPoly(sel.x, sel.y) && !sel.exact)) {
     lines.push(`<b>Ford domain</b>: inside the non-discrete / non-free region
-      &mdash; no Ford domain to speak of.`);
-    fordInsetEl.style.display = "none";
+      &mdash; no Ford domain to speak of${["root", "heckoid"].includes(sel.kind)
+        ? " (unless the group is discrete at this exact value)" : ""}.`);
   } else if (fordEngine === "ext") {
-    const fd = FordCore.fordDomain(sel.x, sel.y, { polys: true });
+    // stabTol: at an exact value a word can fix infinity (c = 0 up to rounding)
+    const fd = FordCore.fordDomain(sel.x, sel.y, { polys: true, stabTol: 1e-7 });
     if (fd.nondiscrete) {
       // Shimizu: an isometric circle of radius > 1 (|c| < 1 against A = z + 1)
       const w = fd.nondiscrete.word;
@@ -2004,7 +2068,6 @@ function describeSelection() {
         has an isometric circle of radius ${fd.nondiscrete.r.toFixed(4)} &gt; 1, so |c| &lt; 1 against
         X = z + 1: Shimizu's lemma fails, Γ<sub>ρ</sub> (index ≤ 2 in ⟨X, E⟩) is not discrete, and ρ is
         outside the Riley slice.`);
-      fordInsetEl.style.display = "none";
       selInfoEl.innerHTML = lines.join("<br>");
       exportBtn.disabled = false;
       copyBtn.disabled = false;
@@ -2022,8 +2085,12 @@ function describeSelection() {
         ? " (undecided: the faces need words past the length cap)" : " (face cap reached)"}`);
     lines.push(`<b>Faces</b>: ${names.slice(0, 10).join(", &nbsp;")}${
       names.length > 10 ? ` &nbsp;+${names.length - 10} more` : ""}
-      <br><span class="hint">italic = gE, the faces of the cusp at 0 (hatched below)</span>`);
-    drawFordInsetExt(fd.faces);
+      <br><span class="hint">italic = gE, the faces of the cusp at 0 (the lighter ones in the polyhedron preview)</span>`);
+    let lam = null;
+    for (const t of fd.stab || [])
+      if (Math.abs(t.im) > 1e-6 && (!lam || Math.abs(t.im) < Math.abs(lam.im))) lam = t;
+    if (lam) lines.push(`<b>Cusp</b>: rank 2 here &mdash; besides X, the translation
+      z ↦ z + ${fmtC(lam.re - Math.round(lam.re), lam.im, 6)} of ⟨X, E⟩ fixes ∞.`);
   } else {
     const alg = algSignature(sel.x, sel.y, Math.max(+ui.fordQ.value, 30), 16);
     const facePart = alg.sig.split("||")[0];
@@ -2047,7 +2114,6 @@ function describeSelection() {
     const extra = keys.length > 6 ? ` &nbsp;+${keys.length - 6} more` : "";
     lines.push(`<b>Ford check</b>: ${keys.length} pair${
       keys.length === 1 ? "" : "s"} by direct word search &mdash; ${shown}${extra}`);
-    drawFordInset(vis, live);
   }
   selInfoEl.innerHTML = lines.join("<br>");
   exportBtn.disabled = false;
@@ -2078,14 +2144,44 @@ function handleClick(clientX, clientY) {
     if (d < bestD) { bestD = d; best = it; }
   }
   sel = best ? { ...best } : { kind: "point", x: rx, y: ry };
-  const [wr, wi] = csqrt(sel.x, sel.y);   // sqrt branch nearest the click
-  if ((wr - zx) ** 2 + (wi - zy) ** 2 <= (wr + zx) ** 2 + (wi + zy) ** 2) {
-    sel.zx = wr; sel.zy = wi;
-  } else {
-    sel.zx = -wr; sel.zy = -wi;
-  }
+  setSqrtBranch(sel, zx, zy);
   describeSelection();
   draw();
+  pvSetPinned(true);                    // the preview stays on the clicked point
+  pvRequest(selTarget(), true);
+  if (sel.kind === "root" || sel.kind === "cusp" || sel.kind === "heckoid") makeExact(sel);
+}
+function setSqrtBranch(s, zx, zy) {     // the square root of rho nearest (zx, zy)
+  const [wr, wi] = csqrt(s.x, s.y);
+  if ((wr - zx) ** 2 + (wi - zy) ** 2 <= (wr + zx) ** 2 + (wi + zy) ** 2) { s.zx = wr; s.zy = wi; }
+  else { s.zx = -wr; s.zy = -wi; }
+}
+/* replace a clicked dot or bead by its exact value (see exactValue) */
+async function makeExact(s) {
+  s.exactPending = true;
+  describeSelection();
+  try {
+    const ex = await exactValue(s);
+    if (ex && ex.tooBig) s.exactTooBig = ex.tooBig;
+    // a bead of order 1 sits by a double root of Phi - 2 and is traced only to ~1e-3
+    else if (ex && ex.moved > Math.max(1, Math.hypot(s.x, s.y)) * (ex.clear ? 0.02 : 1e-6))
+      s.exactError = `the nearest root of the factor is ${ex.moved.toExponential(1)} away from the dot; kept the dot's value`;
+    else if (ex) {
+      s.exact = ex;
+      s.x = ex.x; s.y = ex.y;
+      setSqrtBranch(s, s.zx, s.zy);
+    }
+  } catch (err) {
+    if (err && err.message === "superseded") return;
+    s.exactError = location.protocol === "file:"
+      ? "needs the page served over http(s) (the factoriser is a module)"
+      : `${(err && err.message) || err}`;
+  }
+  s.exactPending = false;
+  if (sel !== s) return;
+  describeSelection();
+  draw();
+  if (s.exact) pvRequest(selTarget(), true);
 }
 
 exportBtn.addEventListener("click", () => {
@@ -2093,9 +2189,21 @@ exportBtn.addEventListener("click", () => {
   // The sibling Dirichlet-domain tool takes ?riley=re,im (classical rho) or
   // ?rileyz=re,im (symmetric z with rho = z^2).
   const num = v => String(Number(v.toPrecision(12)));
-  const url = plane === "sqrt"
+  let url = plane === "sqrt"
     ? `../poincare/?rileyz=${num(sel.zx)},${num(sel.zy)}`
     : `../poincare/?riley=${num(sel.x)},${num(sel.y)}`;
+  const ex = sel.exact;
+  if (ex && ex.F && ex.deg <= 32) {
+    // exact: rho is the root of an irreducible integer polynomial nearest `near`
+    // (the Dirichlet tool adjoins it as a root row w; z = +-sqrt(w))
+    const near = `${ex.x.toPrecision(17)},${ex.y.toPrecision(17)}`;
+    const poly = encodeURIComponent(polyLatex(ex.F, "w"));
+    const [wr, wi] = csqrt(sel.x, sel.y);
+    const principal = wr * sel.zx + wi * sel.zy >= 0;
+    url = plane === "sqrt"
+      ? `../poincare/?rileyzroot=${poly}&near=${near}&zsign=${principal ? 1 : -1}`
+      : `../poincare/?rileyroot=${poly}&near=${near}`;
+  }
   window.open(url, "_blank");
 });
 copyBtn.addEventListener("click", () => {
@@ -2238,6 +2346,787 @@ canvas.addEventListener("wheel", e => {
 
 window.addEventListener("resize", () => { draw(); scheduleFord(600); });
 
+/* ---------------- exact parameters: dots and beads ------------------------
+   A dot is a root of Phi_{p/q} + 2, and the order-n Heckoid bead of slope p/q
+   a root of psi_n(-Phi_{p/q}), psi_n the minimal polynomial of 2cos(pi/n):
+   integer polynomials, known exactly (polyZ).  A click factors that
+   polynomial over Q with the Dirichlet tool's Zassenhaus factoriser (in
+   exactWorker.js, stopped after a few seconds: its recombination step is
+   exponential in the number of factors mod p), keeps the irreducible factor
+   through the clicked root, and polishes the root by Newton steps evaluated
+   EXACTLY in BigInt at a point of the 2^-64 grid -- double-precision Horner
+   is noise on these coefficients.  The factor then goes to the Dirichlet
+   tool as a root row, so it computes exactly.                             */
+const EXACT_DEG_MAX = 32;                       // the Dirichlet tool's field degree cap too
+const FACTOR_MS = 4000;
+let factorWorker = null, factorJob = null, factorSeq = 0;
+function factorOverQ(P) {                       // -> Promise of BigInt[][] (primitive factors)
+  if (factorJob) {                              // a newer click wins
+    factorJob.reject(new Error("superseded"));
+    factorWorker.terminate(); factorWorker = null; factorJob = null;
+  }
+  return new Promise((resolve, reject) => {
+    if (!factorWorker) {
+      factorWorker = new Worker("exactWorker.js", { type: "module" });
+      factorWorker.onmessage = e => {
+        const job = factorJob;
+        if (!job || e.data.id !== job.id) return;
+        clearTimeout(job.timer); factorJob = null;
+        if (e.data.error) job.reject(new Error(e.data.error));
+        else job.resolve(e.data.facs.map(f => f.map(BigInt)));
+      };
+      factorWorker.onerror = e => {
+        e.preventDefault();
+        const job = factorJob;
+        factorWorker.terminate(); factorWorker = null; factorJob = null;
+        if (job) { clearTimeout(job.timer); job.reject(new Error(e.message || "the factoring worker did not start")); }
+      };
+    }
+    const id = ++factorSeq;
+    const timer = setTimeout(() => {
+      if (!factorJob || factorJob.id !== id) return;
+      factorWorker.terminate(); factorWorker = null; factorJob = null;
+      reject(new Error(`gave up factoring after ${FACTOR_MS / 1000} s`));
+    }, FACTOR_MS);
+    factorJob = { id, resolve, reject, timer };
+    factorWorker.postMessage({ id, coeffs: P.map(String) });
+  });
+}
+function zcompose(P, Q) {                       // P(Q(x)), BigInt ascending
+  let r = [P[P.length - 1]];
+  for (let i = P.length - 2; i >= 0; i--) { r = convZ(r, Q); r[0] += P[i]; }
+  return r;
+}
+function zdivMonic(a, b) {                      // exact quotient a / b, b monic
+  a = a.slice();
+  const nb = b.length - 1, q = new Array(a.length - nb).fill(0n);
+  for (let k = a.length - 1 - nb; k >= 0; k--) {
+    const c = a[k + nb];
+    q[k] = c;
+    for (let i = 0; i <= nb; i++) a[k + i] -= c * b[i];
+  }
+  return q;
+}
+const cycloCache = new Map();
+function cyclotomic(m) {
+  if (cycloCache.has(m)) return cycloCache.get(m);
+  let f = new Array(m + 1).fill(0n);
+  f[0] = -1n; f[m] = 1n;
+  for (let d = 1; d < m; d++) if (m % d === 0) f = zdivMonic(f, cyclotomic(d));
+  cycloCache.set(m, f);
+  return f;
+}
+function twoCosPoly(n) {                        // minimal polynomial of 2cos(pi/n)
+  if (n === 1) return [2n, 1n];                 // 2cos(pi) = -2
+  const c = cyclotomic(2 * n), d = (c.length - 1) / 2;
+  const C = [[2n], [0n, 1n]];                   // x^k + x^-k as a polynomial in t = x + 1/x
+  for (let k = 2; k <= d; k++) C.push([0n, ...C[k - 1]].map((x, i) => x - (C[k - 2][i] || 0n)));
+  const out = [c[d]];
+  for (let k = 1; k <= d; k++) C[k].forEach((x, i) => { out[i] = (out[i] || 0n) + x * c[d + k]; });
+  return out;
+}
+function exactPolyFor(s) {
+  const Phi = polyZ.get(`${s.p}/${s.q}`);
+  if (!Phi) return null;
+  if (s.kind === "heckoid") return zcompose(twoCosPoly(s.n), Phi.map(c => -c));  // Phi = -2cos(pi/n)
+  const P = Phi.slice(); P[0] += 2n;                                             // Phi = -2
+  return P;
+}
+const FIX = 2 ** 64, ONE64 = 1n << 64n;
+const bitLen = v => (v < 0n ? -v : v).toString(16).length * 4;
+/* F(z)/F'(z), exact at the 2^-64-grid point nearest z, rounded to doubles */
+function newtonStep(F, x, y) {
+  const n = F.length - 1;
+  if (n < 1) return null;
+  const X = BigInt(Math.round(x * FIX)), Y = BigInt(Math.round(y * FIX));
+  let gr = F[n], gi = 0n, pw = ONE64;           // G = 2^(64n) F(z)
+  for (let i = n - 1; i >= 0; i--) {
+    const r = gr * X - gi * Y; gi = gr * Y + gi * X; gr = r + F[i] * pw; pw *= ONE64;
+  }
+  let hr = BigInt(n) * F[n], hi = 0n; pw = ONE64; // H = 2^(64(n-1)) F'(z)
+  for (let i = n - 1; i >= 1; i--) {
+    const r = hr * X - hi * Y; hi = hr * Y + hi * X; hr = r + BigInt(i) * F[i] * pw; pw *= ONE64;
+  }
+  const sh = BigInt(Math.max(0, Math.max(bitLen(gr), bitLen(gi), bitLen(hr), bitLen(hi)) - 60));
+  const a = Number(gr >> sh), b = Number(gi >> sh), c = Number(hr >> sh), d = Number(hi >> sh);
+  const den = c * c + d * d;
+  if (!(den > 0)) return null;
+  return [(a * c + b * d) / den / FIX, (b * c - a * d) / den / FIX];   // G / (H 2^64)
+}
+const factorCache = new Map();
+async function exactValue(s) {
+  const P = exactPolyFor(s);
+  if (!P) return null;
+  if (P.length - 1 > EXACT_DEG_MAX) return { tooBig: P.length - 1 };
+  const key = (s.kind === "heckoid" ? `h${s.n}:` : "d:") + `${s.p}/${s.q}`;
+  let facs = factorCache.get(key);
+  if (!facs) {
+    facs = await factorOverQ(P);
+    factorCache.set(key, facs);
+  }
+  let best = null, second = Infinity;           // the factor with a root nearest the click
+  for (const F of facs) {
+    const st = newtonStep(F, s.x, s.y);
+    if (!st) continue;
+    const d = Math.hypot(st[0], st[1]);
+    if (!best || d < best.d) { if (best) second = best.d; best = { F, d }; }
+    else second = Math.min(second, d);
+  }
+  if (!best) return null;
+  let x = s.x, y = s.y;
+  for (let it = 0; it < 10; it++) {
+    const st = newtonStep(best.F, x, y);
+    if (!st) break;
+    x -= st[0]; y -= st[1];
+    if (Math.hypot(st[0], st[1]) <= 1e-16 * Math.max(1, Math.hypot(x, y))) break;
+  }
+  return { F: best.F, deg: best.F.length - 1, x, y, moved: Math.hypot(x - s.x, y - s.y),
+           clear: best.d < 0.2 * second };     // no other factor has a root as near
+}
+
+/* polynomial and closed-form display */
+function polyTerms(F, mono) {
+  const out = [];
+  for (let i = F.length - 1; i >= 0; i--) {
+    const c = F[i];
+    if (c === 0n) continue;
+    const neg = c < 0n, a = neg ? -c : c;
+    out.push({ neg, s: (a === 1n && i > 0 ? "" : a.toString()) + mono(i) });
+  }
+  return out;
+}
+function polyHTML(F, v = "ρ") {
+  return polyTerms(F, i => i === 0 ? "" : i === 1 ? v : `${v}<sup>${i}</sup>`)
+    .map((t, k) => (k ? (t.neg ? " − " : " + ") : (t.neg ? "−" : "")) + t.s).join("");
+}
+function polyLatex(F, v = "w") {
+  return polyTerms(F, i => i === 0 ? "" : i === 1 ? v : `${v}^{${i}}`)
+    .map((t, k) => (t.neg ? "-" : k ? "+" : "") + t.s).join("");
+}
+function closedForm(F, x, y) {                  // degree 1 or 2 only
+  const neg = v => v.toString().replace("-", "−");
+  if (F.length === 2) return `ρ = ${neg(-F[0])}`;
+  if (F.length !== 3) return null;
+  const b = F[1], c = F[0], D = b * b - 4n * c;
+  let m = 1n, k = D < 0n ? -D : D;              // |D| = m^2 k, k squarefree
+  for (let p = 2n; p * p <= k && p < 20000n; p++) while (k % (p * p) === 0n) { k /= p * p; m *= p; }
+  let A = -b, B = m, den = 2n;
+  if (A % 2n === 0n && B % 2n === 0n) { A /= 2n; B /= 2n; den = 1n; }
+  const plus = D < 0n ? y >= 0 : x >= Number(-b) / 2;
+  const unit = D < 0n ? "i" : "";
+  const rad = k === 1n ? "" : `√${k}`;
+  let mag = (B === 1n && (unit || rad) ? "" : B.toString()) + unit + rad;
+  let num = A === 0n ? (plus ? "" : "−") + mag : `${neg(A)} ${plus ? "+" : "−"} ${mag}`;
+  return `ρ = ${den === 1n ? num : (A === 0n ? `${num}/2` : `(${num})/2`)}`;
+}
+function exactLines(s) {
+  if (s.exactPending) return [`<b>Exact value</b>: factoring the polynomial…`];
+  if (s.exactError) return [`<b>Exact value</b>: ${s.exactError}`];
+  if (s.exactTooBig) return [`<b>Exact value</b>: ρ is a root of an integer polynomial of
+    degree ${s.exactTooBig}; past degree ${EXACT_DEG_MAX} it is left as a decimal.`];
+  const e = s.exact;
+  if (!e) return [];
+  const bead = { 1: "2", 2: "0", 3: "−1", 4: "−√2", 6: "−√3" }[s.n] || `−2cos(π/${s.n})`;
+  const what = `Φ<sub>${s.p}/${s.q}</sub>(ρ) = ${s.kind === "heckoid" ? bead : "−2"}`;
+  const cf = closedForm(e.F, e.x, e.y);
+  const poly = `<span class="exact-poly">${polyHTML(e.F)}</span>`;
+  if (e.deg === 1) return [`<b>Exact</b>: ${cf} &nbsp;(${what})`];
+  const body = e.deg > 10
+    ? `the root near ${fmtC(e.x, e.y, 6)} of an irreducible polynomial of degree ${e.deg}
+       <details><summary class="hint">show it</summary>${poly}</details>`
+    : `${cf ? cf + ", a root of" : `the root near ${fmtC(e.x, e.y, 6)} of`} ${poly},
+       irreducible over ℚ (degree ${e.deg})`;
+  return [`<b>Exact</b>: ${body}; a factor of ${what}`];
+}
+
+/* ---------------- preview window: limit set / Ford polyhedron --------------
+   This tool's Julia-set window.  The point under the cursor -- or, once a
+   click has pinned it, the selection -- goes to a worker running
+   previewCore.js (the limit set, by depth-first search over words) and the
+   exact Ford engine (the polyhedron, and the discreteness check behind both
+   pictures).  One job is in flight at a time and only the newest waiting
+   job is kept, so the window is never more than one picture behind.  A
+   quick pass follows the cursor; the full-detail pass runs when the cursor
+   rests for a moment, and for clicked points.                              */
+const pvEl = document.getElementById("preview");
+const pvStage = document.getElementById("pvStage");
+const pvCanvas = document.getElementById("pvCanvas");
+const pvGLCanvas = document.getElementById("pvGL");
+const pvMsgEl = document.getElementById("pvMsg");
+const pvFootEl = document.getElementById("pvFoot");
+const pvPinBtn = document.getElementById("pvPin");
+const pvOpenBtn = document.getElementById("pvOpen");
+const pv = {
+  mode: "limit", pinned: false,
+  worker: null, busy: false, pending: null, seq: 0, jobs: new Map(),
+  cursor: null, frame: 0, restTimer: 0, lastKey: "", current: null,
+  shown: null, scene: null,
+};
+const PV_SRC = `
+  const FordCore = (${fordCoreFactory.toString()})();
+  const PC = (${previewCoreFactory.toString()})();
+  const inLens = FordCore.makeLensTest(FordCore.sliceBoundary(64));
+  const xyName = w => FordCore.gammaName(w).replace(/A/g, "X").replace(/B/g, "Y");
+  function rank2(stab) {                       // a non-real translation fixing infinity
+    let best = null;
+    for (const t of stab || [])
+      if (Math.abs(t.im) > 1e-6 && (!best || Math.abs(t.im) < Math.abs(best[1])))
+        best = [t.re - Math.round(t.re), t.im];
+    return best;
+  }
+  onmessage = (e) => {
+    const m = e.data, t0 = performance.now();
+    const out = { id: m.id, kind: m.kind, group: m.group };
+    let transfer = [];
+    try {
+      const lens = (m.rr === 0 && m.ri === 0) || inLens(m.rr, m.ri);
+      out.inLens = lens;
+      const fd = FordCore.fordDomain(m.rr, m.ri,
+        { group: m.kind === "poly" ? m.group : "ext", polys: m.kind === "poly", stabTol: 1e-7 });
+      out.complete = fd.complete; out.capped = fd.capped;
+      out.lambda = rank2(fd.stab);
+      if (fd.nondiscrete) {
+        let nm = xyName(fd.nondiscrete.word);
+        if (nm.length > 40) nm = nm.slice(0, 40) + "…";
+        out.verdict = "nondiscrete"; out.witness = nm; out.witnessR = fd.nondiscrete.r;
+      } else if (m.kind === "poly") {
+        out.verdict = lens && !fd.complete ? "undecided" : "ok";
+        out.faces = fd.faces;
+      } else if (lens && !fd.complete) {
+        out.verdict = "undecided";
+      } else if (out.lambda && PC.floorCovered(fd.faces, out.lambda[0], out.lambda[1])) {
+        out.verdict = "full";
+      } else {
+        // not free: every node is keyed to skip repeats, so keep the budget small
+        const img = PC.limitSetImage(m.rr, m.ri, { W: m.W, H: m.H, px: m.px,
+          budget: lens ? Math.min(m.budget, 6e5) : m.budget,
+          gain: m.gain, dedup: lens, maxDepth: lens ? 200 : 3000 });
+        out.verdict = lens ? "notfree" : "ok";
+        Object.assign(out, { rgba: img.rgba, W: m.W, H: m.H, frame: img.frame,
+          nodes: img.nodes, leaves: img.leaves, truncated: img.truncated });
+        transfer = [img.rgba.buffer];
+      }
+    } catch (err) { out.verdict = "error"; out.error = String((err && err.message) || err); }
+    out.ms = performance.now() - t0;
+    postMessage(out, transfer);
+  };`;
+function pvWorker() {
+  if (!pv.worker) {
+    const url = URL.createObjectURL(new Blob([PV_SRC], { type: "text/javascript" }));
+    pv.worker = new Worker(url);
+    pv.worker.onmessage = pvOnResult;
+    pv.worker.onerror = e => {                  // never leave the window waiting
+      e.preventDefault();
+      pv.worker.terminate(); pv.worker = null;
+      pv.busy = false; pv.pending = null; pv.jobs.clear(); pv.lastKey = "";
+      pvClear();
+      pvMsgEl.textContent = "The preview worker stopped: " + (e.message || "unknown error");
+    };
+  }
+  return pv.worker;
+}
+function pvSize() {
+  const r = pvStage.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  return [Math.max(1, Math.round(r.width * dpr)), Math.max(1, Math.round(r.height * dpr)), dpr];
+}
+function selTarget() {
+  return sel ? { x: sel.x, y: sel.y, zx: sel.zx, zy: sel.zy, src: "sel", exact: !!(sel.exact && sel.exact.F) } : null;
+}
+/* t = {x, y (rho), zx, zy, src: "cursor" | "sel" | "start", exact} */
+function pvRequest(t, full) {
+  if (!t || pvEl.hidden || (t.x === 0 && t.y === 0)) return;
+  const [W, H, dpr] = pvSize();
+  const group = fordEngine === "ext" ? "ext" : "gamma";
+  const lim = pv.mode === "limit";
+  const key = [pv.mode, group, t.x, t.y, W, H, lim && full ? 1 : 0, t.src, t.exact ? 1 : 0].join("|");
+  if (key === pv.lastKey) return;
+  pv.lastKey = key;
+  pv.current = t;
+  const job = { id: ++pv.seq, kind: pv.mode, rr: t.x, ri: t.y, group, W, H,
+                px: (full ? 0.65 : 1.3) * dpr, budget: full ? 4e6 : 5e5, gain: full ? 1.7 : 1.4 };
+  pv.jobs.set(job.id, { t, full });
+  if (pv.busy) {
+    if (pv.pending) pv.jobs.delete(pv.pending.id);
+    pv.pending = job;
+    return;
+  }
+  pv.busy = true;
+  pvWorker().postMessage(job);
+}
+function pvRefresh() {                           // redo whatever is showing
+  pv.lastKey = "";
+  pvRequest(pv.pinned ? (selTarget() || pv.current) : (pv.current || selTarget()), true);
+}
+function pvOnResult(e) {
+  const res = e.data;
+  pv.busy = false;
+  if (pv.pending) { const j = pv.pending; pv.pending = null; pv.busy = true; pv.worker.postMessage(j); }
+  const job = pv.jobs.get(res.id);
+  pv.jobs.delete(res.id);
+  if (!job || res.kind !== pv.mode || pvEl.hidden) return;
+  pvShow(res, job.t);
+}
+function pvClear() {
+  const g = pvCanvas.getContext("2d");
+  g.clearRect(0, 0, pvCanvas.width, pvCanvas.height);
+  pvGLCanvas.style.display = "none";
+  pvCanvas.style.display = "block";
+}
+function pvShow(res, t) {
+  pv.shown = { res, t };
+  pvMsgEl.innerHTML = "";
+  const notes = [];
+  if (res.verdict === "nondiscrete") {
+    pvClear();
+    pvMsgEl.innerHTML = `<div><b>Not discrete.</b> The element <i>${res.witness}</i> of ⟨X, E⟩
+      has an isometric circle of radius ${res.witnessR.toFixed(3)} &gt; 1, so Shimizu's lemma fails
+      against X = z + 1: ρ is not in the Riley slice, and there is no Kleinian group to draw.</div>`;
+  } else if (res.verdict === "error") {
+    pvClear();
+    pvMsgEl.textContent = "The preview failed: " + res.error;
+  } else if (res.kind === "poly") {
+    pvDrawPoly(res);
+    const n = res.faces.length;
+    notes.push(`${n} face${n === 1 ? "" : "s"}, ${res.group === "ext" ? "both cusps" : "cusp ∞"}`);
+    if (res.verdict === "undecided")
+      notes.push("non-free region, no verdict");
+    else if (!res.complete) notes.push(res.capped ? "word cap reached" : "face cap reached");
+    if (res.lambda) notes.push(`rank-2 cusp, λ = ${fmtC(res.lambda[0], res.lambda[1], 4)}`);
+  } else if (res.verdict === "undecided") {
+    pvClear();
+    pvMsgEl.innerHTML = `<div><b>Inside the non-free region.</b> No Shimizu witness turned up among
+      words below the length cap, and no finite Ford domain either: nothing reliable to draw.</div>`;
+  } else if (res.verdict === "full") {
+    pvClear();
+    pvMsgEl.innerHTML = `<div><b>The limit set is the whole sphere.</b> The cusp at ∞ has rank 2
+      (z ↦ z + 1 and z ↦ z + ${fmtC(res.lambda[0], res.lambda[1], 4)}), and the faces of the Ford
+      domain cover its whole floor: there are no free sides, so the volume is finite.
+      Switch to <b>Polyhedron</b> to see it.</div>`;
+  } else {
+    pvDrawLimit(res);
+    notes.push(`${res.leaves.toLocaleString()} leaves`, `${Math.round(res.ms)} ms`);
+    if (res.verdict === "notfree") notes.push("not free: repeated elements skipped");
+    if (res.truncated) notes.push("budget reached");
+  }
+  const where = plane === "sqrt" && t.zx !== undefined
+    ? `z = ${fmtC(t.zx, t.zy, 4)}` : `ρ = ${fmtC(t.x, t.y, 4)}`;
+  const tags = (t.src === "sel" && pv.pinned ? `<span class="pv-tag pin">pinned</span>` : "") +
+               (t.exact ? `<span class="pv-tag exact">exact</span>` : "");
+  pvFootEl.innerHTML = `${tags}<b>${where}</b>${notes.length ? " &middot; " + notes.join(" &middot; ") : ""}`;
+  pvFootEl.title = pvFootEl.textContent;
+}
+function pvDrawLimit(res) {
+  pvGLCanvas.style.display = "none";
+  pvCanvas.style.display = "block";
+  const [W, H] = pvSize();
+  if (pvCanvas.width !== W || pvCanvas.height !== H) { pvCanvas.width = W; pvCanvas.height = H; }
+  const g = pvCanvas.getContext("2d");
+  g.clearRect(0, 0, W, H);
+  const img = new ImageData(res.rgba, res.W, res.H);
+  if (res.W === W && res.H === H) g.putImageData(img, 0, 0);
+  else {
+    const tmp = document.createElement("canvas");
+    tmp.width = res.W; tmp.height = res.H;
+    tmp.getContext("2d").putImageData(img, 0, 0);
+    g.drawImage(tmp, 0, 0, W, H);
+  }
+  // behind the dots: the real axis, with the integers one period of X apart
+  const { cx, cy, s } = res.frame, k = s * W / res.W, pr = W / pvStage.clientWidth;
+  const toX = x => W / 2 + (x - cx) * k, y0 = H / 2 + cy * k;
+  g.save();
+  g.globalCompositeOperation = "destination-over";
+  g.strokeStyle = "rgba(100,116,139,0.45)"; g.lineWidth = pr;
+  g.beginPath(); g.moveTo(0, y0); g.lineTo(W, y0);
+  const n0 = Math.ceil(cx - W / 2 / k), n1 = Math.floor(cx + W / 2 / k);
+  for (let n = n0; n <= n1; n++) { g.moveTo(toX(n), H); g.lineTo(toX(n), H - 5 * pr); }
+  g.stroke();
+  g.restore();
+  g.fillStyle = "rgba(71,85,105,0.8)";            // the integers, along the bottom edge
+  g.font = `${10 * pr}px sans-serif`; g.textAlign = "center"; g.textBaseline = "bottom";
+  for (let n = n0; n <= n1; n++) g.fillText(String(n).replace("-", "−"), toX(n), H - 7 * pr);
+}
+
+/* ---- the polyhedron: the Ford domain in upper half-space, ray-cast --------
+   Every face is an isometric hemisphere; the domain is the region above all
+   of them, one period of X wide.  The fragment shader casts a ray per pixel
+   against the hemispheres (and their X-translates, and lambda-translates at
+   a rank-2 cusp), shades the first hit, draws ridges where two hemispheres
+   meet, and lays the slab's two vertical faces Re z = +-1/2 over the top
+   as glass.  A face and its partner share a hue; faces of the coset
+   Gamma E (the cusp at 0) are a lighter tint of theirs.                   */
+function faceRGB(w, cross) {
+  if (!w.length) return hslRgb(215 / 360, 0.3, 0.72).map(v => v / 255);
+  const a = w.join(","), b = w.slice().reverse().map(n => -n).join(",");
+  const hue = (hashStr(a < b ? a : b) * 0.618034 * 360) % 360;
+  return hslRgb(hue / 360, 0.66, cross ? 0.72 : 0.6).map(v => v / 255);
+}
+function polySceneFrom(res) {
+  const faces = res.faces, lam = res.lambda;
+  let ext = 0, top = 0;
+  for (const f of faces) { ext = Math.max(ext, Math.abs(f.y) + f.r); top = Math.max(top, f.r); }
+  let YH = Math.min(3.2, Math.max(0.6, ext + 0.3));
+  if (lam) YH = Math.min(3.2, Math.max(1.2, 1.15 * Math.abs(lam[1])));
+  const XH = 2.1, list = [], seen = new Set();
+  const M = lam ? Math.ceil((YH + ext) / Math.abs(lam[1])) + 1 : 0;
+  for (const f of faces) {
+    const cross = res.group === "ext" && !FordCore.inGamma(f.word);
+    const [R, G, B] = faceRGB(f.word, cross);
+    for (let m = -M; m <= M; m++) {
+      const cy = f.y + (lam ? m * lam[1] : 0), cx0 = f.x + (lam ? m * lam[0] : 0);
+      if (Math.abs(cy) - f.r > YH) continue;
+      for (let k = Math.floor(-XH - cx0 - f.r); k <= Math.ceil(XH - cx0 + f.r); k++) {
+        const cx = cx0 + k;
+        if (cx + f.r < -XH || cx - f.r > XH) continue;
+        const key = `${Math.round(cx * 1e7)},${Math.round(cy * 1e7)},${Math.round(f.r * 1e7)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        list.push([cx, cy, f.r, R, G, B, cross ? 1 : 0]);
+      }
+    }
+  }
+  list.sort((a, b) => b[2] - a[2]);
+  if (list.length > 2000) list.length = 2000;
+  const N = list.length, data = new Float32Array(Math.max(1, N) * 8);
+  list.forEach((s, i) => {
+    data.set([s[0], s[1], s[2], 0], 4 * i);
+    data.set([s[3], s[4], s[5], s[6]], 4 * (N + i));
+  });
+  // the slab: one period of X, and at a rank-2 cusp one period of lambda (|Im| < Im lambda / 2)
+  const BY = lam ? Math.min(YH - 0.05, Math.abs(lam[1]) / 2) : YH;
+  return { N, data, XH, YH, BY, top: Math.max(0.25, 1.15 * top), uploaded: false };
+}
+const PolyGL = (() => {
+  const VS = `#version 300 es
+in vec2 aP;
+void main() { gl_Position = vec4(aP, 0.0, 1.0); }`;
+  const FS = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+uniform sampler2D uS;          // row 0: centre x, centre y, radius; row 1: rgb
+uniform int uN;
+uniform vec2 uRes;
+uniform vec3 uEye, uFwd, uRight, uUp;
+uniform float uTan, uXH, uYH, uTop;
+uniform float uBY, uR2;        // half-depth of the slab; 1 at a rank-2 cusp (slab closed in y)
+uniform vec3 uBg, uFloor, uAccent;
+out vec4 outColor;
+vec4 sA(int i) { return texelFetch(uS, ivec2(i, 0), 0); }
+float floorH(vec2 q) {         // the floor surface: upper envelope of the hemispheres
+  float h2 = 0.0;
+  for (int j = 0; j < uN; j++) {
+    vec4 s = sA(j);
+    vec2 d = q - s.xy;
+    h2 = max(h2, s.z * s.z - dot(d, d));
+  }
+  return sqrt(h2);
+}
+float lineAA(float d, float w) {   // a line about w pixels wide where d = 0
+  float f = max(fwidth(d), 1e-7);
+  return clamp(0.5 * w + 0.5 - abs(d) / f, 0.0, 1.0);
+}
+/* a face of the slab, the plane where coordinate number axis equals c, as glass:
+   rgb and opacity of the ray's crossing above the floor surface, and its t */
+vec4 wallGlass(vec3 ro, vec3 rd, int axis, float c, float tb, out float t) {
+  float rdc = axis == 0 ? rd.x : rd.y, roc = axis == 0 ? ro.x : ro.y;
+  t = abs(rdc) > 1e-7 ? (c - roc) / rdc : -1.0;
+  vec3 q = ro + t * rd;
+  float h = floorH(q.xy);
+  float side = axis == 0 ? abs(q.y) : abs(q.x), lim = axis == 0 ? uBY : 0.5;
+  float e = max(max(lineAA(uTop - q.z, 1.5), lineAA(q.z - h, 1.8)),
+                (axis == 0 ? mix(0.6, 1.0, uR2) : 1.0) * lineAA(lim - side, 1.3));
+  float m = (t > 0.0 && t < tb * (1.0 + 1e-3) && side <= lim && q.z >= h - 1e-3 && q.z <= uTop + 1e-3) ? 1.0 : 0.0;
+  if (axis == 1) m *= uR2;
+  return vec4(uAccent * 0.8, m * (0.07 + 0.75 * e));
+}
+void main() {
+  vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / (0.5 * uRes.y);
+  vec3 ro = uEye;
+  vec3 rd = normalize(uFwd + uTan * (uv.x * uRight + uv.y * uUp));
+  float tb = 1e9; int hit = -1;            // -1 nothing, -2 the floor, >= 0 a hemisphere
+  if (rd.z < -1e-6) {
+    float tf = -ro.z / rd.z;
+    vec3 q = ro + tf * rd;
+    if (abs(q.x) <= uXH && abs(q.y) <= uYH) { tb = tf; hit = -2; }
+  }
+  for (int i = 0; i < uN; i++) {
+    vec4 s = sA(i);
+    vec3 oc = ro - vec3(s.xy, 0.0);
+    float b = dot(oc, rd);
+    float h = b * b - dot(oc, oc) + s.z * s.z;
+    if (h <= 0.0) continue;
+    float t = -b - sqrt(h);
+    if (t <= 0.0 || t >= tb) continue;
+    if (ro.z + t * rd.z < 0.0) continue;  // the lower half of the ball is not there
+    tb = t; hit = i;                       // (hits past the strip's ends fade out below)
+  }
+  vec3 p = ro + min(tb, 60.0) * rd;
+  float dmin = 1e3;                        // to the nearest other ball: 0 on a ridge
+  for (int j = 0; j < uN; j++) {
+    if (j == hit) continue;
+    vec4 s = sA(j);
+    dmin = min(dmin, length(p - vec3(s.xy, 0.0)) - s.z);
+  }
+  float ridge = lineAA(min(dmin, hit >= 0 ? p.z : 1e3), 1.4);
+  float wallL = max(lineAA(abs(p.x) - 0.5, 1.8) * step(abs(p.y), uBY + 2e-3),
+                    uR2 * lineAA(abs(p.y) - uBY, 1.8) * step(abs(p.x), 0.502));
+  float u = p.x - 0.5;
+  float perL = lineAA(abs(u - floor(u + 0.5)), 1.0);
+  float outside = max(smoothstep(0.49, 0.51, abs(p.x)),
+                      uR2 * smoothstep(uBY - 0.01, uBY + 0.01, abs(p.y)));
+  vec3 L = normalize(vec3(-0.42, -0.62, 0.66));
+  vec3 col = uBg;
+  if (hit >= 0) {
+    vec4 s = sA(hit), c = texelFetch(uS, ivec2(hit, 1), 0);
+    vec3 n = (p - vec3(s.xy, 0.0)) / s.z;
+    vec3 base = c.rgb;
+    float lum = dot(base, vec3(0.3, 0.59, 0.11));
+    base = mix(base, mix(vec3(lum), uFloor, 0.5), 0.45 * outside);
+    float dif = max(dot(n, L), 0.0);
+    float hd = max(dot(n, -rd), 0.0);
+    float sp = pow(max(dot(n, normalize(L - rd)), 0.0), 48.0);
+    col = base * (0.42 + 0.48 * dif + 0.16 * hd) + vec3(0.2 * sp * (1.0 - 0.7 * outside));
+    col = mix(col, col * 0.3, ridge);
+    col = mix(col, uAccent * 0.85, 0.9 * wallL);
+  } else if (hit == -2) {
+    col = uFloor * (1.0 - 0.3 * exp(-max(dmin, 0.0) * 16.0));   // contact shadow
+    col = mix(col, col * 0.5, ridge);
+    col = mix(col, col * 0.88, perL * outside);
+    col = mix(col, uAccent, 0.85 * wallL);
+  }
+  if (hit != -1) {
+    float fade = (1.0 - smoothstep(uXH - 0.9, uXH, abs(p.x))) *
+                 (1.0 - smoothstep(uYH - 0.45, uYH, abs(p.y)));
+    col = mix(uBg, col, fade);
+  }
+  // the slab's faces as glass: Re z = -1/2 and 1/2 (paired by X), and at a rank-2
+  // cusp also Im z = -+B, half a period of lambda; composited far to near
+  float t0, t1, t2, t3;
+  vec4 w0 = wallGlass(ro, rd, 0, -0.5, tb, t0), w1 = wallGlass(ro, rd, 0, 0.5, tb, t1);
+  vec4 w2 = wallGlass(ro, rd, 1, -uBY, tb, t2), w3 = wallGlass(ro, rd, 1, uBY, tb, t3);
+  for (int k = 0; k < 4; k++) {            // the farthest remaining wall first
+    float tf = -1e9; int pick = -1;
+    if (w0.a >= 0.0 && t0 > tf) { tf = t0; pick = 0; }
+    if (w1.a >= 0.0 && t1 > tf) { tf = t1; pick = 1; }
+    if (w2.a >= 0.0 && t2 > tf) { tf = t2; pick = 2; }
+    if (w3.a >= 0.0 && t3 > tf) { tf = t3; pick = 3; }
+    if (pick == 0) { col = mix(col, w0.rgb, w0.a); w0.a = -1.0; }
+    else if (pick == 1) { col = mix(col, w1.rgb, w1.a); w1.a = -1.0; }
+    else if (pick == 2) { col = mix(col, w2.rgb, w2.a); w2.a = -1.0; }
+    else if (pick == 3) { col = mix(col, w3.rgb, w3.a); w3.a = -1.0; }
+  }
+  float tt = abs(rd.z) > 1e-7 ? (uTop - ro.z) / rd.z : -1.0;   // the cut at the top
+  vec3 qt = ro + tt * rd;
+  float et = lineAA(uBY - abs(qt.y), 1.2);
+  float mt = (tt > 0.0 && tt < tb && abs(qt.x) <= 0.5 && abs(qt.y) <= uBY) ? 1.0 : 0.0;
+  col = mix(col, uAccent * 0.8, mt * mix(0.45, 0.85, uR2) * et);
+  outColor = vec4(col, 1.0);
+}`;
+  let gl = null, prog = null, tex = null, U = {}, ok = false, tried = false;
+  const cam = { az: 0.5, el: 0.74, zoom: 1 };
+  function init() {
+    if (tried) return ok;
+    tried = true;
+    gl = pvGLCanvas.getContext("webgl2", { antialias: false, alpha: false, preserveDrawingBuffer: true });
+    if (!gl) return false;
+    const sh = (type, src) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    try {
+      prog = gl.createProgram();
+      gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
+      gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    } catch (err) {
+      console.warn("polyhedron preview: WebGL2 shader failed, using the flat picture", err);
+      return false;
+    }
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, "aP");
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    for (const [p, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST],
+                          [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]])
+      gl.texParameteri(gl.TEXTURE_2D, p, v);
+    for (const n of ["uS", "uN", "uRes", "uEye", "uFwd", "uRight", "uUp", "uTan", "uXH", "uYH",
+                     "uTop", "uBY", "uR2", "uBg", "uFloor", "uAccent"]) U[n] = gl.getUniformLocation(prog, n);
+    ok = true;
+    return true;
+  }
+  function draw(scene) {
+    if (!scene || !init()) return;
+    const [W, H] = pvSize();
+    if (pvGLCanvas.width !== W || pvGLCanvas.height !== H) { pvGLCanvas.width = W; pvGLCanvas.height = H; }
+    gl.viewport(0, 0, W, H);
+    gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    if (!scene.uploaded) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, Math.max(1, scene.N), 2, 0, gl.RGBA, gl.FLOAT, scene.data);
+      scene.uploaded = true;
+    }
+    const tan = Math.tan(18 * Math.PI / 180), aspect = W / H;
+    const dist = (2.15 / (tan * aspect) + 0.5 * scene.YH) * cam.zoom;
+    const tgt = [0, 0, 0.42 * scene.top];
+    const ce = Math.cos(cam.el), se = Math.sin(cam.el);
+    const eye = [tgt[0] + dist * ce * Math.sin(cam.az), tgt[1] - dist * ce * Math.cos(cam.az), tgt[2] + dist * se];
+    const norm = v => { const l = Math.hypot(...v); return v.map(c => c / l); };
+    const fwd = norm([tgt[0] - eye[0], tgt[1] - eye[1], tgt[2] - eye[2]]);
+    const right = norm([fwd[1], -fwd[0], 0]);                       // fwd x (0, 0, 1)
+    const up = [right[1] * fwd[2] - right[2] * fwd[1], right[2] * fwd[0] - right[0] * fwd[2],
+                right[0] * fwd[1] - right[1] * fwd[0]];
+    gl.uniform1i(U.uS, 0);
+    gl.uniform1i(U.uN, scene.N);
+    gl.uniform2f(U.uRes, W, H);
+    gl.uniform3fv(U.uEye, eye); gl.uniform3fv(U.uFwd, fwd);
+    gl.uniform3fv(U.uRight, right); gl.uniform3fv(U.uUp, up);
+    gl.uniform1f(U.uTan, tan);
+    gl.uniform1f(U.uXH, scene.XH); gl.uniform1f(U.uYH, scene.YH); gl.uniform1f(U.uTop, scene.top);
+    gl.uniform1f(U.uBY, scene.BY); gl.uniform1f(U.uR2, scene.BY < scene.YH ? 1 : 0);
+    gl.uniform3f(U.uBg, 0.969, 0.973, 0.98);
+    gl.uniform3f(U.uFloor, 0.905, 0.918, 0.94);
+    gl.uniform3f(U.uAccent, 0.388, 0.4, 0.945);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  return { init, draw, cam };
+})();
+function pvDrawPoly(res) {
+  if (!PolyGL.init()) {                          // no WebGL2: the flat picture from above
+    pvGLCanvas.style.display = "none";
+    pvCanvas.style.display = "block";
+    const [W, H] = pvSize();
+    pvCanvas.width = W; pvCanvas.height = H;
+    drawFordInsetExt(res.faces, pvCanvas);
+    return;
+  }
+  pvCanvas.style.display = "none";
+  pvGLCanvas.style.display = "block";
+  pv.scene = polySceneFrom(res);
+  PolyGL.draw(pv.scene);
+}
+let pvGLFrame = 0;
+function pvRedrawGL() {
+  if (!pvGLFrame) pvGLFrame = requestAnimationFrame(() => { pvGLFrame = 0; if (pv.scene) PolyGL.draw(pv.scene); });
+}
+{ // orbit the polyhedron: drag to turn, scroll to zoom, double-click to reset
+  let orbit = null;
+  pvGLCanvas.addEventListener("pointerdown", e => {
+    orbit = { x: e.clientX, y: e.clientY, az: PolyGL.cam.az, el: PolyGL.cam.el };
+    pvGLCanvas.setPointerCapture(e.pointerId);
+    pvGLCanvas.classList.add("dragging");
+  });
+  pvGLCanvas.addEventListener("pointermove", e => {
+    if (!orbit) return;
+    PolyGL.cam.az = orbit.az - (e.clientX - orbit.x) * 0.009;
+    PolyGL.cam.el = Math.min(1.5, Math.max(0.05, orbit.el + (e.clientY - orbit.y) * 0.009));
+    pvRedrawGL();
+  });
+  const end = e => {
+    if (!orbit) return;
+    orbit = null;
+    pvGLCanvas.classList.remove("dragging");
+    try { pvGLCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  pvGLCanvas.addEventListener("pointerup", end);
+  pvGLCanvas.addEventListener("pointercancel", end);
+  pvGLCanvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    PolyGL.cam.zoom = Math.min(4, Math.max(0.25, PolyGL.cam.zoom * Math.exp(e.deltaY * 0.0015)));
+    pvRedrawGL();
+  }, { passive: false });
+  pvGLCanvas.addEventListener("dblclick", () => {
+    Object.assign(PolyGL.cam, { az: 0.5, el: 0.74, zoom: 1 });
+    pvRedrawGL();
+  });
+}
+
+/* the window's own controls (choices remembered per browser) */
+const pvStore = (() => {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem("rileySlice.preview") || "{}") || {}; } catch (_) {}
+  return { get: k => s[k], set: (k, v) => { s[k] = v; try { localStorage.setItem("rileySlice.preview", JSON.stringify(s)); } catch (_) {} } };
+})();
+function pvSetMode(mode) {
+  pv.mode = mode === "poly" ? "poly" : "limit";
+  for (const b of document.querySelectorAll("#pvModeSeg button"))
+    b.classList.toggle("active", b.dataset.mode === pv.mode);
+  pvStore.set("mode", pv.mode);
+}
+function pvSetPinned(on) {
+  pv.pinned = on;
+  pvPinBtn.classList.toggle("on", on);
+  pvPinBtn.setAttribute("aria-pressed", String(on));
+  pvPinBtn.title = on
+    ? "Pinned to the selection. Click (or press Esc) to follow the cursor again."
+    : "Following the cursor. Click to keep the preview on the selection.";
+}
+document.getElementById("pvModeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  pvSetMode(b.dataset.mode);
+  pvRefresh();
+});
+pvPinBtn.addEventListener("click", () => {
+  pvSetPinned(!pv.pinned);
+  if (pv.pinned && sel) pvRefresh();
+});
+document.getElementById("pvBig").addEventListener("click", e => {
+  const big = !pvEl.classList.contains("big");
+  pvEl.classList.toggle("big", big);
+  e.currentTarget.classList.toggle("on", big);
+  e.currentTarget.setAttribute("aria-pressed", String(big));
+  pvStore.set("big", big);
+});
+document.getElementById("pvClose").addEventListener("click", () => {
+  pvEl.hidden = true; pvOpenBtn.hidden = false; pvStore.set("hidden", true);
+});
+pvOpenBtn.addEventListener("click", () => {
+  pvEl.hidden = false; pvOpenBtn.hidden = true; pvStore.set("hidden", false);
+  pvRefresh();
+});
+window.addEventListener("keydown", e => {
+  if (e.key === "Escape" && pv.pinned) { pvSetPinned(false); pvRefresh(); }
+});
+new ResizeObserver(() => {
+  if (pvEl.hidden) return;
+  if (pv.mode === "poly" && pv.scene) pvRedrawGL();
+  clearTimeout(pv.resizeTimer);
+  pv.resizeTimer = setTimeout(pvRefresh, 120);
+}).observe(pvStage);
+
+/* follow the cursor over the slice */
+function screenToParam(clientX, clientY) {
+  const pr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (clientX - rect.left) * pr, my = (clientY - rect.top) * pr;
+  const s = baseScale(canvas.width, canvas.height);
+  const px = view.cx + (mx - canvas.width / 2) / s;
+  const py = view.cy - (my - canvas.height / 2) / s;
+  if (plane === "sqrt") return { x: px * px - py * py, y: 2 * px * py, zx: px, zy: py, s };
+  const [zx, zy] = csqrt(px, py);
+  return { x: px, y: py, zx, zy, s };
+}
+canvas.addEventListener("pointermove", e => {
+  if (dragging || pv.pinned || pvEl.hidden || e.pointerType === "touch") return;
+  pv.cursor = { ...screenToParam(e.clientX, e.clientY), src: "cursor" };
+  if (!pv.frame) pv.frame = requestAnimationFrame(() => { pv.frame = 0; pvRequest(pv.cursor, false); });
+  clearTimeout(pv.restTimer);
+  pv.restTimer = setTimeout(() => pvRequest(pv.cursor, true), 260);
+});
+canvas.addEventListener("pointerleave", () => {
+  clearTimeout(pv.restTimer);
+  if (!pv.pinned && sel) pvRequest(selTarget(), true);
+});
+
 /* ---------------- boot ---------------------------------------------------- */
 
 statusEl.textContent = "building Farey polynomials…";
@@ -2245,6 +3134,15 @@ setTimeout(() => {
   buildPolynomials();
   recomputeAll();
 }, 20);
+
+pvSetMode(pvStore.get("mode"));
+pvSetPinned(false);
+if (pvStore.get("big")) document.getElementById("pvBig").click();
+if (pvStore.get("hidden")) { pvEl.hidden = true; pvOpenBtn.hidden = false; }
+else {
+  pvWorker();                         // builds its lens test (~1 s) while the page loads
+  pvRequest({ x: 0.644, y: 1.451, ...(([zx, zy]) => ({ zx, zy }))(csqrt(0.644, 1.451)), src: "start" }, true);
+}
 </script>
 <!-- golg-nav-bootstrap -->
 <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>

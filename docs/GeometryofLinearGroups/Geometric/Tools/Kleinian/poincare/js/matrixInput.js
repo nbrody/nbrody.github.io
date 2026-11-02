@@ -522,6 +522,10 @@ function formatComplexEntry(re, im) {
 // A group passed in the URL, e.g. exported from the Riley slice tool:
 //   ?riley=<re>,<im>   →  ⟨(1 ρ; 0 1), (1 0; 1 1)⟩      (classical Riley ρ)
 //   ?rileyz=<re>,<im>  →  ⟨(1 z; 0 1), (0 −1; 1 0)⟩     (symmetric z, ρ = z²)
+// and exactly, with ρ a root w of an integer polynomial in w (LaTeX, e.g.
+// w^{2}-w+1) — the root nearest `near` — as a root row of the field tower:
+//   ?rileyroot=<poly>&near=<re>,<im>               →  ⟨(1 w; 0 1), (1 0; 1 1)⟩
+//   ?rileyzroot=<poly>&near=<re>,<im>&zsign=±1     →  z = ±√w, ⟨(1 z; 0 1), (0 −1; 1 0)⟩
 function loadGroupFromURL() {
     const qs = new URLSearchParams(location.search);
     const parseComplex = s => {
@@ -530,6 +534,18 @@ function loadGroupFromURL() {
         return parts.length === 2 && parts.every(Number.isFinite)
             ? formatComplexEntry(parts[0], parts[1]) : null;
     };
+    const rootPoly = qs.get('rileyroot') || qs.get('rileyzroot');
+    const near = (qs.get('near') || '').split(',').map(Number);
+    if (rootPoly && /^[-+0-9w^{}]+$/.test(rootPoly) && near.length === 2 && near.every(Number.isFinite)) {
+        const w = { name: 'w', poly: rootPoly, near: { re: near[0], im: near[1] } };
+        if (qs.get('rileyroot')) {
+            setExample([['1', 'w', '0', '1'], ['1', '0', '1', '1']], 'Riley', [w]);
+        } else {
+            const z = (qs.get('zsign') === '-1' ? '-' : '') + '\\sqrt{w}';
+            setExample([['1', 'z', '0', '1'], ['0', '-1', '1', '0']], 'Riley symmetric', [w, ['z', z]]);
+        }
+        return true;
+    }
     const rho = parseComplex(qs.get('riley'));
     if (rho) {
         setExample([['1', rho, '0', '1'], ['1', '0', '1', '1']], 'Riley');

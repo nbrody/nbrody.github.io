@@ -253,11 +253,26 @@ function fordCoreFactory() {
      so the closure must not stop at the word-length cap and call that
      complete: a final round that skipped products for the cap is `capped`,
      not complete.                                                           */
+  /* opts.stabTol (off by default): at an exact algebraic rho the cusp at
+     infinity can have rank 2 (a knot group's longitude z -> z + lambda), and
+     its words come out with c = 0 up to rounding -- a radius of 1e15 that is
+     no Shimizu witness.  With stabTol set, candidates with |c| < stabTol are
+     set aside as elements of Stab(infinity) (reported in `stab` as their
+     translation lengths) instead of being faces or witnesses.              */
   const key = w => w.join(",");
   function fordDomain(rr, ri, opts = {}) {
     const group = opts.group || "ext";
     const LCAP = Math.min(opts.maxLength ?? 160, LMAXH - 2);
     const FCAP = opts.maxFaces ?? 160;
+    const RSTAB = opts.stabTol ? 1 / opts.stabTol : Infinity;
+    const stab = [];
+    const setAside = it => {                   // a parabolic fixing infinity
+      if (stab.length < 8) {
+        const d2 = it.dr * it.dr + it.di * it.di || 1e-300;
+        stab.push({ word: wordOf(it), re: (it.br * it.dr + it.bi * it.di) / d2,
+                    im: (it.bi * it.dr - it.br * it.di) / d2 });
+      }
+    };
     const JOIN = group === "gamma" ? [1, -1, 2, -2] : [1, -1];
     let seed = opts.seed && opts.seed.length ? opts.seed
              : group === "gamma" ? [[1], [-1]] : [[]];
@@ -282,6 +297,7 @@ function fordCoreFactory() {
         if (have.has(kk)) continue;
         have.add(kk);
         const it = productItem(f, k, g);
+        if (opts.stabTol && !(it.r < RSTAB)) { setAside(it); continue; }
         if (it.r > SHIMIZU && (!big || it.r > big.r)) big = it;
         cand.push(it);
       }
@@ -304,7 +320,7 @@ function fordCoreFactory() {
       if (faces.length > FCAP) break;
     }
     if (opts.polys) faces = visibleItems(faces, true);
-    return { faces: faces.map(faceOut), complete, capped, hidden, nondiscrete };
+    return { faces: faces.map(faceOut), complete, capped, hidden, nondiscrete, stab };
   }
   // a hash of the face set (order-free), for colouring by type
   function typeHash(faces) {
