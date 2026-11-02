@@ -122,7 +122,9 @@ export function generatorDetailHtml(chars) {
     if (!cell) return `<p class="note">${mix('Click a cell for the axis, the fixed point in the space, or the fixed point on the boundary.')}</p>`;
     const c = T.columns[j];
     const head = `<p class="gt-head">${mix(`$g_{${i + 1}}$ in $${c.space}$, at $${c.label}$:`)} <span class="gt-kind" data-cls="${cell.cls}">${esc(cell.text)}</span></p>`;
-    return head + cell.lines.map((l) => `<p>${mix(l)}</p>`).join('');
+    // the page lays its view of the cell (Poincaré or Trees) over this slot
+    const slot = cell.cls === 'error' || cell.cls === 'identity' ? '' : '<div class="gt-frame-slot" aria-hidden="true"></div>';
+    return head + cell.lines.map((l) => `<p>${mix(l)}</p>`).join('') + slot;
 }
 
 /** Step 1 as a card. chars: the generators at each place (generatorTableHtml). */

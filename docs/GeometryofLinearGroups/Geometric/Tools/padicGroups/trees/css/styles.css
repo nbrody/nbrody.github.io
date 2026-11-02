@@ -1152,6 +1152,36 @@ mjx-container[jax="SVG"][display="true"] {
     opacity: 0.95;
 }
 
+/* a marked element (the link's `mark`): its axis, fixed subtree, or inverted edge */
+#tree-vis .mark-glow {
+    fill: none;
+    stroke: #22d3ee;
+    stroke-width: 11px;
+    stroke-linecap: round;
+    opacity: 0.18;
+    pointer-events: none;
+}
+
+#tree-vis .mark-edge {
+    fill: none;
+    stroke: #22d3ee;
+    stroke-width: 3.5px;
+    stroke-linecap: round;
+    pointer-events: none;
+}
+
+#tree-vis .mark-arrow {
+    fill: #a5f3fc;
+    stroke: none;
+    pointer-events: none;
+}
+
+#tree-vis .mark-ring {
+    fill: none;
+    stroke: #22d3ee;
+    opacity: 0.9;
+}
+
 #tree-vis .node {
     cursor: pointer;
 }

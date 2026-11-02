@@ -7,9 +7,12 @@
  *   • for a group in PGL₂(ℝ), whether the domain has finite AREA in the plane
  *     H² it preserves (its volume in H³ is always infinite).
  *
- * In:  { id, state, maxFaces, maxDepth, certify }   (state: poincare's input state;
- *      certify: false skips the non-discreteness search, for groups known to be discrete)
+ * In:  { id, state, maxFaces, maxDepth, certify, cycle }   (state: poincare's input state;
+ *      certify: false skips the non-discreteness search, for groups known to be discrete;
+ *      cycle: true asks for the fundamental cycle of a compact verified domain, placeVolumes.js)
  * Out: { id, phase: 'cert', cert } then { id, phase: 'done', cert, summary }, or { id, error }.
+ *      With cycle, summary.cycle is the cycle, or summary.cyclePending is set and { id, phase: 'cycle', cycle }
+ *      follows: the cycle needs Stab(o) = 1, so other basepoints are tried.
  * With deep = { maxLen, cap, budgetMs, maxEvals }: only the non-discreteness search, on longer words.
  */
 import { buildGroup } from '../../Geometric/Tools/Kleinian/poincare/js/matrixInput.js';
@@ -17,6 +20,7 @@ import { runCompute, matToArr } from '../../Geometric/Tools/Kleinian/poincare/js
 import { Matrix2x2, translationTowards } from '../../Geometric/Tools/Kleinian/poincare/js/math.js';
 import { serializeTowerContext } from '../../Geometric/Tools/Kleinian/poincare/js/tower.js';
 import { archCertificate } from '../../Geometric/Tools/discretenessAlgorithm/js/certificates.js';
+import { dirichletCycle } from './placeVolumes.js';
 
 /** Real up to a scalar: the group preserves the plane over ℝ (as poincare's planar.js tests). */
 function isRealGroup(matrices) {
@@ -109,8 +113,19 @@ function basepointMatrix(bp) {
     return translationTowards({ x: bp[0] / r, y: bp[1] / r, z: bp[2] / r }, 2 * Math.atanh(r));
 }
 
+/** The fundamental cycle of a verified domain (placeVolumes.js), when the basepoint's stabilizer is trivial. */
+function cycleOf(res) {
+    if (!res || !res.domain) return { ok: false, reason: 'none' };
+    if (res.domain.stabilizer && res.domain.stabilizer.order > 1) return { ok: false, reason: 'stabilizer' };
+    try { return dirichletCycle(res.domain.walls); } catch (e) { return { ok: false, reason: 'error', error: e.message }; }
+}
+
+// more basepoints for the cycle, off the axes of the elliptic elements a symmetric choice tends to lie on
+const CYCLE_BASEPOINTS = [[0.11, 0.07, 0.05], [-0.13, 0.05, 0.09], [0.05, -0.12, -0.08], [0.17, -0.06, 0.11], [-0.07, -0.15, 0.04]];
+const CYCLE_BUDGET_MS = 15000;
+
 self.onmessage = (ev) => {
-    const { id, state, maxFaces = 96, maxDepth = 8, certify = true, deep = null } = ev.data;
+    const { id, state, maxFaces = 96, maxDepth = 8, certify = true, deep = null, cycle = false } = ev.data;
     try {
         const { matrices, exactCtx } = buildGroup(state);
         // deep: only the search for a proof of non-discreteness, on longer words ({ maxLen, cap, budgetMs, maxEvals })
@@ -132,23 +147,48 @@ self.onmessage = (ev) => {
         if (cert && cert.nondiscrete) { self.postMessage({ id, phase: 'done', cert, summary: null }); return; }
         const orig = matrices.map(matToArr);
         const t0 = Date.now();
-        let first = null, found = null, tries = 0;
-        for (const bp of real ? PLANAR_BASEPOINTS : BASEPOINTS) {
-            if (tries && Date.now() - t0 > RETRY_BUDGET_MS) break;
-            tries++;
+        const computeAt = (bp) => {
             const B = basepointMatrix(bp), Bi = B.inv();
-            const res = runCompute({
+            return runCompute({
                 gens: matrices.map((g) => matToArr(Bi.mul(g).mul(B).normalized())), origGens: orig, B: matToArr(B),
                 maxFaces, maxDepth, fullDirichlet: false, exact, ford: null, skipNondiscrete: !certify,
             });
+        };
+        let first = null, found = null, foundRes = null, tries = 0;
+        for (const bp of real ? PLANAR_BASEPOINTS : BASEPOINTS) {
+            if (tries && Date.now() - t0 > RETRY_BUDGET_MS) break;
+            tries++;
+            const res = computeAt(bp);
             const s = summarize(res, real);
             s.bp = bp;
             if (!first) first = s;
-            if (s.status === 'verified') { found = s; break; }
+            if (s.status === 'verified') { found = s; foundRes = res; break; }
         }
         const summary = found || first;
         summary.tries = tries;
+        // the volume at every place needs a compact domain in PSL₂(ℂ) (placeVolumes.js)
+        const wantCycle = cycle && found && !real && found.finiteVolume && !found.cusps && !(state.anti || []).some(Boolean);
+        if (wantCycle) {
+            const c = cycleOf(foundRes);
+            if (c.ok) summary.cycle = { ...c, bp: found.bp };
+            else summary.cyclePending = true;
+        }
         self.postMessage({ id, phase: 'done', cert, summary });
+        if (wantCycle && summary.cyclePending) {
+            // another basepoint: off the axes of the elliptic elements, or a domain whose cells are read cleanly
+            let c = cycleOf(foundRes);
+            const t1 = Date.now();
+            for (const bp of CYCLE_BASEPOINTS) {
+                if (Date.now() - t1 > CYCLE_BUDGET_MS) break;
+                if (found.bp && bp.every((x, i) => x === found.bp[i])) continue;
+                const res = computeAt(bp);
+                if (!res.report || res.report.status !== 'verified') continue;
+                const next = cycleOf(res);
+                if (next.ok) { c = { ...next, bp }; break; }
+                if (c.reason === 'stabilizer') c = next;
+            }
+            self.postMessage({ id, phase: 'cycle', cycle: c });
+        }
     } catch (e) {
         self.postMessage({ id, error: e && e.message ? e.message : String(e) });
     }

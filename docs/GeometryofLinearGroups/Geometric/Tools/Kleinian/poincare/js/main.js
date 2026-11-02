@@ -17,7 +17,7 @@ import { setupControlPanel, readBoundedInteger, updateToggleBtn } from './contro
 import { createDomainService } from './domainService.js';
 import { matToArr } from './compute.js';
 import {
-    app, sceneMatrix, outerFrame, homeGenerators, wordToMatrix, viewIsDirty
+    app, sceneMatrix, outerFrame, sceneAction, homeGenerators, wordToMatrix, viewIsDirty
 } from './app.js';
 import {
     installResult, retargetScene, displayedDomain, standardGenerators, faceColors, invalidateFaceColors
@@ -31,7 +31,7 @@ import {
     updateTiling, updateDust, startOrbit, stopOrbit, updateOrbitInstances,
     markOrbitDirty, recolorOrbit, refreshLayers, orbitRun, geodesicPoints, bisectorMesh
 } from './overlays.js';
-import { showIsometryAxis } from './isoAxis.js';
+import { showIsometryAxis, showCharacteristicSet } from './isoAxis.js';
 import { setUnwrapHooks } from './unwrap.js';
 import {
     inspect, pickWall, rayFromEvent, pickVertex, selectVertex, handleFaceClick, clearFaceSelection,
@@ -239,6 +239,16 @@ function onSceneMoved({ fast = false } = {}) {
         redrawSelection();
     }
     markOrbitDirty();
+    updateMark();
+}
+
+// ---------------- a marked generator ----------------
+// The permalink's `mark` (a generator's index) or PoincareAPI.setMark(i): its characteristic set
+// (axis, fixed point, or fixed point at infinity) stays drawn as the view moves.
+let markIndex = null;
+function updateMark() {
+    const g = markIndex === null ? null : app.matrices[markIndex];
+    showCharacteristicSet(g && !g.anti ? sceneAction(g) : null, { planar: planar.on });
 }
 
 function limitWallColor(wall) {
@@ -393,6 +403,7 @@ function refreshFromUI() {
     inputError = null;
     app.viewMatrix = Matrix2x2.identity();
     app.cumulativeWord = [];
+    if (markIndex !== null && markIndex >= app.matrices.length) markIndex = null;
     // A group in PGL₂(ℝ) is drawn in its plane by default; a new group resets the choice.
     planar.available = isRealGroup(app.matrices);
     const key = groupKey(app.matrices);
@@ -759,6 +770,7 @@ function currentState() {
         cusp: app.fordOn ? app.fordCusp : undefined,
         model: view.model !== 'ball' ? view.model : undefined,
         theme: view.theme !== 'dark' ? view.theme : undefined,
+        mark: markIndex !== null ? markIndex : undefined,
     };
 }
 
@@ -1088,6 +1100,12 @@ window.PoincareAPI = {
     THREE, scene, camera, controls,
     refresh: refreshFromUI,
     compute: requestCompute,
+    /** Keep generator i's characteristic set drawn (null clears it). */
+    setMark(i) {
+        markIndex = Number.isInteger(i) && i >= 0 && i < app.matrices.length ? i : null;
+        updateMark();
+        updatePermalink();
+    },
     state: () => ({
         domain: app.scene,
         home: app.home,
@@ -1177,6 +1195,8 @@ window.addEventListener('message', (e) => {
 // ---------------- boot ----------------
 
 const urlState = EMBED ? null : readStateFromURL();
+// a page that frames this one in a small space can ask for the panel closed (`panel: 'closed'`)
+if (urlState && urlState.panel === 'closed') document.getElementById('control-panel')?.classList.add('collapsed');
 initUI();
 applyThemeUniforms();
 if (urlState) {
@@ -1189,6 +1209,7 @@ if (urlState) {
     if (urlState.theme) setTheme(urlState.theme);
 }
 planar.keep3d = !!(urlState && (urlState.plane === false || urlState.cusp !== undefined));
+if (urlState && Number.isInteger(urlState.mark) && urlState.mark >= 0) markIndex = urlState.mark;
 setupMatrixInput(refreshFromUI, urlState);
 applyViewOffset(panelWidth());
 setTimeout(() => {

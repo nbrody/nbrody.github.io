@@ -197,10 +197,33 @@ function geodesicPath(a, b, t = 1) {
 // ───────────────────────── drawing ─────────────────────────
 
 /**
+ * A marked element's characteristic set among the drawn vertices: those v with d(v, g·v) = target,
+ * its least displacement (ℓ on the axis of a hyperbolic g, 0 on the fixed subtree of an elliptic,
+ * 1 at the ends of an edge it inverts). The edges between them, oriented along the translation.
+ * mark: { G (place.prepare'd), target, hyperbolic }.
+ */
+function markedSet(place, nodes, links, mark) {
+    const ids = new Set();
+    for (const d of nodes) if (place.dist(d.data.vt, place.act(mark.G, d.data.vt)) === mark.target) ids.add(d.data.id);
+    const edges = [];
+    for (const l of links) {
+        if (!ids.has(l.source.data.id) || !ids.has(l.target.data.id)) continue;
+        let [from, to] = [l.source, l.target];
+        if (mark.hyperbolic) {
+            // `to` is ahead of `from` when it is nearer g·from
+            const gf = place.act(mark.G, from.data.vt);
+            if (place.dist(to.data.vt, gf) > place.dist(from.data.vt, gf)) [from, to] = [to, from];
+        }
+        edges.push({ from, to });
+    }
+    return { ids, edges };
+}
+
+/**
  * opts: { tree (from generateTree), place, baseId, currentId (W·v; defaults to
  *         baseId), imageId, orbitIds (Set), selectedId, onVertexClick(vt),
  *         refit, focus (pan W·v into view if it is off screen),
- *         model ('halfplane' | 'disk'), rationalSubtree }
+ *         model ('halfplane' | 'disk'), rationalSubtree, mark (markedSet) }
  */
 export function drawTree(opts) {
     const { tree, place, baseId, imageId, orbitIds, onVertexClick } = opts;
@@ -279,6 +302,33 @@ export function drawTree(opts) {
     g.selectAll('.voronoi-edge').data(cellSegs).enter().append('path')
         .attr('class', (d) => (d.full ? 'voronoi-edge full' : 'voronoi-edge half')).attr('d', (d) => d.d);
 
+    // ── a marked element: its axis, its fixed subtree, or the edge it inverts ──
+    const marked = opts.mark ? markedSet(place, nodes, links, opts.mark) : null;
+    if (marked && marked.edges.length) {
+        const pathOf = (m) => L.path(P(m.from), P(m.to));
+        g.selectAll('.mark-glow').data(marked.edges).enter().append('path').attr('class', 'mark-glow').attr('d', pathOf);
+        g.selectAll('.mark-edge').data(marked.edges).enter().append('path').attr('class', 'mark-edge').attr('d', pathOf);
+        // the way along the axis toward the attracting end
+        if (opts.mark.hyperbolic) {
+            g.selectAll('.mark-arrow').data(marked.edges).enter().append('path').attr('class', 'mark-arrow')
+                .attr('d', (m) => {
+                    const a = L.at(P(m.from), P(m.to), 0.5), b = L.at(P(m.from), P(m.to), 0.56);
+                    const ang = Math.atan2(b.y - a.y, b.x - a.x), s = 7 * Math.max(0.55, Math.min(R(m.from), R(m.to)));
+                    const pt = (r, t) => `${a.x + r * Math.cos(ang + t)},${a.y + r * Math.sin(ang + t)}`;
+                    return `M${pt(s, 0)}L${pt(s, 2.5)}L${pt(s, -2.5)}Z`;
+                });
+        }
+    }
+    // in the half-plane model the axis may run on up to the end ∞
+    if (marked && model === 'halfplane' && marked.ids.has(root.data.id)) {
+        const up = place.parent(root.data.vt);
+        if (place.dist(up, place.act(opts.mark.G, up)) === opts.mark.target) {
+            const r0 = P(root);
+            g.append('path').attr('class', 'mark-glow').attr('d', `M${r0.x},${r0.y}L${r0.x + stub},${r0.y - stub}`);
+            g.append('path').attr('class', 'mark-edge').attr('d', `M${r0.x},${r0.y}L${r0.x + stub},${r0.y - stub}`);
+        }
+    }
+
     const linkLayer = g.append('g').attr('class', 'link-layer');
 
     // ── vertices ──
@@ -297,6 +347,11 @@ export function drawTree(opts) {
     node.filter((d) => d.data.k === 0 && !d.data.vt.d.length).insert('circle', ':first-child')
         .attr('class', 'origin-ring').attr('r', (d) => 12 * Math.max(R(d), 0.6))
         .style('stroke-width', (d) => `${2 * Math.max(R(d), 0.6)}px`);
+    if (marked) {
+        node.filter((d) => marked.ids.has(d.data.id)).insert('circle', ':first-child')
+            .attr('class', 'mark-ring').attr('r', (d) => 10 * Math.max(R(d), 0.55))
+            .style('stroke-width', (d) => `${2.2 * Math.max(R(d), 0.55)}px`);
+    }
     node.filter((d) => d.data.id === baseId || d.data.id === imageId || d.data.id === currentId)
         .append('foreignObject')
         .attr('x', -70).attr('y', (d) => (model === 'halfplane' && !d.children ? 10 : -34)).attr('width', 140).attr('height', 30)
@@ -360,7 +415,7 @@ export function drawTree(opts) {
             }
         }
     }
-    return { root, hullVertices: hull.vertices, voronoi };
+    return { root, hullVertices: hull.vertices, voronoi, marked: marked ? marked.ids.size : 0 };
 }
 
 const SUB = { '-': '₋', 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉' };

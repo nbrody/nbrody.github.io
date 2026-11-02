@@ -261,3 +261,110 @@ export function clearIsometryAxis() {
     if (lingerTimer) { clearTimeout(lingerTimer); lingerTimer = null; }
     disposeGroup(group);
 }
+
+// ───────────── a persistent mark: the characteristic set of one element ─────────────
+
+const markGroup = layer(true);
+
+/** An arrowhead at the end of a polyline of ball points, pointing along its last segment. */
+function arrowHead(pts, color, size = 1) {
+    const n = pts.length;
+    if (n < 2) return null;
+    const end = toWorld(pts[n - 1]), dir = end.clone().sub(toWorld(pts[n - 2]));
+    if (dir.lengthSq() < 1e-14) return null;
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.026 * size, 0.07 * size, 12), new THREE.MeshBasicMaterial({
+        color, transparent: true, depthTest: false, depthWrite: false
+    }));
+    cone.position.copy(end);
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    cone.renderOrder = 7;
+    return cone;
+}
+
+/**
+ * Keep the characteristic set of G (an element as it acts in the scene, det 1) drawn until the
+ * next call: the axis between its fixed points, with an arrow toward the attracting one
+ * (hyperbolic, loxodromic); the rotation axis, with an arc for the turn (elliptic); or the fixed
+ * point at infinity, with an arc of an orbit (parabolic). planar: the 2D view, whose plane y = 0
+ * the group preserves; an elliptic turning that plane is marked by its fixed point there, where
+ * its axis crosses the plane. G = null clears the mark. Returns the type, or null.
+ */
+export function showCharacteristicSet(G, { planar = false } = {}) {
+    disposeGroup(markGroup);
+    if (!G || G.anti) return null;
+    const eps = 1e-9;
+    const half = (z) => z.div(new Complex(2, 0));
+    const tr = G.a.add(G.d);
+    const disc = tr.mul(tr).sub(cplx(4, 0));
+    // the fixed points in Ĉ (null for ∞), each with its eigenvalue
+    let fixed;
+    if (Math.sqrt(G.c.normSq()) < eps) {
+        const da = G.d.sub(G.a);
+        fixed = [{ z: null, k: G.a }];
+        if (Math.sqrt(da.normSq()) >= eps) fixed.push({ z: G.b.div(da), k: G.d });
+    } else {
+        const s = Complex.sqrt(disc), amd = G.a.sub(G.d), twoC = G.c.mul(2);
+        fixed = [{ z: amd.add(s).div(twoC), k: half(tr.add(s)) }, { z: amd.sub(s).div(twoC), k: half(tr.sub(s)) }];
+    }
+    const type = Math.sqrt(disc.normSq()) < 1e-4 || fixed.length < 2 ? 'parabolic'
+        : Math.abs(tr.im) < 1e-4 && Math.abs(tr.re) < 2 ? 'elliptic' : 'hyperbolic';
+    const ball = (z) => (z === null ? new THREE.Vector3(0, 0, 1) : uhsToBall({ x: z.re, y: z.im, t: 0 }));
+    let X = null;
+    try { X = G.log(); } catch (e) { /* no flow: no arcs */ }
+    const arcFrom = (p, n = 48) => {
+        if (!X) return [];
+        const pts = [];
+        for (let k = 0; k <= n; k++) pts.push(applyMatrixToBall(Matrix2x2.exp(scaleMat(X, k / n)), p));
+        return pts.filter((q) => Number.isFinite(q.x));
+    };
+    const addArc = (pts) => {
+        if (pts.length < 2) return;
+        markGroup.add(tube(pts, ISO_MARK_COLOR, 0.006));
+        const head = arrowHead(pts, ISO_MARK_COLOR);
+        if (head) markGroup.add(head);
+    };
+
+    if (type === 'parabolic') {
+        markGroup.add(marker(ball(fixed[0].z), ISO_AXIS_COLOR, 0.035));
+        addArc(arcFrom(new THREE.Vector3(0, 0, 0)));
+        return type;
+    }
+    const [u, w] = fixed;
+    if (type === 'hyperbolic') {
+        const [att, rep] = u.k.normSq() >= w.k.normSq() ? [u, w] : [w, u];
+        const samples = geodesicPoints(ball(rep.z), ball(att.z), 96);
+        markGroup.add(tube(samples, ISO_AXIS_COLOR, 0.009));
+        markGroup.add(marker(ball(att.z), ISO_AXIS_COLOR, 0.03));
+        markGroup.add(marker(ball(rep.z), ISO_AXIS_COLOR, 0.02));
+        // an arrow toward the attracting end, where the axis comes nearest the center
+        let i0 = 0;
+        samples.forEach((s, i) => { if (s.lengthSq() < samples[i0].lengthSq()) i0 = i; });
+        const i1 = Math.min(samples.length - 1, Math.max(1, i0 + 1));
+        const head = arrowHead([samples[i1 - 1], samples[i1]], ISO_AXIS_COLOR, 1.2);
+        if (head) markGroup.add(head);
+        return type;
+    }
+    // elliptic: a turn of the plane is marked at its fixed point in the plane
+    const offPlane = (f) => f.z !== null && Math.abs(f.z.im) > 1e-7 * Math.max(1, Math.sqrt(f.z.normSq()));
+    if (planar && offPlane(u) && offPlane(w)) {
+        const z = u.z.im > 0 ? u.z : w.z, h = Math.abs(z.im);
+        markGroup.add(marker(uhsToBall({ x: z.re, y: 0, t: h }), ISO_AXIS_COLOR, 0.032));
+        addArc(arcFrom(uhsToBall({ x: z.re + 0.45 * h, y: 0, t: h * 0.9 })));
+        return type;
+    }
+    const samples = geodesicPoints(ball(u.z), ball(w.z), 96);
+    markGroup.add(tube(samples, ISO_AXIS_COLOR, 0.006));
+    markGroup.add(marker(ball(u.z), ISO_AXIS_COLOR, 0.02));
+    markGroup.add(marker(ball(w.z), ISO_AXIS_COLOR, 0.02));
+    if (!planar) {
+        // an arc around the axis, from a point beside the axis where it comes nearest the center
+        let A0 = samples[0], iA = 0;
+        samples.forEach((s, i) => { if (s.lengthSq() < A0.lengthSq()) { A0 = s.clone(); iA = i; } });
+        if (A0.length() > 0.985) A0.setLength(0.985);
+        const tan = samples[Math.min(iA + 1, samples.length - 1)].clone().sub(samples[Math.max(iA - 1, 0)]).normalize();
+        const nrm = Math.abs(tan.x) > 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+        nrm.sub(tan.clone().multiplyScalar(nrm.dot(tan))).normalize();
+        addArc(arcFrom(A0.clone().addScaledVector(nrm, 0.12 + 0.35 * (1 - A0.length()))));
+    }
+    return type;
+}

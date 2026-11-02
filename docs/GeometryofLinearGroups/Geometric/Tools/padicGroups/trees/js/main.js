@@ -18,6 +18,7 @@ const ui = {
     rational: false,
     model: 'halfplane',          // 'halfplane' | 'disk' | 'tower'
     spread: null,                // tower growth exponent; null = automatic
+    mark: null,                  // a generator's index: its axis or fixed subtree is drawn (the link's `mark`)
     theme: 'dark',               // 'dark' | 'light'
     word: [],                    // the current element W, a reduced word: ±(i+1) for g_{i+1}^{±1}
     groupKey: null,              // W survives recomputes of the same group (new base vertex, word length, …)
@@ -340,13 +341,22 @@ function updateVisualization({ refit = false, focus = false } = {}) {
         if (tower) { tower.destroy(); tower = null; }
         $('tower-host').hidden = true;
         $('tree-vis').style.display = '';
+        const mark = markFor(place, current.mats);
         current.drawn = drawTree({
             tree, place, baseId, currentId, imageId, orbitIds, selectedId: ui.selectedId, refit, focus, model: ui.model,
             endsLabel: place.F.isQ ? `∂T = ℙ¹(ℚ${sub(place.p)})` : '∂T = ℙ¹(K𝔭)',
             rationalSubtree: ui.rational && rationalOK,
+            mark,
             onVertexClick,
             onVertexDblClick: (vt) => makeBase(vt),
         });
+        if (mark) {
+            const g = `g${sub(mark.i + 1)}`;
+            const what = mark.hyperbolic ? `the axis of ${g}, along which it translates by ${mark.ell} in the direction of the arrows`
+                : mark.target === 1 ? `the edge ${g} inverts` : `the vertices ${g} fixes`;
+            notes.push(current.drawn.marked ? `In cyan: ${what}.` : `${what[0].toUpperCase()}${what.slice(1)} is not in the drawn part of the tree; double-click a vertex to move v.`);
+            $('tree-note').textContent = notes.join(' ');
+        }
     }
 }
 
@@ -593,6 +603,7 @@ function getState() {
         L: $('wordLength').value,
         r: $('maxDistance').value,
         model: ui.model,
+        mark: ui.mark ?? undefined,
         theme: ui.theme !== 'dark' ? ui.theme : undefined,
     };
 }
@@ -613,6 +624,26 @@ function applyState(st) {
     setModel(st.model || 'halfplane', false);
     if (st.theme) setTheme(st.theme, false);
     ui.selectedId = null;
+    ui.mark = Number.isInteger(st.mark) && st.mark >= 0 ? st.mark : null;
+    // a page that frames this one in a small space can ask for the panel closed
+    if (st.panel === 'closed') $('control-panel').classList.add('collapsed');
+}
+
+/**
+ * The marked generator for drawTree: its least displacement on the tree, which is ℓ for a
+ * hyperbolic element, 0 for an elliptic one fixing a vertex, and 1 for one inverting an edge
+ * (then every displacement is odd, so d(o, g·o) is). Returns { G, target, hyperbolic, i, ell } or null.
+ */
+function markFor(place, mats) {
+    const i = ui.mark, m = i === null ? null : mats[i];
+    if (!m) return null;
+    const G = place.prepare(m), ell = translationLength(place, m);
+    let target = ell;
+    if (ell === 0) {
+        const o = place.canon(place.F.zero(), 0);
+        if (place.dist(o, place.act(G, o)) % 2 === 1) target = 1;
+    }
+    return { G, target, hyperbolic: ell > 0, i, ell };
 }
 
 const PREFIX = '#s=';

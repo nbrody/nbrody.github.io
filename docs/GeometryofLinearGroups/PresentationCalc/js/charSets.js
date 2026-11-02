@@ -44,10 +44,10 @@ export function generatorTable(deps, job) {
     }
     const fin = unboundedPrimes(deps, F, mats, job.numbers || [], job.maxPrimes || MAX_PRIMES);
     notes.push(...fin.notes);
-    for (const { P, count } of fin.places) {
+    for (const { P, count, primeOf } of fin.places) {
         const p = String(P.p);
         const label = F.n === 1 ? `\\mathbb{Q}_{${p}}` : `${count > 1 ? `\\mathfrak{p}_{${P.index + 1}}` : '\\mathfrak{p}'} \\mid ${p}`;
-        columns.push({ key: `p${p}_${P.index}`, kind: 'tree', label, space: `T_{${P.q + 1}}`, bounded: false });
+        columns.push({ key: `p${p}_${P.index}`, kind: 'tree', label, space: `T_{${P.q + 1}}`, bounded: false, p, index: P.index, primeOf });
         mats.forEach((m, i) => rows[i].push(safely(() => treeCell(F, P, m, gens[i], i))));
     }
     return { columns, rows, notes };
@@ -105,14 +105,37 @@ function unboundedPrimes(deps, F, mats, numbers, cap) {
         if (places.length >= cap) { notes.push(`Only the first ${cap} primes where $\\Gamma$ is unbounded are shown.`); break; }
         let prs;
         try { prs = F.primesAbove(p); } catch (e) { skipped.push(String(p)); continue; }
-        prs.forEach((pr, i) => {
-            let P;
-            try { P = new Place(F, p, i); } catch (e) { skipped.push(String(p)); return; }
-            if (Math.min(...words.map((W) => tauVal(F, P, W))) < 0) places.push({ P, count: prs.length });
+        const all = prs.map((pr, i) => { try { return new Place(F, p, i); } catch (e) { return null; } });
+        if (all.some((P) => !P)) skipped.push(String(p));
+        all.forEach((P, i) => {
+            if (P && Math.min(...words.map((W) => tauVal(F, P, W))) < 0) {
+                places.push({ P, count: prs.length, primeOf: all.every(Boolean) ? separatingElement(F, all, i) : null });
+            }
         });
     }
     if (skipped.length) notes.push(`The trees over $${[...new Set(skipped)].join(',\\ ')}$ are not shown: their residue fields are too large.`);
     return { places, notes };
+}
+
+/**
+ * An element with positive valuation at the index-th prime above p and none at the others, as text
+ * the trees tool reads (its `primeOf`, to pick the same prime whatever its ordering), as the
+ * discreteness tool's finite.js does for step 2.
+ */
+function separatingElement(F, places, index) {
+    const p = places[0].p;
+    if (places.length === 1) return String(p);
+    const P = Number(p), tries = [];
+    for (let c = 0; c < Math.min(P, 60); c++) tries.push(c === 0 ? 'w' : `w-${c}`, c === 0 ? null : `w+${c}`);
+    for (let c = 0; c < Math.min(P, 20); c++) tries.push(`w^2-${c}`, `w^2+w-${c}`);
+    for (const src of tries) {
+        if (!src) continue;
+        let x;
+        try { x = F.parse(src); } catch (e) { continue; }
+        const v = places.map((pl) => pl.val(x));
+        if (v[index] > 0 && v.every((t, j) => j === index || t === 0)) return src;
+    }
+    return null;
 }
 
 // ───────────────────────── numbers ─────────────────────────
@@ -422,17 +445,20 @@ function treeCell(F, P, m, gen, i) {
             `Its axis runs from the end $\\xi_- = ${rep}$ to the attracting end $\\xi_+ = ${att}$, points of $\\partial T = \\mathbb{P}^1(${local})$.${approx ? piNote : ''}`,
             s === 0 ? `It passes through $${oTex}$.` : `Its vertex nearest $${oTex}$ is $${vtx(P, x0)}$, at distance $${s}$.`,
         ];
-        return { cls: 'hyperbolic', text: 'hyperbolic', lines };
+        return { cls: 'hyperbolic', text: 'hyperbolic', lines, view: viewAt(F, P, x0) };
     }
     const lines = [];
+    let center;
     if (n) lines.push(`Of order $${n}$.`);
     if (d0 % 2 === 0) {
         const x = pointOnPath(P, o, go, d0 / 2);
         if (P.dist(x, P.act(G, x)) !== 0) throw new Error('internal: the fixed vertex was not found');
+        center = x;
         lines.push(d0 === 0 ? `${n ? 'It' : 'Elliptic: it'} fixes $${oTex}$.`
             : `${n ? 'It' : 'Elliptic: it'} fixes the vertex $${vtx(P, x)}$, the midpoint of $o$ and $${g}\\,o$: the fixed vertex nearest $o$, at distance $${d0 / 2}$.`);
     } else {
         const x1 = pointOnPath(P, o, go, (d0 - 1) / 2), x2 = pointOnPath(P, o, go, (d0 + 1) / 2);
+        center = x1;
         lines.push(`${n ? 'It' : 'Elliptic: it'} fixes no vertex. It swaps $${vtx(P, x1)}$ and $${vtx(P, x2)}$, so it fixes the midpoint of the edge between them.`);
     }
     if (gen.type === 'parabolic') {
@@ -442,5 +468,8 @@ function treeCell(F, P, m, gen, i) {
         const ex = exactEnds(F, m);
         if (ex) lines.push(`It also fixes the ends $${pointTex(F, ex[0].z)}$ and $${pointTex(F, ex[1].z)}$, so it fixes the geodesic between them pointwise.`);
     }
-    return { cls: n ? 'torsion' : 'elliptic', text: n ? `torsion, order ${n}` : 'elliptic', lines };
+    return { cls: n ? 'torsion' : 'elliptic', text: n ? `torsion, order ${n}` : 'elliptic', lines, view: viewAt(F, P, center) };
 }
+
+/** Where the trees tool should center its drawing: the vertex ⌊x⌋_k as the text its inputs read. */
+const viewAt = (F, P, x) => ({ vertex: [F.source(P.elem(x)), String(x.k)] });

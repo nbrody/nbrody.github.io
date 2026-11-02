@@ -29,9 +29,10 @@ import { buildGroup } from '../../Geometric/Tools/Kleinian/poincare/js/matrixInp
 import { readStateFromURL, writeStateToURL } from '../../Geometric/Tools/Kleinian/poincare/js/permalink.js';
 import { wordTex } from '../../Geometric/Tools/Kleinian/poincare/js/presentation.js';
 import { fieldModel, poincareStateFor } from '../../Geometric/Tools/discretenessAlgorithm/js/field.js';
-import { ToolFrames } from '../../Geometric/Tools/discretenessAlgorithm/js/frames.js';
+import { ToolFrames, toolURL } from '../../Geometric/Tools/discretenessAlgorithm/js/frames.js';
 import { CURATED, CAT_ORDER, allExamples } from './examples.js';
 import { archClasses, sameTaus, tauValuesOf } from './archPlaces.js';
+import { placeVolumes, volumeDigits } from './placeVolumes.js';
 import { mathLines, innerTex } from './texText.js';
 import { zariskiCard, generatorDetailHtml, congruenceSection, zariskiLineTex, jointCongruenceLine, summaryTex, esc, mix } from './zariskiView.js';
 import { sarithCard, liveNumbers, wordText, gapText, presentationSection, presentationGap, relatorTexNamed, ordersFrom, orientRelator, graphTop } from './sarithView.js';
@@ -47,7 +48,7 @@ import { referenceMs } from './calibrate.js';
 import { randomGroup } from './randomGroup.js';
 import { elementarySection, elementaryTop } from './elementaryView.js';
 
-const VERSION = '2026-10-28';           // busts the workers' module caches
+const VERSION = '2026-10-29a';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const ZARISKI_TIMEOUT = 120;
 const MAX_PRIMES = 12;
@@ -116,6 +117,7 @@ const timeLimit = (R, s) => s * ((R && R.settings && R.settings.time) || 1);
 const FRAME_NOTE = 'The generators and constants are set on the Presentation Calculator page. The settings here belong to this view.';
 const placeFrames = new ToolFrames($('places-frame'), { note: FRAME_NOTE });
 const stabFrames = new ToolFrames($('stab-frame'), { note: FRAME_NOTE });
+const charFrames = new ToolFrames($('gt-frame'), { note: FRAME_NOTE });     // step 1's table: one cell's characteristic set
 let run = null;
 let seq = 0;
 let input = null;
@@ -471,10 +473,94 @@ function charArch(R) {
     return groups.map((g, i) => {
         const kn = ++seen[g.rep.kind];
         return {
-            key: `inf${i + 1}`, kind: g.rep.kind, root: g.rep.root, bounded: !g.rep.noncompact,
+            key: `inf${i + 1}`, kind: g.rep.kind, root: g.rep.root, bounded: !g.rep.noncompact, isDefault: !!g.rep.isDefault,
             label: `\\mathbb{${g.rep.kind === 'real' ? 'R' : 'C'}}${count[g.rep.kind] === 1 ? '' : `_{${kn}}`}`,
         };
     });
+}
+
+/**
+ * The view of cell 'i:j' of step 1's table: generator i, marked in Poincaré at a place at ∞
+ * (the place's embedding, as step 2 opens it) or in Trees at a prime, centered on a vertex of its
+ * axis or fixed subtree. Returns { tool, state, key } (key: the frame's group and place).
+ */
+function charView(R, i, j) {
+    const T = R.charTable, col = T.columns[j];
+    if (col.kind === 'tree') {
+        const st = treesState(R.model, col.p, col.index, col.primeOf);
+        const cell = T.rows[i][j];
+        if (cell.view) st.vertex = cell.view.vertex;
+        const q = Number(col.space.replace(/\D/g, '')) - 1;
+        Object.assign(st, { r: String(q <= 3 ? 4 : q <= 7 ? 3 : 2), L: '1', mark: i, panel: 'closed' });
+        return { tool: 'trees', state: st, key: `${col.key}:${i}` };
+    }
+    const a = R.charArch[j];
+    const base = a.isDefault ? { mats: R.input.mats, anti: R.input.anti, consts: R.input.consts } : poincareStateFor(R.model, a.root);
+    return { tool: 'poincare', state: { ...base, depth: R.settings.depth, faces: R.settings.faces, mark: i, panel: 'closed' }, key: col.key };
+}
+
+/** Show the selected cell's view under the table (or hide it). */
+function showCharFrame() {
+    const R = run;
+    const sel = R && R.charSel ? R.charSel.split(':').map(Number) : null;
+    const cell = sel && R.charTable && R.charTable.status === 'done' ? R.charTable.rows[sel[0]][sel[1]] : null;
+    if (!cell || cell.cls === 'identity' || cell.cls === 'error') { charFrames.hide(); if (R) R.charFrameKey = null; placeCharFrame(); return; }
+    const [i, j] = sel;
+    const v = charView(R, i, j);
+    const f = charFrames.frames.poincare;
+    let api = null;
+    try { api = v.tool === 'poincare' && charFrames.current === 'poincare' && R.charFrameKey === v.key && f && f.contentWindow.PoincareAPI; } catch (e) { api = null; }
+    // the same place in Poincaré: move the mark, without computing the domain again
+    if (api && api.setMark) {
+        api.setMark(i);
+    } else {
+        charFrames.show(v.tool, v.state);
+        R.charFrameKey = v.key;
+        // a small frame: the tool's panel starts closed (its own button opens it)
+        const fr = charFrames.frames[v.tool];
+        if (fr && !fr.dataset.closePanel) {
+            fr.dataset.closePanel = '1';
+            fr.addEventListener('load', () => { try { closeToolPanel(fr); } catch (e) { /* not same-origin */ } });
+        }
+    }
+    const col = R.charTable.columns[j];
+    $('gt-caption').innerHTML = mix(`$g_{${i + 1}}$ in $${col.space}$, at $${col.label}$ — in ${v.tool === 'poincare' ? 'Poincaré' : 'Trees'}`);
+    typeset($('gt-caption'));
+    // in a tab of its own, the tool keeps its panel
+    $('gt-open').href = toolURL(v.tool, { ...v.state, panel: undefined }, { hosted: false });
+    placeCharFrame();
+}
+
+/**
+ * Close a tool's control panel through its own button, and refit Trees' drawing to the room left.
+ * The tool may bind its button only after the frame's load event (Poincaré finishes loading
+ * asynchronously), so this tries again until the panel has closed.
+ */
+function closeToolPanel(fr, tries = 0) {
+    const doc = fr.contentDocument;
+    const panel = doc && doc.getElementById('control-panel'), btn = doc && doc.getElementById('collapse-btn');
+    if (panel && btn && !panel.classList.contains('collapsed')) btn.click();
+    if (panel && panel.classList.contains('collapsed')) { doc.getElementById('reset-zoom')?.click(); return; }
+    if (tries < 24) setTimeout(() => { try { closeToolPanel(fr, tries + 1); } catch (e) { /* gone */ } }, 250);
+}
+
+/**
+ * The view lives outside the card's re-rendered HTML (so a re-render does not reload it), laid
+ * over the slot under the selected cell's details.
+ */
+function placeCharFrame() {
+    const wrap = $('gt-frame-wrap'), card = $('card-zariski');
+    const slot = card.querySelector('.gt-frame-slot');
+    if (!slot || !run || !run.charSel || charFrames.current === null || card.hidden) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    // as wide as the card: beside the slot, the facts' label column is empty this far down its row
+    const c = card.getBoundingClientRect(), s = slot.getBoundingClientRect(), cs = getComputedStyle(card);
+    const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+    wrap.style.top = `${s.top - c.top - card.clientTop}px`;
+    wrap.style.left = `${padL}px`;
+    wrap.style.width = `${card.clientWidth - padL - padR}px`;
+    const h = `${wrap.offsetHeight}px`;
+    if (slot.style.height !== h) slot.style.height = h;
 }
 
 /**
@@ -484,6 +570,7 @@ function charArch(R) {
 function startCharTable(R) {
     R.charTable = { status: 'running' };
     R.charSel = null;
+    R.charArch = charArch(R);
     let worker;
     try { worker = new Worker(new URL(`./charWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
     catch (e) { R.charTable = { status: 'error', error: 'module workers are unavailable here' }; return; }
@@ -506,7 +593,7 @@ function startCharTable(R) {
             poly: m.degree > 1 ? m.polySrc : null,
             mats: m.mats.map((r) => r.map((e) => e.src)),
             numbers: m.numbers,
-            arch: charArch(R),
+            arch: R.charArch,
             gens: R.zariski.gens.map((g) => ({ type: g.type, order: g.order })),
         },
     });
@@ -682,7 +769,8 @@ function startArchJobs() {
         while (active < max && queue.length) {
             const pl = queue.shift();
             active++;
-            runArch(R, pl.state, { certify: true, pool: R.placeWorkers }, (out) => setArch(R, pl, out)).finally(() => { active--; next(); });
+            runArch(R, pl.state, { certify: true, pool: R.placeWorkers, onCycle: (cycle) => cycleArrived(R, pl, cycle) }, (out) => setArch(R, pl, out))
+                .finally(() => { active--; next(); });
         }
     };
     next();
@@ -691,8 +779,10 @@ function startArchJobs() {
 /**
  * poincare (and the certificates) on one state; calls back with { cert, summary } or { error } / { timeout }.
  * pool: the step's set of workers (R.placeWorkers or R.arithWorkers), so that the step can be stopped.
+ * onCycle: also ask for the fundamental cycle of a compact domain (placeVolumes.js). It comes in the
+ * summary, or (summary.cyclePending, other basepoints tried) later, to onCycle.
  */
-function runArch(R, state, { certify = true, pool = null } = {}, cb) {
+function runArch(R, state, { certify = true, pool = null, onCycle = null } = {}, cb) {
     return new Promise((resolve) => {
         let worker;
         try {
@@ -703,17 +793,26 @@ function runArch(R, state, { certify = true, pool = null } = {}, cb) {
         }
         R.workers.add(worker);
         if (pool) pool.add(worker);
+        let answered = false;
+        // after the verdict, only the cycle is still owed
+        const fail = (out, reason) => { if (!answered) cb(out); else if (onCycle) onCycle({ ok: false, reason }); };
         const done = () => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); if (pool) pool.delete(worker); resolve(); };
-        const timer = setTimeout(() => { cb({ timeout: true }); done(); }, timeLimit(R, ARCH_TIMEOUT) * 1000);
+        const timer = setTimeout(() => { fail({ timeout: true }, 'time'); done(); }, timeLimit(R, ARCH_TIMEOUT) * 1000);
         worker.onmessage = (ev) => {
             const m = ev.data;
-            if (m.error) { cb({ error: m.error }); done(); return; }
+            if (m.error) { fail({ error: m.error }, 'error'); done(); return; }
             if (m.phase === 'cert') return;
-            if (m.phase === 'done') { cb({ cert: m.cert, summary: m.summary }); done(); }
+            if (m.phase === 'done') {
+                answered = true;
+                cb({ cert: m.cert, summary: m.summary });
+                if (!(onCycle && m.summary && m.summary.cyclePending)) done();
+                return;
+            }
+            if (m.phase === 'cycle') { if (onCycle) onCycle(m.cycle); done(); }
         };
-        worker.onerror = (e) => { e.preventDefault?.(); cb({ error: e.message || 'the worker failed to load' }); done(); };
+        worker.onerror = (e) => { e.preventDefault?.(); fail({ error: e.message || 'the worker failed to load' }, 'error'); done(); };
         const st = R.settings;
-        worker.postMessage({ id: 1, state, maxFaces: st.faces, maxDepth: st.depth, certify });
+        worker.postMessage({ id: 1, state, maxFaces: st.faces, maxDepth: st.depth, certify, cycle: !!onCycle });
     });
 }
 
@@ -836,6 +935,95 @@ function rigidityVerdict(R, pl) {
             'By Mostow rigidity, the isomorphism would then be conjugation by an isometry of $\\mathbb{H}^3$, which keeps $\\operatorname{tr}^2/\\det$ up to complex conjugation. So $\\Gamma$ is not discrete here.',
         ],
     };
+}
+
+// ───────────────────────── step 2, continued: the volume at every place at ∞ ─────────────────────────
+
+/** The fundamental cycle came after the verdict (archWorker.js tried other basepoints). */
+function cycleArrived(R, pl, cycle) {
+    if (R !== run || R.cancelled) return;
+    if (pl.summary) { pl.summary.cycle = cycle; delete pl.summary.cyclePending; }
+    if (R.shadow && R.shadow.pending && R.shadow.src === pl.key) R.shadow = null;
+    placeChanged();
+}
+
+/** Every value of tr²/det real at this place: it lies over a real place of k. */
+const overRealPlaceOfK = (p) => (p.members || [p]).every((a) => (a.taus || []).every((t) => Math.abs(t.im) <= 1e-7 * Math.max(1, Math.hypot(t.re, t.im))));
+
+/**
+ * The volume at every place at ∞ (placeVolumes.js), once Γ is discrete at a complex place v with a compact
+ * verified domain: the Delaunay tetrahedra dual to its vertices, summed with the Bloch–Wigner dilogarithm,
+ * give vol = D(β) for the Bloch invariant β; at another embedding σ the same cross-ratios give D(σβ), the
+ * volume of the Galois conjugate. Sets R.shadow = { src, pending } or { src, res, per: key → { value, err } }.
+ */
+function updateShadow(R) {
+    if (R.shadow && !R.shadow.pending) return;
+    const src = R.places.find((p) => p.tool === 'poincare' && p.kind === 'complex' && p.status === 'discrete'
+        && p.summary && p.summary.status === 'verified' && !p.summary.real && p.summary.finiteVolume);
+    if (!src) return;
+    const sm = src.summary;
+    if (sm.cyclePending) { R.shadow = { src: src.key, pending: true }; return; }
+    const arch = R.places.filter((p) => p.tool === 'poincare');
+    const ekey = (p, a) => `${p.key}:${a.rootIndex}`;
+    let res;
+    if (sm.cusps) res = { ok: false, reason: 'cusped' };
+    else if ((src.state.anti || []).some(Boolean)) res = { ok: false, reason: 'mirror' };
+    else if (!sm.cycle) res = { ok: false, reason: 'none' };
+    else {
+        const embeddings = arch.flatMap((p) => (p.members || [p]).map((a) => ({ key: ekey(p, a), root: a.root })));
+        try { res = placeVolumes(sm.cycle, R.model, embeddings, src.root, sm.volume); }
+        catch (e) { res = { ok: false, reason: 'error', error: e.message }; }
+    }
+    const per = new Map();
+    if (res.ok) {
+        for (const p of arch) {
+            // the embeddings over one place give ±the same value (complex conjugation flips the sign)
+            const vals = (p.members || [p]).map((a) => res.at.get(ekey(p, a)));
+            const mags = vals.map((x) => Math.abs(x.value));
+            per.set(p.key, { value: mags[0], err: Math.max(...vals.map((x) => x.err), Math.max(...mags) - Math.min(...mags)), overK: overRealPlaceOfK(p) });
+        }
+    }
+    R.shadow = { src: src.key, res, per };
+}
+
+const SHADOW_SKIP = {
+    cusped: 'the domain has cusps, and the sum here needs a compact one',
+    ideal: 'the domain has ideal vertices, and the sum here needs a compact one',
+    mirror: 'some generators reverse orientation',
+    stabilizer: 'every basepoint tried is fixed by an elliptic element',
+    euler: 'the vertices of the domain could not be read cleanly in floating point',
+    cell: 'the cells around a vertex of the domain could not be read cleanly in floating point',
+    zdep: 'the sum moved with the ideal point $z$, so it is not reliable here',
+    ref: 'the sum did not match the volume of the domain',
+    zero: 'the sum vanished at this place',
+    time: 'the domain took too long at the other basepoints',
+};
+
+/** The volume line under a place at ∞, as text with $…$ math, or null. */
+function shadowLine(R, pl) {
+    const S = R.shadow;
+    if (!S || pl.tool !== 'poincare') return null;
+    const src = R.byKey.get(S.src);
+    if (!src) return null;
+    // with one place at ∞ there is nothing to add to Poincaré's volume unless the sum is in hand
+    const others = R.places.some((p) => p.tool === 'poincare' && p !== src);
+    if (S.pending) return pl === src && others ? 'Volume at every place at $\\infty$: reading the domain at another basepoint, off the axes of the elliptic elements…' : null;
+    if (!S.res.ok) return pl === src && others ? `Volume at the other places at $\\infty$: not computed, as ${SHADOW_SKIP[S.res.reason] || String(S.res.error || S.res.reason).replace(/\$/g, '')}.` : null;
+    const r = S.per.get(pl.key);
+    if (!r) return null;
+    const dg = volumeDigits(r.err);
+    const zero = r.value < 0.5 * 10 ** -dg;
+    const num = zero ? '0' : r.value.toFixed(dg);
+    if (pl === src) {
+        const n = src.summary.cycle.vertices;
+        return `Volume from the Bloch invariant $\\beta$: the Delaunay tetrahedra dual to the ${n} vertices of the domain, with the Bloch–Wigner dilogarithm $D$ of their cross-ratios, sum to $D(\\beta) \\approx ${num}$.${others ? ' At each other place $\\sigma$, the same cross-ratios moved by $\\sigma$ give $D(\\sigma\\beta)$, the volume of the Galois conjugate.' : ''}`;
+    }
+    const V = `$${placeTexLabel(src)}$`;
+    if (pl.kind === 'real') return 'Volume of the Galois conjugate: $D(\\sigma\\beta) = 0$, as the cross-ratios are real here.';
+    if (zero && r.overK) return 'Volume of the Galois conjugate: $D(\\sigma\\beta) = 0$. This place lies over a real place of $k$, and $\\beta$ lies in $\\mathcal{B}(k) \\otimes \\mathbb{Q}$ (Neumann–Yang).';
+    if (zero) return `Volume of the Galois conjugate: $D(\\sigma\\beta) \\approx 0$, from the tetrahedra at ${V}.`;
+    const quotient = pl.status === 'nondiscrete' ? ' As $\\Gamma$ is not discrete here, it is not the volume of a quotient.' : '';
+    return `Volume of the Galois conjugate: $D(\\sigma\\beta) \\approx ${num}$, from the tetrahedra at ${V} with their cross-ratios moved here by $\\sigma$.${quotient}`;
 }
 
 function startFinite() {
@@ -968,6 +1156,7 @@ function placeChanged() {
         const v = rigidityVerdict(R, pl);
         if (v) Object.assign(pl, v, { rigid: true });
     }
+    updateShadow(R);
     const order = placeOrder(R);
     const yes = order.filter((p) => p.status === 'discrete');
     const pending = order.some((p) => p.status === 'pending') || !R.finiteDone;
@@ -1152,6 +1341,43 @@ function dropWorker(R, worker) {
 
 // ───────────────────────── step 3 for a discrete Γ: is it a lattice? ─────────────────────────
 
+const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+
+/**
+ * The places of k where Γ is unbounded (the factors of X), for prose, e.g.
+ *   "two places, $\mathbb{C}_1$ and $\mathbb{C}_2$ (both complex places of $k$)"
+ *   "three places, $\mathbb{R}$, $\mathbb{Q}_2$ and $\mathbb{Q}_3$"
+ * Places at ∞ get step 2's labels when they match its places one to one, primes are named as step 2
+ * names them; otherwise only how many of each kind.
+ */
+function unboundedPlacesText(R, factors) {
+    const A = R.zariski.arith;
+    const archF = factors.filter((f) => f.kind === 'real' || f.kind === 'complex');
+    const trees = factors.filter((f) => f.kind === 'tree');
+    const S = A.ring.S || [], d = A.ring.d ?? (A.k ? A.k.d : 1);
+    const word = (m) => COUNT_WORDS[m] || String(m);
+    const join = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+    const n = factors.length, nR = archF.filter((f) => f.kind === 'real').length, nC = archF.length - nR;
+    const parts = [[nR, 'real place', 'real'], [nC, 'complex place', 'complex'], [trees.length, 'prime', 'finite']].filter(([m]) => m);
+    const ofK = d === 1 ? '' : ' of $k$';
+    const count = `${word(n)} place${n === 1 ? '' : 's'}`;
+    // one kind: "both complex places of k"; several: "one real place and two primes of k"
+    const kinds = parts.length === 1
+        ? `${n === 1 ? 'a' : n === 2 ? 'both' : 'all'} ${parts[0][1]}${n === 1 ? '' : 's'}${ofK}`
+        : `${join(parts.map(([m, what]) => `${word(m)} ${what}${m === 1 ? '' : 's'}`))}${ofK}`;
+    const named = archF.length ? archFactors(R) : [];
+    if (named.length !== archF.length || S.length !== trees.length) {
+        return parts.length === 1 ? `${count}${ofK}, ${n === 2 ? 'both' : 'all'} ${parts[0][2]}` : `${count}${ofK}: ${kinds.replace(ofK, '')}`;
+    }
+    const prime = (P) => {
+        if (d === 1) return `\\mathbb{Q}_{${P.p}}`;
+        const same = S.filter((Q) => String(Q.p) === String(P.p));
+        return `${same.length > 1 ? `\\mathfrak{p}_{${same.indexOf(P) + 1}}` : '\\mathfrak{p}'} \\mid ${P.p}`;
+    };
+    const labels = listTex([...named.map((a) => a.labelTex), ...S.map(prime)]);
+    return d === 1 ? `${count}, ${labels}` : `${count}, ${labels} (${kinds})`;
+}
+
 /**
  * Γ is discrete at a place v. The arithmetic group Λ ⊇ Γ⁽²⁾ of step 1 is a lattice in the product
  * of the factors where Γ is unbounded, one for each such place of k (the Zariski engine's
@@ -1205,7 +1431,7 @@ function discreteArith(R) {
             lattice ? `So no subgroup of finite index in $\\Lambda$ is discrete at ${at}, and $[\\Lambda : \\Gamma^{(2)}] = \\infty$.`
                 : `So no subgroup of finite index in $\\Lambda$ is discrete at ${at}, and $[\\Lambda : \\Gamma^{(2)}] = \\infty$: $\\Gamma$ is thin.`,
             ...(lattice ? [
-                `Hence $\\Gamma$ is a non-arithmetic lattice in $${where}$: an arithmetic one is unbounded only at the one place where it is a lattice (Takeuchi), and $\\Gamma$ is unbounded at ${factors.length}.`,
+                `Hence $\\Gamma$ is a non-arithmetic lattice in $${where}$: an arithmetic one is unbounded only at the one place where it is a lattice (Takeuchi), and $\\Gamma$ is unbounded at ${unboundedPlacesText(R, factors)}.`,
                 `It is thin only in this sense: Zariski dense, with infinite index in $\\Lambda$, and so in its congruence closure. At ${at} it has finite covolume.`,
             ] : []),
         ]);
@@ -2598,8 +2824,8 @@ function renderSteps() {
 function resetCards() {
     for (const s of CARDS) { const c = $(`card-${s}`); c.hidden = true; c.querySelector('.step-body').innerHTML = ''; }
     $('cong-body').innerHTML = '';
-    placeFrames.hide(); stabFrames.hide();
-    $('places-frame-wrap').hidden = true; $('stab-frame-wrap').hidden = true;
+    placeFrames.hide(); stabFrames.hide(); charFrames.hide();
+    $('places-frame-wrap').hidden = true; $('stab-frame-wrap').hidden = true; $('gt-frame-wrap').hidden = true;
     renderSteps();
 }
 
@@ -2637,6 +2863,7 @@ function refreshView(step) {
     body.innerHTML = html;
     typeset(body);
     if (step === 'sarith') wireSarithButtons();
+    if (step === 'zariski') placeCharFrame();
 }
 
 function showView(step, sub = null, { auto = false } = {}) {
@@ -2685,12 +2912,13 @@ function placesCard(R) {
     for (const pl of placeOrder(R)) {
         const nm = placeName(pl);
         const lines = pl.lines || [];
+        const vline = shadowLine(R, pl);
         html += `<div class="place-row${pl.key === R.placeSel && !$('places-frame-wrap').hidden ? ' selected' : ''}" data-status="${pl.status}">
             <span class="dot"></span>
             <span class="p-name">${nm.name}<span class="p-sub">${mix(nm.sub)}</span></span>
             <span class="p-verdict">${mix(pl.headline)}</span>
             <button class="view-btn" data-place="${pl.key}">View in ${pl.tool === 'poincare' ? 'Poincaré' : 'Trees'}</button>
-            ${lines.length ? `<div class="p-detail">${lines.map((l) => `<p>${mix(l)}</p>`).join('')}</div>` : ''}
+            ${lines.length || vline ? `<div class="p-detail">${lines.map((l) => `<p>${mix(l)}</p>`).join('')}${vline ? `<p class="p-vol">${mix(vline)}</p>` : ''}</div>` : ''}
         </div>`;
     }
     html += '</div>';
@@ -2970,7 +3198,11 @@ function wire() {
         });
         const panel = card.querySelector('.gt-detail');
         if (panel) { panel.innerHTML = generatorDetailHtml({ table: run.charTable, sel: run.charSel }); typeset(panel); }
+        showCharFrame();
     });
+    // the cell's view sits over its slot: keep it there as the card changes size
+    if (window.ResizeObserver) new ResizeObserver(() => placeCharFrame()).observe($('card-zariski'));
+    window.addEventListener('resize', () => placeCharFrame());
     document.querySelectorAll('.m').forEach((el) => { el.innerHTML = tex(el.textContent); });
 }
 

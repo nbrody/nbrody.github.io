@@ -232,6 +232,11 @@ table.gt { border-collapse: collapse; }
 .gt-detail:has(.gt-kind[data-cls="parabolic"]) { --gt-line: var(--gt-par); }
 .gt-detail:has(.gt-kind[data-cls="elliptic"]), .gt-detail:has(.gt-kind[data-cls="torsion"]) { --gt-line: var(--gt-ell); }
 .gt-detail p { margin: 3px 0; }
+/* the selected cell's view (Poincaré or Trees), laid over its slot */
+#card-zariski { position: relative; }
+#gt-frame-wrap { position: absolute; margin: 0; z-index: 2; }
+#gt-frame { height: min(460px, 62vh); }
+.gt-frame-slot { margin-top: 10px; }
 .gt-detail .gt-head { font-weight: 600; }
 .gt-kind { color: var(--gt, var(--ink)); }
 .word { font-family: var(--mono); font-size: 0.86rem; color: var(--accent); word-break: break-all; }
@@ -245,6 +250,7 @@ table.gt { border-collapse: collapse; }
 .place-row .p-verdict { color: var(--tone); }
 .place-row .p-detail { grid-column: 2 / 5; font-size: 0.86rem; color: var(--muted); display: grid; gap: 3px; margin-top: 3px; }
 .place-row .p-detail p, .banner.lines p { overflow-x: auto; overflow-y: hidden; }
+.place-row .p-detail p.p-vol { color: var(--ink); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 2px; }
 .banner.lines > div { display: grid; gap: 4px; min-width: 0; }
 .place-row.selected { background: linear-gradient(90deg, var(--tone-soft), transparent 70%); }
 .place-row .view-btn { grid-column: 4; grid-row: 1; align-self: center; white-space: nowrap; font-family: var(--sans); font-size: 0.78rem; color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px; cursor: pointer; }
