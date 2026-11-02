@@ -213,6 +213,7 @@ function previewCoreFactory() {
       frame = { cx: 0, cy: 0, s: W / (2 * halfW) };
     }
     const s = frame.s, cx = frame.cx, cy = frame.cy;
+    const inks = o.inks || INKS;                     // e.g. lighter tints on a dark stage
     const x0 = cx - W / (2 * s), x1 = cx + W / (2 * s);
     const acc = new Float32Array(W * H), cr = new Float32Array(W * H),
           cg = new Float32Array(W * H), cb = new Float32Array(W * H);
@@ -220,7 +221,7 @@ function previewCoreFactory() {
       const fx = W / 2 + (x - cx) * s - 0.5, fy = H / 2 - (y - cy) * s - 0.5;
       const ix = Math.floor(fx), iy = Math.floor(fy);
       if (iy < -1 || iy >= H || ix < -1 || ix >= W) return;
-      const tx = fx - ix, ty = fy - iy, ink = INKS[cls];
+      const tx = fx - ix, ty = fy - iy, ink = inks[cls];
       for (let dy = 0; dy < 2; dy++) {
         const yy = iy + dy;
         if (yy < 0 || yy >= H) continue;

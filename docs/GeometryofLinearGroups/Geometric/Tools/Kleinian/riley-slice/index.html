@@ -6,222 +6,346 @@
 <title>Riley Slice — Ford Regions</title>
 <meta name="description"
       content="Interactive Riley slice: Riley's Ford-domain regions (face counts of the Ford domain at both cusps) overlaid with Keen-Series pleating rays, cusp groups and Heckoid points, in the rho and square-root planes.">
+<script>
+  window.MathJax = { tex: { inlineMath: [["$", "$"], ["\\(", "\\)"]] },
+                     options: { ignoreHtmlClass: "tex2jax_ignore" } };
+</script>
+<script src="../vendor/mathjax/tex-mml-chtml.js" defer></script>
+<script>
+  // Dark is the default, as in poincare; a saved choice or a light system theme
+  // overrides it, and ?theme=dark|light sets it for this visit only.
+  (function () {
+    const q = new URLSearchParams(location.search);
+    let t = q.get("theme");
+    if (t !== "dark" && t !== "light") { t = null; try { t = localStorage.getItem("rileySlice-theme"); } catch (e) {} }
+    if (t === "light" || (!t && matchMedia("(prefers-color-scheme: light)").matches))
+      document.documentElement.classList.add("light");
+  })();
+</script>
 <style>
+  /* The panel follows Kleinian/poincare and Algebraic/Tools/2dimFields: a glass
+     card over the full-screen picture, tabs Group / View / Info, and round
+     buttons for help, theme, refresh and collapse. */
+  @import url('../vendor/fonts/tutorial.css');
+
   :root {
-    --bg: #020617;
-    --surface: #1e293b;
-    --primary: #38bdf8;
-    --primary-dim: rgba(56, 189, 248, 0.2);
-    --accent: #6366f1;
-    --accent-dim: rgba(99, 102, 241, 0.2);
-    --text: #f8fafc;
-    --text-dim: #94a3b8;
-    --text-muted: #64748b;
-    --border: rgba(255, 255, 255, 0.1);
-    --border-light: rgba(255, 255, 255, 0.15);
-    --glass-bg: rgba(15, 23, 42, 0.85);
-    --glass-hover: rgba(255, 255, 255, 0.08);
+    --bg: #0b0d16;
+    --ink: #eef1f8;
+    --ink-dim: #9aa5bd;
+    --ink-faint: #5e6880;
+    --accent: #818cf8;
+    --accent-2: #22d3ee;
+    --success: #4ade80;
+    --w03: rgba(255, 255, 255, 0.03);
+    --w05: rgba(255, 255, 255, 0.05);
+    --w08: rgba(255, 255, 255, 0.08);
+    --w12: rgba(255, 255, 255, 0.12);
+    --hairline: rgba(255, 255, 255, 0.07);
+    --hairline-strong: rgba(255, 255, 255, 0.14);
+    --field-bg: rgba(8, 12, 24, 0.55);
+    --glass: rgba(10, 14, 26, 0.72);
+    --accent-soft: rgba(129, 140, 248, 0.16);
+    --accent-line: rgba(129, 140, 248, 0.45);
+    --accent-glow: rgba(129, 140, 248, 0.28);
+    --stage-bg: #0d111c;              /* the preview's picture */
+    --r-sm: 8px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-xl: 18px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
   }
+  html.light {
+    --bg: #f3f5fb;
+    --ink: #171c2b;
+    --ink-dim: #545d75;
+    --ink-faint: #8b93a8;
+    --accent: #6366f1;
+    --accent-2: #0891b2;
+    --success: #15a34a;
+    --w03: rgba(23, 28, 43, 0.03);
+    --w05: rgba(23, 28, 43, 0.05);
+    --w08: rgba(23, 28, 43, 0.07);
+    --w12: rgba(23, 28, 43, 0.11);
+    --hairline: rgba(23, 28, 43, 0.10);
+    --hairline-strong: rgba(23, 28, 43, 0.18);
+    --field-bg: rgba(255, 255, 255, 0.72);
+    --glass: rgba(255, 255, 255, 0.80);
+    --accent-soft: rgba(99, 102, 241, 0.14);
+    --accent-line: rgba(99, 102, 241, 0.45);
+    --accent-glow: rgba(99, 102, 241, 0.22);
+    --stage-bg: #f7f8fa;
+  }
+
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
-    background: var(--bg); color: var(--text);
-    font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-    overflow: hidden;
+    background: var(--bg); color: var(--ink);
+    font-family: var(--font); font-size: 14px;
+    -webkit-font-smoothing: antialiased; overflow: hidden;
+  }
+  button { font-family: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent-line); outline-offset: 2px;
   }
 
-  /* Full-screen stage */
+  /* full-screen picture */
   #stage { position: fixed; inset: 0; z-index: 0; cursor: grab; }
   #stage.dragging { cursor: grabbing; }
   #stage canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
   #status {
     position: fixed; left: 14px; bottom: 12px; z-index: 50;
-    font-size: 11.5px; color: var(--text-dim);
-    background: var(--glass-bg); backdrop-filter: blur(10px);
-    border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px;
+    font-size: 11.5px; color: var(--ink-dim);
+    background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--hairline); padding: 4px 10px; border-radius: 999px;
     font-variant-numeric: tabular-nums; pointer-events: none;
   }
 
-  /* ============ floating glass control panel ============ */
+  /* ---------------- control panel ---------------- */
   #control-panel {
-    position: fixed; top: 20px; right: 20px;
-    width: 360px; max-height: calc(100vh - 40px);
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--border-light); border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
-    z-index: 100;
+    position: fixed; top: 20px; right: 20px; z-index: 100;
+    width: 384px; max-height: calc(100vh - 40px);
     display: flex; flex-direction: column; overflow: hidden;
-    transition: width 0.38s cubic-bezier(0.4,0,0.2,1),
-                height 0.38s cubic-bezier(0.4,0,0.2,1),
-                border-radius 0.38s cubic-bezier(0.4,0,0.2,1);
+    border-radius: var(--r-xl);
+    border: 1px solid transparent;
+    background:
+      linear-gradient(var(--glass), var(--glass)) padding-box,
+      linear-gradient(165deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05) 30%, rgba(129, 140, 248, 0.30) 90%) border-box;
+    backdrop-filter: blur(24px) saturate(1.25); -webkit-backdrop-filter: blur(24px) saturate(1.25);
+    box-shadow: 0 24px 60px -16px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.35);
+    transition: width 0.45s var(--ease-out), max-height 0.45s var(--ease-out), border-radius 0.45s var(--ease-out);
   }
-  .panel-header {
-    display: flex; align-items: center; gap: 10px;
-    padding: 12px 56px 12px 18px;
-    background: rgba(0,0,0,0.2);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    transition: background 0.3s ease, border-color 0.3s ease;
+  html.light #control-panel {
+    background:
+      linear-gradient(var(--glass), var(--glass)) padding-box,
+      linear-gradient(165deg, rgba(255, 255, 255, 0.9), rgba(23, 28, 43, 0.06) 30%, rgba(99, 102, 241, 0.28) 90%) border-box;
+    box-shadow: 0 24px 60px -20px rgba(23, 28, 43, 0.28), 0 4px 16px rgba(23, 28, 43, 0.10);
   }
-  .panel-title {
-    flex: 1; font-size: 1.02rem; font-weight: 600; margin: 0;
-    background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .tab-navigation {
+    display: flex; gap: 6px; align-items: center;
+    padding: 10px 12px; flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.25); border-bottom: 1px solid var(--hairline);
   }
-  .panel-subtitle { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0 0; white-space: nowrap; }
-  .panel-subtitle a { color: var(--primary); text-decoration: none; }
-  #collapseBtn {
-    position: absolute; top: 12px; right: 12px; z-index: 5;
-    width: 32px; height: 32px; padding: 0;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--border); border-radius: 50%;
-    color: var(--text); cursor: pointer;
+  html.light .tab-navigation { background: rgba(255, 255, 255, 0.5); }
+  .panel-tabs { display: flex; gap: 6px; flex: 1; }
+  .tab-btn {
+    flex: 1; padding: 7px 0;
+    background: transparent; border: 1px solid transparent; border-radius: var(--r-md);
+    color: var(--ink-dim); font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: color 0.15s ease, background 0.2s ease, box-shadow 0.25s ease;
+  }
+  .tab-btn:hover { color: var(--ink); background: var(--w05); }
+  .tab-btn.active {
+    color: var(--ink);
+    background: linear-gradient(180deg, var(--accent-soft), rgba(129, 140, 248, 0.08));
+    border-color: var(--accent-line);
+    box-shadow: 0 0 14px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  }
+  .collapse-btn {
+    width: 30px; height: 30px; min-width: 30px; padding: 0; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    transition: top 0.38s cubic-bezier(0.4,0,0.2,1),
-                right 0.38s cubic-bezier(0.4,0,0.2,1),
-                width 0.38s cubic-bezier(0.4,0,0.2,1),
-                height 0.38s cubic-bezier(0.4,0,0.2,1),
-                background 0.25s ease, border-color 0.25s ease;
+    background: var(--w05); border: 1px solid var(--hairline); border-radius: 50%;
+    color: var(--ink-dim); font-size: 17px; cursor: pointer;
+    transition: color 0.15s ease, background 0.2s ease, transform 0.2s var(--ease-spring);
   }
-  #collapseBtn:hover { background: var(--glass-hover); border-color: var(--border-light); }
-  .collapse-icon {
-    display: block;
-    transform: rotate(45deg);   /* the + reads as x while the panel is open */
-    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  .panel-content, .header-text {
-    transition: opacity 0.25s ease 0.14s, visibility 0s linear 0s;
-  }
-  #control-panel.collapsed { width: 56px; height: 56px; min-height: 56px; border-radius: 28px; }
-  #control-panel.collapsed .panel-content,
-  #control-panel.collapsed .header-text {
-    opacity: 0; visibility: hidden;
-    transition: opacity 0.15s ease, visibility 0s linear 0.15s;
-  }
-  #control-panel.collapsed .panel-header { background: transparent; border-bottom-color: transparent; }
-  #control-panel.collapsed #collapseBtn {
-    top: 0; right: 0; width: 54px; height: 54px;
-    background: transparent; border-color: transparent;
-  }
-  #control-panel.collapsed .collapse-icon { transform: rotate(0deg); }
+  .collapse-btn:hover { color: var(--ink); background: var(--w08); border-color: var(--hairline-strong); }
+  .collapse-btn:active { transform: scale(0.92); }
+  .collapse-icon { line-height: 1; display: inline-block; transition: transform 0.45s var(--ease-spring); }
+  #refresh-btn:hover .collapse-icon { transform: rotate(180deg); }
+  #help-btn .collapse-icon { font-size: 15px; font-weight: 600; }
+  #theme-btn svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.45s var(--ease-spring); }
+  #theme-btn:hover svg { transform: rotate(20deg); }
+  #theme-btn .icon-moon, html.light #theme-btn .icon-sun { display: none; }
+  html.light #theme-btn .icon-moon { display: block; }
+  #control-panel.collapsed { width: 52px; max-height: 52px; min-height: 52px; border-radius: 26px; }
+  #control-panel.collapsed .panel-tabs,
+  #control-panel.collapsed #help-btn,
+  #control-panel.collapsed #theme-btn,
+  #control-panel.collapsed #refresh-btn,
+  #control-panel.collapsed .panel-content { display: none; }
+  #control-panel.collapsed .tab-navigation { padding: 10px; background: transparent; border-bottom: none; justify-content: center; }
+  #control-panel.collapsed .collapse-icon { transform: rotate(225deg); }
 
   .panel-content {
-    flex: 1; padding: 14px; overflow-y: auto;
-    display: flex; flex-direction: column; gap: 12px;
-    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    flex: 1; padding: 16px 14px 18px; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: var(--w12) transparent;
   }
-  .panel-content::-webkit-scrollbar { width: 6px; }
-  .panel-content::-webkit-scrollbar-track { background: transparent; }
-  .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .panel-content::-webkit-scrollbar { width: 5px; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--w12); border-radius: 999px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: flex; flex-direction: column; gap: 14px; }
+  .panel-title {
+    margin: 0 2px 2px; font-size: 17px; font-weight: 650; letter-spacing: -0.01em;
+    background: linear-gradient(120deg, var(--ink) 30%, var(--accent) 85%, var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .panel-subtitle { margin: 2px 2px 0; font-size: 12.5px; line-height: 1.55; color: var(--ink-dim); }
+  #control-panel a { color: var(--accent); text-decoration: none; }
+  #control-panel a:hover { text-decoration: underline; }
 
   .control-group {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border); border-radius: 12px;
-    padding: 12px 14px;
-    display: flex; flex-direction: column; gap: 10px;
+    background: var(--w03); border: 1px solid var(--hairline); border-radius: var(--r-lg);
+    padding: 14px; display: flex; flex-direction: column; gap: 10px;
   }
-  .control-group:hover { background: rgba(255,255,255,0.05); border-color: var(--border-light); }
   .group-title {
-    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--text-muted); margin: 0;
+    margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--ink);
   }
   .control-row { display: flex; align-items: center; gap: 10px; }
-  .control-label { font-size: 0.82rem; font-weight: 500; color: var(--text-dim); white-space: nowrap; }
-  .label-val { color: var(--text); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+  .control-label {
+    min-width: 84px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--ink-dim); white-space: nowrap;
+  }
+  .label-val {
+    min-width: 36px; text-align: right; font-size: 12px; font-weight: 500;
+    text-transform: none; letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+  .hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-faint); }
+  #selInfo { color: var(--ink-dim); line-height: 1.6; }
+  #selInfo b { color: var(--ink); font-weight: 600; }
+  .exact-poly { font-variant-numeric: tabular-nums; word-break: break-word; color: var(--ink); }
+
+  /* PresentationCalc's verdicts on an exact dot, read back from its summary */
+  .pc-block {
+    margin: 8px 0 2px; padding: 10px 11px; border-radius: var(--r-md);
+    background: var(--w03); border: 1px solid var(--hairline);
+    display: flex; flex-direction: column; gap: 7px; font-size: 11.5px; line-height: 1.5;
+  }
+  .pc-head { display: flex; align-items: baseline; gap: 8px; font-size: 11px; font-weight: 600;
+             text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink); }
+  .pc-state { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-faint); }
+  .pc-open { margin-left: auto; font-weight: 500; text-transform: none; letter-spacing: 0; }
+  .pc-row { display: grid; grid-template-columns: 74px 1fr; gap: 8px; }
+  .pc-row.pc-sub .pc-name { font-weight: 500; padding-left: 8px; }
+  .pc-name { font-weight: 600; color: var(--ink-dim); }
+  .pc-name[data-verdict="yes"] { color: var(--success); }
+  .pc-name[data-verdict="no"] { color: #fb7185; }
+  html.light .pc-name[data-verdict="no"] { color: #e11d48; }
+  .pc-text { color: var(--ink-dim); min-width: 0; overflow-wrap: anywhere; }
+  .pc-text b { color: var(--ink); }
+  .pc-place { display: block; }
+  .pc-place i { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%;
+                background: var(--ink-faint); vertical-align: 1px; }
+  .pc-place[data-status="discrete"] i { background: var(--success); }
+  .pc-place[data-status="nondiscrete"] i { background: #fb7185; }
+  .pc-text mjx-container { font-size: 105% !important; }
 
   .select-input {
-    flex: 1; width: 100%;
-    background: rgba(30, 41, 59, 0.8);
-    border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); padding: 7px 10px; font-size: 0.82rem;
-    transition: all 0.2s ease;
+    flex: 1; min-width: 0; appearance: none; -webkit-appearance: none;
+    background: var(--field-bg) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239aa5bd' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+    border: 1px solid var(--hairline); border-radius: var(--r-sm);
+    color: var(--ink); padding: 7px 30px 7px 10px; font: 13px var(--font); cursor: pointer;
   }
-  .select-input:focus {
-    outline: none; background: rgba(30,41,59,0.95);
-    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
-  }
+  .select-input option { background: #0c1120; color: #eef1f8; }
+  html.light .select-input option { background: #fff; color: #171c2b; }
 
   .slider-input {
-    flex: 1; height: 6px; -webkit-appearance: none; appearance: none;
-    background: rgba(30,41,59,0.8);
-    border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
-    min-width: 0;
+    flex: 1; min-width: 0; -webkit-appearance: none; appearance: none;
+    height: 6px; border-radius: 999px; background: var(--field-bg);
+    border: 1px solid var(--hairline); cursor: pointer; outline: none;
   }
   .slider-input::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 16px; height: 16px; background: var(--accent); border-radius: 50%;
-    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: all 0.2s ease;
+    -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
+    background: var(--accent); border: 2px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 0 10px var(--accent-glow); cursor: pointer;
   }
-  .slider-input::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(99,102,241,0.5); }
   .slider-input::-moz-range-thumb {
-    width: 16px; height: 16px; background: var(--accent); border: none; border-radius: 50%;
-    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    width: 15px; height: 15px; border-radius: 50%;
+    background: var(--accent); border: 2px solid rgba(255, 255, 255, 0.14); cursor: pointer;
   }
 
-  .seg { display: flex; flex: 1; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-  .seg button {
-    flex: 1; padding: 7px 0; background: rgba(255,255,255,0.05);
-    border: none; border-right: 1px solid var(--border);
-    color: var(--text-dim); font-size: 0.78rem; font-weight: 600;
-    cursor: pointer; transition: all 0.2s ease; text-align: center;
+  /* segmented controls */
+  .seg {
+    display: flex; flex: 1; gap: 3px; padding: 3px;
+    background: var(--field-bg); border: 1px solid var(--hairline); border-radius: var(--r-md);
   }
-  .seg button:last-child { border-right: none; }
-  .seg button:hover { background: var(--glass-hover); color: var(--text); }
+  .seg button {
+    flex: 1; padding: 6px 4px; background: transparent; border: none; border-radius: 7px;
+    color: var(--ink-dim); font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .seg button:hover { color: var(--ink); background: var(--w05); }
   .seg button.active {
-    background: var(--accent-dim); color: var(--text);
-    box-shadow: inset 0 0 12px rgba(99,102,241,0.15);
+    background: var(--accent-soft); color: var(--ink);
+    box-shadow: 0 0 10px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .btn {
-    flex: 1; padding: 8px 12px; border-radius: 8px;
-    font-size: 0.8rem; font-weight: 500; cursor: pointer;
-    transition: all 0.2s ease; border: 1px solid var(--border);
-    background: rgba(255,255,255,0.05); color: var(--text-dim);
+    flex: 1; padding: 8px 14px; border-radius: var(--r-md);
+    font-size: 13px; font-weight: 550; cursor: pointer;
+    background: var(--w05); border: 1px solid var(--hairline); color: var(--ink-dim);
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s var(--ease-spring);
   }
-  .btn:hover { background: var(--glass-hover); color: var(--text); transform: translateY(-1px); }
-  .btn:disabled { opacity: 0.4; cursor: default; }
-  .btn:disabled:hover { background: rgba(255,255,255,0.05); color: var(--text-dim); transform: none; }
+  .btn:hover { background: var(--w08); color: var(--ink); }
+  .btn:active { transform: scale(0.985); }
   .btn.primary {
-    background: var(--accent-dim); border-color: rgba(99,102,241,0.4);
-    color: var(--text); box-shadow: 0 0 12px rgba(99,102,241,0.15);
+    background: linear-gradient(180deg, var(--accent-soft), rgba(129, 140, 248, 0.07));
+    border-color: var(--accent-line); color: var(--ink);
   }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn:disabled:hover { background: var(--w05); color: var(--ink-dim); }
+  .btn:disabled:active { transform: none; }
 
-  .chk { display: flex; align-items: center; gap: 7px; font-size: 0.82rem; color: var(--text-dim); cursor: pointer; }
-  .chk input { margin: 0; accent-color: var(--accent); }
-
-  input[type="color"] {
-    width: 34px; height: 24px; padding: 1px;
-    background: rgba(30,41,59,0.8);
-    border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  /* on/off options: pills, lit when on (the checkbox itself is kept for the logic) */
+  .toggle-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chk {
+    position: relative; display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 12px; border-radius: 999px; cursor: pointer; user-select: none;
+    background: var(--w05); border: 1px solid var(--hairline);
+    color: var(--ink-dim); font-size: 12px; font-weight: 500;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.2s ease;
   }
-
-  .hint { color: var(--text-muted); font-size: 0.72rem; line-height: 1.45; margin: 0; }
-  .info-section {
-    background: rgba(0,0,0,0.2); border: 1px solid var(--border);
-    border-radius: 12px; padding: 12px 14px;
-    font-size: 0.74rem; color: var(--text-dim); line-height: 1.55;
+  .chk:hover { background: var(--w08); color: var(--ink); }
+  .chk input[type="checkbox"] { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+  .chk:has(input[type="checkbox"]:checked) {
+    background: linear-gradient(180deg, var(--accent-soft), rgba(129, 140, 248, 0.07));
+    border-color: var(--accent-line); color: var(--ink); box-shadow: 0 0 10px var(--accent-glow);
   }
-  .info-section b { color: var(--text); }
+  .chk:has(input:focus-visible) { outline: 2px solid var(--accent-line); outline-offset: 2px; }
+  .chk input[type="color"] {
+    width: 22px; height: 18px; padding: 0; border: 1px solid var(--hairline-strong);
+    border-radius: 6px; background: none; cursor: pointer;
+  }
+  .chk input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  .chk input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
+
+  .theme-options { display: flex; gap: 3px; padding: 3px; background: var(--field-bg); border: 1px solid var(--hairline); border-radius: var(--r-md); }
+  .theme-opt { padding: 6px 12px; background: transparent; border: none; border-radius: 7px; color: var(--ink-dim); font-size: 11px; font-weight: 600; cursor: pointer; }
+  .theme-opt:hover { color: var(--ink); background: var(--w05); }
+  .theme-opt.active { background: var(--accent-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
+
+  .info-section { padding: 13px 14px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--hairline); border-radius: var(--r-lg); }
+  html.light .info-section { background: rgba(255, 255, 255, 0.5); }
+  .info-title { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink); }
+  .info-section p { margin: 0 0 7px; font-size: 12px; line-height: 1.6; color: var(--ink-dim); }
+  .info-section p:last-child { margin-bottom: 0; }
+  .info-section b { color: var(--ink); font-weight: 600; }
 
   @media (max-width: 768px) {
-    #control-panel { width: calc(100vw - 40px); max-width: 360px; }
+    #control-panel { width: calc(100vw - 32px); max-width: 384px; top: 16px; right: 16px; max-height: 55vh; }
   }
 
-  /* ============ preview window: the group under the cursor ============ */
+  /* ---------------- preview window: the group under the cursor ---------------- */
   #preview {
     position: fixed; left: 14px; bottom: 46px; z-index: 90;
-    width: 400px;
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--border-light); border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
-    display: flex; flex-direction: column; overflow: hidden;
+    width: 400px; display: flex; flex-direction: column; overflow: hidden;
+    border-radius: var(--r-xl); border: 1px solid transparent;
+    background:
+      linear-gradient(var(--glass), var(--glass)) padding-box,
+      linear-gradient(165deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05) 30%, rgba(129, 140, 248, 0.30) 90%) border-box;
+    backdrop-filter: blur(24px) saturate(1.25); -webkit-backdrop-filter: blur(24px) saturate(1.25);
+    box-shadow: 0 24px 60px -16px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
+  html.light #preview {
+    background:
+      linear-gradient(var(--glass), var(--glass)) padding-box,
+      linear-gradient(165deg, rgba(255, 255, 255, 0.9), rgba(23, 28, 43, 0.06) 30%, rgba(99, 102, 241, 0.28) 90%) border-box;
+    box-shadow: 0 24px 60px -20px rgba(23, 28, 43, 0.28), 0 4px 16px rgba(23, 28, 43, 0.10);
   }
   #preview[hidden], #pvOpen[hidden] { display: none; }
-  #preview.big { width: min(820px, calc(100vw - 420px)); min-width: 400px; }
+  #preview.big { width: min(820px, calc(100vw - 440px)); min-width: 400px; }
   .pv-head { display: flex; align-items: center; gap: 6px; padding: 8px 8px 8px 10px; }
   .pv-head .seg { flex: 0 0 auto; }
   .pv-head .seg button { padding: 6px 12px; }
@@ -229,15 +353,16 @@
   .pv-icon {
     width: 28px; height: 28px; padding: 0; flex: 0 0 auto;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.05); color: var(--text-dim);
-    border: 1px solid var(--border); border-radius: 50%; cursor: pointer;
+    background: var(--w05); color: var(--ink-dim);
+    border: 1px solid var(--hairline); border-radius: 50%; cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
-  .pv-icon:hover { background: var(--glass-hover); color: var(--text); }
-  .pv-icon.on { background: var(--accent-dim); color: var(--text); border-color: rgba(99,102,241,0.5); }
+  .pv-icon:hover { background: var(--w08); color: var(--ink); }
+  .pv-icon.on { background: var(--accent-soft); color: var(--ink); border-color: var(--accent-line); }
   .pv-stage {
     position: relative; height: 280px; margin: 0 8px;
-    background: #f7f8fa; border-radius: 10px; overflow: hidden;
+    background: var(--stage-bg); border-radius: var(--r-md); overflow: hidden;
+    border: 1px solid var(--hairline);
   }
   #preview.big .pv-stage { height: min(560px, calc(100vh - 200px)); }
   .pv-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -246,30 +371,32 @@
   .pv-msg {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     padding: 18px 28px; text-align: center; pointer-events: none;
-    color: #334155; font-size: 0.8rem; line-height: 1.5;
+    color: var(--ink-dim); font-size: 12.5px; line-height: 1.55;
   }
   .pv-msg:empty { display: none; }
-  .pv-msg b { color: #0f172a; }
+  .pv-msg b { color: var(--ink); }
   .pv-foot {
     display: flex; align-items: center; gap: 8px;
     padding: 7px 12px 9px; min-height: 32px;
-    font-size: 0.72rem; color: var(--text-dim); font-variant-numeric: tabular-nums;
+    font-size: 11.5px; color: var(--ink-dim); font-variant-numeric: tabular-nums;
   }
   .pv-foot .pv-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pv-foot b { color: var(--text); font-weight: 600; }
+  .pv-foot b { color: var(--ink); font-weight: 600; }
   .pv-tag {
     display: inline-block; padding: 1px 7px; border-radius: 999px; margin-right: 4px;
-    background: rgba(255,255,255,0.08); color: var(--text); font-size: 0.66rem; letter-spacing: 0.02em;
+    background: var(--w08); color: var(--ink); font-size: 10.5px; letter-spacing: 0.02em;
   }
-  .pv-tag.pin { background: var(--accent-dim); }
-  .pv-tag.exact { background: rgba(16,185,129,0.22); }
+  .pv-tag.pin { background: var(--accent-soft); }
+  .pv-tag.exact { background: rgba(74, 222, 128, 0.18); }
   #pvOpen { position: fixed; left: 14px; bottom: 46px; z-index: 90; flex: none; }
-  .exact-poly { font-variant-numeric: tabular-nums; word-break: break-word; color: var(--text); }
   @media (max-width: 768px) {
     #preview, #preview.big { width: calc(100vw - 28px); min-width: 0; }
     .pv-stage, #preview.big .pv-stage { height: 190px; }
     .pv-head .seg button { padding: 6px 9px; }
     #pvBig { display: none; }                 /* already full width */
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0.01ms !important; }
   }
 </style>
 </head>
@@ -312,265 +439,318 @@
 <button class="btn" id="pvOpen" hidden>Show preview</button>
 
 <div id="control-panel">
-  <button id="collapseBtn" title="Collapse panel" aria-label="Collapse panel">
-    <svg class="collapse-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-    </svg>
-  </button>
-  <div class="panel-header">
-    <div class="header-text" style="flex:1; min-width:0">
-      <h1 class="panel-title">Riley Slice</h1>
-      <p class="panel-subtitle">Ford regions &amp; pleating rays &middot; <a href="explanation.html">Explanation</a> &middot; <a href="../../../index.html">Geometric Tools</a></p>
+  <div class="tab-navigation">
+    <div class="panel-tabs" role="tablist" aria-label="Controls">
+      <button class="tab-btn active" data-tab="group">Group</button>
+      <button class="tab-btn" data-tab="view">View</button>
+      <button class="tab-btn" data-tab="info">Info</button>
     </div>
+    <button id="help-btn" class="collapse-btn" title="How this works (opens the explanation)" aria-label="Open the explanation"><span class="collapse-icon">?</span></button>
+    <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+      <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+    </button>
+    <button id="refresh-btn" class="collapse-btn" title="Recompute the rays, dots and regions" aria-label="Recompute the rays, dots and regions"><span class="collapse-icon">⟳</span></button>
+    <button id="collapse-btn" class="collapse-btn" title="Collapse panel (H)" aria-label="Collapse panel (H)" aria-expanded="true"><span class="collapse-icon">×</span></button>
   </div>
+
   <div class="panel-content">
 
-    <div class="control-group">
-      <p class="group-title">Plane</p>
-      <div class="seg" id="planeSeg">
-        <button data-plane="rho" class="active">ρ &mdash; Riley slice</button>
-        <button data-plane="sqrt">√ρ &mdash; square root</button>
+    <!-- Group: the mathematics -->
+    <div id="tab-group" class="tab-content active">
+      <div>
+        <h2 class="panel-title">Riley Slice</h2>
+        <p class="panel-subtitle">$\Gamma_\rho = \langle X, Y \rangle$ with
+          $X = \left(\begin{smallmatrix}1&1\\0&1\end{smallmatrix}\right)$ and
+          $Y = \left(\begin{smallmatrix}1&0\\\rho&1\end{smallmatrix}\right)$.
+          Click the plane to choose $\rho$.</p>
       </div>
-      <p class="hint">The √ρ plane shows the z for which
-        ⟨(1&nbsp;z; 0&nbsp;1), (1&nbsp;0; z&nbsp;1)⟩ is discrete and free:
-        conjugating by diag(√z, 1/√z) turns this pair into the Riley
-        generators with ρ = z², so the picture is the pullback of the Riley
-        slice under z ↦ z² &mdash; a double cover, symmetric under z ↦ −z,
-        with cusps at ±2 and ±2i.</p>
-    </div>
 
-    <div class="control-group">
-      <p class="group-title">Selection</p>
-      <div id="selInfo" class="hint">The preview (bottom left) shows the limit set or the
-        Ford polyhedron of the group under the cursor. Click a bead, cusp, or dot &mdash; or any
-        point of the plane &mdash; to inspect it and pin the preview there; dots and beads load
-        as exact algebraic numbers.</div>
-      <div class="control-row">
-        <button class="btn primary" id="exportBtn" disabled>Open in Dirichlet tool</button>
-        <button class="btn" id="copyBtn" disabled>Copy ρ</button>
+      <div class="control-group">
+        <p class="group-title">Selection</p>
+        <div id="selInfo" class="hint">The preview (bottom left) shows the limit set or the
+          Ford polyhedron of the group under the cursor. Click a bead, cusp, or dot &mdash; or any
+          point of the plane &mdash; to inspect it and pin the preview there; dots and beads load
+          as exact algebraic numbers.</div>
+        <div class="control-row">
+          <button class="btn primary" id="exportBtn" disabled>Open in Dirichlet tool</button>
+          <button class="btn" id="copyBtn" disabled>Copy ρ</button>
+        </div>
       </div>
-    </div>
 
-    <div class="control-group">
-      <p class="group-title">Depth</p>
-      <div class="control-row">
-        <span class="control-label">Ray slopes</span>
-        <input type="range" class="slider-input" id="rayQ" min="8" max="72" step="1" value="48">
-        <span class="control-label label-val" data-out="rayQ">48</span>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Dot slopes</span>
-        <input type="range" class="slider-input" id="dotQ" min="0" max="32" step="1" value="26">
-        <span class="control-label label-val" data-out="dotQ">26</span>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Extensions</span>
-        <input type="range" class="slider-input" id="arcQ" min="0" max="20" step="1" value="14">
-        <span class="control-label label-val" data-out="arcQ">14</span>
-      </div>
-      <button class="btn primary" id="recompute">Recompute</button>
-      <p class="hint">Slopes p/q up to the chosen denominator. Depth 72 traces ~1600 rays and takes ~10 s.
-        Extensions continue each pleating ray past its cusp into the interior.</p>
-    </div>
-
-    <div class="control-group">
-      <p class="group-title">Ford regions</p>
-      <div class="control-row" style="flex-wrap:wrap; gap:12px">
-        <label class="chk"><input type="checkbox" id="showRegions" checked> Show regions</label>
-        <label class="chk"><input type="checkbox" id="showWalls"> First walls</label>
-        <label class="chk"><input type="checkbox" id="fillOuter"> Fill outermost</label>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Ford domain</span>
+      <div class="control-group">
+        <p class="group-title">Ford domain</p>
         <div class="seg" id="fordEngineSeg">
-          <button data-engine="ext" class="active" title="Ford domain of ⟨A, E⟩, E(z) = 1/(ρz): Riley's picture">Both cusps</button>
+          <button data-engine="ext" class="active" title="Ford domain of ⟨X, E⟩, E(z) = 1/(ρz): Riley's picture">Both cusps</button>
           <button data-engine="alg" title="Ford domain of ⟨X, Y⟩ at ∞ alone">Cusp ∞ only</button>
         </div>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Color by</span>
-        <div class="seg" id="regionModeSeg">
-          <button data-mode="level" class="active">Face count</button>
-          <button data-mode="sig">Signature</button>
+        <p class="hint" data-for="ext">Riley's picture: the Ford domain of $\langle X, E \rangle$,
+          $E(z) = 1/(\rho z)$, which is the Ford domain of $\Gamma_\rho$ taken at both of its cusps.</p>
+        <p class="hint" data-for="alg">The Ford domain of $\Gamma_\rho$ at $\infty$ alone, read off
+          the Farey traces.</p>
+        <div class="control-row" data-for="alg">
+          <span class="control-label">Slope depth</span>
+          <input type="range" class="slider-input" id="fordQ" min="4" max="64" step="1" value="24">
+          <span class="label-val" data-out="fordQ">24</span>
         </div>
       </div>
-      <div class="control-row" data-for="level">
-        <span class="control-label">Palette</span>
-        <select class="select-input" id="regionPal"></select>
-      </div>
-      <div class="control-row" data-for="cyc">
-        <span class="control-label">Cycle</span>
-        <input type="range" class="slider-input" id="regionCycle" min="3" max="16" step="1" value="9">
-        <span class="control-label label-val" data-out="regionCycle">9</span>
-      </div>
-      <div class="control-row" data-for="hue">
-        <span class="control-label">Hue shift</span>
-        <input type="range" class="slider-input" id="regionHue" min="0" max="359" step="1" value="0">
-        <span class="control-label label-val" data-out="regionHue">0</span>
-      </div>
-      <div id="regionLegend" data-for="level" data-display="grid"
-           style="display:grid; grid-template-columns:repeat(10,1fr); gap:3px; font-size:0.66rem;
-                  color:var(--text-muted); text-align:center"></div>
-      <div class="control-row" data-for="alg">
-        <span class="control-label">Slope depth</span>
-        <input type="range" class="slider-input" id="fordQ" min="4" max="64" step="1" value="24">
-        <span class="control-label label-val" data-out="fordQ">24</span>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Opacity</span>
-        <input type="range" class="slider-input" id="fordAlpha" min="10" max="100" value="70">
-        <span class="control-label label-val" data-out="fordAlpha">70</span>
-      </div>
-      <p class="hint" data-for="ext">Riley's picture. Colour = number of faces of
-        the Ford domain of ⟨X, E⟩, E(z) = 1/(ρz) &mdash; the Ford domain of ⟨X, Y⟩
-        taken at <b>both</b> cusps (E swaps ∞ and 0, E X E = Y). Computed exactly
-        (power cells by half-plane clipping, faces closed under products) in
-        parallel workers, once per region: along each row the walls are found
-        from the Ford domain's algebraic certificate &mdash; nearly every wall
-        is a corner of the ideal boundary being covered by a third circle. First walls: |ρ| = 4 (white) and the cardioid
-        |ρ| = 2(1 + |cos arg ρ|) (black); dashed, the one-cusp wall |ρ ∓ 2| = 2.
-        In the √ρ plane these become the circle |z| = 2, the four circles
-        |z ∓ 1| = 1, |z ∓ i| = 1, and two lemniscates.</p>
-      <p class="hint" data-for="alg">The Ford domain of ⟨X, Y⟩ at ∞ alone,
-        computed algebraically. Faces: powers
-        W<sup>k</sup> of the p/q Farey word, visible iff
-        |S<sub>k−1</sub>(Φ<sub>p/q</sub>)| &lt; |S<sub>j−1</sub>| +
-        |S<sub>k−j−1</sub>| for all j (Chebyshev subadditivity; the k = 2 wall
-        is |Φ<sub>p/q</sub>(ρ)| = 2). Edges: which visible isometric circles
-        overlap, |C−C′−n| &lt; r+r′ &mdash; crossing an edge wall relinks the
-        face graph without changing the faces, carving each fan into the
-        curvilinear panels of Jorgensen's picture. Colour = face pairs, shade =
-        linking class. Its first wall is the Lyndon–Ullman circle
-        |ρ − 2| = 2, not Riley's |ρ| = 4: it misses the faces of the cusp at 0.</p>
-    </div>
 
-    <div class="control-group">
-      <p class="group-title">Palette</p>
-      <select class="select-input" id="preset">
-        <option value="classic">Classic rainbow</option>
-        <option value="fire">Fire</option>
-        <option value="ocean">Ocean</option>
-        <option value="candy">Candy</option>
-        <option value="ink">Ink (monochrome)</option>
-        <option value="random">Surprise me</option>
-      </select>
-      <div class="control-row">
-        <span class="control-label">Hue, slope 1</span>
-        <input type="range" class="slider-input" id="hueL" min="0" max="360" value="0">
-        <span class="control-label label-val" data-out="hueL">0</span>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Hue, slope 0</span>
-        <input type="range" class="slider-input" id="hueR" min="0" max="360" value="299">
-        <span class="control-label label-val" data-out="hueR">299</span>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Hue curve γ</span>
-        <input type="range" class="slider-input" id="gamma" min="0.4" max="2.6" step="0.05" value="1.25">
-        <span class="control-label label-val" data-out="gamma">1.25</span>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Saturation</span>
-        <input type="range" class="slider-input" id="sat" min="0" max="100" value="90">
-        <span class="control-label label-val" data-out="sat">90</span>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Brightness</span>
-        <input type="range" class="slider-input" id="val" min="20" max="100" value="80">
-        <span class="control-label label-val" data-out="val">80</span>
-      </div>
-      <label class="chk"><input type="checkbox" id="wheel"> Full color wheel (unmirror halves)</label>
-      <div id="slopeLegend" style="display:flex; flex-wrap:wrap; gap:4px 10px; margin:6px 0 10px; font-size:0.72rem; color:var(--text-dim)"
-        title="The ray colour of a few slopes p/q (upper half plane; the lower half mirrors them unless the full wheel is on)"></div>
-      <button class="btn" id="randomize">Random palette</button>
-    </div>
-
-    <div class="control-group">
-      <p class="group-title">Layers &amp; Style</p>
-      <div class="control-row" style="flex-wrap:wrap; gap:12px">
-        <label class="chk"><input type="checkbox" id="showRays" checked> Rays</label>
-        <label class="chk"><input type="checkbox" id="showDots" checked> Dots</label>
-        <label class="chk"><input type="checkbox" id="showArcs" checked> Extensions</label>
-        <label class="chk"><input type="checkbox" id="showFill" checked> Region fill</label>
-        <label class="chk"><input type="checkbox" id="inkRays"> Ink rays</label>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Ray width</span>
-        <input type="range" class="slider-input" id="lw" min="0.2" max="2" step="0.05" value="0.65">
-        <span class="control-label label-val" data-out="lw">0.65</span>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Ray opacity</span>
-        <input type="range" class="slider-input" id="alpha" min="5" max="100" value="60">
-        <span class="control-label label-val" data-out="alpha">60</span>
-      </div>
-      <div class="control-row">
-        <span class="control-label">Dot size</span>
-        <input type="range" class="slider-input" id="dotSize" min="0.2" max="3" step="0.1" value="1">
-        <span class="control-label label-val" data-out="dotSize">1</span>
-      </div>
-      <div class="control-row" style="flex-wrap:wrap; gap:12px">
-        <label class="chk">Background <input type="color" id="bgCol" value="#e3e3e3"></label>
-        <label class="chk">Region <input type="color" id="fillCol" value="#ffffff"></label>
-        <label class="chk">Dots <input type="color" id="dotCol" value="#000000"></label>
+      <div class="control-group">
+        <p class="group-title">Depth</p>
+        <div class="control-row">
+          <span class="control-label">Ray slopes</span>
+          <input type="range" class="slider-input" id="rayQ" min="8" max="72" step="1" value="48">
+          <span class="label-val" data-out="rayQ">48</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Extensions</span>
+          <input type="range" class="slider-input" id="arcQ" min="0" max="20" step="1" value="14">
+          <span class="label-val" data-out="arcQ">14</span>
+        </div>
+        <button class="btn primary" id="recompute">Recompute</button>
+        <p class="hint">Rays and extensions for slopes $p/q$ up to the chosen denominator; depth 72
+          traces ~1600 rays in ~10 s. The dots are computed to $q = 128$ in the background.</p>
       </div>
     </div>
 
-    <div class="control-group">
-      <p class="group-title">View</p>
-      <div class="control-row">
-        <button class="btn" id="resetView">Reset view</button>
-        <button class="btn" id="export">Export PNG</button>
+    <!-- View: how it is drawn -->
+    <div id="tab-view" class="tab-content">
+      <div><h2 class="panel-title">View Options</h2></div>
+
+      <div class="control-group">
+        <p class="group-title">Plane</p>
+        <div class="seg" id="planeSeg">
+          <button data-plane="rho" class="active">ρ &mdash; Riley slice</button>
+          <button data-plane="sqrt">√ρ &mdash; square root</button>
+        </div>
+        <div class="control-row">
+          <button class="btn" id="resetView">Reset view</button>
+          <button class="btn" id="export">Export PNG</button>
+        </div>
+        <p class="hint">Drag to pan · scroll to zoom · double-click to reset.</p>
       </div>
-      <p class="hint">Drag to pan · scroll to zoom · double-click to reset.</p>
+
+      <div class="control-group">
+        <p class="group-title">Ford regions</p>
+        <div class="toggle-row">
+          <label class="chk"><input type="checkbox" id="showRegions" checked> Show regions</label>
+          <label class="chk"><input type="checkbox" id="showWalls"> First walls</label>
+          <label class="chk"><input type="checkbox" id="fillOuter"> Fill outermost</label>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Colour by</span>
+          <div class="seg" id="regionModeSeg">
+            <button data-mode="level" class="active">Face count</button>
+            <button data-mode="sig">Signature</button>
+          </div>
+        </div>
+        <div class="control-row" data-for="level">
+          <span class="control-label">Palette</span>
+          <select class="select-input" id="regionPal"></select>
+        </div>
+        <div class="control-row" data-for="cyc">
+          <span class="control-label">Cycle</span>
+          <input type="range" class="slider-input" id="regionCycle" min="3" max="16" step="1" value="9">
+          <span class="label-val" data-out="regionCycle">9</span>
+        </div>
+        <div class="control-row" data-for="hue">
+          <span class="control-label">Hue shift</span>
+          <input type="range" class="slider-input" id="regionHue" min="0" max="359" step="1" value="0">
+          <span class="label-val" data-out="regionHue">0</span>
+        </div>
+        <div id="regionLegend" data-for="level" data-display="grid"
+             style="display:grid; grid-template-columns:repeat(10,1fr); gap:3px; font-size:10.5px;
+                    color:var(--ink-faint); text-align:center"></div>
+        <div class="control-row">
+          <span class="control-label">Opacity</span>
+          <input type="range" class="slider-input" id="fordAlpha" min="10" max="100" value="70">
+          <span class="label-val" data-out="fordAlpha">70</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <p class="group-title">Ray colours</p>
+        <select class="select-input" id="preset">
+          <option value="classic">Classic rainbow</option>
+          <option value="fire">Fire</option>
+          <option value="ocean">Ocean</option>
+          <option value="candy">Candy</option>
+          <option value="ink">Ink (monochrome)</option>
+          <option value="random">Surprise me</option>
+        </select>
+        <div class="control-row">
+          <span class="control-label">Hue, slope 1</span>
+          <input type="range" class="slider-input" id="hueL" min="0" max="360" value="0">
+          <span class="label-val" data-out="hueL">0</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Hue, slope 0</span>
+          <input type="range" class="slider-input" id="hueR" min="0" max="360" value="299">
+          <span class="label-val" data-out="hueR">299</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Hue curve γ</span>
+          <input type="range" class="slider-input" id="gamma" min="0.4" max="2.6" step="0.05" value="1.25">
+          <span class="label-val" data-out="gamma">1.25</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Saturation</span>
+          <input type="range" class="slider-input" id="sat" min="0" max="100" value="90">
+          <span class="label-val" data-out="sat">90</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Brightness</span>
+          <input type="range" class="slider-input" id="val" min="20" max="100" value="80">
+          <span class="label-val" data-out="val">80</span>
+        </div>
+        <div class="toggle-row">
+          <label class="chk"><input type="checkbox" id="wheel"> Full colour wheel</label>
+        </div>
+        <div id="slopeLegend" style="display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11.5px; color:var(--ink-dim)"
+          title="The ray colour of a few slopes p/q (upper half plane; the lower half mirrors them unless the full wheel is on)"></div>
+        <button class="btn" id="randomize">Random palette</button>
+      </div>
+
+      <div class="control-group">
+        <p class="group-title">Layers &amp; style</p>
+        <div class="toggle-row">
+          <label class="chk"><input type="checkbox" id="showRays" checked> Rays</label>
+          <label class="chk"><input type="checkbox" id="showDots" checked> Dots</label>
+          <label class="chk"><input type="checkbox" id="showArcs" checked> Extensions</label>
+          <label class="chk"><input type="checkbox" id="showFill" checked> Region fill</label>
+          <label class="chk"><input type="checkbox" id="inkRays"> Ink rays</label>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Ray width</span>
+          <input type="range" class="slider-input" id="lw" min="0.2" max="2" step="0.05" value="0.65">
+          <span class="label-val" data-out="lw">0.65</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Ray opacity</span>
+          <input type="range" class="slider-input" id="alpha" min="5" max="100" value="60">
+          <span class="label-val" data-out="alpha">60</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Dot density</span>
+          <input type="range" class="slider-input" id="dotDensity" min="500" max="15000" step="250" value="3500">
+          <span class="label-val" data-out="dotDensity">3500</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Dot size</span>
+          <input type="range" class="slider-input" id="dotSize" min="0.2" max="3" step="0.1" value="1">
+          <span class="label-val" data-out="dotSize">1</span>
+        </div>
+        <div class="toggle-row">
+          <label class="chk">Background <input type="color" id="bgCol" value="#e3e3e3"></label>
+          <label class="chk">Region <input type="color" id="fillCol" value="#ffffff"></label>
+          <label class="chk">Dots <input type="color" id="dotCol" value="#000000"></label>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-row">
+          <span class="control-label">Theme</span>
+          <span class="pv-spacer"></span>
+          <div class="theme-options" role="group" aria-label="Theme">
+            <button class="theme-opt" data-theme="dark">Dark</button>
+            <button class="theme-opt" data-theme="light">Light</button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="info-section">
-      The dark region is (approximately) where
-      <b>⟨X,Y⟩</b>, X = [[1,1],[0,1]], Y = [[1,0],[ρ,1]], fails to be free and
-      discrete; its complement is the <b>Riley slice</b>. Colored curves are the
-      Keen–Series <b>pleating rays</b>: for each slope p/q, the branch of
-      Φ<sub>p/q</sub><sup>−1</sup>((−∞,−2]) asymptotic to arg ρ = πp/q, traced
-      inward from ∞ by Newton continuation — pairwise disjoint, landing on the
-      p/q cusp. Dots are roots of the Farey polynomial Φ<sub>p/q</sub> + 2.
-      <b>Extensions</b> continue each ray past its cusp into the interior along
-      Φ<sub>p/q</sub> ∈ (−2, 2], where the p/q word is elliptic; the beads mark
-      Φ<sub>p/q</sub> = −2cos(π/n) — parameters of the <b>Heckoid groups</b> of
-      slope p/q and order n, accumulating at the cusp as n → ∞.
-      The <b>Ford regions</b> reproduce Riley's original picture: the colour
-      counts the faces of the Ford domain of ⟨X, E⟩, E(z) = 1/(ρz), which
-      swaps the two cusps ∞ and 0 and conjugates X to Y &mdash; that is, the
-      Ford domain of ⟨X, Y⟩ taken at <b>both</b> of its cusps (Riley's palette:
-      1 black, 3 blue, 5 green, 7 red, …). Its first walls are |ρ| = 4, where the
-      isometric circle of E meets its translate, and the cardioid
-      |ρ| = 2(1 + |cos arg ρ|), where the circles of E, EX⁻¹ and Y⁻¹ are
-      concurrent; each later wall is a vertex of the Ford domain reaching the
-      sphere at infinity, and the walls pile up at every cusp. “Cusp ∞ only”
-      shows the Ford domain of ⟨X, Y⟩ at ∞ alone, whose walls are algebraic:
-      the faces over the p/q arc are powers of the Farey word, W<sup>k</sup>
-      visible iff |S<sub>k−1</sub>(Φ<sub>p/q</sub>)| &lt; |S<sub>j−1</sub>| +
-      |S<sub>k−j−1</sub>| for 0 &lt; j &lt; k (Chebyshev S<sub>m</sub>), so each
-      fan opens on |Φ<sub>p/q</sub>(ρ)| = 2; its first wall is the
-      Lyndon–Ullman circle |ρ − 2| = 2.
-      Dot placement uses double-precision Aberth iteration, so keep dot depth
-      ≲ 28: the root cluster at ±4 is badly conditioned beyond that.
-      <br><br>
-      The <b>preview</b> follows the cursor like the Julia set beside a
-      Mandelbrot set. <b>Limit set</b>: the limit set of ⟨X, Y⟩, which is
-      X-periodic, by a depth-first search over reduced words beginning with
-      Y<sup>±1</sup>; a branch stops when the images of three of its limit
-      points lie within a pixel, and its colour records the first two letters
-      (Y… indigo, Y<sup>−1</sup>… teal). <b>Polyhedron</b>: the Ford domain of
-      the chosen group, ray-cast in upper half-space &mdash; the hemispheres
-      are its faces, the glass walls Re z = ±½ close it into one period of X,
-      and the bare floor around them is its free side, where the domain of
-      discontinuity shows. Both pictures first look for a Shimizu witness.
-      A click on a dot (a root of Φ<sub>p/q</sub> + 2) or a bead (a root of
-      Φ<sub>p/q</sub> + 2cos(π/n)) factors its polynomial over ℚ, keeps the
-      irreducible factor through that root, and polishes the root with Newton
-      steps evaluated exactly; “Open exactly in Dirichlet tool” then passes
-      that factor along as a root row, so the domain there is computed in the
-      number field.
+    <!-- Info: what it all means -->
+    <div id="tab-info" class="tab-content">
+      <div>
+        <h2 class="panel-title">The Riley Slice</h2>
+        <p class="panel-subtitle">The $\rho$ for which $\Gamma_\rho$ is discrete and free.
+          <a href="explanation.html">Full explanation</a> &middot; <a href="../../../index.html">Geometric Tools</a></p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">The picture</h3>
+        <p>The region the rays surround is (approximately) where
+          $\Gamma_\rho = \langle X, Y \rangle$, with $X = \left(\begin{smallmatrix}1&1\\0&1\end{smallmatrix}\right)$
+          and $Y = \left(\begin{smallmatrix}1&0\\\rho&1\end{smallmatrix}\right)$, fails to be free and discrete;
+          its complement is the <b>Riley slice</b>.</p>
+        <p>The coloured curves are the Keen–Series <b>pleating rays</b>: for each slope $p/q$, the
+          branch of $\Phi_{p/q}^{-1}\big((-\infty, -2]\big)$ asymptotic to $\arg\rho = \pi p/q$, traced
+          inward from $\infty$ by Newton continuation. They are pairwise disjoint and land on the
+          $p/q$ cusp. The dots are the roots of the Farey polynomials $\Phi_{p/q} + 2$.</p>
+        <p><b>Extensions</b> continue each ray past its cusp into the interior along
+          $\Phi_{p/q} \in (-2, 2]$, where the $p/q$ word is elliptic. The beads mark
+          $\Phi_{p/q} = -2\cos(\pi/n)$: the <b>Heckoid groups</b> of slope $p/q$ and order $n$,
+          accumulating at the cusp as $n \to \infty$.</p>
+        <p>The dots are computed for every slope with $q \le 128$, about 400&thinsp;000 of them,
+          by Aberth iteration in background workers, with $\Phi_{p/q}$ evaluated by its Stern–Brocot
+          recursion (never from its expanded coefficients, which reach $10^{25}$). The picture shows
+          the lowest slopes up to a fixed number of dots on screen, so their density stays the same
+          as you zoom, and sizes them by $q$ relative to the deepest slope shown. Every root
+          converges, even in the tight clusters at $\pm 4$: $P/P'$ is scaled before it is formed,
+          steps are capped so no iterate reaches where $\Phi$ overflows, and a root stops only when
+          its own Newton step is negligible.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">Ford regions at both cusps</h3>
+        <p>Riley's original picture. The colour counts the faces of the Ford domain of
+          $\langle X, E \rangle$, $E(z) = 1/(\rho z)$, which swaps the cusps $\infty$ and $0$ and
+          conjugates $X$ to $Y$: the Ford domain of $\Gamma_\rho$ taken at <b>both</b> of its cusps
+          (Riley's palette: 1 black, 3 blue, 5 green, 7 red, …).</p>
+        <p>It is computed exactly (power cells by half-plane clipping, faces closed under
+          products) in parallel workers, once per region: along each row the walls come from
+          the Ford domain's algebraic certificate, and nearly every wall is a corner of the
+          ideal boundary being covered by a third circle.</p>
+        <p>The first walls are $|\rho| = 4$ (white), where the isometric circle of $E$ meets its
+          translate, and the cardioid $|\rho| = 2(1 + |\cos\arg\rho|)$ (black), where the circles
+          of $E$, $EX^{-1}$ and $Y^{-1}$ are concurrent; dashed, the one-cusp wall
+          $|\rho \mp 2| = 2$. In the $\sqrt\rho$ plane they become the circle $|z| = 2$, the four
+          circles $|z \mp 1| = 1$, $|z \mp i| = 1$, and two lemniscates. Each later wall is a vertex
+          of the Ford domain reaching the sphere at infinity, and the walls pile up at every cusp.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">Ford regions at $\infty$ alone</h3>
+        <p>The Ford domain of $\Gamma_\rho$ at $\infty$, computed algebraically. Its faces over the
+          $p/q$ arc are powers $W^k$ of the Farey word, visible if and only if
+          $|S_{k-1}(\Phi_{p/q})| < |S_{j-1}(\Phi_{p/q})| + |S_{k-j-1}(\Phi_{p/q})|$ for all
+          $0 < j < k$ ($S_m$ the Chebyshev polynomials of the second kind), so each fan opens on
+          $|\Phi_{p/q}(\rho)| = 2$.</p>
+        <p>Its edges record which visible isometric circles overlap, $|C - C' - n| < r + r'$:
+          crossing an edge wall relinks the face graph without changing the faces, carving each
+          fan into the curvilinear panels of Jørgensen's picture. Colour = face pairs, shade =
+          linking class. The first wall is the Lyndon–Ullman circle $|\rho - 2| = 2$, not Riley's
+          $|\rho| = 4$: it misses the faces of the cusp at $0$.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">The $\sqrt\rho$ plane</h3>
+        <p>The $z$ for which $\left\langle \left(\begin{smallmatrix}1&z\\0&1\end{smallmatrix}\right),
+          \left(\begin{smallmatrix}1&0\\z&1\end{smallmatrix}\right) \right\rangle$ is discrete and
+          free. Conjugating by $\operatorname{diag}(\sqrt z, 1/\sqrt z)$ turns this pair into the
+          Riley generators with $\rho = z^2$, so the picture is the pullback of the Riley slice
+          under $z \mapsto z^2$: a double cover, symmetric under $z \mapsto -z$, with cusps at
+          $\pm 2$ and $\pm 2i$.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">The preview</h3>
+        <p>It follows the cursor like the Julia set beside a Mandelbrot set. <b>Limit set</b>: the
+          limit set of $\Gamma_\rho$, which is $X$-periodic, by a depth-first search over reduced
+          words beginning with $Y^{\pm 1}$. A branch stops when the images of three of its limit
+          points lie within a pixel, and its colour records the first two letters ($Y\cdots$
+          indigo, $Y^{-1}\cdots$ teal).</p>
+        <p><b>Polyhedron</b>: the Ford domain of the chosen group, ray-cast in upper half-space.
+          The hemispheres are its faces (those of the cusp at $0$ lighter), the glass walls
+          $\operatorname{Re} z = \pm\tfrac12$ close it into one period of $X$, and the bare floor
+          around them is its free side, where the domain of discontinuity shows. Both pictures
+          first look for a Shimizu witness.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">Exact values</h3>
+        <p>A click on a dot (a root of $\Phi_{p/q} + 2$) or a bead (a root of
+          $\Phi_{p/q} + 2\cos(\pi/n)$) factors its polynomial over $\mathbb{Q}$, keeps the
+          irreducible factor through that root, and polishes the root with Newton steps evaluated
+          exactly. PresentationCalc then runs on that exact group, and its verdicts (Zariski
+          closure, discreteness at every place, arithmeticity) appear under the selection.
+          “Open exactly in Dirichlet tool” passes the factor along as a root row, so the domain
+          there is computed in the number field.</p>
+      </div>
     </div>
 
   </div>
@@ -578,6 +758,7 @@
 
 <script src="fordCore.js?v=2026-11-01"></script>
 <script src="previewCore.js?v=2026-11-01"></script>
+<script src="dotCore.js?v=2026-11-02"></script>
 <script>
 "use strict";
 
@@ -621,14 +802,6 @@ function buildPolynomials() {
   }
   fareyFractions.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
 }
-function coeffsFloat(p, q, shift) {   // ascending Float64, + shift on constant
-  const z = polyZ.get(p + "/" + q);
-  const c = new Float64Array(z.length);
-  for (let i = 0; i < z.length; i++) c[i] = Number(z[i]);
-  c[0] += shift;
-  return c;
-}
-
 /* ---------------- cancellation-free evaluation of Phi ---------------------
    Phi_{p/q} must NEVER be evaluated from its expanded coefficients.  They
    reach 1e25 by q = 64 while |Phi| ~ 2 on the boundary, so double-precision
@@ -674,61 +847,6 @@ function evaluator(p, q) {            // (zr, zi) -> [Phi, Phi'] for this slope
   };
 }
 
-/* ---------------- Aberth-Ehrlich root finder ------------------------------ */
-
-/* Roots of Phi_{p/q} + 2 (the cusp / accidental-parabolic parameters).
-   Aberth-Ehrlich from circular seeds, but with Phi and Phi' supplied by the
-   recursion above -- evaluating them from the expanded coefficients puts two
-   thirds of these roots in the wrong place (measured errors up to 1.5). */
-function rootsOfPhiPlus2(p, q) {
-  if (q === 1) return [[p === 0 ? 4 : -4, 0]];
-  const ev = evaluator(p, q);
-  const c = coeffsFloat(p, q, 2);               // magnitudes only: root bound
-  let n = c.length - 1;
-  while (n > 0 && c[n] === 0) n--;
-  if (n < 1) return [];
-  let R = 0;                                    // Fujiwara bound
-  for (let k = 0; k < n; k++) {
-    const t = Math.pow(Math.abs(c[k] / c[n]) * (k === 0 ? 0.5 : 1), 1 / (n - k));
-    if (t > R) R = t;
-  }
-  R = 2 * R + 0.5;
-  const zr = new Float64Array(n), zi = new Float64Array(n);
-  for (let k = 0; k < n; k++) {
-    const th = 2 * Math.PI * k / n + 0.43;
-    const rad = R * (0.6 + 0.4 * (k % 3) / 2);
-    zr[k] = rad * Math.cos(th); zi[k] = rad * Math.sin(th);
-  }
-  const last = new Float64Array(n).fill(1);
-  for (let iter = 0; iter < 300; iter++) {
-    let maxStep = 0;
-    for (let k = 0; k < n; k++) {
-      const e = ev(zr[k], zi[k]);
-      const pr = e[0] + 2, pi = e[1], gr = e[2], gi = e[3];
-      const gden = gr * gr + gi * gi || 1e-300;
-      const wr = (pr * gr + pi * gi) / gden, wi = (pi * gr - pr * gi) / gden;
-      let sr = 0, si = 0;
-      for (let j = 0; j < n; j++) if (j !== k) {
-        const xr = zr[k] - zr[j], xi = zi[k] - zi[j];
-        const m = xr * xr + xi * xi || 1e-300;
-        sr += xr / m; si -= xi / m;
-      }
-      const qr = 1 - (wr * sr - wi * si), qi = -(wr * si + wi * sr);
-      const qm = qr * qr + qi * qi || 1e-300;
-      const cr = (wr * qr + wi * qi) / qm, ci = (wi * qr - wr * qi) / qm;
-      zr[k] -= cr; zi[k] -= ci;
-      last[k] = Math.hypot(cr, ci);
-      if (last[k] > maxStep) maxStep = last[k];
-    }
-    if (maxStep < 1e-13) break;
-  }
-  const roots = [];
-  for (let k = 0; k < n; k++)                    // keep only converged roots
-    if (last[k] < 1e-6 * Math.max(1, Math.hypot(zr[k], zi[k])))
-      roots.push([zr[k], zi[k]]);
-  return roots;
-}
-
 /* ---------------- geometry: rays, dots, extensions, envelope -------------- */
 
 const R0 = 30.0, XLIM = 5.6, YLIM = 3.67;   // R0 must be large: the q branches
@@ -742,7 +860,106 @@ const R0 = 30.0, XLIM = 5.6, YLIM = 3.67;   // R0 must be large: the q branches
                                             // truncation circle off-screen
                                             // in the sqrt plane.
 let rays = [];        // {pts: [x0,y0,...], slope, flat}
-let dots = [];        // {x, y, q}
+/* the dots: every root of Phi_{p/q} + 2 with q <= DOT_QMAX, filled in by a
+   few workers (dotCore.js) in ascending q.  Typed arrays: x, y in the rho
+   plane, sx, sy the principal square root (the sqrt plane draws +-), p, q
+   the slope, i the root's number among its slope's.  levelDone is the q up
+   to which every slope is in, so the density count never sees half a level. */
+const DOT_QMAX = 128;
+const DOTS = { n: 0, cap: 0, x: null, y: null, sx: null, sy: null, p: null, q: null, i: null,
+               levelDone: 0, done: false, t0: 0 };
+let dotQv = 0;        // the deepest slope drawn on screen just now (clickable dots)
+
+/* Batches of slopes in ascending q (about equal work, sum of q^2 per batch)
+   go to a few workers; results are appended in batch order. */
+let dotPool = null;
+function startDots() {
+  if (dotPool) return;
+  const gcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+  const batches = [];
+  let cur = [], work = 0;
+  for (let q = 1; q <= DOT_QMAX; q++)
+    for (let p = 0; p <= q; p++) {
+      if (gcd(p, q) !== 1) continue;
+      cur.push([p, q]); work += q * q;
+      if (work >= 60000) { batches.push(cur); cur = []; work = 0; }
+    }
+  if (cur.length) batches.push(cur);
+  const src = `const DC = (${dotCoreFactory.toString()})();
+    onmessage = (e) => {
+      const { id, fr } = e.data, meta = [], parts = [];
+      let total = 0;
+      for (const [p, q] of fr) {
+        const r = DC.roots(p, q);
+        meta.push(p, q, r.xy.length / 2); parts.push(r.xy); total += r.xy.length;
+      }
+      const xy = new Float64Array(total);
+      let o = 0;
+      for (const a of parts) { xy.set(a, o); o += a.length; }
+      postMessage({ id, meta: new Int32Array(meta), xy }, [xy.buffer]);
+    };`;
+  const url = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
+  const nW = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) >> 2));
+  dotPool = { batches, next: 0, results: [], appended: 0, painted: 0 };
+  DOTS.t0 = performance.now();
+  for (let w = 0; w < nW; w++) {
+    const wk = new Worker(url);
+    wk.onmessage = e => onDots(wk, e.data);
+    feedDots(wk);
+  }
+}
+function feedDots(wk) {
+  const P = dotPool;
+  if (P.next >= P.batches.length) { wk.terminate(); return; }
+  const id = P.next++;
+  wk.postMessage({ id, fr: P.batches[id] });
+}
+function appendDots(meta, xy) {
+  const need = DOTS.n + xy.length / 2;
+  if (need > DOTS.cap) {
+    const cap = Math.max(need, 2 * DOTS.cap, 8192);
+    for (const [k, T] of [["x", Float64Array], ["y", Float64Array], ["sx", Float64Array],
+                          ["sy", Float64Array], ["p", Uint16Array], ["q", Uint16Array], ["i", Uint16Array]]) {
+      const a = new T(cap);
+      if (DOTS[k]) a.set(DOTS[k].subarray(0, DOTS.n));
+      DOTS[k] = a;
+    }
+    DOTS.cap = cap;
+  }
+  let o = 0;
+  for (let m = 0; m < meta.length; m += 3) {
+    const p = meta[m], q = meta[m + 1], c = meta[m + 2];
+    for (let i = 0; i < c; i++, o++) {
+      const x = xy[2 * o], y = xy[2 * o + 1], k = DOTS.n++;
+      const r = Math.hypot(x, y);              // principal square root, for the sqrt plane
+      let wr = Math.sqrt(Math.max((r + x) / 2, 0)), wi = Math.sqrt(Math.max((r - x) / 2, 0));
+      if (y < 0) wi = -wi;
+      DOTS.x[k] = x; DOTS.y[k] = y; DOTS.sx[k] = wr; DOTS.sy[k] = wi;
+      DOTS.p[k] = p; DOTS.q[k] = q; DOTS.i[k] = i;
+    }
+  }
+}
+function onDots(wk, { id, meta, xy }) {
+  const P = dotPool;
+  P.results[id] = { meta, xy };
+  while (P.appended < P.batches.length && P.results[P.appended]) {
+    const r = P.results[P.appended];
+    P.results[P.appended] = null;
+    appendDots(r.meta, r.xy);
+    P.appended++;
+    // every slope below the next batch's first q is in
+    DOTS.levelDone = P.appended < P.batches.length ? P.batches[P.appended][0][1] - 1 : DOT_QMAX;
+  }
+  feedDots(wk);
+  const now = performance.now();
+  if (P.appended === P.batches.length && !DOTS.done) {
+    DOTS.done = true;
+    statusEl.textContent = `${DOTS.n.toLocaleString()} dots, every slope to q = ${DOT_QMAX}, ` +
+      `in ${((now - DOTS.t0) / 1000).toFixed(1)} s`;
+  }
+  if (!regionPoly.length && DOTS.levelDone >= 22) { buildEnvelope(); geomVersion++; }
+  if (DOTS.done || now - P.painted > 200) { P.painted = now; draw(); }
+}
 let exts = [];        // {pts, beads: [{x, y, n}]}
 let regionPoly = [];  // [[x,y],...]
 let geomVersion = 0;
@@ -828,7 +1045,17 @@ function traceExtension(ev, x0, y0) {
       zr = nzr; zi = nzi; s = sn;
       scale = Math.min(scale * 1.4, 1);
       pts.push(zr, zi);
-      if (hit >= 0) { beads.push({ x: zr, y: zi, n: BEAD_NMAX - hit }); bi++; }
+      if (hit >= 0) {
+        const n = BEAD_NMAX - hit;
+        if (n === 1) {                // the end of the extension: see polishOrderOne
+          [zr, zi] = polishOrderOne(ev, zr, zi);
+          pts[pts.length - 2] = zr; pts[pts.length - 1] = zi;
+        }
+        // rho = 0 (Y = I) ends the 0/1, 1/1 and 1/2 extensions: it is the
+        // degenerate point the origin dot marks, not a Heckoid group
+        if (Math.hypot(zr, zi) > 1e-9) beads.push({ x: zr, y: zi, n });
+        bi++;
+      }
       if (Math.abs(zr) > 6 || Math.abs(zi) > 6) break;
     } else {
       scale *= 0.5;
@@ -838,13 +1065,46 @@ function traceExtension(ev, x0, y0) {
   return pts.length >= 4 ? { pts, beads } : null;
 }
 
+/* The order-1 bead, Phi = 2, usually sits on a DOUBLE root of Phi - 2 (a
+   critical point of Phi: Phi_{1/2} - 2 = rho^2, and 2-bridge link points are
+   squared factors), where continuation in Phi stalls about sqrt(tolerance)
+   short -- 1.4e-3 i for slope 1/2, which the square root blows up to the four
+   stray dots around the origin of the sqrt plane.  Newton on Phi' (Phi'' by a
+   difference quotient) lands on the critical point; at a simple root, Newton
+   on Phi - 2 instead.  The result is kept only if Phi = 2 there.          */
+function polishOrderOne(ev, x, y) {
+  const at = (x, y) => { const e = ev(x, y); return [e[0], e[1], e[2], e[3]]; };
+  let [fr, fi, gr, gi] = at(x, y);
+  const critical = Math.hypot(gr, gi) < 1e-2 * (1 + Math.hypot(x, y));
+  let px = x, py = y;
+  for (let it = 0; it < 40; it++) {
+    let nr, ni, dr, di;
+    if (critical) {                              // Newton on Phi'
+      const h = 1e-7 * Math.max(1, Math.hypot(px, py));
+      const e2 = at(px + h, py);
+      nr = gr; ni = gi; dr = (e2[2] - gr) / h; di = (e2[3] - gi) / h;
+    } else {                                     // Newton on Phi - 2
+      nr = fr - 2; ni = fi; dr = gr; di = gi;
+    }
+    const den = dr * dr + di * di;
+    if (!(den > 0)) break;
+    const sr = (nr * dr + ni * di) / den, si = (ni * dr - nr * di) / den;
+    px -= sr; py -= si;
+    [fr, fi, gr, gi] = at(px, py);
+    if (Math.hypot(sr, si) < 1e-15 * Math.max(1, Math.hypot(px, py))) break;
+  }
+  const ok = Math.hypot(fr - 2, fi) < 1e-9 * (1 + Math.hypot(px, py)) && Math.hypot(px - x, py - y) < 0.05;
+  return ok ? [px, py] : [x, y];
+}
+
 function buildEnvelope() {
   const nx = 560, xs = [], h = new Float64Array(nx);
   for (let i = 0; i < nx; i++) xs.push(-4 + 8 * i / (nx - 1));
-  const safe = dots.filter(o => o.q <= 22 && o.y >= -1e-9);
-  for (const o of safe) {
-    const i = Math.max(0, Math.min(nx - 1, Math.round((o.x + 4) / 8 * (nx - 1))));
-    if (o.y > h[i]) h[i] = o.y;
+  for (let k = 0; k < DOTS.n; k++) {
+    if (DOTS.q[k] > 22 || DOTS.y[k] < -1e-9) continue;
+    const x = DOTS.x[k], y = DOTS.y[k];
+    const i = Math.max(0, Math.min(nx - 1, Math.round((x + 4) / 8 * (nx - 1))));
+    if (y > h[i]) h[i] = y;
   }
   const gi = [], gv = [];
   for (let i = 0; i < nx; i++) if (h[i] > 0) { gi.push(i); gv.push(h[i]); }
@@ -912,11 +1172,9 @@ function isFlatPath(pts) {
 let sqrtCache = null;
 function ensureSqrt() {
   if (sqrtCache && sqrtCache.version === geomVersion &&
-      sqrtCache.nRays === rays.length && sqrtCache.nExts === exts.length &&
-      sqrtCache.nDots === dots.length) return;
+      sqrtCache.nRays === rays.length && sqrtCache.nExts === exts.length) return;
   const sq = { version: geomVersion, nRays: rays.length, nExts: exts.length,
-               nDots: dots.length, rays: [], exts: [], beads: [], dots: [],
-               region: [] };
+               rays: [], exts: [], beads: [], region: [] };
   for (const ray of rays) {
     const s1 = sqrtPath(ray.pts);
     for (const pts of [s1, negPath(s1)])
@@ -929,10 +1187,6 @@ function ensureSqrt() {
       const [wr, wi] = csqrt(b.x, b.y);
       sq.beads.push({ x: wr, y: wi, n: b.n }, { x: -wr, y: -wi, n: b.n });
     }
-  }
-  for (const o of dots) {
-    const [wr, wi] = csqrt(o.x, o.y);
-    sq.dots.push({ x: wr, y: wi, q: o.q }, { x: -wr, y: -wi, q: o.q });
   }
   if (regionPoly.length) {            // one loop upstairs = boundary twice
     const flat = new Float64Array(regionPoly.length * 2);
@@ -950,13 +1204,12 @@ function activeGeom() {
   if (plane === "sqrt") {
     ensureSqrt();
     return { rayList: sqrtCache.rays, extList: sqrtCache.exts,
-             beadList: sqrtCache.beads, dotList: sqrtCache.dots,
-             regionPts: sqrtCache.region };
+             beadList: sqrtCache.beads, regionPts: sqrtCache.region };
   }
   const beadList = [];
   for (const e of exts) for (const b of e.beads) beadList.push(b);
   return { rayList: rays, extList: exts.map(e => e.pts), beadList,
-           dotList: dots, regionPts: regionPoly };
+           regionPts: regionPoly };
 }
 
 /* ---------------- Ford-domain combinatorics (Riley's regions) --------------
@@ -1515,29 +1768,12 @@ let computeToken = 0;
 
 async function recomputeAll() {
   const token = ++computeToken;
-  const rayQ = +ui.rayQ.value, dotQ = +ui.dotQ.value, arcQ = +ui.arcQ.value;
-  rays = []; dots = []; exts = []; regionPoly = [];
+  const rayQ = +ui.rayQ.value, arcQ = +ui.arcQ.value;
+  rays = []; exts = []; regionPoly = [];
   geomVersion++;
-
-  // dots
-  const dotFracs = fareyFractions.filter(([, q]) => q <= dotQ);
-  for (let i = 0; i < dotFracs.length; i++) {
-    if (token !== computeToken) return;
-    const [p, q] = dotFracs[i];
-    const roots = rootsOfPhiPlus2(p, q);
-    let ki = 0;
-    for (const [x, y] of roots)
-      if (Math.abs(x) <= 4.005 && Math.abs(y) <= 2.01)
-        dots.push({ x, y, p, q, i: ki++ });
-    if (i % 25 === 24) {
-      statusEl.textContent = `roots: ${i + 1}/${dotFracs.length}`;
-      await new Promise(r => setTimeout(r, 0));
-    }
-  }
-  dots.push({ x: 0, y: 0, q: 1, origin: true }); // rho = 0
-  buildEnvelope();
+  if (DOTS.levelDone >= 22) buildEnvelope();  // provisional, until the rays land
   draw();
-  scheduleFord(0);                    // provisional envelope is good enough
+  scheduleFord(0);
 
   // principal pleating rays + extensions past the cusp
   const rayFracs = fareyFractions.filter(([, q]) => q <= rayQ);
@@ -1575,7 +1811,8 @@ async function recomputeAll() {
     geomVersion++;                    // invalidate the sqrt-plane cache
   }
   statusEl.textContent =
-    `${rays.length} rays · ${dots.length} dots · ${exts.length} extensions`;
+    `${rays.length} rays · ${exts.length} extensions` +
+    (DOTS.done ? ` · ${DOTS.n.toLocaleString()} dots` : "");
   draw();
   scheduleFord(50);                   // final envelope: redo the interior mask
 }
@@ -1614,7 +1851,7 @@ function drawScene(g, W, H, pixelRatio) {
   const s = baseScale(W, H);
   const toX = x => W / 2 + (x - view.cx) * s;
   const toY = y => H / 2 - (y - view.cy) * s;
-  const { rayList, extList, beadList, dotList, regionPts } = activeGeom();
+  const { rayList, extList, beadList, regionPts } = activeGeom();
   g.fillStyle = ui.bgCol.value;
   g.fillRect(0, 0, W, H);
 
@@ -1701,16 +1938,7 @@ function drawScene(g, W, H, pixelRatio) {
     }
   }
 
-  if (ui.showDots.checked) {
-    g.fillStyle = ui.dotCol.value;
-    const mult = +ui.dotSize.value * pixelRatio;
-    for (const o of dotList) {
-      const r = Math.min(6, Math.max(0.35, 5.5 / Math.pow(o.q, 1.1))) * mult;
-      g.beginPath();
-      g.arc(toX(o.x), toY(o.y), r, 0, 2 * Math.PI);
-      g.fill();
-    }
-  }
+  if (ui.showDots.checked) drawDots(g, W, H, s, pixelRatio, toX, toY);
 
   if (sel) {                                    // selection marker
     const [px, py] = plane === "sqrt" ? [sel.zx, sel.zy] : [sel.x, sel.y];
@@ -1720,6 +1948,51 @@ function drawScene(g, W, H, pixelRatio) {
     g.arc(toX(px), toY(py), 7 * pixelRatio, 0, 2 * Math.PI);
     g.stroke();
   }
+}
+
+/* The dots at constant density: count the dots in view slope by slope (only
+   levels every slope of which is in), take the lowest slopes up to the target
+   number on screen, and size them by q relative to the deepest one shown, so
+   that zooming in brings in deeper slopes and the picture looks the same. */
+function drawDots(g, W, H, s, pixelRatio, toX, toY) {
+  const sqp = plane === "sqrt";
+  const pad = 8 * pixelRatio / s;
+  const xl = view.cx - W / 2 / s - pad, xh = view.cx + W / 2 / s + pad;
+  const yl = view.cy - H / 2 / s - pad, yh = view.cy + H / 2 / s + pad;
+  const QM = DOTS.levelDone;
+  const X = sqp ? DOTS.sx : DOTS.x, Y = sqp ? DOTS.sy : DOTS.y, Q = DOTS.q;
+  const inView = (x, y) => x >= xl && x <= xh && y >= yl && y <= yh;
+  const cnt = new Uint32Array(QM + 2);
+  for (let k = 0; k < DOTS.n; k++) {
+    const q = Q[k];
+    if (q > QM) continue;
+    if (inView(X[k], Y[k])) cnt[q]++;
+    if (sqp && inView(-X[k], -Y[k])) cnt[q]++;
+  }
+  const target = +ui.dotDensity.value * (W * H) / (pixelRatio * pixelRatio) / (1280 * 800);
+  let acc = 0, Qv = 1;
+  for (let q = 1; q <= QM; q++) {
+    if (q > 1 && acc + cnt[q] > target) break;
+    acc += cnt[q]; Qv = q;
+  }
+  if (g === ctx) dotQv = Qv;
+  const mult = +ui.dotSize.value * pixelRatio;
+  const rad = q => Math.min(7, Math.max(0.55, 0.55 * Math.pow(Qv / q, 0.73))) * mult;
+  const paths = [];
+  const put = (q, x, y) => {
+    const px = toX(x), py = toY(y), r = rad(q);
+    const P = paths[q] || (paths[q] = new Path2D());
+    P.moveTo(px + r, py); P.arc(px, py, r, 0, 2 * Math.PI);
+  };
+  for (let k = 0; k < DOTS.n; k++) {
+    const q = Q[k];
+    if (q > Qv) continue;
+    if (inView(X[k], Y[k])) put(q, X[k], Y[k]);
+    if (sqp && inView(-X[k], -Y[k])) put(q, -X[k], -Y[k]);
+  }
+  put(1, 0, 0);                                // rho = 0
+  g.fillStyle = ui.dotCol.value;
+  for (const P of paths) if (P) g.fill(P);
 }
 
 /* First walls of the Ford regions, in rho: |rho| = 4 and the cardioid
@@ -1779,21 +2052,21 @@ function draw() {
 /* ---------------- UI wiring ----------------------------------------------- */
 
 const ui = {};
-for (const id of ["rayQ", "dotQ", "arcQ", "hueL", "hueR", "gamma", "sat", "val",
+for (const id of ["rayQ", "dotDensity", "arcQ", "hueL", "hueR", "gamma", "sat", "val",
                   "wheel", "lw", "alpha", "dotSize", "bgCol", "fillCol", "dotCol",
                   "showRays", "showDots", "showArcs", "showFill", "preset",
                   "showRegions", "fordQ", "fordAlpha", "showWalls", "fillOuter",
                   "inkRays", "regionPal", "regionCycle", "regionHue"])
   ui[id] = document.getElementById(id);
 
-for (const id of ["rayQ", "dotQ", "arcQ", "hueL", "hueR", "gamma", "sat", "val",
+for (const id of ["rayQ", "dotDensity", "arcQ", "hueL", "hueR", "gamma", "sat", "val",
                   "lw", "alpha", "dotSize", "fordQ", "fordAlpha",
                   "regionCycle", "regionHue"]) {
   const out = document.querySelector(`[data-out=${id}]`);
   ui[id].addEventListener("input", () => { if (out) out.textContent = ui[id].value; });
 }
 for (const id of ["hueL", "hueR", "gamma", "sat", "val", "wheel", "lw", "alpha",
-                  "dotSize", "bgCol", "fillCol", "dotCol",
+                  "dotSize", "dotDensity", "bgCol", "fillCol", "dotCol",
                   "showRays", "showDots", "showArcs", "showFill", "showWalls", "inkRays"])
   ui[id].addEventListener("input", draw);
 
@@ -1838,7 +2111,7 @@ function syncRegionUI() {
     const c = FordCore.paletteColor(regionPal.name, fordEngine === "ext" ? n : 2 * n - 1, regionPal);
     const d = document.createElement("div");
     d.innerHTML = `<span style="display:block;height:13px;border-radius:3px;margin-bottom:2px;
-      border:1px solid var(--border);background:rgb(${c})"></span>${n}`;
+      border:1px solid var(--hairline);background:rgb(${c})"></span>${n}`;
     leg.appendChild(d);
   }
 }
@@ -1909,9 +2182,7 @@ function selectables() {              // everything clickable, in rho coords
     items.push({ kind: "cusp", p: r.p, q: r.q, x, y });
     if (Math.abs(y) > 1e-9) items.push({ kind: "cusp", p: r.p, q: r.q, x, y: -y });
   }
-  for (const o of dots)
-    items.push(o.origin ? { kind: "origin", x: 0, y: 0 }
-                        : { kind: "root", p: o.p, q: o.q, i: o.i, x: o.x, y: o.y });
+  items.push({ kind: "origin", x: 0, y: 0 });
   return items;
 }
 
@@ -2037,6 +2308,7 @@ function describeSelection() {
   lines.push(`ρ = ${fmtC(sel.x, sel.y, digits)}`);
   lines.push(`√ρ = ${fmtC(sel.zx, sel.zy, digits)}`);
   lines.push(...exactLines(sel));
+  if (sel.exact && sel.exact.F) lines.push(`<div id="pcBlock" class="pc-block"></div>`);
   exportBtn.textContent = sel.exact && sel.exact.F && sel.exact.deg <= 32
     ? "Open exactly in Dirichlet tool" : "Open in Dirichlet tool";
   if (sel.p !== undefined && sel.q !== undefined && !(sel.kind === "origin")) {
@@ -2069,6 +2341,7 @@ function describeSelection() {
         X = z + 1: Shimizu's lemma fails, Γ<sub>ρ</sub> (index ≤ 2 in ⟨X, E⟩) is not discrete, and ρ is
         outside the Riley slice.`);
       selInfoEl.innerHTML = lines.join("<br>");
+      renderPC(sel);
       exportBtn.disabled = false;
       copyBtn.disabled = false;
       return;
@@ -2116,6 +2389,7 @@ function describeSelection() {
       keys.length === 1 ? "" : "s"} by direct word search &mdash; ${shown}${extra}`);
   }
   selInfoEl.innerHTML = lines.join("<br>");
+  renderPC(sel);
   exportBtn.disabled = false;
   copyBtn.disabled = false;
 }
@@ -2143,6 +2417,15 @@ function handleClick(clientX, clientY) {
     const d = Math.hypot(it.x - rx, it.y - ry);
     if (d < bestD) { bestD = d; best = it; }
   }
+  for (let k = 0; k < DOTS.n; k++) {          // the dots on screen (q <= dotQv)
+    if (DOTS.q[k] > dotQv) continue;
+    const d = Math.hypot(DOTS.x[k] - rx, DOTS.y[k] - ry);
+    if (d < bestD) {
+      bestD = d;
+      best = { kind: "root", p: DOTS.p[k], q: DOTS.q[k], i: DOTS.i[k], x: DOTS.x[k], y: DOTS.y[k] };
+    }
+  }
+  stopPresentationCalc();
   sel = best ? { ...best } : { kind: "point", x: rx, y: ry };
   setSqrtBranch(sel, zx, zy);
   describeSelection();
@@ -2181,7 +2464,127 @@ async function makeExact(s) {
   if (sel !== s) return;
   describeSelection();
   draw();
-  if (s.exact) pvRequest(selTarget(), true);
+  if (s.exact) {
+    pvRequest(selTarget(), true);
+    startPresentationCalc(s);
+  }
+}
+
+/* ---------------- PresentationCalc on an exact dot --------------------------
+   With a dot or bead known exactly, PresentationCalc runs on
+   Gamma_rho = <(1 1; 0 1), (1 0; w 1)>, w the root row, in a hidden frame of
+   this origin, and its summary -- Zariski closure, discreteness at every
+   place (each Galois conjugate of rho at infinity, every prime), and
+   arithmeticity -- is read back as it fills in.  Each KaTeX formula there is
+   read by its TeX source and typeset again here.  The frame, and with it
+   every worker it started, goes away when the run ends or the selection
+   changes.                                                                */
+const PC_URL = "../../../../PresentationCalc/";
+const PC_SECONDS = 180;
+let pcFrame = null, pcTimer = 0;
+function pcState(ex) {
+  const exactRat = ex.deg === 1;                 // F = w + c: rho = -c, no field needed
+  return {
+    v: 1, anti: [false, false],
+    mats: [["1", "1", "0", "1"], ["1", "0", exactRat ? String(-ex.F[0]) : "w", "1"]],
+    consts: exactRat ? [] : [{ name: "w", poly: polyLatex(ex.F, "w"), near: { re: ex.x, im: ex.y } }],
+  };
+}
+function pcLink(ex) {                            // the poincare permalink format PresentationCalc reads
+  const bytes = new TextEncoder().encode(JSON.stringify(pcState(ex)));
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return PC_URL + "#s=" + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function stopPresentationCalc() {
+  clearInterval(pcTimer); pcTimer = 0;
+  if (pcFrame) { pcFrame.remove(); pcFrame = null; }
+}
+function startPresentationCalc(s) {
+  stopPresentationCalc();
+  if (!s.exact || !s.exact.F || s.exact.deg > 32) return;
+  if (location.protocol === "file:") { s.pc = { error: "needs the page served over http(s)" }; renderPC(s); return; }
+  s.pc = { rows: [], done: false, t0: performance.now() };
+  pcFrame = document.createElement("iframe");
+  pcFrame.setAttribute("aria-hidden", "true");
+  pcFrame.tabIndex = -1;
+  pcFrame.title = "PresentationCalc (hidden)";
+  pcFrame.style.cssText = "position:fixed; left:-12000px; top:0; width:960px; height:720px; border:0; visibility:hidden";
+  pcFrame.src = pcLink(s.exact);
+  document.body.appendChild(pcFrame);
+  renderPC(s);
+  pcTimer = setInterval(() => readPresentationCalc(s), 700);
+}
+/* an element's content as HTML, each KaTeX formula replaced by \( its TeX \) */
+function pcTeX(el) {
+  if (!el) return "";
+  const c = el.cloneNode(true);
+  for (const k of [...c.querySelectorAll(".katex-display, .katex")]) {
+    if (!c.contains(k)) continue;              // inside a display formula already replaced
+    const ann = k.querySelector('annotation[encoding="application/x-tex"]');
+    const disp = k.classList.contains("katex-display");
+    k.replaceWith(document.createTextNode(ann ? (disp ? `\\[${ann.textContent}\\]` : `\\(${ann.textContent}\\)`) : k.textContent));
+  }
+  for (const b of c.querySelectorAll("button, script")) b.remove();
+  return c.innerHTML.trim();
+}
+function readPresentationCalc(s) {
+  if (sel !== s || !pcFrame) { stopPresentationCalc(); return; }
+  const secs = (performance.now() - s.pc.t0) / 1000;
+  let doc = null;
+  try { doc = pcFrame.contentDocument; } catch (e) { /* not this origin */ }
+  const list = doc && doc.getElementById("step-list");
+  if (list && list.children.length) {
+    const rows = [];
+    for (const el of list.children) {
+      const nm = el.querySelector(".sum-name");
+      const row = { name: nm ? nm.textContent.trim() : "", verdict: nm ? nm.dataset.verdict || "" : "",
+                    status: el.dataset.status || "", sub: el.classList.contains("sum-sub") };
+      if (el.classList.contains("sum-group"))
+        row.places = [...el.querySelectorAll(".sum-place")].map(p => ({
+          status: p.dataset.status, name: pcTeX(p.querySelector(".sp-name")), text: pcTeX(p.querySelector(".sp-text")) }));
+      else row.text = pcTeX(el.querySelector(".sum-text"));
+      rows.push(row);
+    }
+    const busy = [...list.querySelectorAll("[data-status]")].some(e => /running|pending/.test(e.dataset.status));
+    s.pc.rows = rows;
+    s.pc.head = pcTeX(doc.getElementById("v-head"));
+    s.pc.done = !busy;
+  } else if (secs > 15 && !s.pc.retried && pcFrame.contentWindow) {
+    // nothing yet: a module that failed to load leaves the page inert -- load it once more
+    s.pc.retried = true;
+    pcFrame.contentWindow.location.reload();
+  }
+  if (s.pc.done || secs > PC_SECONDS) {
+    if (!s.pc.done) s.pc.timeout = true;
+    clearInterval(pcTimer); pcTimer = 0;
+    if (pcFrame) { pcFrame.remove(); pcFrame = null; }
+  }
+  renderPC(s);
+}
+let pcKey = "";
+function renderPC(s) {
+  const box = document.getElementById("pcBlock");
+  if (!box || !s || !s.exact) return;
+  const pc = s.pc;
+  let html = `<div class="pc-head">PresentationCalc`;
+  if (pc && !pc.error) html += ` <span class="pc-state">${pc.done ? "" : pc.timeout ? "stopped after " + PC_SECONDS + " s" : "computing…"}</span>`;
+  html += ` <a class="pc-open" href="${pcLink(s.exact)}" target="_blank" rel="noopener" title="The full report, in a new tab">report ↗</a></div>`;
+  if (!pc) html += `<div class="pc-row"><span class="pc-text">waiting for the exact value…</span></div>`;
+  else if (pc.error) html += `<div class="pc-row"><span class="pc-text">${pc.error}</span></div>`;
+  else if (!pc.rows.length) html += `<div class="pc-row"><span class="pc-text">starting…</span></div>`;
+  for (const r of (pc && pc.rows) || []) {
+    html += `<div class="pc-row${r.sub ? " pc-sub" : ""}"><span class="pc-name" data-verdict="${r.verdict}">${r.name}</span>`;
+    if (r.places) html += `<span class="pc-text">${r.places.map(p =>
+      `<span class="pc-place" data-status="${p.status}"><i></i>${p.name} ${p.text}</span>`).join("")}</span>`;
+    else html += `<span class="pc-text">${r.text}</span>`;
+    html += `</div>`;
+  }
+  const key = html;
+  if (key === pcKey && box.childElementCount) return;  // unchanged: keep the typeset copy
+  pcKey = key;
+  box.innerHTML = html;
+  if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([box]).catch(() => {});
 }
 
 exportBtn.addEventListener("click", () => {
@@ -2236,6 +2639,7 @@ function applyPreset(p) {
 }
 ui.preset.addEventListener("change", () => {
   if (ui.preset.value === "random") randomPalette();
+  else if (ui.preset.value === "classic") applyPreset({ ...presets.classic, ...sceneColors() });
   else applyPreset(presets[ui.preset.value]);
 });
 function randomPalette() {
@@ -2267,37 +2671,90 @@ document.getElementById("export").addEventListener("click", () => {
   }, "image/png");
 });
 
-/* FLIP-style collapse: measure both end states, animate between them
-   explicitly, and freeze the innards' width so nothing reflows. */
-function setPanelCollapsed(panel, collapsed) {
-  const frozen = panel.querySelectorAll('.panel-header, .panel-content');
-  const from = panel.getBoundingClientRect();
-  panel.classList.toggle('collapsed', collapsed);
-  panel.style.transition = 'none';
-  panel.style.width = '';
-  panel.style.height = '';
-  const to = panel.getBoundingClientRect();
-  const wide = Math.max(from.width, to.width) - 2;   // inside the 1px borders
-  for (const el of frozen) el.style.minWidth = wide + 'px';
-  panel.style.width = from.width + 'px';
-  panel.style.height = from.height + 'px';
-  void panel.offsetWidth;   // commit the start state before re-enabling the transition
-  panel.style.transition = '';
-  panel.style.width = to.width + 'px';
-  panel.style.height = to.height + 'px';
-  clearTimeout(panel._collapseTimer);
-  panel._collapseTimer = setTimeout(() => {
-    panel.style.width = '';
-    panel.style.height = '';
-    for (const el of frozen) el.style.minWidth = '';
-  }, 420);
+/* ---------------- the panel: tabs, collapse, help, theme, refresh ----------
+   As in Kleinian/poincare and Algebraic/Tools/2dimFields: Group (the
+   mathematics), View (how it is drawn), Info (what it means), and round
+   buttons for help, theme, refresh and collapse (H).                      */
+const typingIn = e => !!(e.target && e.target.closest && e.target.closest("input, textarea, select"));
+{
+  const tabBtns = [...document.querySelectorAll("#control-panel .tab-btn")];
+  const activate = (btn, focus = false) => {
+    for (const b of tabBtns) {
+      const on = b === btn;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", String(on));
+      b.tabIndex = on ? 0 : -1;
+      document.getElementById(`tab-${b.dataset.tab}`).classList.toggle("active", on);
+    }
+    if (focus) btn.focus();
+  };
+  tabBtns.forEach((btn, i) => {
+    btn.id = `tab-button-${btn.dataset.tab}`;
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-controls", `tab-${btn.dataset.tab}`);
+    document.getElementById(`tab-${btn.dataset.tab}`).setAttribute("role", "tabpanel");
+    btn.addEventListener("click", () => activate(btn));
+    btn.addEventListener("keydown", e => {
+      const n = tabBtns.length;
+      const next = { ArrowRight: (i + 1) % n, ArrowLeft: (i + n - 1) % n, Home: 0, End: n - 1 }[e.key];
+      if (next === undefined) return;
+      e.preventDefault();
+      activate(tabBtns[next], true);
+    });
+  });
+  activate(tabBtns[0]);
+
+  const panel = document.getElementById("control-panel");
+  const collapse = document.getElementById("collapse-btn");
+  const sync = () => {
+    const c = panel.classList.contains("collapsed");
+    collapse.title = c ? "Expand panel (H)" : "Collapse panel (H)";
+    collapse.setAttribute("aria-label", collapse.title);
+    collapse.setAttribute("aria-expanded", String(!c));   // the × turns into a + by rotation
+  };
+  const toggle = () => { panel.classList.toggle("collapsed"); sync(); };
+  collapse.addEventListener("click", toggle);
+  window.addEventListener("keydown", e => {
+    if ((e.key === "h" || e.key === "H") && !e.metaKey && !e.ctrlKey && !e.altKey && !typingIn(e)) toggle();
+  });
+  if (matchMedia("(max-width: 600px)").matches) panel.classList.add("collapsed");  // a phone sees the picture first
+  sync();
 }
-document.getElementById('collapseBtn').addEventListener('click', e => {
-  const panel = document.getElementById('control-panel');
-  const collapsed = !panel.classList.contains('collapsed');
-  setPanelCollapsed(panel, collapsed);
-  e.currentTarget.title = collapsed ? 'Expand panel' : 'Collapse panel';
+document.getElementById("help-btn").addEventListener("click", () => window.open("explanation.html", "_blank"));
+document.getElementById("refresh-btn").addEventListener("click", () => {
+  recomputeAll();
+  pvRefresh();
 });
+
+/* The theme: Dark/Light in the View tab and the sun/moon in the header.  The
+   picture's background, region fill and dots follow it, as does the preview. */
+const SCENE = {
+  light: { bgCol: "#e3e3e3", fillCol: "#ffffff", dotCol: "#000000" },
+  dark:  { bgCol: "#11141f", fillCol: "#07090f", dotCol: "#e6e2d6" },
+};
+const isLight = () => document.documentElement.classList.contains("light");
+const sceneColors = () => SCENE[isLight() ? "light" : "dark"];
+const themeBtns = [...document.querySelectorAll(".theme-opt")];
+function syncTheme() {
+  themeBtns.forEach(b => b.classList.toggle("active", (b.dataset.theme === "light") === isLight()));
+  const tip = isLight() ? "Switch to dark mode" : "Switch to light mode";
+  const btn = document.getElementById("theme-btn");
+  btn.title = tip;
+  btn.setAttribute("aria-label", tip);
+}
+function setTheme(t) {
+  document.documentElement.classList.toggle("light", t === "light");
+  if (!new URLSearchParams(location.search).has("theme")) {
+    try { localStorage.setItem("rileySlice-theme", t); } catch (e) { /* storage blocked */ }
+  }
+  syncTheme();
+  applyPreset(sceneColors());
+  pvRefresh();
+}
+themeBtns.forEach(b => b.addEventListener("click", () => setTheme(b.dataset.theme)));
+document.getElementById("theme-btn").addEventListener("click", () => setTheme(isLight() ? "dark" : "light"));
+syncTheme();
+applyPreset(sceneColors());
 
 /* pan & zoom (a press that never moves is a selection click) */
 let dragging = null;
@@ -2357,7 +2814,8 @@ window.addEventListener("resize", () => { draw(); scheduleFord(600); });
    EXACTLY in BigInt at a point of the 2^-64 grid -- double-precision Horner
    is noise on these coefficients.  The factor then goes to the Dirichlet
    tool as a root row, so it computes exactly.                             */
-const EXACT_DEG_MAX = 32;                       // the Dirichlet tool's field degree cap too
+const EXACT_DEG_MAX = 96;                       // factoring; the Dirichlet tool and
+                                                // PresentationCalc take factors of degree <= 32
 const FACTOR_MS = 4000;
 let factorWorker = null, factorJob = null, factorSeq = 0;
 function factorOverQ(P) {                       // -> Promise of BigInt[][] (primitive factors)
@@ -2562,6 +3020,9 @@ const pv = {
   cursor: null, frame: 0, restTimer: 0, lastKey: "", current: null,
   shown: null, scene: null,
 };
+// on a dark stage the limit set is drawn in lighter tints of the same six inks
+const PV_DARK_INKS = [[165, 180, 252], [196, 181, 253], [147, 197, 253],
+                      [94, 234, 212], [110, 231, 183], [103, 232, 249]];
 const PV_SRC = `
   const FordCore = (${fordCoreFactory.toString()})();
   const PC = (${previewCoreFactory.toString()})();
@@ -2600,7 +3061,7 @@ const PV_SRC = `
         // not free: every node is keyed to skip repeats, so keep the budget small
         const img = PC.limitSetImage(m.rr, m.ri, { W: m.W, H: m.H, px: m.px,
           budget: lens ? Math.min(m.budget, 6e5) : m.budget,
-          gain: m.gain, dedup: lens, maxDepth: lens ? 200 : 3000 });
+          gain: m.gain, inks: m.inks, dedup: lens, maxDepth: lens ? 200 : 3000 });
         out.verdict = lens ? "notfree" : "ok";
         Object.assign(out, { rgba: img.rgba, W: m.W, H: m.H, frame: img.frame,
           nodes: img.nodes, leaves: img.leaves, truncated: img.truncated });
@@ -2639,12 +3100,13 @@ function pvRequest(t, full) {
   const [W, H, dpr] = pvSize();
   const group = fordEngine === "ext" ? "ext" : "gamma";
   const lim = pv.mode === "limit";
-  const key = [pv.mode, group, t.x, t.y, W, H, lim && full ? 1 : 0, t.src, t.exact ? 1 : 0].join("|");
+  const key = [pv.mode, group, t.x, t.y, W, H, lim && full ? 1 : 0, t.src, t.exact ? 1 : 0, isLight()].join("|");
   if (key === pv.lastKey) return;
   pv.lastKey = key;
   pv.current = t;
   const job = { id: ++pv.seq, kind: pv.mode, rr: t.x, ri: t.y, group, W, H,
-                px: (full ? 0.65 : 1.3) * dpr, budget: full ? 4e6 : 5e5, gain: full ? 1.7 : 1.4 };
+                px: (full ? 0.65 : 1.3) * dpr, budget: full ? 4e6 : 5e5, gain: full ? 1.7 : 1.4,
+                inks: isLight() ? null : PV_DARK_INKS };
   pv.jobs.set(job.id, { t, full });
   if (pv.busy) {
     if (pv.pending) pv.jobs.delete(pv.pending.id);
@@ -2736,13 +3198,13 @@ function pvDrawLimit(res) {
   const toX = x => W / 2 + (x - cx) * k, y0 = H / 2 + cy * k;
   g.save();
   g.globalCompositeOperation = "destination-over";
-  g.strokeStyle = "rgba(100,116,139,0.45)"; g.lineWidth = pr;
+  g.strokeStyle = isLight() ? "rgba(100,116,139,0.45)" : "rgba(148,163,184,0.32)"; g.lineWidth = pr;
   g.beginPath(); g.moveTo(0, y0); g.lineTo(W, y0);
   const n0 = Math.ceil(cx - W / 2 / k), n1 = Math.floor(cx + W / 2 / k);
   for (let n = n0; n <= n1; n++) { g.moveTo(toX(n), H); g.lineTo(toX(n), H - 5 * pr); }
   g.stroke();
   g.restore();
-  g.fillStyle = "rgba(71,85,105,0.8)";            // the integers, along the bottom edge
+  g.fillStyle = isLight() ? "rgba(71,85,105,0.8)" : "rgba(203,213,225,0.7)";  // the integers, along the bottom edge
   g.font = `${10 * pr}px sans-serif`; g.textAlign = "center"; g.textBaseline = "bottom";
   for (let n = n0; n <= n1; n++) g.fillText(String(n).replace("-", "−"), toX(n), H - 7 * pr);
 }
@@ -2992,9 +3454,15 @@ void main() {
     gl.uniform1f(U.uTan, tan);
     gl.uniform1f(U.uXH, scene.XH); gl.uniform1f(U.uYH, scene.YH); gl.uniform1f(U.uTop, scene.top);
     gl.uniform1f(U.uBY, scene.BY); gl.uniform1f(U.uR2, scene.BY < scene.YH ? 1 : 0);
-    gl.uniform3f(U.uBg, 0.969, 0.973, 0.98);
-    gl.uniform3f(U.uFloor, 0.905, 0.918, 0.94);
-    gl.uniform3f(U.uAccent, 0.388, 0.4, 0.945);
+    if (isLight()) {                               // the stage colour, --stage-bg
+      gl.uniform3f(U.uBg, 0.969, 0.973, 0.98);
+      gl.uniform3f(U.uFloor, 0.905, 0.918, 0.94);
+      gl.uniform3f(U.uAccent, 0.388, 0.4, 0.945);
+    } else {
+      gl.uniform3f(U.uBg, 0.051, 0.067, 0.11);
+      gl.uniform3f(U.uFloor, 0.12, 0.14, 0.19);
+      gl.uniform3f(U.uAccent, 0.506, 0.549, 0.973);
+    }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   return { init, draw, cam };
@@ -3130,6 +3598,7 @@ canvas.addEventListener("pointerleave", () => {
 /* ---------------- boot ---------------------------------------------------- */
 
 statusEl.textContent = "building Farey polynomials…";
+startDots();                          // every root of Phi_{p/q} + 2 to q = 128, in the background
 setTimeout(() => {
   buildPolynomials();
   recomputeAll();
