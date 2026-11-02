@@ -115,6 +115,30 @@ export const exampleLibrary = [
             '2', '5']]
     },
     {
+        // The regular octagon with interior angles π/4 and opposite sides glued.
+        // Its inradius r has cosh r = cot(π/8) = 1 + √2 =: A, so the side
+        // pairings are the translations by 2r along the four axes through i at
+        // angles kπ/4: [[A + B cos θ, −B sin θ], [−B sin θ, A − B cos θ]],
+        // B = sinh r = √(2 + 2√2), h = B·√2/2. Exact over Q(√(2 + 2√2)).
+        name: 'Bolza surface (genus 2)',
+        cat: 'Surfaces & Fuchsian groups',
+        desc: 'The most symmetric genus-2 surface: a regular octagon with opposite sides glued',
+        consts: [['A', '1+\\sqrt{2}'], ['B', '\\sqrt{2+2\\sqrt{2}}'], ['h', '\\frac{\\sqrt{2}}{2}B']],
+        mats: [['A+B', '0', '0', 'A-B'], ['A+h', '-h', '-h', 'A-h'], ['A', '-B', '-B', 'A'], ['A-h', '-h', '-h', 'A+h']]
+    },
+    {
+        // The Bolza group conjugated by z ↦ z + 1/3, i.e. seen from the generic
+        // point 1/3 + i instead of the centre of the octagon.
+        name: 'Genus-2 surface (generic basepoint)',
+        cat: 'Surfaces & Fuchsian groups',
+        desc: 'The Bolza surface seen from a generic point: its Dirichlet domain is an 18-gon, its Delaunay domain an octagon',
+        consts: [['A', '1+\\sqrt{2}'], ['B', '\\sqrt{2+2\\sqrt{2}}'], ['h', '\\frac{\\sqrt{2}}{2}B']],
+        mats: [['A+B', '\\frac{2}{3}B', '0', 'A-B'],
+        ['A+\\frac{4}{3}h', '-\\frac{2}{9}h', '-h', 'A-\\frac{4}{3}h'],
+        ['A+\\frac{1}{3}B', '-\\frac{8}{9}B', '-B', 'A-\\frac{1}{3}B'],
+        ['A-\\frac{2}{3}h', '-\\frac{14}{9}h', '-h', 'A+\\frac{2}{3}h']]
+    },
+    {
         name: 'Long-Reid Group',
         cat: 'Arithmetic & Bianchi groups',
         desc: 'Integral two-generator group from the Long–Reid family',

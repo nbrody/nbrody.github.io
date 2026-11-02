@@ -47,6 +47,8 @@ const EXPECT = {
     'Z[i] thin group': { faces: 16, h1: 'ℤ² ⊕ ℤ/2' },
     'Surface group': { faces: 9, h1: 'ℤ²' },
     'Surface group 2': { faces: 7, h1: 'ℤ/2 ⊕ ℤ/2 ⊕ ℤ/2' },
+    'Bolza surface (genus 2)': { faces: 8, h1: 'ℤ⁴' },
+    'Genus-2 surface (generic basepoint)': { faces: 18, h1: 'ℤ⁴' },
     'Long-Reid Group': { faces: 9, h1: 'ℤ²' },
     'Figure eight knot group': { faces: 12, vol: 2.029883213, h1: 'ℤ', cusps: 1 },
     'Dense circles': { faces: 11, h1: 'ℤ ⊕ ℤ/4' },

@@ -132,30 +132,33 @@ function classColor(k, n) {
 }
 
 /**
- * Colour per wall of the displayed domain. A face and its partner share one
- * colour (the pairing class), so the gluing reads at a glance; the partner is
- * shaded a touch darker to tell the two sides apart.
+ * Colour per wall of the displayed domain. A face and its partner have the
+ * same colour (the pairing class), so the gluing reads at a glance; Face
+ * Labels (s_k on one, s_k⁻¹ on the other) tell the two sides apart.
  */
 export function faceColors(domain = displayedDomain()) {
     if (!domain) return [];
     if (faceColorCache && faceColorCache.domain === domain) return faceColorCache.colors;
-    const walls = domain.walls;
-    const cls = new Array(walls.length).fill(-1);
+    const { colors, classes } = pairColors(domain.walls.map(w => (w.pairing ? w.pairing.partner : -1)));
+    faceColorCache = { domain, colors, classes };
+    return colors;
+}
+
+/**
+ * Colours for faces paired up by `partner` (each face's partner index, −1
+ * if none): one colour per pair, exactly the same on both faces.
+ */
+export function pairColors(partner) {
+    const classes = new Array(partner.length).fill(-1);
     let n = 0;
-    walls.forEach((w, i) => {
-        if (cls[i] >= 0) return;
-        cls[i] = n;
-        const j = w.pairing ? w.pairing.partner : -1;
-        if (j >= 0 && cls[j] < 0) cls[j] = n;
+    partner.forEach((j, i) => {
+        if (classes[i] >= 0) return;
+        classes[i] = n;
+        if (j >= 0 && classes[j] < 0) classes[j] = n;
         n++;
     });
-    const colors = walls.map((w, i) => {
-        const c = classColor(cls[i], n);
-        const second = w.pairing && w.pairing.partner >= 0 && w.pairing.partner < i;
-        return second ? c.map(x => x * 0.78) : c;
-    });
-    faceColorCache = { domain, colors, classes: cls };
-    return colors;
+    const colors = partner.map((_, i) => classColor(classes[i], n));
+    return { colors, classes };
 }
 
 export function faceClasses(domain = displayedDomain()) {

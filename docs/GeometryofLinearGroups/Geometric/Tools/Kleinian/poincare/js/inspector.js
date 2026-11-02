@@ -477,10 +477,16 @@ export function fordPairingAt(i, pScene) {
 
 export const CYCLE_HUES = (k) => new THREE.Color().setHSL((k * 0.6180339887 + 0.05) % 1, 0.78, 0.6);
 
+// While another view of the group (the Delaunay domain) is drawn, the
+// Dirichlet domain's edge cycles are not.
+let cyclesHidden = () => false;
+export function setCyclesHidden(fn) { cyclesHidden = fn; }
+
 export function updateEdgeCycles() {
     disposeGroup(cycleGroup);
-    cycleGroup.visible = inspect.showCycles;
-    if (!inspect.showCycles) return;
+    const show = inspect.showCycles && !cyclesHidden();
+    cycleGroup.visible = show;
+    if (!show) return;
     const sk = getSkeleton();
     const cycles = (!app.fordOn && app.report) ? app.report.edgeCycles || [] : [];
     const cycleOf = new Map();
@@ -514,6 +520,10 @@ function faceCenterScene(i) {
     return c ? applyMatrixToBall(displayedScene(), c) : null;
 }
 
+// Another view of the group (the Delaunay domain) may label its own faces instead.
+let labelOverride = null;
+export function setLabelOverride(fn) { labelOverride = fn; }
+
 export function rebuildFaceLabels() {
     const box = document.getElementById('face-labels');
     if (!box) return;
@@ -521,6 +531,7 @@ export function rebuildFaceLabels() {
     inspect.labels = [];
     const H = displayedHome();
     if (!inspect.showLabels || !H) return;
+    if (labelOverride && labelOverride(box)) return;
     const colors = faceColors();
     const mids = inspect.planar ? planarEdgeMidpoints(displayedDomain()) : null;
     H.walls.forEach((w, i) => {

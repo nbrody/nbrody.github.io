@@ -396,8 +396,11 @@ function setExample(example, exampleName = '', consts = null, anti = null) {
 let refreshCallback = null;
 
 /** Load library example `idx` into the inputs and refresh. */
+let lastExample = -1;
+
 export function loadExample(idx) {
     if (!(idx >= 0 && idx < exampleLibrary.length)) return;
+    lastExample = idx;
     const example = exampleLibrary[idx];
     setExample(example.mats, example.name, example.consts, example.anti);
     // Some presets need a deeper search (a long accidental parabolic).
@@ -507,6 +510,17 @@ function buildExampleModal() {
 
     const openBtn = document.getElementById('load-example-btn');
     if (openBtn) openBtn.addEventListener('click', () => { modal.hidden = false; });
+    // The die: a random preset, never the one already loaded.
+    const dice = document.getElementById('random-example-btn');
+    if (dice) dice.addEventListener('click', () => {
+        const n = exampleLibrary.length;
+        let idx = Math.floor(Math.random() * n);
+        if (n > 1 && idx === lastExample) idx = (idx + 1 + Math.floor(Math.random() * (n - 1))) % n;
+        dice.classList.remove('rolling');
+        void dice.offsetWidth;                       // restart the roll animation
+        dice.classList.add('rolling');
+        loadExample(idx);
+    });
     return modal;
 }
 

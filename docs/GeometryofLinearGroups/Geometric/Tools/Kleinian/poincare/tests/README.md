@@ -43,3 +43,15 @@ Uses the existing sibling `vendor/three` files; no dependency installation is re
   after (cycle length × m) cells and a full turn of 2π, the cells at a vertex number (cycle size ×
   stabilizer order), and in a Ford domain only the chimney-cut edges fail to close; and the angle
   text (π, π/2, 2π/3 rather than 4π/4 or 0.5000π).
+- `delaunay.test.mjs` — the Delaunay domain (`js/delaunay.js`): the Delaunay cells of the
+  basepoint's orbit, cut along their barycentric subdivision where they have a symmetry, one
+  piece from each orbit, glued into a fundamental polyhedron. For every preset of finite
+  covolume (manifolds, orbifolds, reflection groups; Fuchsian ones in the plane), also at
+  random basepoints: the pieces' volumes add up to the Dirichlet volume, its own presentation
+  has the same H₁, every relator multiplied out is the identity, its boundary is a sphere, and
+  each pairing carries its facet's corners onto the partner's. Plus the genus-2 octagon (against
+  the Dirichlet 18-gon), the cut cells and cycle orders of the (2,3,7) group, the right-angled
+  dodecahedron as its own Delaunay domain, and cusped surfaces.
+
+The non-discreteness searches stop on a wall-clock budget, so when every file runs at once on a
+busy machine two of them can run out of time; `--test-concurrency=1` runs the files one by one.

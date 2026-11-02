@@ -17,14 +17,17 @@ import { setupControlPanel, readBoundedInteger, updateToggleBtn } from './contro
 import { createDomainService } from './domainService.js';
 import { matToArr } from './compute.js';
 import {
-    app, sceneMatrix, outerFrame, sceneAction, homeGenerators, wordToMatrix, viewIsDirty
+    app, sceneMatrix, outerFrame, sceneAction, homeGenerators, wordToMatrix, viewIsDirty, displayFrame
 } from './app.js';
+import { kleinToBall } from './polyhedron.js';
 import {
-    installResult, retargetScene, displayedDomain, standardGenerators, faceColors, invalidateFaceColors
+    installResult, retargetScene, displayedDomain, standardGenerators, faceColors, invalidateFaceColors, pairColors
 } from './domain.js';
+import { computeDelaunayDomain, planarHome } from './delaunay.js';
+import { createDelaunayView } from './delaunayView.js';
 import {
     scene, camera, renderer, controls, material, mesh, ballBox, uhsBox, view, theme,
-    applyThemeUniforms, setModelCamera, loadDomainUniforms, applyViewOffset
+    applyThemeUniforms, setModelCamera, loadDomainUniforms, applyViewOffset, toWorld
 } from './scene.js';
 import {
     state as layers, updateCayley, setWallsOpacity, updateDual, setDualOpacity,
@@ -36,8 +39,9 @@ import { setUnwrapHooks } from './unwrap.js';
 import {
     inspect, pickWall, rayFromEvent, pickVertex, selectVertex, handleFaceClick, clearFaceSelection,
     updateEdgeCycles, rebuildFaceLabels, updateFaceLabels, refreshInspectOverlays, fordPairingAt,
-    invalidateSkeleton, worldToBall, redrawSelection, CYCLE_HUES
+    invalidateSkeleton, worldToBall, redrawSelection, CYCLE_HUES, setLabelOverride, setCyclesHidden
 } from './inspector.js';
+import { renderDelaunayInfo } from './delaunayPanel.js';
 import {
     setBanner, bannerForReport, renderCertificate, renderPresentation, renderStabilizer,
     renderStdGenerators, renderCurrentElement, renderUserElements, userElements, parseWord
@@ -104,13 +108,171 @@ function setQuality(q, remember = true) {
 const planarView = createPlanarView(scene, material.uniforms);
 const planar = { on: false, available: false, groupKey: null, keep3d: false };
 
+// The Delaunay domain (delaunay.js): the dual of the Dirichlet domain,
+// assembled into one polyhedron whose corners are all copies of the
+// basepoint. A view of the same group, drawn instead of the Dirichlet domain.
+const delaunayView = createDelaunayView();
+const dl = { on: false, result: null, home: null, dim: 0, colors: [], verified: false };
+
+/** The Delaunay result for the domain on screen (cached per domain and dimension). */
+function delaunayResult() {
+    if (!app.home) return null;
+    const dim = planar.on ? 2 : 3;
+    if (dl.home === app.home && dl.dim === dim && dl.result) return dl.result;
+    let R;
+    if (!app.report || app.report.status !== 'verified') {
+        R = { ok: false, reason: 'unverified', message: 'The Dirichlet domain is not certified, so its dual would not be either.' };
+    } else if (dim === 2) {
+        // The plane picture needs a centre ON the plane with trivial stabilizer.
+        const { home, frame } = planarHome(app.home, homeGenerators(), { maxFaces: app.maxFaces, maxDepth: app.depth });
+        R = computeDelaunayDomain(home, { dim, frame });
+    } else {
+        R = computeDelaunayDomain(app.home, { dim });
+    }
+    dl.result = R; dl.home = app.home; dl.dim = dim;
+    // One colour per face pairing, the same on both of its sides.
+    dl.colors = R.ok ? pairColors(R.sides.map((S, si) => {
+        const P = R.pairs[S.pair];
+        return P.minus === si ? P.plus : P.minus;
+    })).colors : [];
+    return R;
+}
+
+/** Whether the Delaunay domain is what is drawn (on, and available for this group). */
+function delaunayShowing() {
+    return dl.on && !!dl.result && dl.result.ok && !render.unwrapped;
+}
+
+/** Edge colours by cycle when Edge Cycles is on (3D): edge chain → its cycle's hue. */
+function delaunayCycleColor(R) {
+    if (!inspect.showCycles || R.dim !== 3) return null;
+    const of = new Map();
+    R.cycles.forEach((c, k) => (c.chains || []).forEach(ch => of.set(ch, k)));
+    return (i) => {
+        const c = {};
+        CYCLE_HUES(of.has(i) ? of.get(i) : 0).getRGB(c, THREE.SRGBColorSpace);
+        return [c.r, c.g, c.b];
+    };
+}
+
+/** Rebuild the Delaunay meshes (new domain, palette, theme, cycle colouring). */
+function rebuildDelaunay() {
+    const R = dl.on ? delaunayResult() : null;
+    if (!R || !R.ok) {
+        delaunayView.clear();
+    } else {
+        delaunayView.build(R, dl.colors, { cycleColor: delaunayCycleColor(R) });
+    }
+    syncDomainVisibility();
+}
+
+// The Delaunay domain is centred on a Dirichlet VERTEX, not on the basepoint
+// (its cells are the convex hulls round the vertices), so while it is shown the
+// camera is moved to bring its centre to the middle: app.focus, a camera move
+// outside every other frame and never a group element (as for unwrapping).
+let dlFocusAnim = 0;
+function delaunayFocusTarget() {
+    const R = dl.result;
+    if (!dl.on || !R || !R.ok || !R.centre) return null;
+    const S0 = displayFrame().mul(app.viewMatrix).mul(app.basepoint).normalized();
+    const x = applyMatrixToBall(S0, kleinToBall(R.centre));
+    const r = x.length();
+    if (r < 1e-6) return null;
+    return translationTowards(x.clone().normalize(), -2 * Math.atanh(Math.min(r, 0.999999)));
+}
+function animateDelaunayFocus(target, ms = 650) {
+    const I = Matrix2x2.identity();
+    const F0 = app.focus || I, F1 = target || I;
+    let X = null;
+    try { X = F1.mul(F0.inv()).normalized().log(); } catch (e) { X = null; }
+    const id = ++dlFocusAnim;
+    if (!X || ms <= 0 || document.hidden) { app.focus = target; if (app.scene) onSceneMoved(); return; }
+    const start = performance.now();
+    const step = (now) => {
+        if (id !== dlFocusAnim) return;
+        const t = Math.min(1, (now - start) / ms), e = t * t * (3 - 2 * t);
+        app.focus = t < 1 ? Matrix2x2.exp(new Matrix2x2(X.a.mul(e), X.b.mul(e), X.c.mul(e), X.d.mul(e))).mul(F0).normalized() : target;
+        if (app.scene) onSceneMoved({ fast: t < 1 });
+        if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+}
+
+/** Show the Delaunay domain instead of the Dirichlet one (or back). */
+function setDelaunay(on, { quiet = false } = {}) {
+    on = !!on;
+    if (on) {
+        if (app.fordOn) setCuspView(false);
+        if (render.honeycomb) setHoneycomb(false);
+        if (insideView.isActive()) setInsideView(false);
+        if (mirrorMode) setMirrorMode(false);
+        if (render.tieDye) setTieDye(false);
+        clearFaceSelection();
+    }
+    dl.on = on;
+    document.querySelectorAll('.domain-opt').forEach(b => b.classList.toggle('active', (b.dataset.domain === 'delaunay') === on));
+    const R = on ? delaunayResult() : null;
+    if (on && R && !R.ok && !quiet) setBanner('warning', `No Delaunay domain, so the Dirichlet domain is shown. ${R.message}`);
+    rebuildDelaunay();
+    updateEdgeCycles();
+    syncMaterial();
+    if (app.scene) onSceneMoved();
+    animateDelaunayFocus(on ? delaunayFocusTarget() : null);
+    rebuildFaceLabels();
+    showDelaunayInfo();
+    if (app.home) updatePermalink();
+}
+
+function showDelaunayInfo() {
+    renderDelaunayInfo(delaunayResult(), {
+        on: dl.on,
+        dirichletFaces: app.home ? app.home.walls.length : 0,
+        planar: planar.on,
+        onToggle: () => setDelaunay(!dl.on),
+        onApply: (el, inverse) => {
+            if (app.animating) return;
+            const g = inverse ? el.inv() : el;
+            animateMatrix(wordToMatrix(g.w), [...g.w]);
+        },
+    });
+}
+
+setCyclesHidden(() => delaunayShowing());
+
+// Face labels: in Delaunay view they name the Delaunay faces (s_k on one face, s_k⁻¹ on its partner).
+setLabelOverride((box) => {
+    if (!delaunayShowing()) return false;
+    delaunayView.buildLabels(box, dl.result, dl.colors);
+    return true;
+});
+
+function placeDelaunayLabels() {
+    if (!inspect.showLabels || !delaunayShowing() || !delaunayView.hasLabels()) return;
+    const S = sceneMatrix(), camPos = camera.position;
+    const rect = renderer.domElement.getBoundingClientRect();
+    delaunayView.placeLabels(camera, rect, (home, out) => {
+        const p = applyMatrixToBall(S, home);
+        const w = toWorld(p);
+        if (out && view.model === 'ball') {
+            const q = applyMatrixToBall(S, out);
+            if (q.clone().sub(p).dot(p.clone().sub(camPos)) > 0) return null;     // the face looks away
+        }
+        const ndc = w.clone().project(camera);
+        if (!(ndc.z < 1 && Math.abs(ndc.x) < 1.1 && Math.abs(ndc.y) < 1.1)) return null;
+        return { x: ndc.x * 0.5 + 0.5, y: -ndc.y * 0.5 + 0.5 };
+    });
+}
+
 /** The raymarched domain and the plane share the polyhedron opacity. */
 function syncDomainVisibility() {
     const o = material.uniforms.u_opacity.value;
+    const dlOn = delaunayShowing();
     // While unwrapped (unwrap.js) the domain is drawn among its neighbours as a mesh.
-    mesh.visible = !planar.on && o > 0 && !render.unwrapped;
+    mesh.visible = !planar.on && o > 0 && !render.unwrapped && !(dlOn && dl.result.dim === 3);
     planarView.setVisible(planar.on && o > 0);
     planarView.setOpacity(o);
+    delaunayView.setVisible(dlOn && (dl.result.dim === 2) === planar.on);
+    delaunayView.setOpacity(o);
 }
 
 function activeMaterial() {
@@ -181,6 +343,7 @@ function syncMaterial() {
 
 function setMirrorMode(on) {
     if (on && planar.on) setPlanar(false);
+    if (on && dl.on) setDelaunay(false);
     if (on && render.tieDye) setTieDye(false);
     mirrorMode = on;
     updateToggleBtn(document.getElementById('toggle-mirror'), on);
@@ -191,6 +354,7 @@ function setMirrorMode(on) {
     that shader, so they exclude it. */
 function setTieDye(on) {
     if (on && planar.on) setPlanar(false);
+    if (on && dl.on) setDelaunay(false);
     if (on && mirrorMode) setMirrorMode(false);
     if (on && render.honeycomb) setHoneycomb(false);
     render.tieDye = on;
@@ -200,6 +364,7 @@ function setTieDye(on) {
 
 function setHoneycomb(on) {
     if (on && planar.on) setPlanar(false);
+    if (on && dl.on) setDelaunay(false);
     if (on && render.tieDye) setTieDye(false);
     render.honeycomb = on;
     updateToggleBtn(document.getElementById('toggle-honeycomb'), on);
@@ -224,7 +389,9 @@ function onSceneMoved({ fast = false } = {}) {
     retargetScene();
     const D = displayedDomain();
     loadDomainUniforms(D, faceColors(D));
-    if (planar.on && !planarView.update(app.scene, faceColors(app.scene))) {
+    delaunayView.setFrame(sceneMatrix(), view.model === 'uhs');
+    const dlPlane = planar.on && delaunayShowing() ? delaunayView.planarDomain(dl.result, sceneMatrix(), dl.colors) : null;
+    if (planar.on && !(dlPlane ? planarView.update(dlPlane, dlPlane.colors) : planarView.update(app.scene, faceColors(app.scene)))) {
         setBanner('warning', `2D view unavailable: the polygon has more than ${PLANAR_MAX_WALLS} edges.`);
         setPlanar(false);
         return;
@@ -337,6 +504,12 @@ function afterInstall(result, ms) {
     invalidateSkeleton();
     clearFaceSelection();
     clearGeodesicSelection();
+    if (dl.on) {
+        const R = delaunayResult();
+        if (R && !R.ok) setBanner('warning', `No Delaunay domain, so the Dirichlet domain is shown. ${R.message}`);
+        rebuildDelaunay();
+        animateDelaunayFocus(delaunayFocusTarget(), 350);
+    }
     onSceneMoved();
     syncMaterial();
     renderStabilizer();
@@ -349,8 +522,9 @@ function afterInstall(result, ms) {
     updateCuspControls();
     updateEdgeCycles();
     rebuildFaceLabels();
+    showDelaunayInfo();
     staleShown = false;           // renderCertificate above drew the fresh report
-    showReportBanner();
+    if (!(dl.on && dl.result && !dl.result.ok)) showReportBanner();
     const faces = app.home ? app.home.walls.length : 0;
     const notes = [...(app.home ? app.home.notes : []), ...((app.fordHome && app.fordHome.notes) || [])];
     if (notes.length) console.info('[domain]', notes.join('; '));
@@ -512,6 +686,7 @@ function setInsideView(on) {
     if (on === insideView.isActive()) return;
     if (!on) { insideView.exit(); return; }
     if (planar.on) setPlanar(false);
+    if (dl.on) setDelaunay(false);
     if (view.model !== 'ball') setViewModel('ball');
     if (mirrorMode) setMirrorMode(false);
     if (render.honeycomb) setHoneycomb(false);
@@ -612,6 +787,7 @@ function setTheme(mode) {
     limitSet.setLightMode(mode === 'light');
     if (layers.showDust) updateDust();
     recolorOrbit();
+    if (dl.on) rebuildDelaunay();
     onSceneMoved();
     document.getElementById('theme-dark')?.classList.toggle('active', mode === 'dark');
     document.getElementById('theme-light')?.classList.toggle('active', mode === 'light');
@@ -664,10 +840,12 @@ function setPlanar(on) {
     inspect.planar = on;
     clearFaceSelection();
     syncPlanarControls();
+    if (dl.on) { rebuildDelaunay(); animateDelaunayFocus(delaunayFocusTarget(), 0); }
     syncMaterial();
     if (on) framePlanarCamera(camera, controls, view.model); else setModelCamera();
     if (app.scene) onSceneMoved();
     rebuildFaceLabels();
+    if (dl.on) showDelaunayInfo();
     if (app.home) updatePermalink();
 }
 
@@ -677,6 +855,7 @@ let opacityBeforeCusp = null;
 
 function setCuspView(on, { recompute = true } = {}) {
     if (on && planar.on) setPlanar(false);
+    if (on && dl.on) setDelaunay(false);
     app.fordOn = on;
     updateToggleBtn(document.getElementById('toggle-cusp'), on);
     const hbBtn = document.getElementById('toggle-horoballs');
@@ -768,6 +947,7 @@ function currentState() {
         depth: app.depth, faces: app.maxFaces,
         bp: app.basepointBall.some(x => Math.abs(x) > 1e-9) ? app.basepointBall : undefined,
         cusp: app.fordOn ? app.fordCusp : undefined,
+        dom: dl.on ? 'delaunay' : undefined,
         model: view.model !== 'ball' ? view.model : undefined,
         theme: view.theme !== 'dark' ? view.theme : undefined,
         mark: markIndex !== null ? markIndex : undefined,
@@ -866,7 +1046,13 @@ function initUI() {
         },
         onFaceCountChange: (count) => { app.maxFaces = count; requestCompute(); },
         onWordLengthChange: (depth) => { app.depth = depth; requestCompute(); },
-        onPaletteChange: () => { invalidateFaceColors(); onSceneMoved(); rebuildFaceLabels(); },
+        onPaletteChange: () => {
+            invalidateFaceColors();
+            if (dl.result && dl.result.ok) { dl.home = null; delaunayResult(); }
+            if (dl.on) rebuildDelaunay();
+            onSceneMoved();
+            rebuildFaceLabels();
+        },
         onPanelLayout: (width) => applyViewOffset(width),
         controls, mesh, material
     });
@@ -892,7 +1078,9 @@ function initUI() {
         inspect.showCycles = !inspect.showCycles;
         updateToggleBtn(btn, inspect.showCycles);
         updateEdgeCycles();
+        if (dl.on) rebuildDelaunay();
     });
+    document.querySelectorAll('.domain-opt').forEach(btn => btn.addEventListener('click', () => setDelaunay(btn.dataset.domain === 'delaunay')));
     bindToggle('toggle-labels', (btn) => {
         inspect.showLabels = !inspect.showLabels;
         updateToggleBtn(btn, inspect.showLabels);
@@ -1033,7 +1221,7 @@ function initUI() {
     let downPos = null;
     renderer.domElement.addEventListener('pointerdown', (e) => { downPos = { x: e.clientX, y: e.clientY }; });
     renderer.domElement.addEventListener('click', (e) => {
-        if (app.animating || !app.scene || insideView.isActive()) return;
+        if (app.animating || !app.scene || insideView.isActive() || delaunayShowing()) return;
         if (downPos && (e.clientX - downPos.x) ** 2 + (e.clientY - downPos.y) ** 2 > 36) return;
         if (!e.shiftKey && !planar.on) {
             const v = pickVertex(e.clientX, e.clientY);
@@ -1044,7 +1232,7 @@ function initUI() {
         handleFaceClick(hit.index, e.shiftKey, () => { if (layers.showTiling) updateTiling(); });
     });
     renderer.domElement.addEventListener('dblclick', (e) => {
-        if (insideView.isActive() || app.animating) return;
+        if (insideView.isActive() || app.animating || delaunayShowing()) return;
         const hit = pickAt(e);
         if (hit.index < 0) return;
         // Roll the domain across THIS face: apply the element g whose wall it
@@ -1074,8 +1262,9 @@ function animate(time) {
         controls.update();
     }
     if (orbitRun && orbitRun.dirty) updateOrbitInstances(time);
-    if (planar.on) planarView.setSelection(app.scene, inspect.selectedFace);
+    if (planar.on) planarView.setSelection(app.scene, delaunayShowing() ? -1 : inspect.selectedFace);
     updateFaceLabels();
+    if (dl.on) { delaunayView.setFrame(sceneMatrix(), view.model === 'uhs'); placeDelaunayLabels(); }
     const m = mesh.material;
     if (m.uniforms.u_cameraPos) m.uniforms.u_cameraPos.value.copy(camera.position);
     material.uniforms.u_cameraPos.value.copy(camera.position);
@@ -1133,6 +1322,8 @@ window.PoincareAPI = {
     setInsideView,
     isInsideView: () => insideView.isActive(),
     setManifold, setHoneycomb, setCuspView, setViewModel,
+    setDelaunay: (on) => setDelaunay(on),
+    delaunay: () => delaunayResult(),
     setQuality,
     getQuality: () => quality,
     setAntialias(on) { postfx.setEnabled(on); },
@@ -1223,6 +1414,7 @@ setTimeout(() => {
     }
     if (urlState && urlState.cusp !== undefined) { app.fordOn = true; app.fordCusp = urlState.cusp; horo.on = true; }
     if (urlState && urlState.model === 'uhs') setViewModel('uhs');
+    if (urlState && urlState.dom === 'delaunay') setDelaunay(true, { quiet: true });
     refreshFromUI();
     // The request above already asked for the Ford domain; this sets up the
     // rest of cusp view (buttons, translucency, framing once it arrives).

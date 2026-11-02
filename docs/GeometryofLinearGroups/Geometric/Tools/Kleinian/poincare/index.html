@@ -29,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-10-29a';
+            const APP_VERSION = '2026-11-02a';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -43,7 +43,7 @@
                 'app', 'domain', 'scene', 'overlays', 'isoAxis', 'inspector', 'panels',
                 'invariantsPanel', 'horoballs', 'tessellation', 'permalink', 'domainService',
                 'compute', 'format', 'tower', 'expr', 'planar', 'welcome', 'nondiscrete', 'classical',
-                'gluing', 'highlight', 'unwrap', 'postfx'];
+                'gluing', 'highlight', 'unwrap', 'postfx', 'delaunay', 'delaunayView', 'delaunayPanel'];
             for (const m of mods) {
                 im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             }
@@ -136,6 +136,17 @@
                         <label class="control-label">Examples</label>
                         <button id="load-example-btn" class="toggle-btn"
                             title="Browse the example library">Load Example…</button>
+                        <button id="random-example-btn" class="toggle-btn dice-btn"
+                            title="Load a random example" aria-label="Load a random example">
+                            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                                <rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                <circle cx="8.2" cy="8.2" r="1.45" fill="currentColor"/>
+                                <circle cx="15.8" cy="8.2" r="1.45" fill="currentColor"/>
+                                <circle cx="12" cy="12" r="1.45" fill="currentColor"/>
+                                <circle cx="8.2" cy="15.8" r="1.45" fill="currentColor"/>
+                                <circle cx="15.8" cy="15.8" r="1.45" fill="currentColor"/>
+                            </svg>
+                        </button>
                     </div>
                     <div class="control-row" style="margin-top: 12px;">
                         <label for="wordLength" class="control-label">Word Length</label>
@@ -181,6 +192,20 @@
                         <summary>Discreteness certificate <span class="label-hint">(click a line to see it)</span></summary>
                         <div id="cert-log" class="cert-log">(not yet run)</div>
                     </details>
+                </div>
+
+                <div class="control-group" id="delaunay-group">
+                    <div class="control-row dl-head">
+                        <label class="control-label">Delaunay domain</label>
+                        <button id="delaunay-show" class="toggle-btn dl-show" disabled>Show the Delaunay domain</button>
+                    </div>
+                    <p class="label-hint dl-lede">The dual of the Dirichlet domain. The Delaunay cells of the basepoint's
+                        orbit (one round each vertex of the Dirichlet tessellation) are glued together, one from each orbit,
+                        shortest Dirichlet edges first; a cell with a symmetry contributes one piece, cut along its
+                        barycentric subdivision. The corners are copies of the basepoint, plus cone points on the axes of
+                        rotations — the analogue of a lattice's parallelepiped, where the Dirichlet domain is its
+                        permutohedron.</p>
+                    <div id="delaunay-info"><p class="empty-message">Computing…</p></div>
                 </div>
 
                 <div class="control-group" id="presentation-group" style="display:none;">
@@ -271,6 +296,15 @@
                 </div>
 
                 <div class="control-group">
+                    <div class="cayley-selector" role="group" aria-label="Which fundamental domain">
+                        <span class="cayley-label">Domain</span>
+                        <div class="cayley-options">
+                            <button class="domain-opt active" data-domain="dirichlet"
+                                title="The Dirichlet domain: the points nearer the basepoint than to any other point of its orbit.">Dirichlet</button>
+                            <button class="domain-opt" data-domain="delaunay"
+                                title="The dual: the Delaunay cells of the basepoint's orbit, one from each orbit, glued into one polyhedron (a cell with a symmetry is cut by it). Its corners are copies of the basepoint and points on rotation axes, and it has far fewer face pairings. For groups of finite covolume.">Delaunay</button>
+                        </div>
+                    </div>
                     <button id="slider-polyhedron" class="slider-btn active" style="--fill: 100%">
                         <span>Polyhedron</span>
                     </button>
