@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ramanujan Graphs</title>
+<meta name="description" content="An interactive walk through Lubotzky, Phillips and Sarnak's Ramanujan graphs (Combinatorica, 1988): explicit optimal expanders built from integer quaternions, with live figures that rebuild the paper's graphs and check its statements.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%232f6fde'/%3E%3Cpath d='M16 6v20M7 11l18 10M25 11L7 21' stroke='white' stroke-width='2.4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>
+  (function () {
+    try { var t = localStorage.getItem('ip-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  })();
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      macros: {
+        F: '\\mathbb{F}', Z: '\\mathbb{Z}', Q: '\\mathbb{Q}', R: '\\mathbb{R}', C: '\\mathbb{C}', NN: '\\mathbb{N}',
+        PP: '\\mathbb{P}', PSL: '\\operatorname{PSL}', PGL: '\\operatorname{PGL}', SL: '\\operatorname{SL}',
+        diam: '\\operatorname{diam}', spec: '\\operatorname{spec}', TR: '\\operatorname{TR}',
+        leg: ['\\left(\\frac{#1}{#2}\\right)', 2],
+        bi: '\\mathbf{i}', bj: '\\mathbf{j}', bk: '\\mathbf{k}'
+      }
+    },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'canvas'] },
+    chtml: { scale: 0.96 }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch light or dark theme"></button>
+<div class="rail" id="rail"></div>
+
+<main class="paper">
+
+<header class="hero">
+  <div class="kicker">Interactive paper</div>
+  <h1>Ramanujan Graphs</h1>
+  <div class="byline">Alexander Lubotzky, Ralph Phillips, Peter Sarnak · <em>Combinatorica</em> 8 (1988), 261–277</div>
+  <p class="lede">Integer quaternions of norm $p$ generate a free group that acts on a tree. Reducing it modulo a second prime $q$ folds the tree into a finite $(p+1)$-regular graph. This paper proves that their nontrivial eigenvalues are as small as a large regular graph's can be, and the proof comes down to counting quaternions.</p>
+  <div class="context">
+    <span class="label">Context</span>
+    <p>Received June 25, 1986, revised August 5, 1987, after an announcement at STOC 1986. Refereed and published; not formally verified. The deep input is the Ramanujan conjecture for weight-two cusp forms, which the paper takes from Eichler (1954) and Igusa (1959).</p>
+    <p>Every figure builds the paper's own graphs in your browser from its generators and checks a numbered statement on small cases. That illustrates the statements; it does not prove them. Numbering follows the paper. Hover the left edge (or press <b>Contents</b> on a phone) for a map of every section and statement.</p>
+  </div>
+</header>
+
+<!-- ═══════════════════════════ BACKGROUND ═══════════════════════════ -->
+
+<section>
+<h2 id="before" data-nav="Before the paper">Before the paper <span class="tag">background</span></h2>
+
+<h3 id="before-expanders">Expanders and the spectral gap</h3>
+
+<p>Take a graph on $n$ vertices in which every vertex has the same degree $k$. Fix $k$, say $k=6$, and let $n$ grow. Such a graph is a good <em>expander</em> if it has no bottleneck: every set $S$ of at most half the vertices has many edges leaving it, in proportion to its size. The Cheeger constant measures the worst case,</p>
+$$h(X)=\min_{0\lt |S|\le n/2}\frac{|\partial S|}{|S|},$$
+<p>where $\partial S$ is the set of edges with one end in $S$. A family of $k$-regular graphs with $n\to\infty$ and $h$ bounded below is an expander family. Random regular graphs are expanders with high probability, but writing one down explicitly, and saying exactly how good it is, was hard.</p>
+
+<p>Expansion is controlled by eigenvalues. Let $A$ be the adjacency matrix, with eigenvalues $k=\lambda_0\ge\lambda_1\ge\dots\ge\lambda_{n-1}\ge-k$. The Cheeger-type inequalities (Dodziuk; Alon and Milman; Alon) say</p>
+$$\frac{k-\lambda_1}{2}\;\le\;h(X)\;\le\;\sqrt{2k\,(k-\lambda_1)},$$
+<p>so a large spectral gap $k-\lambda_1$ <em>is</em> expansion, up to constants. The bottom of the spectrum matters too: a random walk on $X$ forgets its starting point at a rate set by the largest $|\lambda_j|$ other than $\pm k$. So the goal is to push every nontrivial eigenvalue as close to $0$ as possible.</p>
+
+<h3 id="before-tree">Why $2\sqrt{k-1}$: the tree</h3>
+
+<p>Every connected $k$-regular graph is a quotient of the infinite $k$-regular tree $T_k$, its universal cover. Near most vertices a large graph of large girth looks exactly like the tree, so it cannot beat the tree's spectrum, and the tree's adjacency operator has spectrum $[-2\sqrt{k-1},\,2\sqrt{k-1}]$ (Kesten). Counting closed walks makes this precise: for any family of $k$-regular graphs, the largest nontrivial $|\lambda|$ is at least $2\sqrt{k-1}-o(1)$. This is the Alon–Boppana bound, (1.1) below. A <em>Ramanujan graph</em> is one that meets it exactly: it is as good as the tree.</p>
+
+<p>The paper constructs, for every prime $p\equiv1\pmod 4$, an explicit infinite family of $(p+1)$-regular Ramanujan graphs.</p>
+</section>
+
+<!-- ═══════════════════════════ §1 ═══════════════════════════ -->
+
+<section>
+<h2 id="s1" data-nav="Introduction"><span class="secnum">1.</span>Introduction</h2>
+
+<p>For a $k$-regular graph $X=X_{n,k}$ on $n$ vertices, the paper writes $\lambda(X)$ for the largest $|\lambda_j|$ among the eigenvalues other than $\pm k$. (When $X$ is connected, $k$ is a simple eigenvalue, and $-k$ is an eigenvalue, also simple, exactly when $X$ is bipartite.)</p>
+
+<div class="thm key" id="def-1-1" data-ref="Definition 1.1" data-title="Ramanujan graph"><span class="label">Definition 1.1.</span> A graph $X_{n,k}$ is a <em>Ramanujan graph</em> if $\lambda(X)\le2\sqrt{k-1}$.</div>
+
+<div class="eq" id="eq-1-1" data-ref="(1.1)" data-title="Alon–Boppana">$$\liminf_{n\to\infty}\,\lambda(X_{n,k})\;\ge\;2\sqrt{k-1}.\tag{1.1}$$</div>
+
+<p>The bound (1.1) is due to Alon and Boppana; Proposition 4.2 proves it. It says $2\sqrt{k-1}$ is the floor for any infinite family, so Ramanujan graphs are optimal. The paper notes that its graphs are the best explicit expanders known at the time.</p>
+
+<h3 id="s1-graphs">The graphs and the count behind them</h3>
+
+<p>Let $p\ne q$ be primes, both $\equiv1\pmod4$. The graph $X^{p,q}$ will be a $(p+1)$-regular Cayley graph of $\PSL_2(\Z/q\Z)$ if the Legendre symbol $\leg pq=1$, and of $\PGL_2(\Z/q\Z)$ if $\leg pq=-1$. Its $p+1$ generators come from the ways of writing $p=a_0^2+a_1^2+a_2^2+a_3^2$ with $a_0>0$ odd and $a_1,a_2,a_3$ even. There are exactly $p+1$ of these, by Jacobi's four-square theorem:</p>
+
+<div class="eq" id="eq-1-2" data-ref="(1.2)" data-title="Jacobi">$$r_4(n)=8\sum_{d\mid n,\ 4\nmid d}d.\tag{1.2}$$</div>
+
+<p>The proofs need the same kind of count for a different form. Let</p>
+<div class="eq" id="eq-1-3" data-ref="(1.3)">$$Q(x_1,x_2,x_3,x_4)=x_1^2+4q^2x_2^2+4q^2x_3^2+4q^2x_4^2,\tag{1.3}$$</div>
+<p>and let $r_Q(n)$ be the number of solutions of</p>
+<div class="eq" id="eq-1-4" data-ref="(1.4)">$$Q(v)=n,\qquad v\in\Z^4.\tag{1.4}$$</div>
+
+<p>There is no closed formula for $r_Q(n)$ like Jacobi's. But the Ramanujan conjecture, in the cases proved by Eichler and completed by Igusa, gives an excellent approximation. For $n=p^k$:</p>
+
+<div class="thm classical" id="eq-1-5" data-ref="(1.5)" data-title="Eichler–Igusa"><span class="label">(1.5) <span class="who">Eichler, Igusa</span></span>
+$$r_Q(p^k)=C(p^k)+O_\varepsilon\!\big(p^{k(1/2+\varepsilon)}\big)\quad\text{as }k\to\infty,\ \text{for every }\varepsilon>0,$$
+$$C(p^k)=\begin{cases}c_1\sum_{d\mid p^k}d & \text{if }\leg pq=1,\\[2pt] c_2\sum_{d\mid p^k}d & \text{if }\leg pq=-1\text{ and }k\text{ is even},\\[2pt] 0 & \text{if }\leg pq=-1\text{ and }k\text{ is odd}.\end{cases}$$
+</div>
+
+<p>The main term $C(p^k)$ grows like $p^k$; the error is roughly its square root. That square-root saving is exactly what the Ramanujan conjecture provides, and it is where the graphs get their name. The constants $c_1,c_2$ are not computed from modular forms: §4 reads them off the graph (both turn out to be $\frac{4}{q(q^2-1)}$; see Figure 6). That the graphs are Ramanujan will follow from (1.5).</p>
+
+<h3 id="s1-results">What is proved</h3>
+
+<p>Write $g(X)$ for the girth (shortest cycle), $i(X)$ for the independence number, $\chi(X)$ for the chromatic number and $\diam(X)$ for the diameter. Besides the Ramanujan property, the paper proves:</p>
+
+<div class="table-scroll" id="tbl-results" data-ref="Results" data-title="Cases i and ii">
+<table class="params">
+<tr><th>Case</th><th>The graph</th><th>Girth</th><th>Diameter</th><th>More</th></tr>
+<tr><td>i. $\leg qp=-1$</td><td>bipartite, $n=q(q^2-1)$</td><td>$g\ge4\log_pq-\log_p4$</td><td rowspan="2">$\diam\le2\log_pn+2\log_p2+1$</td><td></td></tr>
+<tr><td>ii. $\leg qp=1$</td><td>not bipartite, $n=q(q^2-1)/2$</td><td>$g\ge2\log_pq$</td><td>$i(X)\le\frac{2\sqrt p}{p+1}n$, $\ \chi(X)\ge\frac{p+1}{2\sqrt p}$</td></tr>
+</table>
+</div>
+<p class="slip">The cases are stated with $\leg qp$ here and with $\leg pq$ everywhere else. Since $p\equiv q\equiv1\pmod 4$, quadratic reciprocity makes them equal.</p>
+
+<p>The main results are the Ramanujan property and the girth bounds. The diameter and independence bounds follow from the Ramanujan property, and the chromatic number from the independence number.</p>
+
+<p>The girth is the striking part. Since $n\approx q^3$, Case i gives $g(X)\gtrsim\frac43\log_{p}n$. Erdős and Sachs had shown by counting that graphs with $g>\log_{k-1}n$ exist; Margulis and then Imrich gave explicit ones with $g\ge\frac49\log_{k-1}n$. So these explicit graphs beat even the random ones. The easy upper bound is $g\le2\log_{k-1}n$, and for $k=3$ Weiss had explicit examples with the same $\frac43$ as here. The bounds in Case ii (due to Alon; see Proposition 5.2) give explicit graphs with arbitrarily large girth and arbitrarily large chromatic number at once.</p>
+
+<h3 id="s1-padic">Where the graphs come from</h3>
+
+<p>The $(p+1)$-regular tree is the coset space $\PGL_2(\Q_p)/\PGL_2(\Z_p)$. For a suitable arithmetic discrete subgroup $\Gamma$ of $\mathrm{GL}_2(\Q_p)$, the double coset space $\Gamma\backslash\PGL_2(\Q_p)/\PGL_2(\Z_p)$ is a finite $(p+1)$-regular graph when $\Gamma$ is torsion-free, and the theory of automorphic forms shows these graphs are Ramanujan (Ihara; the authors' earlier work). The graphs $X^{p,q}$ are explicit cases: $\Gamma$ is a congruence subgroup of the units of the Hamilton quaternions over $\Z[1/p]$. Because that quaternion algebra has class number one, the quotients are Cayley graphs.</p>
+
+<p>The plan: §2 constructs $X^{p,q}$; §3 realizes it as a quotient of a free group of quaternions and bounds the girth; §4 proves the Ramanujan property and finds the limiting spectral density; §5 bounds the diameter and related quantities.</p>
+
+<h3 id="map">The proof at a glance</h3>
+
+<div class="map wide">
+  <div class="row">
+    <a class="node" href="#s2"><b>Generators from four squares</b><span>§2 · $p+1$ quaternions of norm $p$ become matrices mod $q$</span></a>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <a class="node key" href="#lem-3-1"><b>Unique factorization</b><span>Lemma 3.1, Cor. 3.2 · the quaternions form a free group $\Lambda(2)$; its Cayley graph is the tree</span></a>
+    <a class="node classic" href="#prop-3-3"><b>The image mod $q$</b><span>Prop. 3.3 · all of $\PSL_2$ or $\PGL_2$ (Malyshev)</span></a>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <a class="node" href="#s3-modq"><b>$X^{p,q}=\Lambda(2)/\Lambda(2q)$</b><span>§3 · the graph is the tree folded by a congruence subgroup</span></a>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <a class="node" href="#thm-3-4"><b>Girth</b><span>Thm. 3.4 · a short cycle is a small solution of (3.1)</span></a>
+    <a class="node key" href="#eq-4-15"><b>Counting is a trace</b><span>(4.14)–(4.15) · $r_Q(p^k)=\frac2n\sum_j H_k(\lambda_j)$</span></a>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <a class="node classic" href="#eq-1-5"><b>Ramanujan conjecture, weight 2</b><span>(1.5) · $r_Q(p^k)=C(p^k)+O(p^{k/2+\varepsilon})$ (Eichler, Igusa)</span></a>
+    <a class="node key" href="#lem-4-4"><b>Main terms match exactly</b><span>Lemma 4.4, (4.19)–(4.20) · only the trivial eigenvalues are large</span></a>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <a class="node goal" href="#thm-4-1"><b>$X^{p,q}$ is Ramanujan</b><span>Thm. 4.1 · every nontrivial $|\lambda|\le2\sqrt p$</span></a>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <a class="node" href="#thm-4-4"><b>$Y^{p,q}$</b><span>Thm. 4.4 · Ramanujan on $q+1$ vertices</span></a>
+    <a class="node" href="#thm-5-1"><b>Diameter</b><span>Thm. 5.1</span></a>
+    <a class="node" href="#prop-5-2"><b>Independence, colouring</b><span>Prop. 5.2, (5.9)</span></a>
+  </div>
+  <div class="legend">Shaded: the paper's key steps. Dashed: inputs from the literature. Green: the main theorem.</div>
+</div>
+<p class="dim" style="font-size:.9rem">Which steps are new, which are cited, and where a checker should spend time: the <a href="#view-guide">reading guide</a>, a companion page.</p>
+</section>
+
+<!-- ═══════════════════════════ §2 ═══════════════════════════ -->
+
+<section>
+<h2 id="s2" data-nav="Construction of $X^{p,q}$"><span class="secnum">2.</span>Construction of $X^{p,q}$</h2>
+
+<p>By (1.2), $a_0^2+a_1^2+a_2^2+a_3^2=p$ has $8(p+1)$ integer solutions $\alpha=(a_0,a_1,a_2,a_3)$. Because $p\equiv1\pmod4$, exactly one coordinate of each solution is odd, and exactly $p+1$ solutions have $a_0>0$ odd and $a_1,a_2,a_3$ even. Fix an integer $i$ with $i^2\equiv-1\pmod q$, which exists because $q\equiv1\pmod 4$. To each of the $p+1$ solutions attach the matrix</p>
+
+<div class="eq" id="eq-2-1" data-ref="(2.1)" data-title="the generators mod q">$$\tilde\alpha=\begin{pmatrix}a_0+ia_1 & a_2+ia_3\\ -a_2+ia_3 & a_0-ia_1\end{pmatrix}\in\PGL_2(\Z/q\Z),\qquad \det\tilde\alpha=p.\tag{2.1}$$</div>
+
+<p>The Cayley graph of a group $G$ with respect to a symmetric set $S$ has vertex set $G$ and joins $x$ to $sx$ for each $s\in S$. Built on $\PGL_2(\Z/q\Z)$ with these $p+1$ matrices, it is $(p+1)$-regular on $q(q^2-1)$ vertices. If $\leg pq=1$, every generator has square determinant, so they all lie in the index-two subgroup $\PSL_2(\Z/q\Z)$ and that Cayley graph is disconnected. So:</p>
+
+<ul>
+  <li>if $\leg pq=-1$, $X^{p,q}$ is the Cayley graph of $\PGL_2(\Z/q\Z)$. It is bipartite, with sides $\PSL_2(\Z/q\Z)$ and its complement, and has $n=q(q^2-1)$ vertices;</li>
+  <li>if $\leg pq=1$, $X^{p,q}$ is the Cayley graph of $\PSL_2(\Z/q\Z)$ on $n=q(q^2-1)/2$ vertices. It is not bipartite (end of §3).</li>
+</ul>
+
+<p>Connectedness, that these generators reach the whole group, is Proposition 3.3.</p>
+
+<figure class="fig wide" id="fig-generators" data-fig="generators" data-ref="Figure 1" data-title="the generators">
+  <div class="fig-head"><span class="num">Figure 1</span><span class="title">The $p+1$ generators</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>The $p+1$ solutions of $p=a_0^2+a_1^2+a_2^2+a_3^2$ with $a_0>0$ odd and $a_1,a_2,a_3$ even, drawn at the point $(a_1,a_2,a_3)$, with dot size showing $a_0$. A solution $\alpha$ and its conjugate $\bar\alpha=(a_0,-a_1,-a_2,-a_3)$ sit at opposite points. <b>Drag</b> to turn the picture, <b>choose</b> $p$ and $q$, and <b>hover</b> a dot to see its matrix (2.1) mod $q$. The checks confirm that there are $p+1=r_4(p)/8$ generators (Jacobi), that each matrix has determinant $p$ mod $q$, and that $\tilde\alpha\,\tilde{\bar\alpha}$ is the scalar $p$, so conjugation is inversion in $\PGL_2$. The readout says whether $\leg pq=1$, which puts every generator in $\PSL_2$. <b>Switch</b> to the Severi–Brauer view to see the same generators mod $p$ instead: there each $\tilde\alpha$ is a rank-one matrix, its kernel is a point of $\PP^1(\F_p)$, and the $p+1$ generators land on the $p+1$ points, one each, with conjugates joined by geodesics. <b>Choose</b> the splitting $\mathbf i\mapsto j$; either one gives a bijection.</figcaption>
+</figure>
+</section>
+
+<!-- ═══════════════════════════ §3 ═══════════════════════════ -->
+
+<section>
+<h2 id="s3" data-nav="Quaternions"><span class="secnum">3.</span>Quaternions</h2>
+
+<h3 id="s3-tree">The free group and its tree</h3>
+
+<p>Let $H(\Z)=\{a_0+a_1\bi+a_2\bj+a_3\bk : a_j\in\Z\}$ be the integral quaternions, with $\bi^2=\bj^2=\bk^2=-1$ and $\bi\bj=-\bj\bi=\bk$. Conjugation is $\bar\alpha=a_0-a_1\bi-a_2\bj-a_3\bk$ and the norm is $N(\alpha)=\alpha\bar\alpha=a_0^2+a_1^2+a_2^2+a_3^2$. The units are $\pm1,\pm\bi,\pm\bj,\pm\bk$.</p>
+
+<p>Each of the $8(p+1)$ quaternions of norm $p$ has exactly one associate $\varepsilon\alpha$ ($\varepsilon$ a unit) with $\varepsilon\alpha\equiv1\pmod 2$ and $a_0>0$. These are the $p+1$ elements of $S$ from §2. They come in conjugate pairs $\{\alpha_1,\bar\alpha_1,\dots,\alpha_s,\bar\alpha_s\}$ with $s=\frac{p+1}2$. A <em>reduced word</em> in them is one with no $\alpha_j\bar\alpha_j$ or $\bar\alpha_j\alpha_j$.</p>
+
+<div class="thm key" id="lem-3-1" data-ref="Lemma 3.1" data-title="unique factorization"><span class="label">Lemma 3.1 <span class="who">(Gerritzen–van der Put)</span>.</span> Every $\alpha\in H(\Z)$ with $N(\alpha)=p^k$ can be written uniquely as
+$$\alpha=\varepsilon\,p^r R_m(\alpha_1,\dots,\bar\alpha_s),$$
+where $\varepsilon$ is a unit, $2r+m=k$, and $R_m$ is a reduced word of length $m$.</div>
+
+<details class="proof"><summary>Proof</summary>
+<p><b>Existence.</b> Quaternions of odd norm have a theory of greatest common divisors and factorization (Dickson). So $\alpha=\gamma\beta$ with $N(\beta)=p$, and $\beta=\varepsilon' s$ for some $s\in S$; peel $s$ off and repeat. Cancelling any $s\bar s=p$ that appears leaves $\varepsilon p^rR_m$.</p>
+<p><b>Uniqueness</b> is a count. There are $(p+1)p^{m-1}$ reduced words of length $m\ge1$ and one of length $0$, so the number of expressions $\varepsilon p^rR_m$ with $2r+m=k$ is</p>
+$$8\Big(\sum_{0\le r\lt k/2}(p+1)p^{k-2r-1}+\delta(k)\Big)=8\,\frac{p^{k+1}-1}{p-1}=8\sum_{d\mid p^k}d,$$
+<p>where $\delta(k)=1$ for $k$ even and $0$ for $k$ odd. By Jacobi (1.2) that is exactly the number of $\alpha$ with $N(\alpha)=p^k$. Every $\alpha$ has at least one expression and there are as many expressions as quaternions, so each $\alpha$ has exactly one.</p>
+</details>
+
+<p>Uniqueness by counting is the first appearance of the theme of the whole paper: an identity is proved by checking that two finite sets have the same size, and the size of one of them comes from the arithmetic of quadratic forms.</p>
+
+<div class="thm" id="cor-3-2" data-ref="Corollary 3.2"><span class="label">Corollary 3.2.</span> If $\alpha\equiv1\pmod2$ and $N(\alpha)=p^k$, then $\alpha=\pm p^rR_m(\alpha_1,\dots,\bar\alpha_s)$ with $2r+m=k$, and this representation is unique.</div>
+
+<p>Now consider all $\alpha\equiv1\pmod 2$ whose norm is a power of $p$, and identify $\alpha$ with $\beta$ when $\pm p^{v_1}\alpha=p^{v_2}\beta$. The classes form a group $\Lambda(2)$, with $[\alpha][\beta]=[\alpha\beta]$ and $[\alpha]^{-1}=[\bar\alpha]$. By Corollary 3.2 it is <b>free</b> on $[\alpha_1],\dots,[\alpha_s]$. Its Cayley graph with respect to $S$ is therefore the $(p+1)$-regular tree, also called $\Lambda(2)$. This realizes the tree inside number theory.</p>
+
+<div class="note" id="note-sb"><span class="label">Why exactly $p+1$, seen from $p$ (not in the paper)</span>
+<p>The tree also explains the count. $H$ is ramified only at $2$ and $\infty$, so it splits at $p$: choosing $j$ with $j^2\equiv-1\pmod p$ identifies $H\otimes\F_p$ with $M_2(\F_p)$, and its Severi–Brauer variety, the conic $x^2+y^2+z^2=0$, with $\PP^1(\F_p)$. Each generator has norm $p\equiv0$, so its matrix is rank one and its kernel is a point of $\PP^1(\F_p)$. The $p+1$ generators land on the $p+1$ points, one each, and conjugation swaps kernel and image. Those $p+1$ points are the $p+1$ neighbours of a vertex in the Bruhat–Tits tree of $\PGL_2(\Q_p)$, which is why $\Lambda(2)$ acts simply transitively on it. Figure 1's second view draws this.</p>
+</div>
+
+<figure class="fig wide" id="fig-tree" data-fig="tree" data-ref="Figure 2" data-title="the free group on the tree">
+  <div class="fig-head"><span class="num">Figure 2</span><span class="title">The free group $\Lambda(2)$ and unique factorization</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>The $(p+1)$-regular tree $\Lambda(2)$ around the identity, with edges coloured by generator pair ($\bar\alpha_j$ dashed). <b>Click</b> a vertex to walk there: the path spells a reduced word, shown with its quaternion. <b>Press</b> <i>Factor a random $\beta$</i> to run Lemma 3.1 backwards on a quaternion of norm $p^k$ (or multiply it by $-p$ first): at each step exactly one generator divides on the right. The counting check is the proof of uniqueness: the number of $\alpha\equiv1\pmod2$ with $N(\alpha)=p^k$ equals the number of expressions $\pm p^rR_m$.</figcaption>
+</figure>
+
+<h3 id="s3-modq">Reducing mod $q$</h3>
+
+<p>To get finite graphs, divide the tree by a normal subgroup of finite index. For $(m,p)=1$, let $\Lambda(2m)$ be the classes $[\alpha]$ with $2m\mid a_1,a_2,a_3$. It is the kernel of the reduction map $\Lambda(2)\to H(\Z/2m\Z)^*/Z$, where $Z$ is the central subgroup of scalars, so it is normal of finite index. From now on $m=q$. Reduction mod $q$ followed by (2.1) gives a homomorphism</p>
+$$\varphi:\Lambda(2)\to\PGL_2(\Z/q\Z),\qquad [\alpha]\mapsto\begin{pmatrix}a_0+ia_1 & a_2+ia_3\\ -a_2+ia_3 & a_0-ia_1\end{pmatrix}.$$
+
+<div class="thm classical" id="prop-3-3" data-ref="Proposition 3.3" data-title="the image mod q"><span class="label">Proposition 3.3.</span> $\operatorname{Image}\varphi=\PGL_2(\Z/q\Z)$ if $\leg pq=-1$, and $\operatorname{Image}\varphi=\PSL_2(\Z/q\Z)$ if $\leg pq=1$.</div>
+
+<details class="proof"><summary>Proof idea</summary>
+<p>The generators land in $\PSL_2$ exactly when $p$ is a square mod $q$, and $\PSL_2$ has index two in $\PGL_2$. So it suffices to show the image contains $\PSL_2(\Z/q\Z)$, that is, to lift every norm-one quaternion $\beta$ mod $q$ to an $\alpha\in H(\Z)$ with $N(\alpha)=p^k$, $\alpha\equiv1\pmod2$ and $\alpha\equiv\beta\pmod q$. Writing $\alpha=a_0+2a_1\bi+2a_2\bj+2a_3\bk$, this asks to represent $p^k$ by $x_1^2+4x_2^2+4x_3^2+4x_4^2$ in a prescribed residue class mod $q$. Malyshev's results on the singular series of Hardy and Littlewood supply such representations once $p^k$ is large and generic. <b id="rem-1" data-alias="Remark 1">Remark 1</b> in the paper notes that strong approximation also gives the result.</p>
+</details>
+
+<p>So $\Lambda(2)/\Lambda(2q)$ is $\PGL_2(\Z/q\Z)$ or $\PSL_2(\Z/q\Z)$, and the generators go to the matrices (2.1). The graph $X^{p,q}$ is the quotient of the tree $\Lambda(2)$ by $\Lambda(2q)$, and in particular it is connected. The paper calls this realization "more useful for theoretical purposes": every question about $X^{p,q}$ becomes a question about how the tree folds up.</p>
+
+<h3 id="s3-girth">Girth</h3>
+
+<div class="thm key" id="thm-3-4" data-ref="Theorem 3.4" data-title="girth"><span class="label">Theorem 3.4.</span> If $\leg pq=-1$, then $g(X^{p,q})\ge4\log_pq-\log_p4$ and $|X^{p,q}|=q(q^2-1)$. If $\leg pq=1$, then $g(X^{p,q})\ge2\log_pq$ and $|X^{p,q}|=q(q^2-1)/2$.</div>
+
+<p>Since $X^{p,q}$ is a Cayley graph it looks the same from every vertex, so a shortest cycle may be taken through the identity. In the tree picture, that is a nontrivial element $\gamma\in\Lambda(2q)$ of smallest length $t$. Lift it to a quaternion $\tilde\gamma=\beta_1\cdots\beta_t$ with $\beta_j\in S$. Then $N(\tilde\gamma)=p^t$ and $\tilde\gamma=a_0+2qa_1\bi+2qa_2\bj+2qa_3\bk$, with some $a_1,a_2,a_3\ne0$ because $\gamma\ne e$. So</p>
+
+<div class="eq" id="eq-3-1" data-ref="(3.1)" data-title="a cycle is a small quaternion">$$p^t=a_0^2+4q^2a_1^2+4q^2a_2^2+4q^2a_3^2.\tag{3.1}$$</div>
+
+<p>If $\leg pq=1$ this already gives $p^t\ge4q^2$, so $t\ge2\log_pq$. If $\leg pq=-1$, reducing (3.1) mod $q$ shows $p^t$ is a square mod $q$, so $t=2r$ is even. Then $a_0$ solves</p>
+<div class="eq" id="eq-3-2" data-ref="(3.2)">$$X_0^2\equiv p^t\pmod{q^2},\tag{3.2}$$</div>
+<p>and since $(\Z/q^2\Z)^*$ is cyclic, the only solutions are $X_0\equiv\pm p^r\pmod{q^2}$ (3.2)′. If</p>
+<div class="eq" id="eq-3-3" data-ref="(3.3)">$$p^t\lt q^4/4,\tag{3.3}$$</div>
+<p>then $p^r\lt q^2/2$, so any solution other than $\pm p^r$ has $|X_0|\ge q^2/2$, and (3.1) forces $p^t\gt q^4/4$, a contradiction. Hence $p^t\ge q^4/4$, which is the bound $t\ge4\log_pq-\log_p4$.</p>
+
+<p id="p-nonbip">The section ends by showing that when $\leg pq=1$, $X^{p,q}$ is not bipartite. A bipartition of the Cayley graph of $G=\PSL_2(\Z/q\Z)$ would make the even-length products of generators an index-two subgroup, and $\PSL_2(\Z/q\Z)$ is simple for $q>3$.</p>
+
+<figure class="fig wide" id="fig-girth" data-fig="girth" data-ref="Figure 3" data-title="girth from a count">
+  <div class="fig-head"><span class="num">Figure 3</span><span class="title">The girth, read off a count</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>For each $t$, the number $r_Q(p^t)$ of integer quaternions of norm $p^t$ whose $\bi,\bj,\bk$ parts are divisible by $2q$, on a log scale. For even $t$ the two solutions $\pm p^{t/2}$ are always there. The first $t$ with more solutions is the length of the shortest relation in $\Lambda(2)/\Lambda(2q)$, which is the girth of $X^{p,q}$. <b>Choose</b> a pair $(p,q)$. The dashed line, Theorem 3.4's bound, always sits at or before the first jump. The shortest relation found, factored by Lemma 3.1, is a cycle in the graph.</figcaption>
+</figure>
+</section>
+
+<!-- ═══════════════════════════ §4 ═══════════════════════════ -->
+
+<section>
+<h2 id="s4" data-nav="Spectrum of $X^{p,q}$"><span class="secnum">4.</span>Spectrum of $X^{p,q}$</h2>
+
+<div class="thm key" id="thm-4-1" data-ref="Theorem 4.1" data-title="the main theorem"><span class="label">Theorem 4.1.</span> $X^{p,q}$ is a Ramanujan graph.</div>
+
+<h3 id="s4-large">What every large graph must do</h3>
+
+<p>Before the proof, the paper studies the spectrum of a general $X_{n,k}$ as $n\to\infty$, starting with (1.1).</p>
+
+<div class="thm" id="prop-4-2" data-ref="Proposition 4.2" data-title="Alon–Boppana"><span class="label">Proposition 4.2.</span> $\displaystyle\liminf_{n\to\infty}\lambda(X_{n,k})\ge2\sqrt{k-1}.$</div>
+
+<details class="proof"><summary>Proof</summary>
+<p>The entries of $A^l$ count paths of length $l$: $A^l=(\delta^{(l)}_{ij})$. Taking traces,</p>
+<div class="eq" id="eq-4-1" data-ref="(4.1)">$$\sum_{j=0}^{n-1}\lambda_j^l=\sum_j\delta^{(l)}_{jj}.\tag{4.1}$$</div>
+<p>Closed paths in $X$ lift to paths in the universal cover $T_k$, and closed paths in $T_k$ project to closed paths in $X$. So $\delta^{(l)}_{jj}\ge\rho(l)$, the number of closed paths of length $l$ at a vertex of $T_k$, and</p>
+<div class="eq" id="eq-4-2" data-ref="(4.2)">$$\sum_{j=0}^{n-1}\lambda_j^l\ge n\,\rho(l).\tag{4.2}$$</div>
+<p>Remove the eigenvalues $\pm k$ (at most two) and bound the rest by $\lambda(X)$:</p>
+<div class="eq" id="eq-4-3" data-ref="(4.3)">$$\lambda(X)^{2l}\ge\rho(2l)-\frac{2k^{2l}}{n-2}.\tag{4.3}$$</div>
+<p>Finally $\rho(2l)$ is at least the number of first returns, $\frac1l\binom{2l-2}{l-1}k(k-1)^{l-1}$, and $\binom{2l-2}{l-1}^{1/2l}\to2$. Let $n\to\infty$, then $l\to\infty$.</p>
+</details>
+
+<p>If the girth also tends to infinity, the whole spectrum converges. Put mass $\frac1n$ at each eigenvalue to get a probability measure $\mu_{X_{n,k}}$ on $[-k,k]$.</p>
+
+<div class="thm" id="prop-4-3" data-ref="Proposition 4.3" data-title="Kesten's measure"><span class="label">Proposition 4.3.</span> As $n\to\infty$ with $g(X_{n,k})\to\infty$, the measures $\mu_{X_{n,k}}$ converge weak-$*$ to $\mu_k$, where
+$$d\mu_k(t)=\begin{cases}\dfrac{\sqrt{k-1-t^2/4}}{\pi k\,\big(1-(t/k)^2\big)}\,dt & \text{if }|t|\le2\sqrt{k-1},\\[6pt] 0 & \text{otherwise.}\end{cases}$$</div>
+
+<p>It suffices to check moments:</p>
+<div class="eq" id="eq-4-4" data-ref="(4.4)">$$\int t^l\,d\mu_{X_{n,k}}(t)\;\longrightarrow\;\int t^l\,d\mu_k(t)\quad\text{for each }l\ge0.\tag{4.4}$$</div>
+<p>Once the girth exceeds $l$, every vertex sees a tree out to distance $l$, so $\frac1n\sum_j\lambda_j^l=\rho(l)$ exactly. And $\rho(l)$ is the $l$-th moment of $\mu_k$ (Kesten). Since Theorem 3.4 makes $g(X^{p,q})\to\infty$ as $q\to\infty$, the eigenvalues of $X^{p,q}$, apart from $\pm(p+1)$, fill out $[-2\sqrt p,2\sqrt p]$ with density $\mu_{p+1}$.</p>
+
+<figure class="fig wide" id="fig-kesten" data-fig="kesten" data-ref="Figure 4" data-title="Kesten's density">
+  <div class="fig-head"><span class="num">Figure 4</span><span class="title">The spectrum against the tree's</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>All eigenvalues of $X^{p,q}$ as a histogram, with the window $[-2\sqrt p,2\sqrt p]$ shaded and Kesten's density $\mu_{p+1}$ from Proposition 4.3 drawn over it. <b>Choose</b> a pair $(p,q)$. In the table, the moments $\frac1n\sum_j\lambda_j^l$ equal the tree's closed-walk counts $\rho(l)$ for every $l$ below the girth, as in (4.4), and then separate. Every nontrivial eigenvalue lies inside the window. That is Theorem 4.1, which the figure observes but does not prove.</figcaption>
+</figure>
+
+<h3 id="s4-tree">Harmonic analysis on the tree</h3>
+
+<p>Let $\Gamma$ act freely on $T=T_k$ by isometries with $n=|T/\Gamma|$ finite, and let $L^2(T/\Gamma)$ be the $\Gamma$-periodic functions on $T$. The adjacency operator preserves this space, so it has an orthonormal eigenbasis:</p>
+<div class="eq" id="eq-4-5" data-ref="(4.5)">$$\Delta u_j=\lambda_ju_j,\qquad u_0(x)=\frac1{\sqrt n},\quad\lambda_0=p+1=k.\tag{4.5}$$</div>
+<p class="dim">The paper writes $\Delta$ for the adjacency operator, not the Laplacian.</p>
+
+<p>Build $\Gamma$-periodic kernels from distances. For an integer $l\ge0$, the point-pair function and its periodization are</p>
+<div class="eq" id="eq-4-6" data-ref="(4.6)">$$k_l(x,y)=\begin{cases}1 & d(x,y)=l,\\ 0 & \text{otherwise},\end{cases}\tag{4.6}$$</div>
+<div class="eq" id="eq-4-7" data-ref="(4.7)">$$K_l(x,y)=\sum_{\gamma\in\Gamma}k_l(\gamma x,y).\tag{4.7}$$</div>
+<p>$K_l(x,y)$ counts the points of the orbit $\Gamma x$ at distance exactly $l$ from $y$. Because $\Delta$ commutes with the operator $k_l$, the expansion of $K_l$ in the eigenbasis is diagonal:</p>
+<div class="eq" id="eq-4-8" data-ref="(4.8)">$$K_l(x,y)=\sum_{j=0}^{n-1}h_j(l)\,u_j(x)\,u_j(y).\tag{4.8}$$</div>
+<p>Summing alternate shells, out to distance $t$,</p>
+<div class="eq" id="eq-4-9" data-ref="(4.9)">$$L_t(x,y)=\sum_{0\le r\le t/2}K_{t-2r}(x,y),\tag{4.9}$$</div>
+<p>gives coefficients with a clean closed form (computed in the authors' earlier work):</p>
+<div class="eq" id="eq-4-10" data-ref="(4.10)" data-title="spherical functions">$$L_t(x,y)=p^{t/2}\sum_{j=0}^{n-1}\frac{\sin(t+1)\theta_j}{\sin\theta_j}\,u_j(x)\,u_j(y),\tag{4.10}$$</div>
+<div class="eq" id="eq-4-11" data-ref="(4.11)">$$\lambda_j=2\sqrt p\cos\theta_j.\tag{4.11}$$</div>
+
+<p>The angle $\theta_j$ is real exactly when $|\lambda_j|\le2\sqrt p$. Otherwise it is complex: $\theta_j=i\mu$ with $\mu>0$ if $\lambda_j>2\sqrt p$, and $\theta_j=\pi+i\mu$ if $\lambda_j\lt-2\sqrt p$. For instance $\theta_0=i\log\sqrt p$, and $\theta_{n-1}=\pi+i\log\sqrt p$ when $\lambda_{n-1}=-(p+1)$. So <b>the Ramanujan property is the statement that every nontrivial $\theta_j$ is real.</b></p>
+
+<p>Now take $T=\Lambda(2)$ and $\Gamma=\Lambda(2q)$. On the diagonal, $K_l(x,x)$ counts $\gamma\in\Lambda(2q)$ with $d(\gamma x,x)=l$, and normality of $\Lambda(2q)$ moves the count to the identity:</p>
+<div class="eq" id="eq-4-12" data-ref="(4.12)">$$K_l(x,x)=\big|\{\gamma\in\Lambda(2q):d(\gamma e,e)=l\}\big|,\tag{4.12}$$</div>
+<div class="eq" id="eq-4-13" data-ref="(4.13)">$$L_t(x,x)=L_t(e,e)\quad\text{for all }x\in\Lambda(2),\ t\ge0.\tag{4.13}$$</div>
+
+<h3 id="s4-count">Counting quaternions is taking a trace</h3>
+
+<p>Here the two halves of the paper meet. Return to the form $Q=x_1^2+(2q)^2x_2^2+(2q)^2x_3^2+(2q)^2x_4^2$ of (1.3). A solution of $Q(v)=p^k$ is a quaternion $\alpha$ of norm $p^k$ with $2q\mid a_1,a_2,a_3$. By Corollary 3.2 each one is $\pm p^rR_t$ with $2r+t=k$ and $[\alpha]\in\Lambda(2q)$, uniquely. So the solutions are counted by elements of $\Lambda(2q)$ at distance $k,k-2,k-4,\dots$ from $e$, twice over for the sign:</p>
+$$r_Q(p^k)=2\sum_{0\le r\le k/2}\big|\{\alpha\in\Lambda(2q):d(\alpha,e)=k-2r\}\big|,$$
+<p>that is,</p>
+<div class="eq" id="eq-4-14" data-ref="(4.14)">$$r_Q(p^k)=2L_k(e,e)=2L_k(x,x).\tag{4.14}$$</div>
+<p class="slip">The sum is printed over $r\lt k/2$. It must include $r=k/2$ (the identity, $\alpha=\pm p^{k/2}$), as in (4.9); without it $r_Q(p^2)=2$ would be counted as $0$.</p>
+
+<p>Average (4.14) over the $n$ vertices of $T/\Lambda(2q)$ and insert (4.10). Since the $u_j$ are orthonormal, only the diagonal survives:</p>
+
+<div class="thm key eq" id="eq-4-15" data-ref="(4.15)" data-title="counting = trace"><span class="label">(4.15)</span>
+$$r_Q(p^k)=\frac{2p^{k/2}}{n}\sum_{j=0}^{n-1}\frac{\sin(k+1)\theta_j}{\sin\theta_j}.$$
+</div>
+
+<p>The left side is arithmetic: it counts integer solutions of a quadratic equation. The right side is spectral: it sums a function of the eigenvalues of $X^{p,q}$. The paper notes that the spectrum of the adjacency operator on $\Lambda(2q)$-periodic functions is the spectrum of the quotient graph, and calls (4.15) the key relation. Figure 5 checks it, exactly, on real graphs.</p>
+
+<figure class="fig wide" id="fig-trace" data-fig="trace" data-ref="Figure 5" data-title="counting is a trace">
+  <div class="fig-head"><span class="num">Figure 5</span><span class="title">Counting quaternions is taking a trace</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>Top: the spectrum of $X^{p,q}$ on a line, with the Ramanujan window shaded and the polynomial $H_t(x)=p^{t/2}\frac{\sin(t+1)\theta}{\sin\theta}$ (with $x=2\sqrt p\cos\theta$, Remark 2) drawn over it. Bottom: for each $t$, the direct count $r_Q(p^t)$, made by listing integer solutions of $Q(v)=p^t$, beside $\frac2n\sum_jH_t(\lambda_j)$, made by summing over eigenvalues. <b>Move</b> $t$, <b>choose</b> a pair, and <b>hover</b> an eigenvalue to see its term. The two columns agree exactly; that is identity (4.15). The table also splits the sum. The part from $\pm(p+1)$ is exactly the main term $C(p^t)$ of (4.19)–(4.20), since $H_t(p+1)=\sum_{d\mid p^t}d$. The rest stays below $2(t+1)p^{t/2}$, because inside the window $|H_t|\le(t+1)p^{t/2}$. That split is the whole proof of Theorem 4.1, run in reverse.</figcaption>
+</figure>
+
+<h3 id="s4-theta">The theta series and the main term</h3>
+
+<p>Combine (4.15) with the Eichler–Igusa estimate (1.5):</p>
+<div class="eq" id="eq-4-16" data-ref="(4.16)">$$C(p^k)+O_\varepsilon\big(p^{k(1/2+\varepsilon)}\big)=\frac{2p^{k/2}}n\sum_{j=0}^{n-1}\frac{\sin(k+1)\theta_j}{\sin\theta_j}\qquad\forall\varepsilon>0.\tag{4.16}$$</div>
+
+<p>Where $C$ comes from: $r_Q(n)$ is the $n$-th coefficient of the theta function $\theta(z)=\sum_{v\in\Z^4}e^{2\pi iQ(v)z}$, a modular form of weight two (Hecke). It splits as a combination of Eisenstein series plus a cusp form. The cusp form contributes the error term, by the Ramanujan bound; the Eisenstein series contribute the "singular series" $C(n)$. From the known Fourier expansions of Eisenstein series, $C$ has the shape</p>
+$$C(n)=\sum_{d\mid n}d\,F(d),\qquad F:\NN\to\C\ \text{periodic of period }4q^2.$$
+
+<p>The proof never computes $F$. Instead it compares $C(p^k)$ with the trivial eigenvalues, using a lemma about divisor sums with periodic weights.</p>
+
+<div class="thm key" id="lem-4-4" data-ref="Lemma 4.4" data-title="periodic divisor sums"><span class="label">Lemma 4.4.</span> Let $G:\NN\to\C$ be periodic, and suppose $\sum_{d\mid p^k}d\,G(d)=o(p^k)$ as $k\to\infty$. Then $\sum_{d\mid p^k}d\,G(d)=0$ for all $k$.</div>
+
+<details class="proof"><summary>Proof</summary>
+<p>Let $\alpha_k=\sum_{d\mid p^k}dG(d)$. Then</p>
+<div class="eq" id="eq-4-17" data-ref="(4.17)">$$\frac{\alpha_k}{p^k}-\frac{\alpha_{k-1}}{p^{k-1}p}=G(p^k).\tag{4.17}$$</div>
+<p>The left side tends to $0$. But $k\mapsto G(p^k)$ is periodic, so it must vanish identically.</p>
+</details>
+
+<p class="dim">Lemma 4.4 and Theorem 4.4 share a number in the paper; both keep it here.</p>
+
+<p>Rewriting (4.16) with the shape of $C$:</p>
+<div class="eq" id="eq-4-18" data-ref="(4.18)">$$\sum_{d\mid p^k}d\,F(d)+O_\varepsilon\big(p^{k(1/2+\varepsilon)}\big)=\frac{2p^{k/2}}n\sum_{j=0}^{n-1}\frac{\sin(k+1)\theta_j}{\sin\theta_j}\qquad\forall\varepsilon>0.\tag{4.18}$$</div>
+
+<h3 id="s4-cases">The two cases</h3>
+
+<p><b>Case i, $\leg pq=-1$.</b> Here $X^{p,q}$ is bipartite, so its eigenvalues come in pairs $\pm\lambda$, and $\pm(p+1)$ are simple: $|\lambda_j|\lt p+1$ for $j\ne0,n-1$. The trivial pair contributes $0$ to the right side of (4.18) when $k$ is odd, and $\frac{4(p^{k+1}-1)}{n(p-1)}=\frac4n\sum_{d\mid p^k}d$ when $k$ is even. Every other term is $o(p^k)$. So the difference of the two divisor sums is $o(p^k)$, and Lemma 4.4 makes it exactly zero:</p>
+<div class="eq" id="eq-4-19" data-ref="(4.19)">$$C(p^k)=\begin{cases}0 & k\text{ odd},\\[2pt] \dfrac{4(p^{k+1}-1)}{n(p-1)} & k\text{ even}.\end{cases}\tag{4.19}$$</div>
+<p>Cancelling these identical leading terms leaves, for even $k\to\infty$,</p>
+$$\sum_{j\ne0,\,n-1}\frac{\sin(k+1)\theta_j}{\sin\theta_j}=O_\varepsilon\big(p^{\varepsilon k}\big)\qquad\forall\varepsilon>0,$$
+<p>and this forces every remaining $\theta_j$ to be real, so $|\lambda_j|\le2\sqrt p$.</p>
+<p class="slip">The range of this last sum is printed once as $j=1$ and once as $j=2$ to $n-2$. It is every $j$ except $0$ and $n-1$, the eigenvalues $\pm(p+1)$.</p>
+
+<div class="note" id="why-real"><span class="label">Why "this forces every $\theta_j$ to be real"</span>
+<p>The paper says "clearly". If $\theta_j=i\mu$ with $\mu>0$, the term is $\frac{\sinh(k+1)\mu}{\sinh\mu}$, which is positive and grows like $e^{k\mu}$. If $\theta_j=\pi+i\mu$, it is $(-1)^k\frac{\sinh(k+1)\mu}{\sinh\mu}$, which is also positive when $k$ is even. A real $\theta_j$ contributes at most $k+1$ in absolute value. So for even $k$ the non-real terms all have the same sign and cannot cancel, and a single one of them would outgrow $p^{\varepsilon k}$ for small $\varepsilon$. That is why the argument runs over even $k$.</p>
+</div>
+
+<p><b>Case ii, $\leg pq=1$.</b> Now $X^{p,q}$ is not bipartite (end of §3), so $|\lambda_j|\lt p+1$ for all $j\ne0$, and (4.16) reads $C(p^k)+O_\varepsilon(p^{k(1/2+\varepsilon)})=\frac{2(p^{k+1}-1)}{n(p-1)}+o(p^k)$. By Lemma 4.4,</p>
+<div class="eq" id="eq-4-20" data-ref="(4.20)">$$C(p^k)=\frac{2(p^{k+1}-1)}{n(p-1)},\tag{4.20}$$</div>
+<p>and this time $\sum_{j=1}^{n-1}\frac{\sin(k+1)\theta_j}{\sin\theta_j}=O_\varepsilon(p^{k\varepsilon})$, so every $\theta_j$ with $j\ge1$ is real. That proves Theorem 4.1. ∎</p>
+
+<p>In both cases the constant is the same, $c_1=c_2=\frac4{q(q^2-1)}$, since $n$ doubles from Case ii to Case i. The proof learns the Eisenstein part of a theta series from the trivial eigenvalues of a graph.</p>
+
+<figure class="fig wide" id="fig-mainterm" data-fig="mainterm" data-ref="Figure 6" data-title="the main term">
+  <div class="fig-head"><span class="num">Figure 6</span><span class="title">The main term, and what a bad eigenvalue would do</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>For $k=0,1,2,\dots$: the count $r_Q(p^k)$, the main term $C(p^k)=\frac4{q(q^2-1)}\sum_{d\mid p^k}d$ from (4.19)–(4.20), and their difference divided by $p^{k/2}$, which stays in a narrow band as (1.5) says it must. <b>Drag</b> the slider to add a hypothetical eigenvalue $\lambda^\ast$ outside the window. Its contribution $\frac2nH_k(\lambda^\ast)$, measured in the same units, grows exponentially in $k$ and leaves the band: together, (1.5) and (4.15) leave no room for it.</figcaption>
+</figure>
+
+<h3 id="s4-remark2" data-alias="Remark 2">Remark 2: the referee's shortcut</h3>
+
+<p>A referee pointed out that (4.15) needs no harmonic analysis on the tree. Define polynomials by</p>
+$$H_0(x)=1,\quad H_1(x)=x,\quad H_t(x)=xH_{t-1}(x)-pH_{t-2}(x)\ \ (t\ge2),$$
+<p>and the operator $L_t=H_t(\Delta)$. On a $(p+1)$-regular graph, $H_t(\Delta)$ counts non-backtracking walks of length $t,t-2,t-4,\dots$, so the counting argument behind (4.14) gives $\TR(L_t)=n\,r_Q(p^t)/2$. On the other hand $\TR(L_t)=\sum_jH_t(\lambda_j)$, and with $\lambda_j=2\sqrt p\cos\theta_j$ this is $\sum_jp^{t/2}\frac{\sin(t+1)\theta_j}{\sin\theta_j}$. Equating the two traces is (4.15). Figure 5 computes exactly this.</p>
+
+<h3 id="s4-Y">The graphs $Y^{p,q}$</h3>
+
+<p>The same generators give a smaller family. $\PGL_2(\Z/q\Z)$ acts on the projective line $\PP^1(\F_q)=\{0,1,\dots,q-1,\infty\}$ by fractional linear maps. Join $\xi$ to $\gamma\xi$ for each $\gamma\in S$: the result is a $(p+1)$-regular graph $Y^{p,q}$ on $q+1$ vertices. An eigenfunction $f$ of $Y^{p,q}$ pulls back to $F(g)=f(g(0))$ on $X^{p,q}$ with the same eigenvalue, so $\spec Y^{p,q}\subseteq\spec X^{p,q}$ and $Y^{p,q}$ is Ramanujan. It remains to rule out $-(p+1)$. That could only happen when $\leg pq=-1$, with $F=1$ on $\PSL_2$ and $-1$ on its complement. But $F$ is constant on the stabilizer of $0$, the lower-triangular matrices, which contains elements of both. So:</p>
+
+<div class="thm" id="thm-4-4" data-ref="Theorem 4.4" data-title="the graphs Y^{p,q}"><span class="label">Theorem 4.4.</span> The graphs $Y^{p,q}$ are non-bipartite Ramanujan graphs of order $q+1$ and degree $p+1$.</div>
+
+<figure class="fig wide" id="fig-projective" data-fig="projective" data-ref="Figure 7" data-title="Y on the projective line">
+  <div class="fig-head"><span class="num">Figure 7</span><span class="title">$Y^{p,q}$ on the projective line</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>The $q+1$ points of $\PP^1(\F_q)$ as ideal points on the boundary of the Poincaré disk, each joined to its images under the $p+1$ generators by a hyperbolic geodesic; a repeated edge is one geodesic drawn thicker. A fixed point of a generator gives a loop, drawn as a small circle just outside the disk, tangent to the boundary at that point. Below it is the spectrum of $Y^{p,q}$ against the window, with the eigenvalues of $X^{p,q}$ as faint ticks when that spectrum is small enough to compute here. <b>Choose</b> $p$ and $q$; $q$ can go up to about $200$. Every eigenvalue except $p+1$ lies in the window, and $-(p+1)$ never appears, even when $X^{p,q}$ is bipartite. That is Theorem 4.4.</figcaption>
+</figure>
+</section>
+
+<!-- ═══════════════════════════ §5 ═══════════════════════════ -->
+
+<section>
+<h2 id="s5" data-nav="Diameter and other quantities"><span class="secnum">5.</span>Diameter and other quantities</h2>
+
+<p>Since $X^{p,q}\cong\Lambda(2)/\Lambda(2q)=T/\Lambda(2q)$, the diameter is a statement about orbits in the tree:</p>
+<div class="eq" id="eq-5-1" data-ref="(5.1)">$$\diam(X^{p,q})=\sup_{x,y\in T}\ \inf_{\gamma\in\Lambda(2q)}d(x,\gamma y).\tag{5.1}$$</div>
+<p>If two vertices are farther apart than $l$ in $X^{p,q}$, then no orbit point is within $l$, so $K_m(x,y)=0$ for every $m\le l$, and</p>
+<div class="eq" id="eq-5-2" data-ref="(5.2)">$$\sum_{m\le l}a_mK_m(x,y)=0\tag{5.2}$$</div>
+<p>for any coefficients. Choose them from the Chebyshev polynomial of the first kind:</p>
+<div class="eq" id="eq-5-3" data-ref="(5.3)">$$\cos(l\arccos x)=\sum_{m=0}^la_mx^m.\tag{5.3}$$</div>
+<p class="slip">The paper calls this polynomial $H_l$, the same name as the different polynomials of Remark 2. It also refers to (4.4) and (4.5) for $k_m$ and $K_m$, which are (4.6) and (4.7).</p>
+<p>As in §4,</p>
+<div class="eq" id="eq-5-4" data-ref="(5.4)">$$\sum_{m\le l}a_mK_m(x,y)=p^{l/2}\sum_{j=0}^{n-1}\cos(l\theta_j)\,u_j(x)\,u_j(y).\tag{5.4}$$</div>
+<p>For even $l$, the trivial eigenvalue contributes $\frac{p^l+1}{2n}$. By Theorem 4.1 every other $\cos(l\theta_j)$ has absolute value at most $1$, and $\sum_j|u_j(x)|^2=1$. So if $x,y$ are farther apart than $l$, then $\frac{p^l+1}{2n}\le p^{l/2}$, which forces $p^{l/2}\le2n$, that is $l\le2\log_p(2n)$.</p>
+
+<div class="thm" id="thm-5-1" data-ref="Theorem 5.1" data-title="diameter"><span class="label">Theorem 5.1.</span> If $n=|X^{p,q}|$, then $\diam(X^{p,q})\le2\log_pn+2\log_p2+1$.</div>
+
+<p>In the other direction the paper notes $\diam(X^{p,q})\ge\log_pn$, up to a bounded term: a ball of radius $r$ in a $(p+1)$-regular graph has at most $1+(p+1)\frac{p^r-1}{p-1}$ vertices. So the diameter is pinned down within a factor of two. For the rest of the section, $\leg pq=1$.</p>
+
+<div class="thm classical" id="prop-5-2" data-ref="Proposition 5.2" data-title="Alon"><span class="label">Proposition 5.2 <span class="who">(Alon)</span>.</span> If $X_{n,k}$ is a non-bipartite Ramanujan graph, then $i(X)\le\dfrac{2\sqrt{k-1}}{k}\,n$.</div>
+
+<details class="proof"><summary>Proof</summary>
+<p>Let $A$ be an independent set with $|A|=r$. Define</p>
+<div class="eq" id="eq-5-5" data-ref="(5.5)">$$f(x)=\begin{cases}1 & x\in A,\\ -c & x\notin A,\end{cases}\qquad r-(n-r)c=0,\tag{5.5}$$</div>
+<p>so that $f\perp1$. The Ramanujan property, for a non-bipartite graph, gives</p>
+<div class="eq" id="eq-5-6" data-ref="(5.6)">$$\|\Delta f\|_2^2\le4(k-1)\|f\|_2^2.\tag{5.6}$$</div>
+<p>On the other hand every neighbour of a vertex of $A$ lies outside $A$, so $\Delta f=-ck$ on $A$ and</p>
+<div class="eq" id="eq-5-7" data-ref="(5.7)">$$\|\Delta f\|_2^2\ge c^2k^2r.\tag{5.7}$$</div>
+<p>Together,</p>
+<div class="eq" id="eq-5-8" data-ref="(5.8)">$$c^2k^2r\le4(k-1)\big(r+c^2(n-r)\big).\tag{5.8}$$</div>
+<p>With $c=\nu/(1-\nu)$ and $\nu=r/n$, this simplifies to $\nu^2k^2\le4(k-1)(1-\nu)\le4(k-1)$, so $\nu\le\frac{2\sqrt{k-1}}k$.</p>
+</details>
+
+<p>Each colour class of a proper colouring is independent, so an upper bound on $i(X)$ is a lower bound on $\chi(X)$:</p>
+<div class="eq" id="eq-5-9" data-ref="(5.9)" data-title="chromatic number">$$\chi(X_{n,k})\ge\frac{k}{2\sqrt{k-1}}\quad\text{for non-bipartite Ramanujan }X_{n,k}.\tag{5.9}$$</div>
+
+<p><b id="rem-3" data-alias="Remark 3">Remark 3</b> notes that (5.9) also follows directly from Hoffman's eigenvalue bound. The paper closes by observing that the explicit graphs $X^{p,q}$ share many extremal properties of random graphs. <b id="rem-4" data-alias="Remark 4">Remark 4</b> records that Margulis independently obtained similar results.</p>
+
+<figure class="fig wide" id="fig-balls" data-fig="balls" data-ref="Figure 8" data-title="spheres and diameter">
+  <div class="fig-head"><span class="num">Figure 8</span><span class="title">How fast the graph fills up</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>The number of vertices at distance $r$ from the identity in $X^{p,q}$, against the tree's $(p+1)p^{r-1}$. The two agree exactly for $r\le\lfloor(g-1)/2\rfloor$, about half the girth; then the graph runs out of room. <b>Choose</b> a pair $(p,q)$. Compare the diameter, the last bar, with Theorem 5.1's bound $2\log_pn+2\log_p2+1$. When $\leg pq=1$, a greedy independent set is also compared with Alon's bound $\frac{2\sqrt p}{p+1}n$ (Proposition 5.2).</figcaption>
+</figure>
+</section>
+
+<!-- ═══════════════════════════ END MATTER ═══════════════════════════ -->
+
+<section>
+<h2 id="after" data-nav="Afterwards">Afterwards</h2>
+
+<ul>
+  <li><b>1988.</b> Margulis gives an independent construction of the same kind of graphs.</li>
+  <li><b>1992, 1994.</b> Chiu builds cubic Ramanujan graphs ($p=2$). Morgenstern builds $(q+1)$-regular Ramanujan graphs for every prime power $q$, replacing $\Q$ by function fields over $\F_q$, where Drinfeld's work supplies the Ramanujan bound.</li>
+  <li><b>2003–2008.</b> Friedman proves Alon's conjecture: a random $k$-regular graph has $\lambda(X)\le2\sqrt{k-1}+\varepsilon$ with high probability. Random graphs are almost Ramanujan.</li>
+  <li><b>2005.</b> Lubotzky, Samuels and Vishne, and independently Li, construct Ramanujan complexes, higher-dimensional analogues built on buildings instead of trees.</li>
+  <li><b>2015.</b> Marcus, Spielman and Srivastava prove that bipartite Ramanujan graphs exist in every degree, by interlacing families of polynomials, with no number theory.</li>
+  <li><b>2024.</b> Huang, McKenzie and Yau show that a positive proportion of random regular graphs, about 69%, are exactly Ramanujan.</li>
+</ul>
+<p>Still open: whether infinite families of non-bipartite $k$-regular Ramanujan graphs exist for every $k$, and explicit constructions in degrees that are not one more than a prime power.</p>
+
+<h2 id="refs" data-nav="References">References</h2>
+<ol class="refs">
+  <li>A. Lubotzky, R. Phillips, P. Sarnak, <em>Ramanujan graphs</em>, Combinatorica 8 (1988), 261–277. <a href="https://doi.org/10.1007/BF02126799">doi:10.1007/BF02126799</a></li>
+  <li>A. Lubotzky, R. Phillips, P. Sarnak, <em>Ramanujan conjecture and explicit construction of expanders</em>, Proc. STOC (1986), 240–246.</li>
+  <li>N. Alon, <em>Eigenvalues and expanders</em>, Combinatorica 6 (1986), 83–96.</li>
+  <li>M. Eichler, <em>Quaternäre quadratische Formen und die Riemannsche Vermutung für die Kongruenzzetafunktion</em>, Arch. Math. 5 (1954), 355–366.</li>
+  <li>J. Igusa, <em>Fibre systems of Jacobian varieties III</em>, Amer. J. Math. 81 (1959), 453–476.</li>
+  <li>H. Kesten, <em>Symmetric random walks on groups</em>, Trans. AMS 92 (1959), 336–354.</li>
+  <li>A. V. Malyshev, <em>On the representation of integers by positive definite quadratic forms</em>, Trudy Mat. Inst. Steklov 65 (1962).</li>
+  <li>L. Gerritzen, M. van der Put, <em>Schottky Groups and Mumford Curves</em>, Lecture Notes in Math. 817, Springer (1980).</li>
+  <li>G. Davidoff, P. Sarnak, A. Valette, <em>Elementary Number Theory, Group Theory, and Ramanujan Graphs</em>, Cambridge University Press (2003).</li>
+  <li>S. Hoory, N. Linial, A. Wigderson, <em>Expander graphs and their applications</em>, Bull. AMS 43 (2006), 439–561.</li>
+  <li>G. A. Margulis, <em>Explicit group-theoretic constructions of combinatorial schemes and their applications in the construction of expanders and concentrators</em>, Problems Inform. Transmission 24 (1988), 39–46.</li>
+  <li>M. Morgenstern, <em>Existence and explicit constructions of $q+1$ regular Ramanujan graphs for every prime power $q$</em>, J. Combin. Theory Ser. B 62 (1994), 44–62.</li>
+  <li>J. Friedman, <em>A proof of Alon's second eigenvalue conjecture and related problems</em>, Mem. AMS 195 (2008), no. 910.</li>
+  <li>A. Marcus, D. Spielman, N. Srivastava, <em>Interlacing families I: bipartite Ramanujan graphs of all degrees</em>, Ann. of Math. 182 (2015), 307–325.</li>
+  <li>J. Huang, T. McKenzie, H.-T. Yau, <em>Ramanujan property and edge universality of random regular graphs</em>, preprint (2024).</li>
+</ol>
+
+<footer class="end">This page explains the paper; it does not verify it. The figures compute the paper's own objects for small primes. The source for every computation is in <span class="mono">js/lps.js</span>, tested by <span class="mono">tests/lps.test.mjs</span>.</footer>
+</section>
+
+</main>
+</body>
+</html>
