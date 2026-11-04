@@ -29,6 +29,12 @@ import { lorentzMatrix } from './math.js';
 export const TESS_MAX_WALLS = 64;
 // Edges of the domain the honeycomb can hold (an index + 1 must fit in a byte).
 export const TESS_MAX_EDGES = 254;
+// Edges of another domain's tessellation (the Delaunay domain) near D, and the
+// most of them one grid cell lists (delaunay.js GRID_CAP).
+export const TESS_MAX_DL = 1024;
+export const TESS_DL_CAP = 256;
+// Past this beyond the farthest segment the grid is not used (delaunay.js GRID_CLIP).
+const GRID_CLIP = '0.3';
 
 const common = `
     precision highp float;
@@ -168,6 +174,26 @@ export const honeycombFragmentShader = common + `
     uniform vec4 u_center;         // the domain's centre (scene frame)
     uniform float u_faceReach;     // faces are drawn on tiles whose centre is within acosh(this) of it
     uniform vec4 u_faceRadius[${TESS_MAX_WALLS / 4}];   // each face's inradius, four to a vec4
+    // The tessellation by another domain (the Delaunay domain): its edges that
+    // come near D, as segments, in D's home frame. Row e, texels 0–4: the ends
+    // V0, V1 (on the hyperboloid); (M.xyz, eʳ), M the midpoint and r the
+    // half-length; the colour (rgb); and (r, 1 if an edge of the domain itself).
+    uniform int u_dlCount;         // 0: the Dirichlet domain's own edges
+    uniform sampler2D u_dlTex;
+    uniform mat4 u_dlToHome;       // scene frame → home frame, and back
+    uniform mat4 u_dlToScene;
+    // A grid over D's box in the Klein model (home frame), n³ cells: texel
+    // (x + n y, z) of u_dlCells is (first texel, texels) of the cell's list in
+    // u_dlList, two entries (segment, lower bound for its distance) to a
+    // texel, nearest first (−1 pads); a negative count means: measure every
+    // segment.
+    uniform sampler2D u_dlCells;
+    uniform sampler2D u_dlList;
+    uniform vec3 u_dlLo;
+    uniform vec3 u_dlSize;
+    uniform float u_dlN;           // 0: no grid
+    uniform vec2 u_dlListSize;     // u_dlList's width and height in texels
+    uniform float u_dlFar;         // every segment lies within this distance of the home origin
 
     vec4 edgeInfo(int a, int b) {
         return texture2D(u_edgeTex, (vec2(float(a), float(b)) + 0.5) / ${TESS_MAX_WALLS}.0);
@@ -339,6 +365,94 @@ export const honeycombFragmentShader = common + `
         return best;
     }
 
+    // ---- the other tessellation's edges (u_dlCount > 0) ----
+    vec4 dlTexel(int e, int c) {
+        return texture2D(u_dlTex, vec2((float(c) + 0.5) / 5.0, (float(e) + 0.5) / ${TESS_MAX_DL}.0));
+    }
+
+    // Distance from X to segment e, and its nearest point Q.
+    float dlSegment(vec4 X, int e, out vec4 Q) {
+        vec4 V0 = dlTexel(e, 0), V1 = dlTexel(e, 1);
+        if (mdot(tangentAt(V0, V1), X) < 0.0) { Q = V0; return pointDistance(X, V0); }
+        if (mdot(tangentAt(V1, V0), X) < 0.0) { Q = V1; return pointDistance(X, V1); }
+        // The foot on the line through V0, V1: project X onto their span.
+        float g00 = mdot(V0, V0), g01 = mdot(V0, V1), g11 = mdot(V1, V1);
+        float x0 = mdot(V0, X), x1 = mdot(V1, X);
+        float det = g00 * g11 - g01 * g01;
+        if (abs(det) < 1e-12) { Q = V0; return pointDistance(X, V0); }
+        vec4 P = ((g11 * x0 - g01 * x1) * V0 + (g00 * x1 - g01 * x0) * V1) / det;
+        Q = P / sqrt(max(1e-12, -mdot(P, P)));
+        vec4 N = X - P;
+        return asinh(sqrt(max(0.0, mdot(N, N))));
+    }
+
+    // Measure segment e unless it cannot beat best: it is no nearer than
+    // d(X, M) − r, M its midpoint and r its half-length, and
+    // d(X, M) ≥ best + r iff 2 cosh d(X, M) ≥ E eʳ + 1/(E eʳ), E = e^best,
+    // so a skip costs one texel (M.xyz, eʳ) and no logarithm.
+    void dlTry(vec4 X, int e, inout float best, inout float E, inout int seg, inout vec4 Q) {
+        vec4 m = dlTexel(e, 2);
+        vec4 M = vec4(m.xyz, sqrt(1.0 + dot(m.xyz, m.xyz)));
+        float k = E * m.w;
+        if (-2.0 * mdot(M, X) > k + 1.0 / k) return;
+        vec4 q;
+        float d = dlSegment(X, e, q);
+        // Ties (edges meeting at an end) go to the lowest index, so the grid
+        // and the full loop agree on the colour there.
+        if (d < best || (d == best && e < seg)) { best = d; seg = e; Q = q; E = exp(min(best, 40.0)); }
+    }
+
+    vec4 dlListTexel(float i) {
+        float row = floor((i + 0.5) / u_dlListSize.x);
+        return texture2D(u_dlList, vec2(i - row * u_dlListSize.x + 0.5, row + 0.5) / u_dlListSize);
+    }
+
+    // The nearest segment to the scene point Xs (only the domain's own with
+    // homeOnly): its distance, index and nearest point (scene frame). Inside
+    // the grid, only the segments listed for Xs's cell; far out (into a cusp,
+    // past where the segments stop) just a lower bound for them all; elsewhere
+    // all of them.
+    float dlDistance(vec4 Xs, bool homeOnly, out int seg, out vec4 Q) {
+        // Back onto the hyperboloid: the folds drift it off, and the midpoint
+        // test and the distances would then disagree a little.
+        vec4 X = u_dlToHome * Xs;
+        X /= sqrt(max(1e-12, -mdot(X, X)));
+        float best = 1e9, E = 1e30;
+        seg = -1;
+        Q = X;
+        bool every = true;
+        float r0 = acosh(max(1.0, X.w));
+        if (!homeOnly && r0 > u_dlFar + ${GRID_CLIP}) { Q = Xs; return r0 - u_dlFar; }
+        if (!homeOnly && u_dlN > 0.0) {
+            vec3 g = (X.xyz / X.w - u_dlLo) / u_dlSize * u_dlN;
+            if (all(greaterThanEqual(g, vec3(0.0))) && all(lessThan(g, vec3(u_dlN)))) {
+                vec3 c = floor(g);
+                vec4 cell = texture2D(u_dlCells, vec2(c.x + u_dlN * c.y + 0.5, c.z + 0.5) / vec2(u_dlN * u_dlN, u_dlN));
+                if (cell.y >= 0.0) {
+                    every = false;
+                    // Nearest first: stop at the first that cannot beat best.
+                    for (int j = 0; j < ${TESS_DL_CAP / 2}; j++) {
+                        if (float(j) >= cell.y) break;
+                        vec4 t = dlListTexel(cell.x + float(j));
+                        if (t.y >= best) break;
+                        dlTry(X, int(t.x + 0.5), best, E, seg, Q);
+                        if (t.z < 0.0 || t.w >= best) break;
+                        dlTry(X, int(t.z + 0.5), best, E, seg, Q);
+                    }
+                }
+            }
+        }
+        if (every) {
+            for (int e = 0; e < ${TESS_MAX_DL}; e++) {
+                if (e >= u_dlCount) break;
+                if (homeOnly && dlTexel(e, 4).y < 0.5) continue;
+                dlTry(X, e, best, E, seg, Q);
+            }
+        }
+        Q = u_dlToScene * Q;
+        return best;
+    }
+
     // A fold that is (nearly) the identity: the tile is the domain itself.
     bool isHome(mat4 M) {
         return abs(M[0][0] - 1.0) + abs(M[1][1] - 1.0) + abs(M[2][2] - 1.0) + abs(M[3][3] - 1.0)
@@ -499,7 +613,11 @@ export const honeycombFragmentShader = common + `
         mat4 A = mat4(1.0);
         float t = 1e-4;
         bool hit = false;
-        bool walls = u_wallAlpha > 0.0 || u_faceFill > 0.0;
+        bool dlMode = u_dlCount > 0;
+        // Walls and faces are the Dirichlet domain's: not with another tessellation.
+        bool walls = (u_wallAlpha > 0.0 || u_faceFill > 0.0) && !dlMode;
+        int dlSeg = -1;
+        vec4 dlQ = vec4(0.0);
         // With walls or faces the ray walks from tile to tile exactly: it
         // leaves the current tile at tx, through wall kx. (Inferring crossings
         // from the fold would follow the fold's path, not the ray's.)
@@ -524,7 +642,9 @@ export const honeycombFragmentShader = common + `
                 tx = walking ? tileExit(A, ro, rd, t, kx) : 1e9;
             }
             float bound;
-            float de = edgeDistance(X, wa, wb, bound);
+            float de;
+            if (dlMode) { de = dlDistance(X, false, dlSeg, dlQ); bound = de; }
+            else de = edgeDistance(X, wa, wb, bound);
             if (de - u_tube < 1e-3) { hit = true; Xhit = X; break; }
             // Hyperbolic → Euclidean step at p: ds_E = ds_H (1 − |p|²)/2.
             float ds = min(de, bound) - u_tube;
@@ -558,7 +678,8 @@ export const honeycombFragmentShader = common + `
 
         vec3 p = ro + rd * t;
         vec3 n;
-        if (u_edgesKnown) n = tubeNormal(p, Xhit, A, nearestOnEdge(Xhit, wa, wb, edgeAt(wa, wb)));
+        if (dlMode) n = tubeNormal(p, Xhit, A, dlQ);
+        else if (u_edgesKnown) n = tubeNormal(p, Xhit, A, nearestOnEdge(Xhit, wa, wb, edgeAt(wa, wb)));
         else {
             // Normal by central differences of the edge distance (same fold).
             vec2 e = vec2(1.5e-3 * (1.0 - dot(p, p)), 0.0);
@@ -568,7 +689,8 @@ export const honeycombFragmentShader = common + `
                 sdEdges(p + e.yyx, A) - sdEdges(p - e.yyx, A)));
         }
         // One colour per edge cycle: every tile around the edge agrees.
-        vec3 edgeCol = u_edgesKnown ? edgeInfo(wa, wb).rgb : 0.5 * (u_wallColor[wa] + u_wallColor[wb]);
+        vec3 edgeCol = dlMode ? dlTexel(dlSeg, 3).rgb
+            : u_edgesKnown ? edgeInfo(wa, wb).rgb : 0.5 * (u_wallColor[wa] + u_wallColor[wb]);
         vec3 base = mix(edgeCol, vec3(1.0), 0.12);
         // The fundamental domain's own edges stand out: p lies on the tube of
         // one of them, unfolded. (Asking whether p is within a tube's width of
@@ -576,8 +698,11 @@ export const honeycombFragmentShader = common + `
         int ha, hb;
         float hbound;
         vec4 Xp = toHyp(p);
-        bool inD = u_edgesKnown && edgeDistance(Xp, ha, hb, hbound) < u_tube + 2e-3;
-        if (!u_edgesKnown) {
+        bool inD = !dlMode && u_edgesKnown && edgeDistance(Xp, ha, hb, hbound) < u_tube + 2e-3;
+        if (dlMode) {
+            int hs; vec4 hq;
+            inD = dlDistance(Xp, true, hs, hq) < u_tube + 2e-3;
+        } else if (!u_edgesKnown) {
             inD = true;
             for (int j = 0; j < ${TESS_MAX_WALLS}; j++) {
                 if (j >= u_wallCount) break;
@@ -667,6 +792,95 @@ export function loadEdges(uniforms, home, cycles, colorOf, wallColors, L) {
         }
     }
     endsTex.needsUpdate = true;
+}
+
+/**
+ * Load another tessellation's edges near D (delaunay.js delaunayEdgesNear:
+ * [{V0, V1, M, r, color, home}] in the home frame, with its .grid) for the
+ * honeycomb; L (row-major Lorentz) carries the home frame to the scene. The
+ * segments and the grid are uploaded once per list; L only sets two matrices.
+ * An empty or missing list (or one too long) switches back to the Dirichlet
+ * domain's own edges.
+ */
+export function loadDelaunayEdges(uniforms, list, L) {
+    const tex = uniforms.u_dlTex.value, memo = tex.userData;
+    if (!list || !list.length || list.length > TESS_MAX_DL) { uniforms.u_dlCount.value = 0; memo.list = null; return false; }
+    if (memo.list !== list) {
+        memo.list = list;
+        const data = tex.image.data;
+        const put = (row, col, v) => data.set(v, 4 * (row * 5 + col));
+        list.forEach((s, e) => {
+            put(e, 0, s.V0);
+            put(e, 1, s.V1);
+            put(e, 2, [...s.M.slice(0, 3), Math.exp(s.r)]);
+            put(e, 3, [...s.color, 1]);
+            put(e, 4, [s.r, s.home ? 1 : 0, 0, 0]);
+        });
+        tex.needsUpdate = true;
+        loadGrid(uniforms, list.grid);
+        let far = 0;
+        for (const s of list) for (const V of [s.V0, s.V1]) far = Math.max(far, Math.acosh(Math.max(1, V[3])));
+        uniforms.u_dlFar.value = list.grid ? list.grid.far : far;
+    }
+    uniforms.u_dlCount.value = list.length;
+    // L⁻¹ = J Lᵀ J, J = diag(1, 1, 1, −1).
+    const J = [1, 1, 1, -1];
+    uniforms.u_dlToScene.value.set(...L);
+    uniforms.u_dlToHome.value.set(...Array.from({ length: 16 }, (_, i) => J[i >> 2] * L[4 * (i & 3) + (i >> 2)] * J[i & 3]));
+    return true;
+}
+
+/** The segment grid (delaunay.js segmentGrid) as two textures: cells, and lists two entries to a texel. */
+function loadGrid(uniforms, G) {
+    uniforms.u_dlCells.value.dispose();
+    uniforms.u_dlList.value.dispose();
+    if (!G) {
+        uniforms.u_dlN.value = 0;
+        uniforms.u_dlCells.value = floatTexture(new Float32Array(4), 1, 1);
+        uniforms.u_dlList.value = floatTexture(new Float32Array(4), 1, 1);
+        return;
+    }
+    const n = G.n, cells = new Float32Array(4 * n * n * n), ids = [];
+    for (let c = 0; c < n * n * n; c++) {
+        const k = G.cells[2 * c + 1];
+        if (k < 0 || k > TESS_DL_CAP) { cells[4 * c + 1] = -1; continue; }
+        const off = G.cells[2 * c];
+        cells[4 * c] = ids.length / 4;
+        cells[4 * c + 1] = Math.ceil(k / 2);
+        for (let j = 0; j < 2 * Math.ceil(k / 2); j++) ids.push(...(j < k ? [G.list[2 * (off + j)], G.list[2 * (off + j) + 1]] : [-1, 1e9]));
+    }
+    if (!ids.length) ids.push(-1, 1e9, -1, 1e9);
+    const w = Math.min(1024, ids.length / 4), h = Math.ceil(ids.length / 4 / w);
+    const list = new Float32Array(4 * w * h).fill(-1);
+    list.set(ids);
+    // Cells: texel (x + n y, z).
+    const cellTex = new Float32Array(4 * n * n * n);
+    for (let z = 0; z < n; z++) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+        const c = x + n * (y + n * z), t = (x + n * y) + n * n * z;
+        cellTex.set(cells.subarray(4 * c, 4 * c + 4), 4 * t);
+    }
+    uniforms.u_dlCells.value = floatTexture(cellTex, n * n, n);
+    uniforms.u_dlList.value = floatTexture(list, w, h);
+    uniforms.u_dlListSize.value.set(w, h);
+    uniforms.u_dlLo.value.set(...G.lo);
+    uniforms.u_dlSize.value.set(...G.size);
+    uniforms.u_dlN.value = n;
+}
+
+function floatTexture(data, w, h) {
+    const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat, THREE.FloatType);
+    tex.magFilter = tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    return tex;
+}
+
+function makeDelaunayTexture() {
+    const tex = new THREE.DataTexture(new Float32Array(4 * 5 * TESS_MAX_DL), 5, TESS_MAX_DL, THREE.RGBAFormat, THREE.FloatType);
+    tex.magFilter = tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    return tex;
 }
 
 /** Ends of each edge on the hyperboloid (home frame): lightlike where the end is ideal. */
@@ -795,5 +1009,16 @@ export function makeTessellationUniforms() {
         u_faceFill: { value: 0 },
         u_faceReach: { value: 1 },
         u_faceRadius: { value: Array.from({ length: TESS_MAX_WALLS / 4 }, () => new THREE.Vector4(1, 1, 1, 1)) },
+        u_dlCount: { value: 0 },
+        u_dlTex: { value: makeDelaunayTexture() },
+        u_dlToHome: { value: new THREE.Matrix4() },
+        u_dlToScene: { value: new THREE.Matrix4() },
+        u_dlCells: { value: floatTexture(new Float32Array(4), 1, 1) },
+        u_dlList: { value: floatTexture(new Float32Array(4), 1, 1) },
+        u_dlLo: { value: new THREE.Vector3() },
+        u_dlSize: { value: new THREE.Vector3(1, 1, 1) },
+        u_dlN: { value: 0 },
+        u_dlListSize: { value: new THREE.Vector2(1, 1) },
+        u_dlFar: { value: 1e3 },
     };
 }

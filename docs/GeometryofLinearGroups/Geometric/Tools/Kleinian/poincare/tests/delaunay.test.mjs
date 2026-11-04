@@ -9,14 +9,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const THREE = await import('three');
-const { Matrix2x2: M, translationTowards, distFromIdentityPSL } = await import('../js/math.js');
+const { Matrix2x2: M, translationTowards, distFromIdentityPSL, lorentzMatrix, lorentzApply } = await import('../js/math.js');
+const { ballToKlein } = await import('../js/polyhedron.js');
+const CUSPS = await import('../js/cusps.js');
 const { serializeTowerContext } = await import('../js/tower.js');
 const { buildGroup } = await import('../js/matrixInput.js');
 const { exampleLibrary } = await import('../js/groupLibrary.js');
 const { runCompute, matToArr, arrToMat } = await import('../js/compute.js');
 const { buildPolyhedron } = await import('../js/polyhedron.js');
 const { isRealGroup } = await import('../js/planar.js');
-const { computeDelaunayDomain, delaunayVolume, planarHome } = await import('../js/delaunay.js');
+const { computeDelaunayDomain, delaunayVolume, planarHome, delaunayEdgesNear, segmentDistance, GRID_CLIP } = await import('../js/delaunay.js');
 const P = await import('../js/presentation.js');
 
 const preset = (name) => {
@@ -171,6 +173,90 @@ test('cusped surfaces (punctured torus, Γ(2))', () => {
         assert.equal(R.stats.faces, sides);
         assert.equal(R.stats.idealVertices, ideal);
     }
+});
+
+test('honeycomb edges: each grid cell lists the nearest segment, with true lower bounds', () => {
+    let seed = 11;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (const name of ['Weeks manifold (closed)', 'Figure eight knot group']) {
+        const { home } = dirichlet(preset(name));
+        const R = computeDelaunayDomain(home, { dim: 3 });
+        const segs = delaunayEdgesNear(R, home, () => [1, 1, 1]);
+        assert.ok(segs && segs.grid, name);
+        const G = segs.grid, n = G.n, kap = Math.tanh(G.far + GRID_CLIP);
+        assert.ok(segs.every(s => 2 * s.r <= 0.75 + 1e-9), 'edges come in short pieces');
+        let checked = 0;
+        for (let t = 0; t < 3000; t++) {
+            // A random point of a random listed cell (cut off where the shader stops using the grid).
+            const g = [0, 1, 2].map(() => Math.floor(rnd() * n)), c = g[0] + n * (g[1] + n * g[2]);
+            const cnt = G.cells[2 * c + 1];
+            if (cnt < 0) continue;
+            let k = g.map((v, i) => G.lo[i] + G.size[i] * (v + rnd()) / n);
+            const r = Math.hypot(...k);
+            if (r >= kap) k = k.map(x => x * kap * (1 - 1e-9) / r);
+            if (k.some((x, i) => Math.floor((x - G.lo[i]) / G.size[i] * n) !== g[i])) continue;
+            const s = 1 / Math.sqrt(1 - k.reduce((a, x) => a + x * x, 0)), X = [...k.map(x => x * s), s];
+            const ds = segs.map(sg => segmentDistance(X, sg));
+            const off = G.cells[2 * c];
+            let listed = Infinity;
+            for (let j = 0; j < cnt; j++) {
+                const i = G.list[2 * (off + j)], lb = G.list[2 * (off + j) + 1];
+                assert.ok(lb <= ds[i] + 1e-9, 'a lower bound that is not one');
+                listed = Math.min(listed, ds[i]);
+            }
+            assert.ok(listed <= Math.min(...ds) + 1e-9, `${name}: cell ${c} misses the nearest segment`);
+            checked++;
+        }
+        assert.ok(checked > 300, `${name}: only ${checked} points checked`);
+    }
+});
+
+test('cusp markers: glued ideal vertices get horoballs the gluings carry onto each other', () => {
+    const { cuspNull, horoballInBall, kleinToHyperboloid, delaunayOrbit } = CUSPS;
+    const close = (A, B) => Math.hypot(A.x - B.x, A.y - B.y, A.z - B.z, A.w - B.w) < 1e-6 * B.w;
+    const unit = (k) => k.clone().normalize();
+    let delaunayPairs = 0, dirichletPairs = 0;
+    for (const name of ['Figure eight knot group', 'Borromean rings group', 'Index-6 subgroup of PSL(2,Z[i])', 'PSL(2,Z[w])',
+        'Modular group', 'Ideal triangle kaleidoscope (3 mirrors)', 'Modular kaleidoscope (2,3,∞ mirrors)', 'Z[i] kaleidoscope (mirror box)']) {
+        const grp = preset(name);
+        // Delaunay: each pairing carries the horoball at a facet's ideal corner onto its partner's.
+        const { R } = delaunay(grp);
+        const orbit = delaunayOrbit(R);
+        // Nearest for real: the orbit one pairing further out has no point inside the largest empty horoball.
+        const further = R.pairs.flatMap(({ el }) => [el, el.inv()]).flatMap(g => orbit.map(P => {
+            const X = lorentzApply(g.L, new THREE.Vector4(...P));
+            return [X.x, X.y, X.z, X.w];
+        }));
+        for (const v of R.vertices.filter(v => v.ideal)) {
+            const N = cuspNull(unit(v.k), orbit, 0);
+            const depth = Math.min(...further.map(P => N.w * P[3] - (N.x * P[0] + N.y * P[1] + N.z * P[2])));
+            assert.ok(depth > 1 - 1e-9, `${name}: an orbit point inside the horoball at a cusp (${depth})`);
+        }
+        for (const f of R.raw) {
+            const g = R.raw[f.partner];
+            f.pts.forEach((q, i) => {
+                if (!f.ideal[i]) return;
+                const N = lorentzApply(f.el.L, cuspNull(unit(q), orbit)), want = cuspNull(unit(g.pts[i]), orbit);
+                assert.ok(close(N, want), `${name}: Delaunay cusp horoballs disagree`);
+                delaunayPairs++;
+            });
+        }
+        // Dirichlet: the same with the Dirichlet centre, for every wall element carrying one ideal vertex to another.
+        const { home } = dirichlet(grp);
+        const C = [kleinToHyperboloid(ballToKlein(home.conePoint))];
+        const ideal = home.poly.vertices.filter(v => v.ideal).map(v => unit(v.k));
+        for (const w of home.walls) {
+            const L = lorentzMatrix(w.elem);
+            for (const x of ideal) {
+                const N = lorentzApply(L, cuspNull(x, C));
+                const y = ideal.find(z => horoballInBall(N).xi.distanceTo(z) < 1e-7);
+                if (!y) continue;
+                assert.ok(close(N, cuspNull(y, C)), `${name}: Dirichlet cusp horoballs disagree`);
+                dirichletPairs++;
+            }
+        }
+    }
+    assert.ok(delaunayPairs > 20 && dirichletPairs > 20, `${delaunayPairs} / ${dirichletPairs} gluings checked`);
 });
 
 test('Delaunay domain declines infinite covolume', () => {

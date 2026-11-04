@@ -19,6 +19,7 @@ import { lorentzMatrix, lorentzApply, covToGeom } from './math.js';
 import { kleinToBall } from './polyhedron.js';
 import { layer, disposeGroup, view } from './scene.js';
 import { typeset } from './format.js';
+import { cuspNull, horoballInBall, delaunayOrbit } from './cusps.js';
 
 const MAP_GLSL = `
 uniform mat4 u_L;
@@ -45,7 +46,8 @@ varying vec3 vW;
 void main() {
     vec3 w = toScene(position);
     float r2 = dot(position, position);
-    vec3 n = toScene(position + a_dir * 1e-3 * max(1.0 - r2, 1e-2)) - w;   // conformal: normals map along
+    // Conformal, so normals map along. Step inward: a horoball touches the sphere.
+    vec3 n = w - toScene(position - a_dir * 1e-3 * max(1.0 - r2, 1e-2));
     vN = normalize(normalMatrix * (dot(n, n) > 1e-20 ? n : vec3(0.0, 1.0, 0.0)));
     vec4 mv = modelViewMatrix * vec4(w, 1.0);
     vV = -mv.xyz;
@@ -75,8 +77,10 @@ void main() {
 
 const FACE_DIV = 12;          // subdivisions per fan triangle
 const FACE_DIV_TRI = 9;       // … per facet of the barycentric subdivision
+const FACE_DIV_CUSP = 14;     // … per facet with an ideal corner
 const TUBE_SIDES = 7;
 const TUBE_SAMPLES = 28;
+const TUBE_SAMPLES_CUSP = 48; // … along an edge that runs off to an ideal vertex
 
 const rgb = (hex) => { const c = new THREE.Color().setHex(hex, THREE.LinearSRGBColorSpace); return [c.r, c.g, c.b]; };
 
@@ -99,6 +103,27 @@ function ballNormal(geom, p) {
 
 /** Corners of a boundary piece, ideal ones on the sphere. */
 const pieceCorners = (f) => f.pts.map((k, i) => (f.ideal[i] ? k.clone().normalize() : k.clone()));
+
+/** The horoball marking each ideal vertex (cusps.js), by vertex index. */
+function cuspBalls(R) {
+    const orbit = delaunayOrbit(R), out = new Map();
+    R.vertices.forEach((v, i) => {
+        const N = v.ideal ? cuspNull(v.k.clone().normalize(), orbit) : null;
+        if (N) out.set(i, horoballInBall(N));
+    });
+    return out;
+}
+
+/** The point of the Klein segment from a to the ideal point ξ whose ball point is δ from ξ. */
+function nearCusp(a, xi, delta) {
+    const k = new THREE.Vector3();
+    let lo = 0, hi = 1;
+    for (let it = 0; it < 48; it++) {
+        const t = 0.5 * (lo + hi);
+        if (kleinToBall(k.copy(a).lerp(xi, t)).distanceTo(xi) > delta) lo = t; else hi = t;
+    }
+    return k.copy(a).lerp(xi, lo);
+}
 
 /** Klein → unit hyperboloid vector [x, y, z, t]. */
 const hyp = (k) => { const s = 1 / Math.sqrt(Math.max(1e-12, 1 - k.lengthSq())); return [k.x * s, k.y * s, k.z * s, s]; };
@@ -128,6 +153,9 @@ function sideLabelPoint(f, c) {
 
 export function createDelaunayView() {
     const group = layer(false);
+    const tileGroup = layer(false);          // translucent copies h·U (the Tiling layer)
+    let tiles = [];                          // [{ L (uniform), Lh (Matrix4) }]
+    let tilesOf = null;                      // the result they were built for
     const shared = { u_L: { value: new THREE.Matrix4() }, u_uhs: { value: false } };
     const faceMat = new THREE.ShaderMaterial({
         uniforms: { ...shared, u_opacity: { value: 1 }, u_gloss: { value: 0.16 } },
@@ -143,11 +171,24 @@ export function createDelaunayView() {
     let labels = [];                // { el, home, out }
     let pickData = null;            // { pos (home ball), idx, triPiece }: the face mesh, for double-clicks
 
+    function clearTiles() {
+        tileGroup.traverse(o => { if (o.material) o.material.dispose(); });   // the geometry is the faces'
+        tileGroup.clear();
+        tiles = [];
+        tilesOf = null;
+        tileGroup.visible = false;
+    }
+
     function clear() {
+        clearTiles();
         group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
         group.clear();
         built = null;
         pickData = null;
+    }
+
+    function frameTiles() {
+        for (const t of tiles) t.L.value.multiplyMatrices(shared.u_L.value, t.Lh);
     }
 
     /**
@@ -159,20 +200,30 @@ export function createDelaunayView() {
         const pos = [], dir = [], col = [], idx = [], triPiece = [];
         for (const [pi, f] of R.raw.entries()) {
             const c = colors[f.region] || [0.7, 0.7, 0.8];
-            const P = pieceCorners(f);
+            let P = pieceCorners(f);
             const pl = planeOf(finiteK(P[0], f.ideal[0]), finiteK(P[1], f.ideal[1]),
                 P.length > 2 ? finiteK(P[2], f.ideal[2]) : P[0].clone().setY(P[0].y + 0.5));
             // A triangle is gridded directly (origin P0, sides to P1 and P2); a polygon is fanned from its centre.
             const tri = P.length === 3;
+            // A triangle with one ideal corner is gridded from that corner, the
+            // rows bunched toward it (row s at s²) so that, mapped to the ball,
+            // they are evenly spaced: the face reaches the cusp as curved as the
+            // edge tubes beside it, not as one long chord.
+            const cusp = tri && f.ideal.filter(Boolean).length === 1;
+            if (cusp) {
+                const j = f.ideal.indexOf(true);
+                P = [0, 1, 2].map(i => P[(i + j) % 3]);
+            }
             const g = tri ? P[0] : P.reduce((s, q, i) => s.add(finiteK(q, f.ideal[i])), new THREE.Vector3()).multiplyScalar(1 / P.length);
             for (let i = 0; i < (tri ? 1 : P.length); i++) {
                 const A = tri ? P[1] : P[i], B = tri ? P[2] : P[(i + 1) % P.length];
                 const base = pos.length / 3;
-                const N = tri ? FACE_DIV_TRI : FACE_DIV;
+                const N = cusp ? FACE_DIV_CUSP : tri ? FACE_DIV_TRI : FACE_DIV;
                 const at = (a, b) => base + (a * (2 * N + 3 - a)) / 2 + b;      // row a has N + 1 − a points
                 for (let a = 0; a <= N; a++) {
                     for (let b = 0; b <= N - a; b++) {
-                        const k = g.clone().addScaledVector(A.clone().sub(g), a / N).addScaledVector(B.clone().sub(g), b / N);
+                        const w = cusp ? (a + b) / N : 1;
+                        const k = g.clone().addScaledVector(A.clone().sub(g), w * a / N).addScaledVector(B.clone().sub(g), w * b / N);
                         if (k.lengthSq() > 1) k.normalize();
                         const p = kleinToBall(k.multiplyScalar(1 - 1e-7));
                         const n = ballNormal(pl.geom, p);
@@ -204,7 +255,7 @@ export function createDelaunayView() {
      * bends: full width where two face pairings meet, thin where one pairing
      * carries on round the bend (a fold).
      */
-    function edgeGeometry(R, edgeColor, cycleColor) {
+    function edgeGeometry(R, edgeColor, cycleColor, cusps) {
         const pos = [], dir = [], col = [], idx = [];
         const segs = R.dim === 3
             ? R.lines.map(l => ({
@@ -215,11 +266,19 @@ export function createDelaunayView() {
         const tmp = new THREE.Vector3();
         for (const s of segs) {
             const A = R.vertices[s.a], B = R.vertices[s.b];
-            const ka = finiteK(A.k, A.ideal), kb = finiteK(B.k, B.ideal);
+            // The tube keeps its hyperbolic radius, so it narrows toward an ideal
+            // end along with the faces, and stops inside that cusp's horoball
+            // (half its radius from the sphere): a point on the sphere itself
+            // would land anywhere in the upper half-space once the view puts it at ∞.
+            const xa = A.k.clone().normalize(), xb = B.k.clone().normalize();
+            const stop = (i) => 0.5 * (cusps.has(i) ? cusps.get(i).radius : 0.01);
+            const ka = A.ideal ? nearCusp(B.ideal ? xb : B.k, xa, stop(s.a)) : A.k;
+            const kb = B.ideal ? nearCusp(A.ideal ? xa : A.k, xb, stop(s.b)) : B.k;
+            const n = A.ideal || B.ideal ? TUBE_SAMPLES_CUSP : TUBE_SAMPLES;
             const pts = [];
-            for (let i = 0; i <= TUBE_SAMPLES; i++) {
-                // Denser toward an ideal end, where the arc runs off to the sphere.
-                let t = i / TUBE_SAMPLES;
+            for (let i = 0; i <= n; i++) {
+                // Klein t near an ideal end is ball distance², so t = s² spaces the ball points evenly.
+                let t = i / n;
                 if (A.ideal && !B.ideal) t = t * t;
                 else if (B.ideal && !A.ideal) t = 1 - (1 - t) * (1 - t);
                 pts.push(kleinToBall(tmp.copy(ka).lerp(kb, t)));
@@ -235,7 +294,7 @@ export function createDelaunayView() {
                 const n = seed.clone().addScaledVector(tan, -seed.dot(tan)).normalize();
                 prevN = n;
                 const bnm = new THREE.Vector3().crossVectors(tan, n);
-                const r = s.r * Math.max(0.02, 1 - p.lengthSq());
+                const r = s.r * Math.max(0, 1 - p.lengthSq());
                 for (let k = 0; k < TUBE_SIDES; k++) {
                     const ang = (k / TUBE_SIDES) * Math.PI * 2, ca = Math.cos(ang), sa = Math.sin(ang);
                     const d = n.clone().multiplyScalar(ca).addScaledVector(bnm, sa);
@@ -261,17 +320,15 @@ export function createDelaunayView() {
         return geo;
     }
 
-    /** The corners as small spheres: copies of the basepoint in `color`, cone points in `coneColor`. */
-    function cornerGeometry(R, color, coneColor, size) {
-        const ico = new THREE.IcosahedronGeometry(1, 2);
-        const V = ico.attributes.position, I = ico.index ? ico.index.array : null;
+    /**
+     * The corners as small spheres, coloured by vertex class (`classColor(k)`)
+     * or else copies of the basepoint in `color`, cone points in `coneColor`.
+     */
+    function cornerGeometry(R, color, coneColor, size, classColor, cusps) {
+        const ico = new THREE.IcosahedronGeometry(1, 2), fine = new THREE.IcosahedronGeometry(1, 6);
         const pos = [], dir = [], col = [], idx = [];
-        for (const v of R.vertices) {
-            if (v.ideal || !v.corner) continue;
-            const orbit = v.kind === 'orbit';
-            const c = orbit ? color : coneColor;
-            const p = kleinToBall(v.k);
-            const r = size * (orbit ? 1 : 0.8) * (1 - p.lengthSq());
+        const ball = (geo, p, r, c) => {
+            const V = geo.attributes.position, I = geo.index ? geo.index.array : null;
             const base = pos.length / 3;
             for (let i = 0; i < V.count; i++) {
                 const d = new THREE.Vector3(V.getX(i), V.getY(i), V.getZ(i)).normalize();
@@ -281,8 +338,22 @@ export function createDelaunayView() {
             }
             if (I) for (let i = 0; i < I.length; i++) idx.push(base + I[i]);
             else for (let i = 0; i < V.count; i++) idx.push(base + i);
+        };
+        for (const [i, v] of R.vertices.entries()) {
+            const c = classColor && v.cls !== undefined ? classColor(v.cls) : v.kind === 'orbit' ? color : coneColor;
+            if (v.ideal) {
+                // An ideal vertex: a horoball, the same one for every vertex glued to it.
+                // A hair off the sphere, so that no point of it is at infinity.
+                const H = cusps.get(i);
+                if (H) ball(fine, H.centre, H.radius * (1 - 1e-3), c);
+                continue;
+            }
+            if (!v.corner) continue;
+            const p = kleinToBall(v.k);
+            ball(ico, p, size * (v.kind === 'orbit' ? 1 : 0.8) * (1 - p.lengthSq()), c);
         }
         ico.dispose();
+        fine.dispose();
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
         geo.setAttribute('a_dir', new THREE.Float32BufferAttribute(dir, 3));
@@ -306,7 +377,7 @@ export function createDelaunayView() {
          * colour per merged face; `cycleColor(k)` (optional) colours edge k by
          * its cycle.
          */
-        build(R, colors, { cycleColor = null } = {}) {
+        build(R, colors, { cycleColor = null, vertexColor = null, showEdges = false } = {}) {
             clear();
             if (!R || !R.ok) return;
             const light = view.theme === 'light';
@@ -314,20 +385,50 @@ export function createDelaunayView() {
             const cornerColor = rgb(light ? 0xb45309 : 0xfbbf24);
             const coneColor = rgb(light ? 0x0e7490 : 0x67e8f9);
             const meshes = {};
+            const cusps = cuspBalls(R);
             // Light mode washes the hues toward pastel, as the Dirichlet raymarcher does.
             const faceCols = light ? colors.map(c => c.map(x => x + (1 - x) * 0.62)) : colors;
             if (R.dim === 3) {
                 meshes.faces = addMesh(faceGeometry(R, faceCols), faceMat, 2);
-                meshes.edges = addMesh(edgeGeometry(R, edgeColor, cycleColor), lineMat, 3);
+                // Edges and vertices only on request (Edges & Vertices): edges by
+                // edge cycle, vertices by vertex class.
+                if (showEdges) meshes.edges = addMesh(edgeGeometry(R, edgeColor, cycleColor, cusps), lineMat, 3);
             } else if (!R.convex) {
                 // The plane's fold shader needs a convex polygon: outline it instead.
-                meshes.edges = addMesh(edgeGeometry(R, edgeColor, null), lineMat, 3);
+                meshes.edges = addMesh(edgeGeometry(R, edgeColor, null, cusps), lineMat, 3);
             }
-            meshes.corners = addMesh(cornerGeometry(R, cornerColor, coneColor, R.dim === 3 ? 0.026 : 0.02), lineMat, 4);
+            if (showEdges) meshes.corners = addMesh(cornerGeometry(R, cornerColor, coneColor, R.dim === 3 ? 0.026 : 0.02, vertexColor, cusps), lineMat, 4);
             built = { result: R, meshes };
         },
         clear,
-        setVisible(on) { group.visible = on; },
+        setVisible(on) { group.visible = on; tileGroup.visible = on && tiles.length > 0; },
+        /**
+         * The Tiling layer for this domain: translucent copies h·U for the
+         * elements `els` (home frame), or none (null). Built once per result;
+         * they ride the scene isometry like the domain.
+         */
+        ensureTiling(els) {
+            if (!els || !built || !built.meshes.faces) { clearTiles(); return; }
+            if (tilesOf === built.result) return;
+            clearTiles();
+            const geo = built.meshes.faces.geometry;
+            for (const h of els) {
+                const L = { value: new THREE.Matrix4() };
+                const mat = new THREE.ShaderMaterial({
+                    uniforms: { u_L: L, u_uhs: shared.u_uhs, u_opacity: { value: 0.16 }, u_gloss: { value: 0.04 } },
+                    vertexShader: VS, fragmentShader: FS,
+                    side: THREE.DoubleSide, transparent: true, depthWrite: false, depthTest: true,
+                });
+                const m = new THREE.Mesh(geo, mat);
+                m.frustumCulled = false;
+                m.renderOrder = 1;
+                tileGroup.add(m);
+                tiles.push({ L, Lh: new THREE.Matrix4().set(...lorentzMatrix(h)) });
+            }
+            tilesOf = built.result;
+            frameTiles();
+            tileGroup.visible = group.visible && tiles.length > 0;
+        },
         setOpacity(o) {
             faceMat.uniforms.u_opacity.value = o;
             if (built && built.meshes.faces) built.meshes.faces.visible = o > 0.001;
@@ -337,6 +438,7 @@ export function createDelaunayView() {
         setFrame(S, uhs) {
             shared.u_L.value.set(...lorentzMatrix(S));
             shared.u_uhs.value = uhs;
+            frameTiles();
         },
         get result() { return built ? built.result : null; },
 

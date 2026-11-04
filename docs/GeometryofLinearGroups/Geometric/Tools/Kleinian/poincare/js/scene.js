@@ -41,6 +41,7 @@ export const material = new THREE.ShaderMaterial({
         u_faceCount: { value: 0 },
         u_time: { value: 0 },
         u_opacity: { value: 1.0 },
+        u_edgeLines: { value: 0 },
         u_colorMode: { value: palette.mode },
         u_colorOffset: { value: palette.offset.clone() },
         u_colorFreq: { value: palette.freq },

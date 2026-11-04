@@ -123,9 +123,24 @@ export function tubeGeometry(polylines, { radius = 0.011, sides = 7, taper = tru
     return geomToWorld(g);
 }
 
+// ---------------- the domain being tiled ----------------
+
+// The Dirichlet domain by default. main.js can stand another fundamental
+// domain in for it (the Delaunay domain): then the Cayley graph sits on that
+// domain's tile centres and its T generators are that domain's face
+// pairings, and the Tiling layer draws its copies instead.
+// Returns null or { pairs: [Matrix2x2] (home frame), frame: Matrix2x2 (origin ↦ tile centre), tiling(on, opts) }.
+let domainProvider = () => null;
+export function setDomainProvider(fn) { domainProvider = fn; }
+
 // ---------------- Cayley graph ----------------
 
-function buildTGenerators() {
+function buildTGenerators(provider = null) {
+    if (provider) {
+        const out = [];
+        for (const m of provider.pairs) { out.push(m); out.push(m.inv().normalized()); }
+        return { generators: out, numTypes: provider.pairs.length };
+    }
     const gens = standardGenerators().filter(g => !g.unpaired);
     const out = [];
     for (const g of gens) { out.push(g.home); out.push(g.home.inv().normalized()); }
@@ -137,10 +152,10 @@ function buildTGenerators() {
  * pairings), shared by the Cayley graph and the dual tiling, in the home
  * frame; plus a word-length cap.
  */
-function modeGenerators(mode) {
+function modeGenerators(mode, provider = null) {
     let generators, numTypes, depth = app.depth;
     if (mode === 'T') {
-        const t = buildTGenerators();
+        const t = buildTGenerators(provider);
         if (!t.numTypes) return null;
         generators = t.generators;
         numTypes = t.numTypes;
@@ -215,9 +230,18 @@ export function updateCayley(opts = {}) {
     disposeGroup(groups.cayley);
     groups.cayley.visible = state.cayleyMode !== 'off';
     if (state.cayleyMode === 'off') return;
-    const sel = modeGenerators(state.cayleyMode);
+    const provider = domainProvider();
+    const sel = modeGenerators(state.cayleyMode, provider);
     if (!sel) return;
-    const { points, edges } = getCayleyGraph(sel.generators, sel.depth, sceneMatrix(), 15000);
+    // On another domain's tiles: vertices at the tile centres F·0, so the
+    // generators are conjugated into the frame F of the centre.
+    let gens = sel.generators, V = sceneMatrix();
+    if (provider) {
+        const F = provider.frame, Fi = F.inv().normalized();
+        gens = gens.map(g => Fi.mul(g).mul(F).normalized());
+        V = V.mul(F).normalized();
+    }
+    const { points, edges } = getCayleyGraph(gens, sel.depth, V, 15000);
     buildCayleyVertices(points);
     const useTubes = !opts.fast && edges.length <= CAYLEY_TUBE_LIMIT;
     for (let type = 0; type < sel.numTypes; type++) {
@@ -482,6 +506,13 @@ function nearbyTiles(walls, maxDepth, maxTiles) {
 
 export function updateTiling(opts = {}) {
     disposeGroup(groups.tiling);
+    const provider = domainProvider();
+    if (provider && provider.tiling) {
+        // Copies of the other domain, drawn by its own view.
+        groups.tiling.visible = false;
+        provider.tiling(state.showTiling, opts);
+        return;
+    }
     groups.tiling.visible = state.showTiling;
     const H = app.home, S = app.scene;
     if (!state.showTiling || !H || !H.walls.length) return;

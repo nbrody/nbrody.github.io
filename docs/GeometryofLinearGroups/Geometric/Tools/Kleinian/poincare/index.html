@@ -29,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-11-02b';
+            const APP_VERSION = '2026-11-03';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -313,8 +313,8 @@
                         <span>Walls</span>
                     </button>
                     <button id="toggle-cycles" class="toggle-btn"
-                        title="Draw the edges of the domain, coloured by edge cycle: edges glued together by the face pairings share a colour.">Edge
-                        Cycles</button>
+                        title="Draw the edges and vertices of the domain: edges glued together by the face pairings (an edge cycle) share a colour, and so do vertices glued together.">Edges
+                        &amp; Vertices</button>
                     <button id="toggle-labels" class="toggle-btn"
                         title="Label each face with its pairing generator: s_k on one face, s_k⁻¹ on its partner.">Face
                         Labels</button>

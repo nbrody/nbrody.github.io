@@ -744,6 +744,16 @@ export function computeDelaunayDomain(home, { dim = 3, frame = null } = {}) {
                 if (!straight) verts[v].corner = true;
             }
         }
+        // Vertex classes: the corners glued together by the pairings.
+        const vu = makeUF(verts.length);
+        for (const f of raw) f.vi.forEach((v, i) => vu.union(v, raw[f.partner].vi[i]));
+        const classOf = new Map();
+        verts.forEach((v, i) => {
+            if (!v.corner) return;
+            const r = vu.find(i);
+            if (!classOf.has(r)) classOf.set(r, classOf.size);
+            v.cls = classOf.get(r);
+        });
         const corners = verts.filter(v => v.corner);
         const simplices = flags.map((f, n) => ({ pts: f.pts, ideal: f.ideal, T: T[n] }));
         return {
@@ -754,7 +764,7 @@ export function computeDelaunayDomain(home, { dim = 3, frame = null } = {}) {
                 cusps: cuspInfo.length, pieces: flags.length, facets: raw.length,
                 faces: faces.length, sides: sides.length, pairs: pairs.length, mirrors,
                 edges: geoEdges, chains: chains.length, cycles: cycles.length,
-                vertices: corners.filter(v => v.kind === 'orbit').length,
+                vertices: corners.filter(v => v.kind === 'orbit').length, vertexClasses: classOf.size,
                 conePoints: corners.filter(v => !v.ideal && v.kind !== 'orbit').length,
                 idealVertices: corners.filter(v => v.ideal).length,
                 dirichlet: { faces: home.walls.length, vertices: V.length, edges: E.length }
@@ -793,4 +803,205 @@ export function planarHome(home, gens, { maxFaces = 96, maxDepth = 8 } = {}) {
         return { home: { walls: D.walls, poly: D.poly, conePoint: D.conePoint, stabilizer: D.stabilizer }, frame: T };
     }
     return { home, frame: null };
+}
+
+/**
+ * The edges of the Delaunay tessellation near the Dirichlet domain D, for the
+ * honeycomb: the honeycomb folds a point into D and measures its distance to
+ * the edges there, so it needs every edge of every copy h·U that comes within
+ * `margin` of D. Found by walking out from U across its faces while copies
+ * still reach D. Edges are cut off `reach` beyond D's farthest finite vertex
+ * (into a cusp, where the honeycomb has faded into fog), so there are finitely
+ * many. Returns [{ V0, V1, M, r, color, home }] in the home frame — ends and
+ * midpoint on the hyperboloid, r the half-length, each edge cut into pieces
+ * no longer than PIECE — or null past `max`.
+ *   colorOf(line) → [r, g, b] for a line of U (R.lines).
+ */
+const PIECE = 0.75;
+export function delaunayEdgesNear(R, home, colorOf, { margin = 0.12, reach = 1.2, max = 1024, maxTiles = 4000 } = {}) {
+    if (!R || !R.ok || R.dim !== 3) return null;
+    const W = home.walls.map(w => w.cov);
+    const sm = Math.sinh(margin);
+    const p = ballToKlein(home.conePoint);
+    const hyp = (k) => { const s2 = 1 / Math.sqrt(Math.max(1e-14, 1 - k.lengthSq())); return [k.x * s2, k.y * s2, k.z * s2, s2]; };
+    const P = hyp(p);
+    const mdot = (A, B) => A[0] * B[0] + A[1] * B[1] + A[2] * B[2] - A[3] * B[3];
+    const dist = (A, B) => Math.acosh(Math.max(1, -mdot(A, B)));
+    let far = 0;
+    for (const v of home.poly.vertices) if (!v.ideal) far = Math.max(far, dist(P, hyp(v.k)));
+    const cut = far + reach;
+    const within = (k) => k.lengthSq() < 1 - 1e-12 && dist(P, hyp(k)) <= cut;
+    const nearD = (X) => W.every(w => w.x * X[0] + w.y * X[1] + w.z * X[2] - w.w * X[3] <= sm);
+    const lines = R.lines.map(l => ({ a: R.vertices[l.a], b: R.vertices[l.b], color: colorOf(l) }));
+    const out = [], keys = new Set();
+    const keyOf = (A, B) => {
+        const f = (X) => X.map(x => x.toFixed(4)).join(',');
+        const ka = f(A), kb = f(B);
+        return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+    };
+    const moves = R.pairs.flatMap(Q => [Q.el.m, Q.el.m.inv().normalized()]);
+    const seen = new Set([pslKey(Matrix2x2.identity())]);
+    const queue = [Matrix2x2.identity()];
+    for (let qi = 0; qi < queue.length && qi < maxTiles; qi++) {
+        const h = queue[qi];
+        const L = lorentzMatrix(h);
+        const map = (k) => {
+            const o = [0, 1, 2, 3].map(r => L[4 * r] * k.x + L[4 * r + 1] * k.y + L[4 * r + 2] * k.z + L[4 * r + 3]);
+            return new THREE.Vector3(o[0] / o[3], o[1] / o[3], o[2] / o[3]);
+        };
+        let reaches = false;
+        for (const sg of lines) {
+            const ka = map(sg.a.k), kb = map(sg.b.k);
+            // The part of the segment (straight in the Klein model) within the cut-off.
+            const ts = [];
+            for (let i = 0; i <= 24; i++) { const t = i / 24; if (within(ka.clone().lerp(kb, t))) ts.push(t); }
+            if (!ts.length) continue;
+            let t0 = ts[0], t1 = ts[ts.length - 1];
+            // Refine the ends of the kept part by bisection against the cut-off.
+            const edge = (tin, tout) => { for (let it = 0; it < 30; it++) { const m = 0.5 * (tin + tout); if (within(ka.clone().lerp(kb, m))) tin = m; else tout = m; } return tin; };
+            if (t0 > 0) t0 = edge(t0, Math.max(0, t0 - 1 / 24));
+            if (t1 < 1) t1 = edge(t1, Math.min(1, t1 + 1 / 24));
+            let near = false;
+            for (let i = 0; i <= 16 && !near; i++) near = nearD(hyp(ka.clone().lerp(kb, t0 + (t1 - t0) * i / 16)));
+            if (!near) continue;
+            reaches = true;
+            const V0 = hyp(ka.clone().lerp(kb, t0)), V1 = hyp(ka.clone().lerp(kb, t1));
+            const key = keyOf(V0, V1);
+            if (keys.has(key)) continue;
+            keys.add(key);
+            // In pieces no longer than PIECE: the shader skips a piece unless
+            // the ray comes within its half-length of its midpoint, and a long
+            // edge running out to a cusp would be measured almost everywhere.
+            const d = dist(V0, V1), n = Math.max(1, Math.ceil(d / PIECE));
+            const at = (t) => d < 1e-9 ? V0 : V0.map((x, i) => (Math.sinh((1 - t) * d) * x + Math.sinh(t * d) * V1[i]) / Math.sinh(d));
+            for (let j = 0; j < n; j++) {
+                if (out.length >= max) return null;
+                const A = at(j / n), B = at((j + 1) / n), Mid = at((j + 0.5) / n);
+                out.push({ V0: A, V1: B, M: Mid, r: 0.5 * d / n, color: sg.color, home: qi === 0 });
+            }
+        }
+        if (!reaches && qi > 0) continue;
+        for (const g of moves) {
+            const h2 = h.mul(g).normalized(), k = pslKey(h2);
+            if (seen.has(k)) continue;
+            seen.add(k);
+            queue.push(h2);
+        }
+    }
+    // A grid over D's box in the Klein model, so the shader measures a few
+    // segments at each point instead of all of them.
+    const lo = [1, 1, 1], hi = [-1, -1, -1];
+    for (const v of home.poly.vertices) ['x', 'y', 'z'].forEach((c, i) => { lo[i] = Math.min(lo[i], v.k[c]); hi[i] = Math.max(hi[i], v.k[c]); });
+    out.grid = segmentGrid(out, lo.map(x => Math.max(-1, x - 0.02)), hi.map(x => Math.min(1, x + 0.02)), W);
+    return out;
+}
+
+/** Distance from X to the segment s ({V0, V1}) on the hyperboloid: an end, or the foot on its line. */
+export function segmentDistance(X, s) {
+    const mdot = (A, B) => A[0] * B[0] + A[1] * B[1] + A[2] * B[2] - A[3] * B[3];
+    const dist = (A, B) => Math.acosh(Math.max(1, -mdot(A, B)));
+    const { V0, V1 } = s;
+    const out = (V, E) => {                     // X lies beyond the end V (tangent there points away)
+        const m = mdot(E, V);
+        return mdot(E, X) + m * mdot(V, X) < 0;
+    };
+    if (out(V0, V1)) return dist(X, V0);
+    if (out(V1, V0)) return dist(X, V1);
+    const g00 = mdot(V0, V0), g01 = mdot(V0, V1), g11 = mdot(V1, V1);
+    const x0 = mdot(V0, X), x1 = mdot(V1, X), det = g00 * g11 - g01 * g01;
+    if (Math.abs(det) < 1e-14) return dist(X, V0);
+    const a = (g11 * x0 - g01 * x1) / det, b = (g00 * x1 - g01 * x0) / det;
+    const N = X.map((x, i) => x - a * V0[i] - b * V1[i]);
+    return Math.asinh(Math.sqrt(Math.max(0, mdot(N, N))));
+}
+
+/**
+ * A GRID³ grid over the box [lo, hi] (Klein model) listing, for each cell,
+ * the segments that can be the nearest to a point of the cell: with C its
+ * centre and ρ its radius (the farthest point), every segment within
+ * min_s d(C, s) + 2ρ of C. That is exact — the nearest segment to a point X
+ * of the cell is no farther than min_s d(C, s) + ρ from X, and a segment is
+ * no nearer to X than d(C, s) − ρ. Each entry carries that lower bound and
+ * they come nearest first, so the shader stops at the first that cannot beat
+ * what it has found.
+ * Every segment lies within `far` of the origin, and the shader does not use
+ * the grid beyond far + CLIP (it bounds all the segments at once there), so
+ * a cell reaching past that radius is cut off there: that bounds the cells
+ * that run out to the sphere at infinity, into a cusp. Their radius is
+ * measured on a 5³ lattice of the cut cell, plus the largest lattice cell.
+ * A cell that misses D (walls: its covectors, outward) or has more than
+ * GRID_CAP candidates gets count −1: measure every segment there.
+ * Returns { lo, size, n, far, cells: Float32Array(2 n³) of (offset, count),
+ * list: [index, lower bound, …] }.
+ */
+export const GRID = 24, GRID_CAP = 256, GRID_CLIP = 0.3;
+export function segmentGrid(segs, lo, hi, walls = [], n = GRID, cap = GRID_CAP) {
+    const size = hi.map((x, i) => Math.max(1e-6, x - lo[i]));
+    const hypOf = (k) => { const s = 1 / Math.sqrt(1 - (k[0] * k[0] + k[1] * k[1] + k[2] * k[2])); return [k[0] * s, k[1] * s, k[2] * s, s]; };
+    const mdot = (A, B) => A[0] * B[0] + A[1] * B[1] + A[2] * B[2] - A[3] * B[3];
+    const acoshOf = (A, B) => Math.acosh(Math.max(1, -mdot(A, B)));
+    const len2 = (k) => k[0] * k[0] + k[1] * k[1] + k[2] * k[2];
+    let far = 0;
+    for (const s of segs) for (const V of [s.V0, s.V1]) far = Math.max(far, Math.acosh(Math.max(1, V[3])));
+    const kap = Math.tanh(far + GRID_CLIP);
+    const cells = new Float32Array(2 * n * n * n), list = [];
+    const ds = new Float64Array(segs.length), lb = new Float64Array(segs.length);
+    const at = (u, v, w) => [lo[0] + size[0] * u / n, lo[1] + size[1] * v / n, lo[2] + size[2] * w / n];
+    for (let z = 0; z < n; z++) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+        const c = x + n * (y + n * z);
+        cells[2 * c + 1] = -1;
+        const corners = [];
+        for (const u of [x, x + 1]) for (const v of [y, y + 1]) for (const w of [z, z + 1]) corners.push(at(u, v, w));
+        let C, rho = 0;
+        if (corners.every(k => len2(k) < kap * kap)) {
+            C = hypOf(at(x + 0.5, y + 0.5, z + 0.5));
+            for (const k of corners) rho = Math.max(rho, acoshOf(C, hypOf(k)));
+        } else {
+            // The point of the cell nearest the origin: if it is past the cut, nothing here.
+            const near = [0, 1, 2].map(i => Math.min(Math.max(0, lo[i] + size[i] * [x, y, z][i] / n), lo[i] + size[i] * ([x, y, z][i] + 1) / n));
+            if (len2(near) >= kap * kap) continue;
+            const L = 4, S = [];
+            for (let i = 0; i <= L; i++) for (let j = 0; j <= L; j++) for (let l = 0; l <= L; l++) {
+                let k = at(x + i / L, y + j / L, z + l / L);
+                const r = Math.sqrt(len2(k));
+                if (r > kap) k = k.map(q => q * kap / r);
+                S.push(hypOf(k));
+            }
+            const sum = S.reduce((a, b) => a.map((q, i) => q + b[i]), [0, 0, 0, 0]);
+            const nn = Math.sqrt(-mdot(sum, sum));
+            C = sum.map(q => q / nn);
+            for (const Y of S) rho = Math.max(rho, acoshOf(C, Y));
+            let cellDiam = 0;
+            const id = (i, j, l) => (i * (L + 1) + j) * (L + 1) + l;
+            for (let i = 0; i < L; i++) for (let j = 0; j < L; j++) for (let l = 0; l < L; l++) {
+                const P = [];
+                for (const a of [0, 1]) for (const b of [0, 1]) for (const e of [0, 1]) P.push(S[id(i + a, j + b, l + e)]);
+                for (let a = 0; a < 8; a++) for (let b = a + 1; b < 8; b++) cellDiam = Math.max(cellDiam, acoshOf(P[a], P[b]));
+            }
+            rho = 1.05 * (rho + cellDiam) + 0.01;
+        }
+        // A cell meeting D has its centre within ρ of every wall's inner side.
+        const sr = Math.sinh(rho + 0.02);
+        if (walls.some(w => w.x * C[0] + w.y * C[1] + w.z * C[2] - w.w * C[3] > sr)) continue;
+        // Bound each segment by its midpoint ball first; measure only those that may count.
+        let up = Infinity;
+        for (let s = 0; s < segs.length; s++) {
+            const dm = acoshOf(C, segs[s].M);
+            lb[s] = dm - segs[s].r;
+            up = Math.min(up, dm + segs[s].r);
+        }
+        let m = Infinity;
+        for (let s = 0; s < segs.length; s++) {
+            ds[s] = lb[s] <= up + 2 * rho ? segmentDistance(C, segs[s]) : Infinity;
+            m = Math.min(m, ds[s]);
+        }
+        const cand = [];
+        for (let s = 0; s < segs.length; s++) if (ds[s] <= m + 2 * rho + 1e-9) cand.push(s);
+        if (cand.length > cap) continue;
+        cand.sort((a, b) => ds[a] - ds[b]);
+        cells[2 * c] = list.length / 2;
+        cells[2 * c + 1] = cand.length;
+        for (const s of cand) list.push(s, ds[s] - rho);
+    }
+    return { lo, size, n, far, cells, list };
 }

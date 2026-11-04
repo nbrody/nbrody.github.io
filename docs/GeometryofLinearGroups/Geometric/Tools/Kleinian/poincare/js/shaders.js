@@ -32,6 +32,7 @@ export const fragmentShader = `
     uniform int u_faceCount;
     uniform float u_time;
     uniform float u_opacity;
+    uniform float u_edgeLines;    // 0: the edges are not drawn (Edges & Vertices off); 1: they are
     uniform bool u_uhs;
     // Upper half-space cutaway: everything above this height is removed, so a
     // camera above it looks straight down into the cusp (0 = off).
@@ -209,6 +210,7 @@ export const fragmentShader = `
     // The colour of a surface point: n faces the viewer, edge is how much of
     // an edge line lies here, behind marks a wall seen through a free face.
     vec3 shade(vec3 p, vec3 n, vec3 rd, vec3 baseCol, float edge, bool behind) {
+        edge *= u_edgeLines;
         vec3 lightDir = normalize(vec3(1, 1, 1));
         // Lift the shadow floor on light backgrounds: unlit faces should
         // read as tinted paper, not as holes.

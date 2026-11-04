@@ -7,9 +7,10 @@
 import * as THREE from 'three';
 import {
     Matrix2x2, wallSD, projectToWall, applyMatrixToBall, invertWord, reduceWord,
-    wallOutwardNormal, ballToMinkowski
+    wallOutwardNormal, ballToMinkowski, lorentzMatrix, lorentzApply
 } from './math.js';
-import { edgeSamples, kleinToBall } from './polyhedron.js';
+import { edgeSamples, edgePoint, kleinToBall, ballToKlein } from './polyhedron.js';
+import { cuspNull, horoballInBall, kleinToHyperboloid } from './cusps.js';
 import { geodesicInDomain } from './invariants.js';
 import { app, sceneMatrix, fordSceneMatrix, sceneAction, wordToMatrix } from './app.js';
 import { displayedDomain, displayedHome, faceColors, faceClasses } from './domain.js';
@@ -109,6 +110,24 @@ let skeleton = null;       // { frameKey, edges: [{id,i,j,samples}], vertices: [
 
 export function invalidateSkeleton() { skeleton = null; }
 
+/**
+ * Ball samples along an edge. Near an ideal end Klein length is ball length
+ * squared, so there the Klein parameter goes as s² and the samples come
+ * evenly spaced in the ball, right up to a hair from the sphere: the edge's
+ * tube follows the curved edge into the cusp instead of cutting a chord.
+ */
+function cuspEdgeSamples(e, poly, n) {
+    const ia = poly.vertices[e.a]?.ideal, ib = poly.vertices[e.b]?.ideal;
+    if (!ia && !ib) return edgeSamples(e, n);
+    const shrink = 1e-7 * (e.hi - e.lo), out = [];     // ends well inside the cusp's horoball
+    for (let s = 0; s <= n; s++) {
+        let u = s / n;
+        u = ia && ib ? u * u * (3 - 2 * u) : ia ? u * u : 1 - (1 - u) * (1 - u);
+        out.push(kleinToBall(edgePoint(e, e.lo + shrink + (e.hi - e.lo - 2 * shrink) * u)));
+    }
+    return out;
+}
+
 /** Edges and vertices of the displayed domain, in the scene frame. */
 export function getSkeleton() {
     const H = displayedHome();
@@ -119,7 +138,7 @@ export function getSkeleton() {
     const poly = H.poly;
     const edges = poly.edges.map(e => ({
         id: e.id, i: e.i, j: e.j, angle: e.angle,
-        samples: edgeSamples(e, 40).map(p => applyMatrixToBall(S, p))
+        samples: cuspEdgeSamples(e, poly, 40).map(p => applyMatrixToBall(S, p))
     }));
     const vertices = poly.vertices.map((v, idx) => ({
         idx, p: applyMatrixToBall(S, kleinToBall(v.k.clone().multiplyScalar(v.ideal ? 0.999999 : 1))),
@@ -476,11 +495,172 @@ export function fordPairingAt(i, pScene) {
 // ---------------- edge cycles ----------------
 
 export const CYCLE_HUES = (k) => new THREE.Color().setHSL((k * 0.6180339887 + 0.05) % 1, 0.78, 0.6);
+/** Vertex classes get their own family of colours — lighter and brighter than the edges' (a third of a turn round). */
+export const VERTEX_HUES = (k) => new THREE.Color().setHSL((k * 0.6180339887 + 0.38) % 1, 1.0, 0.72);
 
 // While another view of the group (the Delaunay domain) is drawn, the
 // Dirichlet domain's edge cycles are not.
 let cyclesHidden = () => false;
 export function setCyclesHidden(fn) { cyclesHidden = fn; }
+/**
+ * The corners of the plane polygon, as dots coloured by corner cycle. In the
+ * plane view (a Fuchsian group, the plane y = 0 of the ball) the domain's
+ * edges are the geodesics perpendicular to the plane through the polygon's
+ * corners, and an edge cycle is a cycle of corners.
+ */
+function flatCorners(sk, cycleOf, nCycles) {
+    const byClass = new Map();
+    for (const e of sk.edges) {
+        const s = e.samples;
+        for (let i = 0; i + 1 < s.length; i++) {
+            const a = s[i], b = s[i + 1];
+            if ((a.y > 0) === (b.y > 0)) continue;
+            const t = a.y / (a.y - b.y);
+            const p = a.clone().lerp(b, t).setY(0);
+            const k = cycleOf.has(e.id) ? cycleOf.get(e.id) : -1;
+            if (!byClass.has(k)) byClass.set(k, []);
+            byClass.get(k).push(p);
+            break;
+        }
+    }
+    const ball = new THREE.SphereGeometry(0.026, 16, 12);
+    const dummy = new THREE.Object3D();
+    for (const [k, ps] of byClass) {
+        const color = k < 0 ? new THREE.Color(0xcbd5e1) : VERTEX_HUES(k);
+        const inst = new THREE.InstancedMesh(ball, new THREE.MeshStandardMaterial({
+            color, emissive: color, emissiveIntensity: 0.5, roughness: 0.3, metalness: 0.05
+        }), ps.length);
+        ps.forEach((p, i) => {
+            const w = toWorld(p);
+            dummy.position.copy(w);
+            dummy.scale.setScalar(view.model === 'uhs' ? Math.max(0.05, w.y * 0.6) : Math.max(0.12, 1 - p.lengthSq()));
+            dummy.updateMatrix();
+            inst.setMatrixAt(i, dummy.matrix);
+        });
+        inst.instanceMatrix.needsUpdate = true;
+        inst.renderOrder = 4;
+        cycleGroup.add(inst);
+    }
+    // The ideal corners (on the circle at infinity): horoballs, which the plane
+    // cuts in horodiscs, coloured after the corner cycles.
+    const H = displayedHome();
+    drawHoroballs(cuspMarkers(H, planeCusps(H).map(c => ({ ...c, k: nCycles + c.k }))));
+}
+
+/**
+ * The ideal corners of the plane polygon (home frame), where two sides meet
+ * on the circle at infinity, as { xi (unit ball vector), k (class under the
+ * side pairings) }. The 3D domain of a Fuchsian group has no vertex there:
+ * its two walls are tangent at the cusp.
+ */
+function planeCusps(H) {
+    if (!H || app.fordOn) return [];
+    const lines = [];
+    H.walls.forEach((w, i) => {
+        const n2 = w.cov.x * w.cov.x + w.cov.z * w.cov.z - w.cov.w * w.cov.w;
+        if (n2 > 1e-10) { const s = 1 / Math.sqrt(n2); lines.push({ i, a: w.cov.x * s, b: w.cov.z * s, c: w.cov.w * s }); }
+    });
+    const on = (L, u, v) => Math.abs(L.a * u + L.b * v - L.c) < 1e-7;
+    const pts = [];
+    for (const L of lines) {
+        // The side's line a·u + b·v = c (Klein disc u = x, v = z) meets the circle at its foot ± the half chord.
+        const r2 = L.a * L.a + L.b * L.b, h2 = 1 - L.c * L.c / r2;
+        if (!(h2 > 0)) continue;
+        const h = Math.sqrt(h2 / r2);
+        for (const sg of [1, -1]) {
+            const u = L.a * L.c / r2 - sg * L.b * h, v = L.b * L.c / r2 + sg * L.a * h;
+            if (!lines.every(M => M.a * u + M.b * v - M.c <= 1e-7)) continue;
+            if (!lines.some(M => M !== L && on(M, u, v))) continue;         // a corner, not the end of a free side
+            if (pts.some(q => Math.hypot(q.xi.x - u, q.xi.z - v) < 1e-6)) continue;
+            pts.push({ xi: new THREE.Vector3(u, 0, v).normalize(), walls: lines.filter(M => on(M, u, v)).map(M => M.i) });
+        }
+    }
+    // Classes: each side's pairing carries a corner on it to a corner of its partner.
+    const cls = pts.map((_, i) => i);
+    const find = (i) => (cls[i] === i ? i : (cls[i] = find(cls[i])));
+    pts.forEach((q, i) => {
+        for (const wi of q.walls) {
+            const w = H.walls[wi];
+            if (!w.pairing || !(w.pairing.partner >= 0) || !w.pairing.matrix) continue;
+            const N = lorentzApply(lorentzMatrix(w.pairing.matrix), new THREE.Vector4(q.xi.x, q.xi.y, q.xi.z, 1));
+            const y = new THREE.Vector3(N.x, N.y, N.z).divideScalar(N.w);
+            const j = pts.findIndex(o => o.xi.distanceTo(y) < 1e-6);
+            if (j >= 0) cls[find(i)] = find(j);
+        }
+    });
+    const ids = [...new Set(pts.map((_, i) => find(i)))];
+    return pts.map((q, i) => ({ xi: q.xi, k: ids.indexOf(find(i)) }));
+}
+
+/** One index per vertex class (the vertices glued together), for every vertex of the skeleton. */
+function vertexClasses(sk, H) {
+    const cls = new Array(sk.vertices.length).fill(-1);
+    let n = 0;
+    sk.vertices.forEach((v, i) => {
+        if (cls[i] >= 0) return;
+        for (const u of vertexClass(H, i, { ford: app.fordOn })) if (cls[u] < 0) cls[u] = n;
+        if (cls[i] < 0) cls[i] = n;
+        n++;
+    });
+    return cls;
+}
+
+/** The ideal vertices of the 3D domain (home frame), as { xi (unit ball vector), k (vertex class) }. */
+function domainCusps(sk, H, cls) {
+    return sk.vertices.filter(v => v.ideal).map(v => ({ xi: H.poly.vertices[v.idx].k.clone().normalize(), k: cls[v.idx] }));
+}
+
+/**
+ * The horoballs marking the cusps [{ xi (home frame), k }] (cusps.js) in the
+ * scene, as world spheres { centre, radius, k }. A cusp the upper half-space
+ * puts at ∞ is a half-space there, and is left out.
+ */
+function cuspMarkers(H, cusps) {
+    if (!H || !H.conePoint || app.fordOn || !cusps.length) return [];
+    const centre = [kleinToHyperboloid(ballToKlein(H.conePoint))];   // the Dirichlet centre: nearest to every cusp of D
+    const L = lorentzMatrix(displayedScene());
+    const out = [];
+    for (const { xi, k } of cusps) {
+        const N = cuspNull(xi, centre);
+        if (!N) continue;
+        const b = horoballInBall(lorentzApply(L, N));
+        if (view.model === 'ball') { out.push({ centre: b.centre, radius: b.radius, k }); continue; }
+        if (b.xi.z > 1 - 1e-9) continue;
+        // Upper half-space: the sphere tangent to the floor at ξ through a point Q of the horoball.
+        const X = toWorld(b.xi), Q = toWorld(b.xi.clone().multiplyScalar(1 - 2 * b.radius));
+        if (!(Q.y > 0) || X.length() > 1e4) continue;
+        const R = Q.distanceToSquared(X) / (2 * Q.y);
+        if (R > 1e4) continue;
+        out.push({ centre: X.clone().setY(R), radius: R, k });
+    }
+    return out;
+}
+
+function drawHoroballs(markers) {
+    if (!markers.length) return;
+    const ball = new THREE.SphereGeometry(1, 48, 32);
+    const dummy = new THREE.Object3D();
+    const byClass = new Map();
+    for (const m of markers) {
+        if (!byClass.has(m.k)) byClass.set(m.k, []);
+        byClass.get(m.k).push(m);
+    }
+    for (const [k, ms] of byClass) {
+        const color = VERTEX_HUES(k);
+        const inst = new THREE.InstancedMesh(ball, new THREE.MeshStandardMaterial({
+            color, emissive: color, emissiveIntensity: 0.5, roughness: 0.3, metalness: 0.05
+        }), ms.length);
+        ms.forEach((m, i) => {
+            dummy.position.copy(m.centre);
+            dummy.scale.setScalar(m.radius);
+            dummy.updateMatrix();
+            inst.setMatrixAt(i, dummy.matrix);
+        });
+        inst.instanceMatrix.needsUpdate = true;
+        inst.renderOrder = 4;
+        cycleGroup.add(inst);
+    }
+}
 
 export function updateEdgeCycles() {
     disposeGroup(cycleGroup);
@@ -491,6 +671,7 @@ export function updateEdgeCycles() {
     const cycles = (!app.fordOn && app.report) ? app.report.edgeCycles || [] : [];
     const cycleOf = new Map();
     cycles.forEach((c, k) => (c.edges || []).forEach(id => cycleOf.set(id, k)));
+    if (inspect.planar) { flatCorners(sk, cycleOf, cycles.length); return; }
     const byCycle = new Map();
     for (const e of sk.edges) {
         const k = cycleOf.has(e.id) ? cycleOf.get(e.id) : -1;
@@ -507,6 +688,35 @@ export function updateEdgeCycles() {
         m.renderOrder = 3;
         cycleGroup.add(m);
     }
+    // The vertices, one colour per vertex class (the vertices glued together).
+    const H = displayedHome();
+    const cls = vertexClasses(sk, H);
+    // One mesh per class, lit like the tubes (colour and glow alike), so it keeps its colour.
+    const byClass = new Map();
+    for (const v of sk.vertices) {
+        if (v.ideal) continue;
+        if (!byClass.has(cls[v.idx])) byClass.set(cls[v.idx], []);
+        byClass.get(cls[v.idx]).push(v);
+    }
+    const ball = new THREE.SphereGeometry(0.026, 16, 12);
+    const dummy = new THREE.Object3D();
+    for (const [k, vs] of byClass) {
+        const color = VERTEX_HUES(k);
+        const inst = new THREE.InstancedMesh(ball, new THREE.MeshStandardMaterial({
+            color, emissive: color, emissiveIntensity: 0.5, roughness: 0.3, metalness: 0.05
+        }), vs.length);
+        vs.forEach((v, i) => {
+            dummy.position.copy(toWorld(v.p));
+            dummy.scale.setScalar(view.model === 'uhs' ? Math.max(0.05, toWorld(v.p).y * 0.6) : Math.max(0.12, 1 - v.p.lengthSq()));
+            dummy.updateMatrix();
+            inst.setMatrixAt(i, dummy.matrix);
+        });
+        inst.instanceMatrix.needsUpdate = true;
+        inst.renderOrder = 4;
+        cycleGroup.add(inst);
+    }
+    // Each ideal vertex: a horoball, the same one for every vertex glued to it.
+    drawHoroballs(cuspMarkers(H, domainCusps(sk, H, cls)));
 }
 
 // ---------------- face labels ----------------

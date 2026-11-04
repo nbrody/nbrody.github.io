@@ -5,7 +5,7 @@
  * never block. See app.js for the frame conventions.
  */
 import * as THREE from 'three';
-import { Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD, lorentzMatrix } from './math.js';
+import { Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD, lorentzMatrix, pslKey } from './math.js';
 import { serializeTowerContext } from './tower.js';
 import { exportDomainAs3MF } from './export3mf.js';
 import { createInsideView } from './insideView.js';
@@ -19,16 +19,18 @@ import { matToArr } from './compute.js';
 import {
     app, sceneMatrix, outerFrame, sceneAction, homeGenerators, wordToMatrix, viewIsDirty
 } from './app.js';
+import { kleinToBall } from './polyhedron.js';
 import {
     installResult, retargetScene, displayedDomain, standardGenerators, faceColors, invalidateFaceColors, pairColors
 } from './domain.js';
-import { computeDelaunayDomain, planarHome } from './delaunay.js';
+import { computeDelaunayDomain, planarHome, delaunayEdgesNear } from './delaunay.js';
 import { createDelaunayView } from './delaunayView.js';
 import {
     scene, camera, renderer, controls, material, mesh, ballBox, uhsBox, view, theme,
     applyThemeUniforms, setModelCamera, loadDomainUniforms, applyViewOffset, toWorld
 } from './scene.js';
 import {
+    setDomainProvider,
     state as layers, updateCayley, setWallsOpacity, updateDual, setDualOpacity,
     updateTiling, updateDust, startOrbit, stopOrbit, updateOrbitInstances,
     markOrbitDirty, recolorOrbit, refreshLayers, orbitRun, geodesicPoints, bisectorMesh
@@ -38,7 +40,7 @@ import { setUnwrapHooks } from './unwrap.js';
 import {
     inspect, pickWall, rayFromEvent, pickVertex, selectVertex, handleFaceClick, clearFaceSelection,
     updateEdgeCycles, rebuildFaceLabels, updateFaceLabels, refreshInspectOverlays, fordPairingAt,
-    invalidateSkeleton, worldToBall, redrawSelection, CYCLE_HUES, setLabelOverride, setCyclesHidden
+    invalidateSkeleton, worldToBall, redrawSelection, CYCLE_HUES, VERTEX_HUES, setLabelOverride, setCyclesHidden
 } from './inspector.js';
 import { renderDelaunayInfo } from './delaunayPanel.js';
 import {
@@ -49,7 +51,7 @@ import { renderInvariants, clearGeodesicSelection } from './invariantsPanel.js';
 import { horo, updateHoroballs } from './horoballs.js';
 import {
     manifoldFragmentShader, honeycombFragmentShader, makeTessellationUniforms, loadTessellationUniforms,
-    loadEdges, loadFaceRadii
+    loadEdges, loadFaceRadii, loadDelaunayEdges
 } from './tessellation.js';
 import { readStateFromURL, writeStateToURL } from './permalink.js';
 import { createPlanarView, isRealGroup, framePlanarCamera, planarPick, PLANAR_MAX_WALLS } from './planar.js';
@@ -144,7 +146,7 @@ function delaunayShowing() {
 
 /** Edge colours by cycle when Edge Cycles is on (3D): edge chain → its cycle's hue. */
 function delaunayCycleColor(R) {
-    if (!inspect.showCycles || R.dim !== 3) return null;
+    if (R.dim !== 3) return null;
     const of = new Map();
     R.cycles.forEach((c, k) => (c.chains || []).forEach(ch => of.set(ch, k)));
     return (i) => {
@@ -160,7 +162,10 @@ function rebuildDelaunay() {
     if (!R || !R.ok) {
         delaunayView.clear();
     } else {
-        delaunayView.build(R, dl.colors, { cycleColor: delaunayCycleColor(R) });
+        delaunayView.build(R, dl.colors, {
+            cycleColor: delaunayCycleColor(R), showEdges: inspect.showCycles,
+            vertexColor: (k) => { const c = {}; VERTEX_HUES(k).getRGB(c, THREE.SRGBColorSpace); return [c.r, c.g, c.b]; },
+        });
     }
     syncDomainVisibility();
 }
@@ -170,7 +175,6 @@ function setDelaunay(on, { quiet = false } = {}) {
     on = !!on;
     if (on) {
         if (app.fordOn) setCuspView(false);
-        if (render.honeycomb) setHoneycomb(false);
         if (insideView.isActive()) setInsideView(false);
         if (mirrorMode) setMirrorMode(false);
         if (render.tieDye) setTieDye(false);
@@ -205,6 +209,43 @@ function showDelaunayInfo() {
 
 setCyclesHidden(() => delaunayShowing());
 
+// The Cayley graph and the Tiling layer follow the domain shown: on the
+// Delaunay domain's tiles, the graph's vertices are the tile centres and its
+// T generators the Delaunay face pairings; the tiling is copies of it.
+const dlLayer = { result: null, frame: null, tiles: null };
+function delaunayLayerData(R) {
+    if (dlLayer.result === R) return dlLayer;
+    const c = kleinToBall(R.centre), r = c.length();
+    const frame = r < 1e-9 ? Matrix2x2.identity() : translationTowards(c.clone().normalize(), 2 * Math.atanh(Math.min(r, 0.999999)));
+    // Copies across the faces, and across theirs: words of length ≤ 2 in the pairings.
+    const moves = R.pairs.flatMap(P => [P.el.m, P.el.m.inv().normalized()]);
+    const seen = new Set([pslKey(Matrix2x2.identity())]);
+    const tiles = [];
+    let frontier = [Matrix2x2.identity()];
+    for (let d = 0; d < 2 && tiles.length < 30; d++) {
+        const next = [];
+        for (const m of frontier) for (const g of moves) {
+            if (tiles.length >= 30) break;
+            const h = m.mul(g).normalized(), k = pslKey(h);
+            if (seen.has(k)) continue;
+            seen.add(k);
+            tiles.push(h);
+            next.push(h);
+        }
+        frontier = next;
+    }
+    Object.assign(dlLayer, { result: R, frame, tiles });
+    return dlLayer;
+}
+setDomainProvider(() => {
+    if (!delaunayShowing()) return null;
+    const R = dl.result, D = delaunayLayerData(R);
+    return {
+        pairs: R.pairs.map(P => P.el.m), frame: D.frame,
+        tiling: R.dim === 3 ? (on) => delaunayView.ensureTiling(on ? D.tiles : null) : null,
+    };
+});
+
 // Face labels: in Delaunay view they name the Delaunay faces (s_k on one face, s_k⁻¹ on its partner).
 setLabelOverride((box) => {
     if (!delaunayShowing()) return false;
@@ -234,10 +275,16 @@ function syncDomainVisibility() {
     const o = material.uniforms.u_opacity.value;
     const dlOn = delaunayShowing();
     // While unwrapped (unwrap.js) the domain is drawn among its neighbours as a mesh.
-    mesh.visible = !planar.on && o > 0 && !render.unwrapped && !(dlOn && dl.result.dim === 3);
+    // The honeycomb draws the whole tessellation (by either domain) in place of the polyhedron.
+    const honey = render.honeycomb && view.model === 'ball' && !insideView.isActive();
+    mesh.visible = !planar.on && o > 0 && !render.unwrapped && !(dlOn && dl.result.dim === 3 && !honey);
     planarView.setVisible(planar.on && o > 0);
     planarView.setOpacity(o);
-    delaunayView.setVisible(dlOn && (dl.result.dim === 2) === planar.on);
+    delaunayView.setVisible(dlOn && (dl.result.dim === 2) === planar.on && !(honey && !planar.on));
+    const dlHoney = honey && dlOn && dl.result.dim === 3;
+    for (const id of ['honeycomb-walls-row', 'honeycomb-faces-row']) {
+        document.getElementById(id)?.classList.toggle('disabled', !render.honeycomb || dlHoney);
+    }
     delaunayView.setOpacity(o);
 }
 
@@ -245,6 +292,25 @@ function activeMaterial() {
     if (render.manifold && insideView.isActive()) return manifoldMaterial;
     if (render.honeycomb && view.model === 'ball' && !insideView.isActive()) return honeycombMaterial;
     return material;
+}
+
+// The Delaunay tiling's edges near the Dirichlet domain, for the honeycomb (per result).
+let dlHoney = { result: null, segs: null };
+let dlHoneyWarned = false;
+function delaunayHoneycombEdges() {
+    const R = dl.result;
+    if (dlHoney.result === R) return dlHoney.segs;
+    const of = new Map();
+    R.cycles.forEach((c, k) => (c.chains || []).forEach(ch => of.set(ch, k)));
+    const colorOf = (l) => {
+        if (l.kind !== 'edge' || !of.has(l.chain)) return [0.82, 0.85, 0.92];       // a fold: neutral
+        const c = {};
+        CYCLE_HUES(of.get(l.chain)).getRGB(c, THREE.SRGBColorSpace);
+        return [c.r, c.g, c.b];
+    };
+    dlHoney = { result: R, segs: delaunayEdgesNear(R, dl.home, colorOf) };
+    dlHoneyWarned = false;
+    return dlHoney.segs;
 }
 
 /** The honeycomb sees each wall from both sides, so a face and its partner
@@ -269,6 +335,12 @@ function loadTessUniforms(m) {
             return [c.r, c.g, c.b];
         }, colors, lorentzMatrix(sceneMatrix()));
         if (m.uniforms.u_faceFill.value > 0) loadFaceRadii(m.uniforms, app.home);
+        // On the Delaunay tiles: their edges near D, by Delaunay edge cycle.
+        const segs = delaunayShowing() && dl.result.dim === 3 ? delaunayHoneycombEdges() : null;
+        if (!loadDelaunayEdges(m.uniforms, segs, lorentzMatrix(sceneMatrix())) && delaunayShowing() && dl.result.dim === 3 && !dlHoneyWarned) {
+            dlHoneyWarned = true;
+            setBanner('warning', 'Too many Delaunay edges come near the domain for the honeycomb: it shows the Dirichlet tiling.');
+        }
         // Faces go on the domain and the cells across its faces: tiles whose
         // centre is within twice the farthest wall's distance of D's centre.
         const c = D.conePoint, r2 = c.lengthSq();
@@ -330,12 +402,9 @@ function setTieDye(on) {
 
 function setHoneycomb(on) {
     if (on && planar.on) setPlanar(false);
-    if (on && dl.on) setDelaunay(false);
     if (on && render.tieDye) setTieDye(false);
     render.honeycomb = on;
     updateToggleBtn(document.getElementById('toggle-honeycomb'), on);
-    document.getElementById('honeycomb-walls-row')?.classList.toggle('disabled', !on);
-    document.getElementById('honeycomb-faces-row')?.classList.toggle('disabled', !on);
     if (on && view.model !== 'ball') setViewModel('ball');
     applyPixelRatio();
     syncMaterial();
@@ -1043,6 +1112,7 @@ function initUI() {
     bindToggle('toggle-cycles', (btn) => {
         inspect.showCycles = !inspect.showCycles;
         updateToggleBtn(btn, inspect.showCycles);
+        material.uniforms.u_edgeLines.value = inspect.showCycles ? 1 : 0;
         updateEdgeCycles();
         if (dl.on) rebuildDelaunay();
     });
