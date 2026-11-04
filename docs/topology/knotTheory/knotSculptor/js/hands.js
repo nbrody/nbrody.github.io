@@ -1,6 +1,8 @@
 // WebXR input: tracked hands and controllers, reduced to one state object per hand.
 //   pinching / pinchStart / pinchEnd — thumb-index pinch (hands) or trigger (controllers)
-//   pos, quat   — smoothed pinch point and hand orientation (for drawing and grabbing)
+//   pos, quat   — smoothed pinch point (for drawing) and hand orientation
+//   grip        — smoothed point on the palm (for grabbing): unlike the pinch point it stays put while the
+//                 fingers close or open, so starting or ending a pinch doesn't nudge what you hold
 //   tip         — index fingertip (for poking panels); for controllers, a point just ahead of the controller
 //   palmToward  — how squarely the palm faces the head (hands only), for the palm-up menu
 //   rayOrigin / rayDir — controller pointing ray (null for hands)
@@ -8,12 +10,14 @@ import * as THREE from 'three';
 import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 
-const PINCH_ON = 0.02, PINCH_OFF = 0.034;
+// A pinch starts after the fingertips stay within PINCH_ON for ON_FRAMES frames and ends after they stay
+// apart beyond PINCH_OFF for OFF_FRAMES frames, so tracking flicker doesn't start or break a pinch.
+const PINCH_ON = 0.02, PINCH_OFF = 0.034, ON_FRAMES = 3, OFF_FRAMES = 2;
 
 function makeState(side) {
   return {
     side, present: false, isHand: false, pinching: false, pinchStart: false, pinchEnd: false,
-    pos: new THREE.Vector3(), quat: new THREE.Quaternion(), tip: new THREE.Vector3(), tipValid: false,
+    pos: new THREE.Vector3(), quat: new THREE.Quaternion(), grip: new THREE.Vector3(), tip: new THREE.Vector3(), tipValid: false,
     palmCenter: new THREE.Vector3(), palmNormal: new THREE.Vector3(), palmToward: 0,
     rayOrigin: null, rayDir: null, squeezeStart: false, _inited: false, _trigger: false, _squeeze: false,
   };
@@ -69,12 +73,15 @@ export class XRInput {
     st.rayOrigin = st.rayDir = null;
     const d = thumb.position.distanceTo(index.position);
     const was = st.pinching;
-    st.pinching = was ? d < PINCH_OFF : d < PINCH_ON;
+    if (!was) { st._on = d < PINCH_ON ? (st._on || 0) + 1 : 0; st.pinching = st._on >= ON_FRAMES; }
+    else { st._off = d > PINCH_OFF ? (st._off || 0) + 1 : 0; st.pinching = st._off < OFF_FRAMES; }
+    if (st.pinching !== was) st._on = st._off = 0;
     st.pinchStart = !was && st.pinching;
     st.pinchEnd = was && !st.pinching;
     const target = this._v.copy(thumb.position).add(index.position).multiplyScalar(0.5);
-    if (!st._inited || st.pinchStart) { st.pos.copy(target); st.quat.copy(wrist.quaternion); st._inited = true; }
-    else { st.pos.lerp(target, 0.55); st.quat.slerp(wrist.quaternion, 0.35); }
+    const gripTarget = this._u.copy(wrist.position).add(mprox && mprox.visible ? mprox.position : index.position).multiplyScalar(0.5);
+    if (!st._inited || st.pinchStart) { st.pos.copy(target); st.quat.copy(wrist.quaternion); st.grip.copy(gripTarget); st._inited = true; }
+    else { st.pos.lerp(target, 0.55); st.quat.slerp(wrist.quaternion, 0.35); st.grip.lerp(gripTarget, 0.5); }
     st.tip.copy(index.position);
     st.tipValid = true;
     if (imc && pmc && imc.visible && pmc.visible) {
@@ -104,6 +111,7 @@ export class XRInput {
     const target = this._w.copy(c.position).addScaledVector(fwd, 0.05);
     if (!st._inited || st.pinchStart) { st.pos.copy(target); st.quat.copy(c.quaternion); st._inited = true; }
     else { st.pos.lerp(target, 0.7); st.quat.slerp(c.quaternion, 0.6); }
+    st.grip.copy(st.pos);
     st.tip.copy(c.position).addScaledVector(fwd, 0.07);
     st.tipValid = true;
     st.rayOrigin = (st.rayOrigin || new THREE.Vector3()).copy(c.position);

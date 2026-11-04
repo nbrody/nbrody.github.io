@@ -22,13 +22,17 @@ const TAU = 2 * Math.PI;
 
 const S = {
   comps: [], history: [], typeVersion: 0, shapeVersion: 0,
-  mode: 'draw', drawHand: 'right', addStrand: false, crossMode: 'alternate',
+  // mode 'draw' = the next stroke is armed (New knot, or Add strand when addStrand); 'move' = pinches grab.
+  // With nothing on screen the drawing hand always draws. pristine = still the startup knot, untouched.
+  mode: 'move', drawHand: 'right', addStrand: false, crossMode: 'alternate', pristine: true,
   relax: false, surface: false, level: TAU / 2 * 2, sweep: false, flatten: false, circles: false, globe: true,
   theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
   lib: 1, analysis: null, geometry: null, xrMode: null,
 };
 S.level = Math.PI * 2;
 const th = () => THEMES[S.theme];
+const drawArmed = () => S.mode === 'draw' || !S.comps.length;
+let tipUntil = 0;
 
 // ───────────────────────────── library ─────────────────────────────
 const LIBRARY = [
@@ -184,6 +188,12 @@ menuPanel.mesh.visible = false;
 scene.add(menuPanel.mesh);
 const globeLegend = new Panel3D(0.16, 0.05, 640, 200);
 panels.add(globeLegend.mesh);
+// a one-line tip under the knot: what a pinch will do right now
+const tipPanel = new Panel3D(0.36, 0.055, 1080, 165);
+tipPanel.mesh.position.set(0, -0.235, 0.07);
+tipPanel.mesh.visible = false;
+panels.add(tipPanel.mesh);
+let tipText = '';
 
 // cursors at the pinch points
 const cursors = {};
@@ -214,6 +224,7 @@ function applyTheme() {
   surfBack.color.set(t.surfaceBack);
   reticle.material.color.set(t.accentInk);
   for (const side of ['left', 'right']) cursors[side].material.color.set(t.accentInk);
+  tipText = '';
   recolorGlobe();
   redrawAll();
 }
@@ -276,6 +287,7 @@ function loadLibrary(i) {
   pushHistory();
   S.comps = normalizeSize(e.make(), 0.13).map(p => resampleBySpacing(p, SPACING, 48, 420));
   S.autoBest = true;
+  S.mode = 'move'; S.addStrand = false; S.pristine = false;
   knotChanged();
   if (e.relax) startRelax();
   sync();
@@ -489,15 +501,17 @@ function computeFlat() {
 
 // ───────────────────────────── actions ─────────────────────────────
 const actions = {
-  mode: v => { S.mode = v; },
+  mode: v => { S.mode = v; if (v !== 'draw') S.addStrand = false; },
+  // arm one stroke that replaces the knot / adds a strand to it; pressing again disarms
+  newKnot: () => { const on = S.mode === 'draw' && !S.addStrand; S.mode = on ? 'move' : 'draw'; S.addStrand = false; },
   undo: () => {
     if (!S.history.length) return;
     stopRelax();
     S.comps = S.history.pop();
     knotChanged();
   },
-  clear: () => { if (!S.comps.length) return; stopRelax(); pushHistory(); S.comps = []; knotChanged(); },
-  addStrand: () => { S.addStrand = !S.addStrand; },
+  clear: () => { if (!S.comps.length) return; stopRelax(); pushHistory(); S.comps = []; S.mode = 'move'; S.addStrand = false; knotChanged(); },
+  addStrand: () => { const on = S.mode === 'draw' && S.addStrand; S.mode = on ? 'move' : 'draw'; S.addStrand = !on; },
   relax: () => { if (S.relax) stopRelax(); else startRelax(); },
   surface: () => { S.surface = !S.surface; if (!S.surface) S.sweep = false; },
   sweep: () => { S.sweep = !S.sweep; if (S.sweep) S.surface = true; else showSurface(surfaceGeom); },
@@ -545,15 +559,15 @@ function bindSidebar() {
 }
 function sync() {
   document.querySelectorAll('[data-toggle]').forEach(el => el.setAttribute('aria-pressed', String(!!S[el.dataset.toggle])));
-  document.querySelectorAll('[data-action="mode"]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.value === S.mode)));
+  document.querySelectorAll('[data-action="mode"]').forEach(el => el.setAttribute('aria-pressed', String((el.dataset.value === 'draw') === drawArmed())));
   $('#level').value = S.level;
   $('#level-value').textContent = levelLabel();
   $('#library').value = String(S.lib);
   $('#cross-mode').value = S.crossMode;
   $('[data-action="undo"]').disabled = !S.history.length;
-  canvas.style.cursor = S.mode === 'draw' ? 'crosshair' : 'grab';
-  // in Draw mode the left button draws; orbit with the right button (or one finger in Orbit mode)
-  const drawing = S.mode === 'draw';
+  canvas.style.cursor = drawArmed() ? 'crosshair' : 'grab';
+  // while drawing is armed the left button draws; orbit with the right button (or one finger in Orbit mode)
+  const drawing = drawArmed();
   controls.mouseButtons.LEFT = drawing ? null : THREE.MOUSE.ROTATE;
   controls.mouseButtons.RIGHT = drawing ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
   controls.touches.ONE = drawing ? null : THREE.TOUCH.ROTATE;
@@ -583,7 +597,9 @@ function infoModel() {
     return {
       kicker: 'START HERE', title: { nick: 'Draw a knot' },
       hint: S.xrMode
-        ? ['Pinch with your right hand and move to draw.', 'Let go and the loop closes itself.', 'Turn your left palm toward you for the menu.', 'Pinch with your left hand to turn the knot.']
+        ? [`Pinch with your ${S.drawHand} hand and draw a loop in the air.`, 'Let go and the loop closes itself.',
+           'Then pinch and drag to turn it; use both hands to scale it.',
+           `Turn your ${S.drawHand === 'right' ? 'left' : 'right'} palm toward you for the menu.`]
         : ['Drag across the view to draw a closed loop.', 'Where it crosses itself, the crossings alternate.', 'Or pick a knot from the library.'],
     };
   }
@@ -649,12 +665,12 @@ function menuRows() {
   const e = LIBRARY[S.lib];
   return [
     [{ kind: 'title', id: 't', label: 'Knot Sculptor' }],
-    [{ kind: 'seg', id: 'mode', value: S.mode, options: [{ value: 'draw', label: 'Draw' }, { value: 'move', label: 'Move' }], hoverValue: menuPanel.hoverValue }],
-    [{ kind: 'button', id: 'undo', label: 'Undo', disabled: !S.history.length }, { kind: 'button', id: 'clear', label: 'Clear' }, { kind: 'toggle', id: 'addStrand', label: 'Add strand', active: S.addStrand }],
-    [{ kind: 'toggle', id: 'relax', label: 'Relax', active: S.relax }, { kind: 'toggle', id: 'flatten', label: 'Flatten', active: S.flatten }],
+    [{ kind: 'toggle', id: 'newKnot', label: 'New knot', active: S.mode === 'draw' && !S.addStrand }, { kind: 'toggle', id: 'addStrand', label: 'Add strand', active: S.mode === 'draw' && S.addStrand }],
+    [{ kind: 'button', id: 'undo', label: 'Undo', disabled: !S.history.length }, { kind: 'button', id: 'clear', label: 'Clear' }, { kind: 'toggle', id: 'relax', label: 'Relax', active: S.relax }],
     [{ kind: 'toggle', id: 'surface', label: 'Seifert surface', active: S.surface, weight: 1.4 }, { kind: 'toggle', id: 'sweep', label: 'Sweep', active: S.sweep }],
     [{ kind: 'slider', id: 'level', label: 'Surface level', valueLabel: `$\\Omega = ${levelTex()}$`, value: S.level, min: 0, max: 2 * TAU }],
-    [{ kind: 'toggle', id: 'circles', label: 'Seifert circles', active: S.circles, weight: 1.3 }, { kind: 'toggle', id: 'globe', label: 'Globe', active: S.globe }, { kind: 'button', id: 'best', label: 'Best view' }],
+    [{ kind: 'toggle', id: 'flatten', label: 'Flatten', active: S.flatten }, { kind: 'toggle', id: 'circles', label: 'Seifert circles', active: S.circles, weight: 1.3 }],
+    [{ kind: 'toggle', id: 'globe', label: 'Globe', active: S.globe }, { kind: 'button', id: 'best', label: 'Best view' }],
     [{ kind: 'button', id: 'prev', label: '‹', weight: 0.45 }, { kind: 'label', id: 'libname', label: `${e.nick ? `${e.nick} ` : ''}$${e.tex}$`, weight: 2 }, { kind: 'button', id: 'next', label: '›', weight: 0.45 }],
     [{ kind: 'button', id: 'recenter', label: 'Recenter' }, { kind: 'toggle', id: 'theme', label: 'Dark', active: S.theme === 'dark' }, { kind: 'toggle', id: 'hand', label: 'Left hand', active: S.drawHand === 'left' }, { kind: 'button', id: 'exit', label: 'Exit' }],
   ];
@@ -723,6 +739,8 @@ async function enterXR(mode) {
     xrInput.setHandModelsVisible(mode !== 'immersive-ar');
     panels.visible = true;
     pendingRecenter = 3;
+    if (S.pristine && S.comps.length) { stopRelax(); S.comps = []; S.history = []; knotChanged(); }
+    else if (S.comps.length) tipUntil = performance.now() + 12000;
     session.addEventListener('end', () => {
       S.xrMode = null;
       panels.visible = false;
@@ -756,41 +774,52 @@ function recenterVR() {
 
 // ───────────────────────────── VR interaction ─────────────────────────────
 const strokes = { left: null, right: null };
+const pending = { left: null, right: null }; // a pinch that may become a stroke once it is held and moved
 let grab = null, spin = null;
 const prevQuat = new THREE.Quaternion();
 let menuShown = false;
 const consumed = { left: false, right: false };
 
-function handMatrix(h) { return new THREE.Matrix4().compose(h.pos, h.quat, new THREE.Vector3(1, 1, 1)); }
+function handMatrix(h) { return new THREE.Matrix4().compose(h.grip, h.quat, new THREE.Vector3(1, 1, 1)); }
 
-function startGrab(hands) {
+// A grab only takes hold once the hand has moved ~8 mm or turned ~5°, so a stray pinch moves nothing;
+// at that moment the baseline is captured again, so the knot doesn't jump.
+const GRAB_MOVE = 0.008, GRAB_TURN = 0.08;
+function startGrab(hands, engaged = false) {
   if (hands.length === 1) {
     const h = hands[0];
     grab = { hands, offset: handMatrix(h).invert().multiply(knotRoot.matrix.clone()) };
   } else {
     const [a, b] = hands;
     grab = {
-      hands, p0: a.pos.clone(), v0: b.pos.clone().sub(a.pos), mid0: a.pos.clone().add(b.pos).multiplyScalar(0.5),
+      hands, p0: a.grip.clone(), v0: b.grip.clone().sub(a.grip), mid0: a.grip.clone().add(b.grip).multiplyScalar(0.5),
       q0: knotRoot.quaternion.clone(), s0: knotRoot.scale.x, pos0: knotRoot.position.clone(),
     };
   }
-  rotAnim = null; spin = null;
+  grab.engaged = engaged;
+  grab.start = hands.map(h => ({ p: h.grip.clone(), q: h.quat.clone() }));
+  if (engaged) { rotAnim = null; spin = null; tipUntil = 0; }
   prevQuat.copy(knotRoot.quaternion);
 }
 function updateGrab(dt) {
   if (!grab) return;
+  if (!grab.engaged) {
+    const moved = grab.hands.some((h, i) => h.grip.distanceTo(grab.start[i].p) > GRAB_MOVE || h.quat.angleTo(grab.start[i].q) > GRAB_TURN);
+    if (moved) startGrab(grab.hands, true);
+    return;
+  }
   if (grab.hands.length === 1) {
     const m = handMatrix(grab.hands[0]).multiply(grab.offset);
     const s = new THREE.Vector3();
     m.decompose(knotRoot.position, knotRoot.quaternion, s);
   } else {
     const [a, b] = grab.hands;
-    const v = b.pos.clone().sub(a.pos);
+    const v = b.grip.clone().sub(a.grip);
     const s = THREE.MathUtils.clamp(grab.s0 * v.length() / grab.v0.length(), 0.25, 6);
     const dq = new THREE.Quaternion().setFromUnitVectors(grab.v0.clone().normalize(), v.clone().normalize());
     knotRoot.quaternion.copy(dq).multiply(grab.q0);
     knotRoot.scale.setScalar(s);
-    const mid = a.pos.clone().add(b.pos).multiplyScalar(0.5);
+    const mid = a.grip.clone().add(b.grip).multiplyScalar(0.5);
     knotRoot.position.copy(grab.pos0).sub(grab.mid0).multiplyScalar(s / grab.s0).applyQuaternion(dq).add(mid);
   }
   // angular velocity for a spin on release
@@ -806,7 +835,7 @@ function updateGrab(dt) {
 function endGrab(h) {
   if (!grab) return;
   const rest = grab.hands.filter(x => x !== h);
-  const omega = grab.omega;
+  const omega = grab.engaged ? grab.omega : null;
   grab = null;
   if (rest.length) startGrab(rest);
   else if (omega && omega.length() > 0.8) spin = omega.clone();
@@ -902,11 +931,20 @@ function updateXR(dt) {
     if (h.pinchStart) {
       consumed[h.side] = near[h.side];
       if (consumed[h.side]) continue;
-      if (h === dom && S.mode === 'draw' && !S.flatten) beginStroke(h);
+      // the drawing hand draws only when the scene is empty or New knot / Add strand is armed;
+      // otherwise every pinch grabs the knot
+      if (h === dom && drawArmed() && !S.flatten) pending[h.side] = { t0: performance.now(), p0: h.pos.clone(), pts: [] };
       else startGrab(grab ? [...grab.hands, h] : [h]);
+    }
+    if (h.pinching && pending[h.side]) {
+      const pd = pending[h.side];
+      pushStrokePoint(pd.pts, h);
+      // a stroke starts once the pinch is held a moment and has moved; a tap does nothing
+      if (performance.now() - pd.t0 > 120 && h.pos.distanceTo(pd.p0) > 0.012) { beginStroke(h, pd.pts); pending[h.side] = null; }
     }
     if (h.pinching && strokes[h.side]) extendStroke(h);
     if (h.pinchEnd) {
+      pending[h.side] = null;
       if (strokes[h.side]) finishStroke(h.side);
       else if (grab?.hands.includes(h)) endGrab(h);
       consumed[h.side] = false;
@@ -918,11 +956,41 @@ function updateXR(dt) {
     c.visible = h.present && !near[side];
     if (c.visible) {
       c.position.copy(h.pos);
-      const drawing = h === dom && S.mode === 'draw';
+      const drawing = h === dom && drawArmed();
       c.scale.setScalar(h.pinching ? 1.5 : drawing ? 1 : 0.7);
       c.material.opacity = drawing ? 0.9 : 0.45;
     }
   }
+}
+
+function currentTip() {
+  const hand = S.drawHand, other = hand === 'right' ? 'left' : 'right';
+  if (!S.comps.length) return `Pinch with your ${hand} hand and draw a loop in the air`;
+  if (S.mode === 'draw') return S.addStrand ? 'Pinch and draw another strand: it joins the link' : 'Pinch and draw a new knot: it replaces this one';
+  if (performance.now() < tipUntil) return `Pinch and drag to turn it. Two hands scale it. ${other[0].toUpperCase() + other.slice(1)} palm up: menu`;
+  return '';
+}
+function updateTip() {
+  const t = currentTip();
+  tipPanel.mesh.visible = !!t;
+  if (t === tipText) return;
+  tipText = t;
+  if (!t) return;
+  tipPanel.draw((ctx, W, H) => {
+    const c = th();
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = c.panel;
+    ctx.beginPath(); ctx.roundRect(0, 0, W, H, H / 2); ctx.fill();
+    ctx.font = '700 46px "Atkinson Hyperlegible", sans-serif';
+    const w = ctx.measureText(t).width, s = Math.min(1, (W - 90) / w);
+    ctx.save();
+    ctx.translate(W / 2, H / 2 + 16 * s);
+    ctx.scale(s, s);
+    ctx.fillStyle = S.mode === 'draw' || !S.comps.length ? c.accentInk : c.text;
+    ctx.textAlign = 'center';
+    ctx.fillText(t, 0, 0);
+    ctx.restore();
+  });
 }
 
 function placeMenu(h, head, snap) {
@@ -941,18 +1009,23 @@ function placeMenu(h, head, snap) {
 }
 
 // ── drawing a strand ──
-function beginStroke(h) {
+function beginStroke(h, pts) {
   stopRelax();
+  strokes[h.side] = { pts };
+  if (!pts.length) pushStrokePoint(pts, h);
+  updateStrokeMesh(pts);
+}
+// append the pinch point (knot coordinates) if it moved more than 4 mm in the world
+function pushStrokePoint(pts, h) {
   const local = knotRoot.worldToLocal(h.pos.clone());
-  strokes[h.side] = { pts: [local.x, local.y, local.z] };
-  updateStrokeMesh(strokes[h.side].pts);
+  const n = pts.length;
+  if (n && Math.hypot(local.x - pts[n - 3], local.y - pts[n - 2], local.z - pts[n - 1]) * knotRoot.scale.x <= 0.004) return false;
+  pts.push(local.x, local.y, local.z);
+  return true;
 }
 function extendStroke(h) {
   const st = strokes[h.side];
-  const local = knotRoot.worldToLocal(h.pos.clone());
-  const n = st.pts.length;
-  const d = Math.hypot(local.x - st.pts[n - 3], local.y - st.pts[n - 2], local.z - st.pts[n - 1]);
-  if (d * knotRoot.scale.x > 0.004) { st.pts.push(local.x, local.y, local.z); updateStrokeMesh(st.pts); }
+  if (pushStrokePoint(st.pts, h)) updateStrokeMesh(st.pts);
 }
 function updateStrokeMesh(pts) {
   const f = Float64Array.from(pts);
@@ -974,7 +1047,7 @@ function finishStroke(side) {
   addStrand(Float64Array.from(st.pts), { smooth: true });
 }
 function addStrand(pts, { smooth = true, relax = false } = {}) {
-  if (pts.length / 3 < 8 || closedLength(pts) < 0.06) return;
+  if (pts.length / 3 < 8 || closedLength(pts) < 0.08) return; // too short to be meant
   let strand = resampleBySpacing(pts, SPACING * 0.8, 48, 420);
   pushHistory();
   const keep = S.addStrand ? S.comps : [];
@@ -983,6 +1056,11 @@ function addStrand(pts, { smooth = true, relax = false } = {}) {
   comps[comps.length - 1] = resampleBySpacing(comps[comps.length - 1], SPACING, 48, 420);
   S.comps = comps;
   recenterLocal();
+  // one stroke per arming: from now on a pinch grabs the knot
+  S.mode = 'move';
+  S.addStrand = false;
+  S.pristine = false;
+  tipUntil = performance.now() + 12000;
   knotChanged();
   if (relax) startRelax();
 }
@@ -991,6 +1069,7 @@ function addStrand(pts, { smooth = true, relax = false } = {}) {
 let deskStroke = null;
 const raycaster = new THREE.Raycaster();
 function pointerRay(e) {
+  camera.updateMatrixWorld(); // in case no frame has rendered since the camera last moved
   const r = canvas.getBoundingClientRect();
   raycaster.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
   return raycaster.ray;
@@ -1006,7 +1085,7 @@ canvas.addEventListener('pointerdown', e => {
       return;
     }
   }
-  if (S.mode !== 'draw' || e.button !== 0 || e.ctrlKey || e.metaKey) return;
+  if (!drawArmed() || e.button !== 0 || e.ctrlKey || e.metaKey) return;
   stopRelax();
   const ray = pointerRay(e);
   const n = camera.getWorldDirection(new THREE.Vector3()).negate();
@@ -1129,6 +1208,7 @@ function frame(t) {
   if (renderer.xr.isPresenting) {
     if (pendingRecenter > 0 && --pendingRecenter === 0) { recenterVR(); redrawAll(); }
     updateXR(dt);
+    updateTip();
   } else {
     controls.target.lerp(knotRoot.position, 0.2);
     controls.update();
@@ -1183,11 +1263,14 @@ setupXRButtons();
 document.fonts.load('400 30px "Atkinson Hyperlegible"').then(() => document.fonts.load('500 30px "Source Serif 4"')).finally(() => redrawAll());
 applyTheme();
 loadLibrary(1);
+S.pristine = true;
 window.MathJax?.startup?.promise?.then(() => window.MathJax.typesetPromise(document.querySelectorAll('#sidebar .small'))).catch(() => {});
 
 // for automated checks
 window.knotSculptor = {
-  S, actions, act, LIBRARY, knotRoot, camera, globe, surfaceGroup, xrInput, menuPanel, infoPanel, projPanel,
+  S, actions, act, LIBRARY, knotRoot, camera, globe, surfaceGroup, xrInput, menuPanel, infoPanel, projPanel, tipPanel,
+  get tip() { return tipPanel.mesh.visible ? tipText : ''; },
+  get grabState() { return grab ? { hands: grab.hands.length, engaged: grab.engaged } : null; },
   // step the loop by hand (hidden preview panes don't run requestAnimationFrame)
   async frames(n = 1, ms = 16) { for (let i = 0; i < n; i++) { frame(performance.now()); await new Promise(r => setTimeout(r, ms)); } },
   get displayComps() { return displayComps; },
