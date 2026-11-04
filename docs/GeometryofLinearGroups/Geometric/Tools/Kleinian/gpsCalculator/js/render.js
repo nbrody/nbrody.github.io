@@ -36,6 +36,9 @@ uniform vec3 uSigma;
 uniform vec3 uSigma2;
 uniform vec3 uLift;
 uniform float uLineW;
+uniform int uHybrid;           // 1: a glued polytope P₁ ∪ P₂, coloured by the side of the gluing plane
+uniform vec4 uH;              // unit normal of the gluing plane (inside P₁ ⟺ ⟨y, uH⟩ ≤ 0)
+uniform vec2 uCenter;         // the disk's centre in device pixels
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out int outId;     // region id (tree distance, piece) for the edge pass
 
@@ -48,12 +51,13 @@ mat4 reflM(vec4 w) {
 }
 
 void main() {
-    vec2 p = (gl_FragCoord.xy - 0.5 * uRes) / uScale;
+    vec2 p = (gl_FragCoord.xy - uCenter) / uScale;
     float r2 = dot(p, p);
     float px = 1.0 / uScale;
     if (r2 >= 1.0) {
         float e = sqrt(r2) - 1.0;
-        outColor = vec4(mix(uRim, uBg, smoothstep(0.0, 2.5 * px, e)), 1.0);
+        float a = 1.0 - smoothstep(0.0, 2.5 * px, e);
+        outColor = vec4(uRim * a, a);
         outId = -1;
         return;
     }
@@ -88,7 +92,7 @@ void main() {
         par = 1 - par;
         if ((it & 7) == 7) y /= sqrt(max(-ldot(y, y), 1e-30));
     }
-    int pc = texelFetch(uPiece, tc(g), 0).r;
+    int pc = uHybrid == 1 ? (ldot(y, uH) <= 0.0 ? 0 : 1) : texelFetch(uPiece, tc(g), 0).r;
     // tone by tree distance, so neighbouring lifts of the same piece differ
     float tone = (depth % 2 == 1) ? 0.72 : 1.0;
     if (depth % 4 >= 2) tone *= 0.9;
@@ -131,6 +135,7 @@ void main() {
         else if (mk == 3u) wLift = min(wLift, dpx);
         else wEdge = min(wEdge, dpx);
     }
+    if (uHybrid == 1) wSigma = asinh(abs(ldot(y, uH))) * (1.0 - r2) * 0.5 * uScale;
     float L = uLineW;
     col = mix(col, uEdge, (1.0 - smoothstep(0.25 * L, 0.25 * L + 1.0, wEdge)) * 0.5);
     col = mix(col, uLift, (1.0 - smoothstep(0.3 * L, 0.3 * L + 1.0, wLift)) * 0.6);
@@ -261,7 +266,7 @@ export class SplitRenderer {
         gl.enableVertexAttribArray(loc);
         gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
         this.u = {};
-        for (const name of ['uMode', 'uK', 'uWalls', 'uView', 'uViewInv', 'uR', 'uPiece', 'uMark', 'uTW', 'uRes', 'uScale', 'uRho', 'uMaxIt', 'uPal', 'uBg', 'uRim', 'uEdge', 'uSigma', 'uSigma2', 'uLift', 'uLineW']) {
+        for (const name of ['uMode', 'uK', 'uWalls', 'uView', 'uViewInv', 'uR', 'uPiece', 'uMark', 'uTW', 'uRes', 'uScale', 'uRho', 'uMaxIt', 'uPal', 'uBg', 'uRim', 'uEdge', 'uSigma', 'uSigma2', 'uLift', 'uLineW', 'uHybrid', 'uH', 'uCenter']) {
             this.u[name] = gl.getUniformLocation(prog, name);
         }
         this.ue = {};
@@ -270,6 +275,8 @@ export class SplitRenderer {
         this.mode = 'plane';
         this.zoom = 0;
         this.rho = 3.2;
+        this.inset = 0;           // CSS pixels on the right covered by the panel
+        this.insetBottom = 0;     // … and at the bottom (the panel on a phone)
         this.attach();
     }
 
@@ -323,10 +330,11 @@ export class SplitRenderer {
             W.set(v, 4 * j);
         });
         this.W = W;
+        this.H = data.hybrid ? (data.n === 2 ? [data.hybrid[0], data.hybrid[1], 0, data.hybrid[2]] : data.hybrid) : null;
         // home view: face the hypersurface. Its wall normal points (in the model
         // centred at P) towards H; turn that direction to the viewer (sphere) or
         // to the right of the disk (plane), so H is in the middle of the picture.
-        const w = data.walls[data.i0 ?? 0];
+        const w = data.hybrid || data.walls[data.i0 ?? 0];
         const u = data.n === 2 ? [w[0], w[1], 0] : [w[0], w[1], w[2]];
         const L = Math.hypot(...u) || 1;
         this.dirH = u.map(x => x / L);
@@ -346,6 +354,7 @@ export class SplitRenderer {
     reset() { this.V = this.homeView(); this.zoom = 0; this.draw(); }
 
     setTheme(theme) { this.theme = theme; this.draw(); }
+    setInset(px, bottom = 0) { if (px !== this.inset || bottom !== this.insetBottom) { this.inset = px; this.insetBottom = bottom; this.draw(); } }
 
     size() {
         const c = this.canvas;
@@ -372,8 +381,12 @@ export class SplitRenderer {
         gl.viewport(0, 0, w, h);
         gl.useProgram(this.prog);
         gl.bindVertexArray(this.vao);
-        const scale = 0.5 * Math.min(w, h) - 6 * dpr;
+        const inset = Math.min(this.inset * dpr, 0.6 * w), insetB = Math.min(this.insetBottom * dpr, 0.7 * h);
+        const scale = Math.max(40, 0.5 * Math.min(w - inset, h - insetB) - 18 * dpr);
         this.scale = scale;
+        this.center = [0.5 * (w - inset), 0.5 * (h + insetB)];
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
         gl.uniform1i(u.uMode, this.mode === 'sphere' ? 1 : 0);
         gl.uniform1i(u.uK, this.data.k);
         gl.uniform4fv(u.uWalls, this.W);
@@ -394,6 +407,9 @@ export class SplitRenderer {
         gl.uniform3fv(u.uBg, th.bg); gl.uniform3fv(u.uRim, th.rim); gl.uniform3fv(u.uEdge, th.edge);
         gl.uniform3fv(u.uSigma, th.sigma); gl.uniform3fv(u.uSigma2, th.sigma2); gl.uniform3fv(u.uLift, th.lift);
         gl.uniform1f(u.uLineW, 2.0 * dpr);
+        gl.uniform1i(u.uHybrid, this.H ? 1 : 0);
+        gl.uniform4fv(u.uH, new Float32Array(this.H || [0, 0, 0, 0]));
+        gl.uniform2f(u.uCenter, this.center[0], this.center[1]);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         if (!twoPass) return;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -434,8 +450,9 @@ export class SplitRenderer {
     toDisk(ev) {
         const r = this.canvas.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const x = (ev.clientX - r.left) * dpr - 0.5 * this.canvas.width;
-        const y = (r.bottom - ev.clientY) * dpr - 0.5 * this.canvas.height;
+        const c = this.center || [0.5 * this.canvas.width, 0.5 * this.canvas.height];
+        const x = (ev.clientX - r.left) * dpr - c[0];
+        const y = (r.bottom - ev.clientY) * dpr - c[1];
         return [x / this.scale, y / this.scale];
     }
 

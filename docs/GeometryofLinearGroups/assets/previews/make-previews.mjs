@@ -32,6 +32,10 @@ const OVERRIDES = {
     'Arithmetic/Tools/pseudomodular/index.html': { js: click('#compute-btn'), after: 4000 },
     'Geometric/Tools/discretenessAlgorithm/index.html': { js: click('#decide-btn'), after: 9000 },
     'Algebraic/Tools/2dimFields/index.html': { js: "document.documentElement.classList.contains('light') && document.getElementById('theme-btn').click()", after: 1200 },
+    // the finished normal-form walk: the geodesic o → g·o coloured by letter
+    // (page mode, since its labels are KaTeX in an HTML layer that visual mode would hide: the panel
+    // is lifted to the top, 660px wide, and everything else is hidden)
+    'Arithmetic/Tools/pgl2Z1p/index.html': { mode: 'page', js: "const t = document.querySelector('.panel-tree'), w = document.querySelector('.wrap'); t.style.gridArea = 'auto'; t.style.width = '660px'; w.prepend(t); [...w.children].forEach((c) => { if (c !== t) c.style.display = 'none'; }); window.__pgl && __pgl.walkGo(99, true); scrollTo(0, 0)", after: 1200 },
     // the presentation of PGL_2(O_k) for Q(sqrt -5) (page mode: the math is KaTeX in HTML)
     // (the presentation section lifted to the top, everything else hidden)
     'Arithmetic/Tools/numberRingGroups/index.html': { mode: 'page', wait: 6000, js: "const p = document.getElementById('sec-pres'), w = document.querySelector('.wrap'); w.prepend(p); [...w.children].forEach((c) => { if (c !== p) c.style.display = 'none'; }); scrollTo(0, 0)", after: 800 },

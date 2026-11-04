@@ -80,6 +80,7 @@
         setActivePair(null);
 
         window.addEventListener('resize', onResize);
+        document.addEventListener('panel:collapse', updateViewOffset);
         onResize();
         animate();
     }
@@ -529,28 +530,49 @@
         return point.add(radialOffset(sampleFrame(frames, t), radius, angle));
     }
 
+    // Label pills take their glass fill and mono face from the shared UI tokens.
+    function labelStyle() {
+        const css = getComputedStyle(document.documentElement);
+        const token = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+        return {
+            glass: token('--glass-strong', 'rgba(10, 14, 26, 0.86)'),
+            font: `600 64px ${token('--mono', 'monospace')}`
+        };
+    }
+
     function createLabelSprite(text, fillColor, borderColor) {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 192;
         const ctx = canvas.getContext('2d');
+        const style = labelStyle();
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawRoundedRect(ctx, 22, 24, 468, 120, 36);
-        ctx.fillStyle = 'rgba(7, 16, 21, 0.86)';
-        ctx.fill();
-        ctx.lineWidth = 10;
-        ctx.strokeStyle = borderColor;
-        ctx.stroke();
+        const draw = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawRoundedRect(ctx, 22, 24, 468, 120, 60);
+            ctx.fillStyle = style.glass;
+            ctx.fill();
+            ctx.lineWidth = 10;
+            ctx.strokeStyle = borderColor;
+            ctx.stroke();
 
-        ctx.fillStyle = fillColor;
-        ctx.font = '700 66px "IBM Plex Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, canvas.width / 2, 86);
+            ctx.fillStyle = fillColor;
+            ctx.font = style.font;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, 86);
+        };
+        draw();
 
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
+        // redraw once the web font has arrived (the first draw may use a fallback face)
+        if (document.fonts && document.fonts.load) {
+            document.fonts.load(style.font, text).then(() => {
+                draw();
+                texture.needsUpdate = true;
+            }).catch(() => {});
+        }
         const material = new THREE.SpriteMaterial({
             map: texture,
             transparent: true,
@@ -697,7 +719,7 @@
         const mobile = width < 1100;
 
         camera.aspect = width / height;
-        camera.updateProjectionMatrix();
+        updateViewOffset();
         renderer.setSize(width, height);
 
         if (mobile) {
@@ -711,6 +733,25 @@
         }
 
         controls.update();
+    }
+
+    // As in poincare: while the control panel is open beside the picture,
+    // shift the image left by half the strip it covers, so the surface
+    // centres on the free part of the window. (Below 860px the panel sits
+    // over the picture instead, and --panel-space is 0 in poincare-ui.css.)
+    function updateViewOffset() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const panel = document.getElementById('control-panel');
+        let room = 0;
+        if (panel && !panel.classList.contains('collapsed') && width > 860) {
+            const css = getComputedStyle(document.documentElement);
+            room = (parseFloat(css.getPropertyValue('--panel-w')) || 384)
+                + 2 * (parseFloat(css.getPropertyValue('--gap')) || 20);
+        }
+        if (room) camera.setViewOffset(width, height, room / 2, 0, width, height);
+        else camera.clearViewOffset();
+        camera.updateProjectionMatrix();
     }
 
     function rgba(color, alpha) {

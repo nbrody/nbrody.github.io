@@ -1,0 +1,90 @@
+beam: rho_(s=1/5, r=1) p=5 width=100000 depth=500 window=8 procs=7
+  d=  1 beam=     4 fresh=     4 loops=     0 D[min/med/max]=4/4/4 dH@minD=1.7 maxdH=1.7 perm=5 tors=0 wit=0 [0.3s]
+  d=  2 beam=    11 fresh=    11 loops=     1 D[min/med/max]=4/6/6 dH@minD=3.2 maxdH=3.37 perm=16 tors=1 wit=0 [0.3s]
+  d=  3 beam=    32 fresh=    32 loops=     1 D[min/med/max]=4/7/8 dH@minD=3.47 maxdH=5.04 perm=26 tors=2 wit=0 [0.3s]
+  d=  4 beam=    93 fresh=    93 loops=     3 D[min/med/max]=4/8/10 dH@minD=5.11 maxdH=6.7 perm=46 tors=5 wit=0 [0.3s]
+  d=  5 beam=   268 fresh=   268 loops=     8 D[min/med/max]=4/9/12 dH@minD=5.09 maxdH=8.36 perm=68 tors=13 wit=0 [0.3s]
+  d=  6 beam=   775 fresh=   775 loops=    22 D[min/med/max]=5/10/14 dH@minD=4.88 maxdH=10.03 perm=95 tors=35 wit=0 [0.4s]
+  d=  7 beam=  2240 fresh=  2240 loops=    64 D[min/med/max]=6/11/16 dH@minD=8.23 maxdH=11.69 perm=115 tors=99 wit=0 [0.4s]
+  d=  8 beam=  6473 fresh=  6473 loops=   184 D[min/med/max]=6/13/18 dH@minD=8.75 maxdH=13.35 perm=119 tors=283 wit=0 [0.5s]
+  d=  9 beam= 18708 fresh= 18708 loops=   533 D[min/med/max]=7/13/20 dH@minD=10.41 maxdH=15.02 perm=119 tors=816 wit=0 [0.7s]
+  d= 10 beam= 54067 fresh= 54067 loops=  1536 D[min/med/max]=8/14/22 dH@minD=14.62 maxdH=16.68 perm=119 tors=2352 wit=0 [1.4s]
+  d= 11 beam=100000 fresh=156256 loops=  4436 D[min/med/max]=8/14/17 dH@minD=17.73 maxdH=17.91 perm=119 tors=6788 wit=0 [3.6s]
+  d= 12 beam=100000 fresh=287498 loops=  8681 D[min/med/max]=8/14/15 dH@minD=19.03 maxdH=19.41 perm=119 tors=15469 wit=0 [7.3s]
+  d= 13 beam=100000 fresh=288007 loops=  6322 D[min/med/max]=8/13/14 dH@minD=20.65 maxdH=21.06 perm=119 tors=21791 wit=0 [10.9s]
+  d= 14 beam=100000 fresh=289804 loops=  3857 D[min/med/max]=8/14/14 dH@minD=22.23 maxdH=22.72 perm=119 tors=25648 wit=0 [14.2s]
+  d= 15 beam=100000 fresh=291199 loops=  2822 D[min/med/max]=8/14/15 dH@minD=22.5 maxdH=24.38 perm=119 tors=28470 wit=0 [17.7s]
+  d= 16 beam=100000 fresh=290702 loops=  2917 D[min/med/max]=8/14/15 dH@minD=24.13 maxdH=26.05 perm=119 tors=31387 wit=0 [21.2s]
+  d= 17 beam=100000 fresh=292160 loops=  2443 D[min/med/max]=9/15/15 dH@minD=24.92 maxdH=27.33 perm=119 tors=33830 wit=0 [24.7s]
+  d= 18 beam=100000 fresh=292012 loops=  2310 D[min/med/max]=9/15/16 dH@minD=25.49 maxdH=29.0 perm=119 tors=36140 wit=0 [28.2s]
+  d= 19 beam=100000 fresh=290387 loops=  2781 D[min/med/max]=9/15/16 dH@minD=26.58 maxdH=30.58 perm=119 tors=38921 wit=0 [31.8s]
+  d= 20 beam=100000 fresh=291420 loops=  2697 D[min/med/max]=9/15/16 dH@minD=27.39 maxdH=32.01 perm=119 tors=41618 wit=0 [35.4s]
+  best@25: D=11 dH=33.3 BAbbAAbaBaaBBBaaaBBBaBabb
+  d= 30 beam=100000 fresh=291993 loops=  2709 D[min/med/max]=11/17/18 dH@minD=32.22 maxdH=47.65 perm=119 tors=73993 wit=0 [73.8s]
+  d= 40 beam=100000 fresh=290644 loops=  3030 D[min/med/max]=14/20/20 dH@minD=53.84 maxdH=61.14 perm=119 tors=103508 wit=0 [112.4s]
+  d= 50 beam=100000 fresh=290312 loops=  3268 D[min/med/max]=16/22/23 dH@minD=61.66 maxdH=74.19 perm=119 tors=134933 wit=0 [153.3s]
+  best@50: D=16 dH=61.66 bbaBABAbbaaBAbbABaaBBBaaaBBBaaBAbAbaBaaBBBaaaBBBaa
+  d= 60 beam=100000 fresh=290289 loops=  3507 D[min/med/max]=18/24/25 dH@minD=71.87 maxdH=85.53 perm=119 tors=166367 wit=0 [196.2s]
+  d= 70 beam=100000 fresh=290094 loops=  3508 D[min/med/max]=18/26/27 dH@minD=86.52 maxdH=97.19 perm=119 tors=198226 wit=0 [239.9s]
+  best@75: D=19 dH=90.93 BAbAAbbaBaBababAbAbaaBAbABBaaBAbAbAAbABABaBBaBaBAbAbbbAAAbbaBBBaaaBBBaBabAb
+  d= 80 beam=100000 fresh=290499 loops=  3501 D[min/med/max]=21/28/28 dH@minD=100.73 maxdH=108.4 perm=119 tors=232842 wit=0 [284.0s]
+  d= 90 beam=100000 fresh=290936 loops=  3405 D[min/med/max]=21/29/30 dH@minD=112.73 maxdH=123.14 perm=119 tors=266962 wit=0 [324.8s]
+  d=100 beam=100000 fresh=290016 loops=  3493 D[min/med/max]=24/31/32 dH@minD=128.24 maxdH=136.7 perm=119 tors=302043 wit=0 [371.8s]
+  best@100: D=24 dH=128.24 AbbAAAbbbAABaBaBAAbbbAAAbbbAAAbbaBaBababAbAbaaBAbABBaaBAbAbAAbABABaBBaBaBAbAbbbAAAbbaBBBaaaBBBaBabAb
+  d=110 beam=100000 fresh=290684 loops=  3258 D[min/med/max]=26/33/33 dH@minD=140.46 maxdH=146.55 perm=119 tors=334561 wit=0 [422.1s]
+  d=120 beam=100000 fresh=291089 loops=  3152 D[min/med/max]=28/34/35 dH@minD=155.88 maxdH=159.82 perm=119 tors=367796 wit=0 [471.4s]
+  best@125: D=29 dH=159.47 BAbAbabAAAbbaaBBaBaaBaBBBaaaBBBabbAABaBaBAAbbbAAAbbbAAAbbaBaBababAbAbaaBAbABBaaBAbAbAAbABABaBBaBaBAb...
+  d=130 beam=100000 fresh=290587 loops=  3557 D[min/med/max]=29/36/37 dH@minD=162.98 maxdH=173.16 perm=119 tors=402002 wit=0 [523.9s]
+  d=140 beam=100000 fresh=290014 loops=  3526 D[min/med/max]=32/38/39 dH@minD=176.64 maxdH=187.2 perm=119 tors=436246 wit=0 [564.9s]
+  d=150 beam=100000 fresh=290073 loops=  3467 D[min/med/max]=33/40/41 dH@minD=186.25 maxdH=199.72 perm=119 tors=469413 wit=0 [604.2s]
+  best@150: D=33 dH=186.25 BAbABABaBaBBAAbabAbbABaabbABaBBabaBBBaaaBBBaaBaBBBaaaBBBabbAABaBaBAAbbbAAAbbbAAAbbaBaBababAbAbaaBAbA...
+  d=160 beam=100000 fresh=290411 loops=  3466 D[min/med/max]=34/42/42 dH@minD=192.34 maxdH=210.83 perm=119 tors=503517 wit=0 [644.8s]
+  d=170 beam=100000 fresh=290618 loops=  3437 D[min/med/max]=37/43/44 dH@minD=205.59 maxdH=224.13 perm=119 tors=537771 wit=0 [686.2s]
+  best@175: D=38 dH=219.82 BaBAAbbbAAAbbbAbABaaBAbABaaBAbbABaaBBBaaaBBBaBabbAABABaBaBAAbAbaBaBBBaaaBBBabbAAAbbbAABaBaBAAbbbAAAb...
+  d=180 beam=100000 fresh=289935 loops=  3627 D[min/med/max]=38/45/46 dH@minD=217.5 maxdH=234.98 perm=119 tors=572788 wit=0 [728.5s]
+  d=190 beam=100000 fresh=289959 loops=  3542 D[min/med/max]=39/47/47 dH@minD=216.57 maxdH=243.9 perm=119 tors=607252 wit=0 [772.8s]
+  d=200 beam=100000 fresh=290302 loops=  3789 D[min/med/max]=40/48/49 dH@minD=236.67 maxdH=257.22 perm=119 tors=642811 wit=0 [822.1s]
+  best@200: D=40 dH=236.67 ABBabbABaaBABAbbABAbAbaaBBabAbabaBaBAbbABaBaBABAbAbABABABaBaBBAAbabAbbABaabbABaBBabaBBBaaaBBBaaBaBBB...
+  d=210 beam=100000 fresh=290584 loops=  3153 D[min/med/max]=43/49/50 dH@minD=248.55 maxdH=272.61 perm=119 tors=681268 wit=0 [873.5s]
+  d=220 beam=100000 fresh=290672 loops=  3346 D[min/med/max]=44/51/52 dH@minD=259.72 maxdH=286.33 perm=119 tors=714182 wit=0 [928.0s]
+  best@225: D=44 dH=264.65 ABaaBAbAbABABaBBaabAbAbabaBaabbABaaBABAbbABAbAbaaBBabAbabaBaBAbbABaBaBABAbAbABABABaBaBBAAbabAbbABaab...
+  d=230 beam=100000 fresh=290585 loops=  3518 D[min/med/max]=46/53/53 dH@minD=279.34 maxdH=297.0 perm=119 tors=749054 wit=0 [987.9s]
+  d=240 beam=100000 fresh=290468 loops=  3464 D[min/med/max]=47/54/55 dH@minD=287.66 maxdH=307.09 perm=119 tors=784414 wit=0 [1046.8s]
+  d=250 beam=100000 fresh=290088 loops=  3655 D[min/med/max]=48/56/57 dH@minD=297.08 maxdH=317.97 perm=119 tors=819050 wit=0 [1108.0s]
+  best@250: D=48 dH=297.08 ABABaaBAbAbaBaBBBaaaBBBaaBabAAAbabaBaBAAbAbABABaBaBAbABaaBaaBABAbbABAbAbaaBBabAbabaBaBAbbABaBaBABAbA...
+  d=260 beam=100000 fresh=290894 loops=  3533 D[min/med/max]=49/57/58 dH@minD=306.07 maxdH=325.39 perm=119 tors=855130 wit=0 [1171.4s]
+  d=270 beam=100000 fresh=290123 loops=  3560 D[min/med/max]=52/58/59 dH@minD=324.07 maxdH=331.11 perm=119 tors=890756 wit=0 [1235.9s]
+  best@275: D=53 dH=328.99 BBAbbABaaBBBaaaBBBBaBaBAbABABaaBAbAbaBaBBBaaaBBBaaBabAAAbabaBaBAAbAbABABaBaBAbABaaBaaBABAbbABAbAbaaB...
+  d=280 beam=100000 fresh=290980 loops=  3197 D[min/med/max]=53/60/60 dH@minD=333.12 maxdH=341.63 perm=119 tors=923879 wit=0 [1302.0s]
+  d=290 beam=100000 fresh=291255 loops=  3161 D[min/med/max]=55/61/62 dH@minD=338.45 maxdH=354.19 perm=119 tors=957242 wit=0 [1369.6s]
+  d=300 beam=100000 fresh=290793 loops=  3360 D[min/med/max]=57/63/64 dH@minD=358.46 maxdH=368.42 perm=119 tors=990465 wit=0 [1440.9s]
+  best@300: D=57 dH=358.46 BAbAbaaBBBaaaBBBaabAbAbaaBBBaaaBBBaBaBaBBAbaabABBAbaaBaaBAbAbaBaBBBaaaBBBaaBabAAAbabaBaBAAbAbABABaBa...
+  d=310 beam=100000 fresh=290345 loops=  3447 D[min/med/max]=58/65/66 dH@minD=363.69 maxdH=379.62 perm=119 tors=1024164 wit=0 [1515.4s]
+  d=320 beam=100000 fresh=290414 loops=  3413 D[min/med/max]=60/67/68 dH@minD=377.07 maxdH=394.8 perm=119 tors=1057976 wit=0 [1592.2s]
+  best@325: D=60 dH=387.81 AbbAABaBaaaBABaaBAbbAbABaBabAbaaBBBaaaBBBaabAbAbaaBBBaaaBBBaBaBaBBAbaabABBAbaaBaaBAbAbaBaBBBaaaBBBaa...
+  d=330 beam=100000 fresh=290582 loops=  3555 D[min/med/max]=61/68/69 dH@minD=391.69 maxdH=404.82 perm=119 tors=1092816 wit=0 [1671.0s]
+  d=340 beam=100000 fresh=290328 loops=  3720 D[min/med/max]=63/70/70 dH@minD=404.47 maxdH=416.82 perm=119 tors=1128813 wit=0 [1755.3s]
+  d=350 beam=100000 fresh=290792 loops=  3283 D[min/med/max]=64/71/72 dH@minD=408.57 maxdH=425.85 perm=119 tors=1162090 wit=0 [3501.4s]
+  best@350: D=64 dH=408.57 BAAbbaBaBaabAbbABBAbAAbaBBBAbbaBaBBBaaaBBBaabAbaBabbAAbbbAAbabaBaBababAbAbbabaaBABAbaaBaababbABaaBAb...
+  d=360 beam=100000 fresh=289812 loops=  3692 D[min/med/max]=64/73/74 dH@minD=427.92 maxdH=437.1 perm=119 tors=1198212 wit=0 [11505.3s]
+  d=370 beam=100000 fresh=290991 loops=  3563 D[min/med/max]=67/74/75 dH@minD=439.73 maxdH=449.36 perm=119 tors=1234036 wit=0 [11590.9s]
+  best@375: D=68 dH=450.9 AAbbbAAAbbbAbABaaBAbbaaBBBaaaBBBaabAbABaaBAbAbbbAAAbbbAbAAAbbaBaBabbaBBBabAbaBaBAbAbbaBaBababAbbAbbA...
+  d=380 beam=100000 fresh=291391 loops=  3047 D[min/med/max]=69/76/76 dH@minD=454.6 maxdH=460.45 perm=119 tors=1267525 wit=0 [11662.7s]
+  d=390 beam=100000 fresh=291006 loops=  3325 D[min/med/max]=71/77/78 dH@minD=462.44 maxdH=473.08 perm=119 tors=1300032 wit=0 [11729.7s]
+  d=400 beam=100000 fresh=291108 loops=  3063 D[min/med/max]=72/79/80 dH@minD=478.59 maxdH=485.29 perm=119 tors=1332717 wit=0 [11797.2s]
+  best@400: D=72 dH=478.59 BaBBaBBBBaaaBBBaaBAbbABaaBAAbAbbbABAbAbABaaBABAbAbABBaaBBabbAbABaaBAbAbbbAAAbbbAbAAAbbaBaBabbaBBBabA...
+  d=410 beam=100000 fresh=290326 loops=  3564 D[min/med/max]=74/81/82 dH@minD=487.94 maxdH=498.01 perm=119 tors=1367026 wit=0 [11873.3s]
+  d=420 beam=100000 fresh=291364 loops=  2811 D[min/med/max]=76/82/83 dH@minD=504.71 maxdH=508.79 perm=119 tors=1400205 wit=0 [11952.1s]
+  best@425: D=77 dH=512.4 AbAAbbbAABaBaBAAbbbAAAbbbAAAbbaBBBaaaBBBaaBAbbABaaBAAbAbbbABAbAbABaaBABAbAbABBaaBBabbAbABaaBAbAbbbAA...
+  d=430 beam=100000 fresh=290710 loops=  3365 D[min/med/max]=78/84/85 dH@minD=513.98 maxdH=521.3 perm=119 tors=1433674 wit=0 [12037.5s]
+  d=440 beam=100000 fresh=290681 loops=  3247 D[min/med/max]=78/86/87 dH@minD=525.61 maxdH=535.4 perm=119 tors=1466967 wit=0 [12124.8s]
+  d=450 beam=100000 fresh=290120 loops=  3824 D[min/med/max]=81/88/88 dH@minD=536.78 maxdH=548.95 perm=119 tors=1502624 wit=0 [12204.0s]
+  best@450: D=81 dH=536.78 ABaBaaBaBAbAbbbAAAbbbAbABaaBAbABBaBaBABAbAbAbAbabaBaBabaBBBaaaBBBaaBAbbABaaBAAbAbbbABAbAbABaaBABAbAb...
+  d=460 beam=100000 fresh=290813 loops=  3215 D[min/med/max]=82/89/90 dH@minD=538.36 maxdH=560.84 perm=119 tors=1537606 wit=0 [12281.8s]
+  d=470 beam=100000 fresh=289977 loops=  3879 D[min/med/max]=83/91/91 dH@minD=557.93 maxdH=569.85 perm=119 tors=1573359 wit=0 [12361.3s]
+  best@475: D=85 dH=562.56 AbabbABaaBAbbbABaBaBABAbAbABBaaBaBAbAbbbAAAbbbAbABaaBAbABBaBaBABAbAbAbAbabaBaBabaBBBaaaBBBaaBAbbABaa...
+  d=480 beam=100000 fresh=290765 loops=  3425 D[min/med/max]=84/92/93 dH@minD=571.86 maxdH=583.82 perm=119 tors=1608829 wit=0 [12447.2s]
+  d=490 beam=100000 fresh=289976 loops=  3662 D[min/med/max]=87/94/95 dH@minD=581.95 maxdH=594.12 perm=119 tors=1642822 wit=0 [12538.1s]
+  d=500 beam=100000 fresh=290923 loops=  3260 D[min/med/max]=89/96/96 dH@minD=596.03 maxdH=605.68 perm=119 tors=1676183 wit=0 [12632.3s]
+  best@500: D=89 dH=596.03 BBAbAbbbAAAbbbABaBAAbaaBBBabaBaBabaBBBaaBaabAbbABaabbABBaBaBAAbbbAAAbbbAbABaaBAbABBaBaBABAbAbAbAbaba...
+done: 0 witnesses, 1676183 torsion loops, 12632s -> ../data/beam_s1_5_r1_p5_w100000_d500.json

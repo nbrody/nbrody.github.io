@@ -268,46 +268,47 @@ export class KnotDiagramView {
     let diagram = this.diagram;
 
     /* Modification tools */
-    Q.create("h2").append("Modification tools").appendTo($div);
-    let $tools = Q.div().appendTo($div);
+    let $modcard = Q.div({className: "control-group"}).appendTo($div);
+    $modcard.append(Q.span({className: "control-label"}, "Modification tools"));
+    let $tools = Q.div({className: "diag-tools"}).appendTo($modcard);
+    let $iconrow = Q.div({className: "icon-row"}).appendTo($tools);
 
     let $crossing_change = Q.span(Q.span({className:"icon24-crossing"}))
-        .addClass("icon-button")
+        .addClass("icon-btn")
         .prop("data-tool", "crossing-change")
         .prop("title", "Change crossing type")
-        .appendTo($tools);
+        .appendTo($iconrow);
 
     let $toggle_virtual = Q.span(Q.span({className:"icon24-virtual-crossing"}))
-        .addClass("icon-button")
+        .addClass("icon-btn")
         .prop("data-tool", "virtual-crossing")
         .prop("title", "Toggle virtual crossing")
-        .appendTo($tools);
+        .appendTo($iconrow);
 
     let $toggle_orientation = Q.span(Q.span({className:"icon24-two-arrows"}))
-        .addClass("icon-button")
+        .addClass("icon-btn")
         .prop("data-tool", "toggle-orientation")
         .prop("title", "Toggle component orientation")
-        .appendTo($tools);
+        .appendTo($iconrow);
 
     let $eraser = Q.span(Q.span({className:"icon24-trash"}))
-        .addClass("icon-button")
+        .addClass("icon-btn")
         .prop("data-tool", "delete-component")
         .prop("title", "Delete component")
-        .appendTo($tools);
+        .appendTo($iconrow);
 
-    $tools.append(Q.create("br"));
+    $tools.append(Q.p({className: "label-hint"}, "Recolor a component:"));
+    let $swatches = Q.div({className: "swatch-row"}).appendTo($tools);
     palette.forEach((hex, i) => {
-      let $b = Q.span().addClass("icon-button")
+      let $b = Q.span().addClass("swatch")
           .prop("data-tool", "set-color-" + (i+1))
           .prop("title", "Recolor component to color " + (i+1))
-          .appendTo($tools);
-      let $bs = Q.span(" ").addClass("icon-color")
           .css("background", hex_to_rgb(hex))
-          .appendTo($b);
+          .appendTo($swatches);
     });
 
     this.update_tool = (toolname) => {
-      $div.query(".icon-button").forEach($e => {
+      $div.query(".icon-btn, .swatch").forEach($e => {
         let button_tool = $e.prop("data-tool");
         if (typeof button_tool === "string") {
           $e.toggleClass("active", button_tool === toolname);
@@ -317,7 +318,7 @@ export class KnotDiagramView {
     this.update_tool(global_tool_state.tool);
 
     $tools.on("click", e => {
-      let el = e.target.closest('.icon-button');
+      let el = e.target.closest('.icon-btn, .swatch');
       if (el) {
         let tool = Q(el).prop('data-tool');
         if (typeof tool === "string") {
@@ -329,11 +330,14 @@ export class KnotDiagramView {
       }
     });
 
+    let $opgrid = Q.div({className: "toggle-row"}).appendTo($modcard);
+
     let $mirror = Q.create("input")
         .prop("type", "button")
+        .addClass("btn")
         .value("Mirror")
         .prop("title", "Change the types of all crossings")
-        .appendTo($div);
+        .appendTo($opgrid);
     $mirror.on("click", e => {
       let view = this.copy();
       view.diagram.adjs.forEach(a => {
@@ -344,9 +348,10 @@ export class KnotDiagramView {
 
     let $invert = Q.create("input")
         .prop("type", "button")
+        .addClass("btn")
         .value("Invert")
         .prop("title", "Change orientations of each component")
-        .appendTo($div);
+        .appendTo($opgrid);
     $invert.on("click", e => {
       let view = this.copy();
       view.diagram.edges.forEach(edge => {
@@ -360,16 +365,18 @@ export class KnotDiagramView {
 
     let $alternating = Q.create("input")
         .prop("type", "button")
+        .addClass("btn")
         .value("Make alternating")
         .prop("title", "Change types of crossings to make an alternating diagram")
-        .appendTo($div);
+        .appendTo($opgrid);
     $alternating.on("click", e => {
       let view = this.copy();
       view.diagram.make_alternating();
       undo_stack.push(view);
     });
-    $div.append(Q.create("input", {type: "button",
-                                   title: "Assign distinct colors to each component"})
+    $opgrid.append(Q.create("input", {type: "button",
+                                      className: "btn",
+                                      title: "Assign distinct colors to each component"})
                 .value("Auto-color")
                 .on("click", e => {
                   let view = this.copy();
@@ -377,13 +384,13 @@ export class KnotDiagramView {
                   undo_stack.push(view);
                 }));
 
-    $div.append(Q.create("br"));
-
     let $to_drawing = Q.create("input")
         .prop("type", "button")
+        .addClass("btn")
+        .addClass("btn-add-alt")
         .value("Convert to drawing")
         .prop("title", "Convert the diagram back into a drawing for free-form editing (no round-trip guarantee)")
-        .appendTo($div);
+        .appendTo($modcard);
     $to_drawing.on("click", e => {
       let canvas = document.createElement("canvas");
       canvas.width = this.width;
@@ -395,13 +402,16 @@ export class KnotDiagramView {
       undo_stack.push(view);
     });
 
-    $div.append(Q.create("h2").append("Isotopy tools"));
+    let $isocard = Q.div({className: "control-group"}).appendTo($div);
+    $isocard.append(Q.span({className: "control-label"}, "Isotopy tools"));
+    let $isorow = Q.div({className: "control-row"}).appendTo($isocard);
 
     let $beautify = Q.create("input")
         .prop("type", "button")
+        .addClass("btn")
         .value("Beautify")
         .prop("title", "Redraw using a Tutte embedding of a subdivision of the diagram")
-        .appendTo($div);
+        .appendTo($isorow);
     $beautify.on("click", e => {
       let view = this.copy();
       view.diagram.beautify();
@@ -411,23 +421,23 @@ export class KnotDiagramView {
 
     let $reset_zoom = Q.create("input")
         .prop("type", "button")
+        .addClass("btn")
         .value("Reset view")
         .prop("title", "Reset center of diagram and zoom level")
-        .appendTo($div);
+        .appendTo($isorow);
     $reset_zoom.on("click", e => {
       let view = this.copy();
       view.reset_zoom();
       undo_stack.push(view);
     });
 
-    $div.append(Q.create("hr"));
-
-    $div.append(Q.create("h2").append("Diagram information"));
+    let $infocard = Q.div({className: "control-group"}).appendTo($div);
+    $infocard.append(Q.span({className: "control-label"}, "Diagram information"));
 
     let virtual_crossings = this.diagram.virtual_crossing_number();
     let virtual_genus = this.diagram.virtual_genus();
 
-    let $idiv = Q.create("div").prop("id", "diag-info").appendTo($div);
+    let $idiv = Q.create("div").prop("id", "diag-info").appendTo($infocard);
     {
       let $table = Q.create("table", {className:"diag-props"});
       $idiv.append($table);
@@ -492,19 +502,20 @@ export class KnotDiagramView {
 
     let $pd = Q.create("textarea")
         .attr("readonly", true)
-        .addClass("code-data");
-    let $pdtypes = Q.create("form", {className: "inline-form"},
-                            Q.create("label",
+        .addClass("code-data")
+        .addClass("text-input");
+    let $pdtypes = Q.create("form", {className: "inline-form seg-options"},
+                            Q.create("label", {className: "seg-opt"},
                                      Q.create("input", {type: "radio",
                                                         name: "pd-type",
                                                         value: "KnotTheory"}),
                                      "KnotTheory"),
-                            Q.create("label",
+                            Q.create("label", {className: "seg-opt"},
                                      Q.create("input", {type: "radio",
                                                         name: "pd-type",
                                                         value: "KnotTheory-oriented"}),
                                      "Oriented KnotTheory"),
-                            Q.create("label",
+                            Q.create("label", {className: "seg-opt"},
                                      Q.create("input", {type: "radio",
                                                         name: "pd-type",
                                                         value: "SnapPy"}),
@@ -528,16 +539,17 @@ export class KnotDiagramView {
       let name = this.elements['pd-type'].value;
       pd_change(name);
     });
-    $idiv.append(Q.create("p")
-                 .append("PD: ")
-                 .append($pdtypes, Q.create("br"), $pd));
+    $idiv.append(Q.div({className: "code-block"})
+                 .append(Q.span({className: "control-label"}, "PD"))
+                 .append($pdtypes, $pd));
     pd_change(default_pd_type);
 
     if (virtual_genus === 0) {
       let dt = diagram.get_dt();
       if (dt) {
-        $idiv.append(Q.create("p", {title: "The Dowker-Thistlethwaite code for the knot."})
-                     .append("DT: " + toString(dt)));
+        $idiv.append(Q.div({className: "code-block", title: "The Dowker-Thistlethwaite code for the knot."})
+                     .append(Q.span({className: "control-label"}, "DT"),
+                             Q.div({className: "mono-box"}, toString(dt))));
       }
     }
 

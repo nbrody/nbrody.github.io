@@ -45,19 +45,26 @@ function layout(k, edges, W, H) {
     return out;
 }
 
+/** Wrap an SVG and its KaTeX labels ({x, y, html, cls}) so the labels sit over the drawing. */
+function wrap(svg, labels, W, H, extraClass = '') {
+    const lab = labels.map(l => `<span class="tex-label${l.cls ? ' ' + l.cls : ''}" style="left:${(100 * l.x / W).toFixed(3)}%;top:${(100 * l.y / H).toFixed(3)}%">${l.html}</span>`).join('');
+    return `<div class="diagram ${extraClass}"><div style="position:relative;width:100%;max-width:${W}px">${svg}<div class="tex-layer">${lab}</div></div></div>`;
+}
+
 /**
  * Coxeter diagram: m = 3 one line, 4 double, 6 triple, ∞ thick, ultraparallel dashed.
- * @param P     { k, coxM, label, roots, norms }
- * @param opts  { highlight: wall index, cls: [wall indices], width, height, onHover }
+ * @param P     { k, coxM, roots?, norms? }
+ * @param opts  { highlight: wall index, cls: [wall indices], nodeClass: i ↦ class, labels: i ↦ TeX, width, height, tex }
  */
 export function coxeterSVG(P, opts = {}) {
     const k = P.k;
+    const tex = opts.tex || (t => esc(t));
     const W = opts.width || 420, H = opts.height || Math.max(150, Math.min(260, 60 + 26 * k));
     const edges = [];
     for (let i = 0; i < k; i++) for (let j = i + 1; j < k; j++) if (P.coxM[i][j] !== 2) edges.push([i, j]);
     const pos = layout(k, edges, W, H);
     const Hc = pos.height || H;
-    const parts = [];
+    const parts = [], labels = [];
     for (const [i, j] of edges) {
         const m = P.coxM[i][j];
         const [x1, y1] = pos[i], [x2, y2] = pos[j];
@@ -66,33 +73,33 @@ export function coxeterSVG(P, opts = {}) {
         if (m === 3) parts.push(line(0, 'e'));
         else if (m === 4) parts.push(line(-2.2, 'e'), line(2.2, 'e'));
         else if (m === 6) parts.push(line(-3.4, 'e'), line(0, 'e'), line(3.4, 'e'));
-        else if (m === Infinity) parts.push(line(0, 'e inf'));
+        else if (m === Infinity || m === null) parts.push(line(0, 'e inf'));
         else if (m === -1) parts.push(line(0, 'e ultra'));
-        else parts.push(line(0, 'e'), `<text x="${(x1 + x2) / 2 + 6 * nx}" y="${(y1 + y2) / 2 + 6 * ny}" class="lbl">${m}</text>`);
+        else { parts.push(line(0, 'e')); labels.push({ x: (x1 + x2) / 2 + 8 * nx, y: (y1 + y2) / 2 + 8 * ny, html: tex(String(m)) }); }
     }
     const cls = new Set(opts.cls || []);
     for (let i = 0; i < k; i++) {
         const [x, y] = pos[i];
-        const c = i === opts.highlight ? 'n hyp' : cls.has(i) ? 'n cls' : 'n';
-        const tip = `wall ${i + 1}: e = (${P.roots[i].join(', ')}), f(e) = ${P.norms[i]}`;
-        parts.push(`<g class="node" data-wall="${i}"><circle cx="${x}" cy="${y}" r="7.5" class="${c}"><title>${esc(tip)}</title></circle>` +
-            `<text x="${x}" y="${y - 12}" class="idx">${i + 1}</text></g>`);
+        const c = i === opts.highlight ? 'n hyp' : cls.has(i) ? 'n cls' : `n ${opts.nodeClass ? opts.nodeClass(i) || '' : ''}`;
+        parts.push(`<circle cx="${x}" cy="${y}" r="7.5" class="${c}" data-wall="${i}"/>`);
+        labels.push({ x, y: y - 15, html: tex(opts.labels ? opts.labels(i) : String(i + 1)) });
     }
-    return `<svg xmlns="${NS}" class="coxeter" viewBox="0 0 ${W} ${Hc}" width="100%" style="max-width:${W}px">${parts.join('')}</svg>`;
+    const svg = `<svg xmlns="${NS}" class="coxeter" viewBox="0 0 ${W} ${Hc}" width="100%">${parts.join('')}</svg>`;
+    return wrap(svg, labels, W, Hc);
 }
 
 /**
  * Graph of groups of the splitting.
- * @param pieces [{label, sub}]    vertices
- * @param edges  [{plus, minus, label}]
+ * @param pieces [{label (TeX), color, sub (TeX)}]    vertices
+ * @param edges  [{plus, minus, label (TeX)}]
  */
 export function graphSVG(pieces, edges, opts = {}) {
+    const tex = opts.tex || (t => esc(t));
     const W = opts.width || 420, H = opts.height || 170;
     const k = pieces.length;
     const pos = k === 1 ? [[W / 2, H / 2 + 12]] : k === 2 ? [[W * 0.27, H / 2], [W * 0.73, H / 2]]
         : pieces.map((_, i) => { const a = 2 * Math.PI * i / k - Math.PI / 2; return [W / 2 + 0.33 * W * Math.cos(a), H / 2 + 0.36 * H * Math.sin(a)]; });
-    const parts = [];
-    // multi-edges between the same pair fan out as arcs
+    const parts = [], labels = [];
     const seen = new Map();
     for (const e of edges) {
         const key = e.plus <= e.minus ? `${e.plus}-${e.minus}` : `${e.minus}-${e.plus}`;
@@ -101,19 +108,20 @@ export function graphSVG(pieces, edges, opts = {}) {
         if (e.plus === e.minus) {
             const r = 26 + 13 * t;
             parts.push(`<path d="M ${x1 - 12} ${y1 - 18} C ${x1 - r * 1.6} ${y1 - r * 2.6}, ${x1 + r * 1.6} ${y1 - r * 2.6}, ${x1 + 12} ${y1 - 18}" class="ge"/>`);
-            parts.push(`<text x="${x1}" y="${y1 - r * 1.95 - 6}" class="gl">${e.label}</text>`);
+            labels.push({ x: x1, y: y1 - r * 1.95 - 10, html: tex(e.label) });
         } else {
             const off = (t % 2 ? 1 : -1) * Math.ceil(t / 2) * 22;
             const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 + off;
             parts.push(`<path d="M ${x1} ${y1} Q ${mx} ${my + off} ${x2} ${y2}" class="ge"/>`);
-            parts.push(`<text x="${mx}" y="${my + off / 2 - 7}" class="gl">${e.label}</text>`);
+            labels.push({ x: mx, y: my + off / 2 - 11, html: tex(e.label) });
         }
     }
     pieces.forEach((p, i) => {
         const [x, y] = pos[i];
         parts.push(`<circle cx="${x}" cy="${y}" r="17" class="gv" style="fill:${p.color}"/>`);
-        parts.push(`<text x="${x}" y="${y + 5}" class="gvl">${p.label}</text>`);
-        if (p.sub) parts.push(`<text x="${x}" y="${y + 36}" class="gs">${esc(p.sub)}</text>`);
+        labels.push({ x, y, html: tex(p.label), cls: 'strong' });
+        if (p.sub) labels.push({ x, y: y + 31, html: tex(p.sub) });
     });
-    return `<svg xmlns="${NS}" class="graph" viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${parts.join('')}</svg>`;
+    const svg = `<svg xmlns="${NS}" class="graph" viewBox="0 0 ${W} ${H}" width="100%">${parts.join('')}</svg>`;
+    return wrap(svg, labels, W, H);
 }

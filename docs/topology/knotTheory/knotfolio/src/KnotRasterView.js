@@ -2,7 +2,7 @@
 
 import {assert, clamp, hex_to_rgb} from "./util.js";
 import {MIN_LINE_LENGTH, MAX_PPREV_DIST, ERASE_RADIUS, PAINT_RADIUS, DIAGRAM_LINE_WIDTH,
-        PAINT_GAP, WIDTH, HEIGHT, ERROR_RADIUS, SPUR_LENGTH, palette} from "./constants.js";
+        PAINT_GAP, ERROR_RADIUS, SPUR_LENGTH, palette} from "./constants.js";
 import {Point, line_points, lines_intersect, segment_contains, segments_intersect, pseudo_angle} from "./geom2d.js";
 import {KnotGraph} from "./knotgraph.js";
 import {KnotImageImportView} from "./KnotImageImportView.js";
@@ -103,23 +103,26 @@ export class KnotRasterView {
   toolbox(undo_stack) {
     let $div = this.$div = Q.div();
 
+    let $toolcard = Q.div({className: "control-group"}).appendTo($div);
+
     /* Tools */
-    $div.append(
-      Q.create("div",
-               Q.create("h2", "Tools"),
+    $toolcard.append(
+      Q.create("div", {className: "control-row spread"},
+               Q.create("span", {className: "control-label"}, "Tools"),
+               Q.create("div", {className: "icon-row"},
 
                Q.create("span", {"data-tool": "pencil",
                                  title: "Pencil",
-                                 className: "icon-button"},
+                                 className: "icon-btn"},
                         Q.create("span", {className: "icon24-pencil"})),
 
                Q.create("span", {"data-tool": "eraser",
                                  title: "Eraser [right click]",
-                                 className: "icon-button"},
+                                 className: "icon-btn"},
                         Q.create("span", {className: "icon24-eraser"}))
-              )
+              ))
         .on("click", e => {
-          let el = e.target.closest('.icon-button');
+          let el = e.target.closest('.icon-btn');
           if (el) {
             let mode = el['data-tool'];
             if (mode) {
@@ -135,7 +138,7 @@ export class KnotRasterView {
     this.mark_tool = function (toolname) {
       /* Set a tool button to be active, depending on the mode */
 
-      $div.query(".icon-button").forEach($e => {
+      $div.query(".icon-btn").forEach($e => {
         let button_tool = $e.prop("data-tool");
         if (typeof button_tool === "string") {
           $e.toggleClass("active", button_tool === toolname);
@@ -145,29 +148,30 @@ export class KnotRasterView {
     this.mark_tool(global_painting_state.mode);
 
     /* Over/under */
-    $div.append(
-      Q.create("div",
-               Q.create("h2").append("Pencil mode"),
+    $toolcard.append(
+      Q.create("div", {className: "control-row spread"},
+               Q.create("span", {className: "control-label"}, "Pencil mode"),
+               Q.create("div", {className: "icon-row"},
 
                /* over */
                Q.create("span", {"data-height": 1,
                                  title: "Go over",
-                                 className: "icon-button"},
+                                 className: "icon-btn"},
                         Q.create("span", {className: "icon24-go-over"})),
                /* same */
                Q.create("span", {"data-height": 0,
                                  title: "Go through (no auto-gaps)",
-                                 className: "icon-button"},
+                                 className: "icon-btn"},
                         Q.create("span", {className: "icon24-go-through"})),
                /* under */
                Q.create("span", {"data-height": -1,
                                  title: "Go under [shift]",
-                                 className: "icon-button"},
+                                 className: "icon-btn"},
                         Q.create("span", {className: "icon24-go-under"})),
 
-              )
+              ))
         .on("click", e => {
-          let el = e.target.closest('.icon-button');
+          let el = e.target.closest('.icon-btn');
           if (el) {
             let height = Q(el).prop("data-height");
             if (typeof height === "number") {
@@ -183,7 +187,7 @@ export class KnotRasterView {
     );
 
     this.mark_height = function (go_over) {
-      $div.query(".icon-button").forEach($e => {
+      $div.query(".icon-btn").forEach($e => {
         let button_height = $e.prop("data-height");
         if (typeof button_height === "number") {
           $e.toggleClass("active", go_over === button_height);
@@ -193,17 +197,17 @@ export class KnotRasterView {
     this.mark_height(global_painting_state.go_over);
 
     { /* Colors */
-      let $colors = Q.div().appendTo($div);
-      $colors.append(Q.create("h2", "Pencil colors"));
+      let $colors = Q.div({className: "control-group"}).appendTo($div);
+      $colors.append(Q.create("span", {className: "control-label"}, "Pencil colors"));
+      let $swatches = Q.div({className: "swatch-row"}).appendTo($colors);
       palette.forEach((hex, i) => {
-        $colors.append(Q.create("span", {className: "icon-button",
-                                         "data-color": i+1,
-                                         title: "Color " + (i+1)},
-                                Q.create("span", {className: "icon-color"})
-                                .css("background", hex_to_rgb(hex))));
+        $swatches.append(Q.create("span", {className: "swatch",
+                                           "data-color": i+1,
+                                           title: "Color " + (i+1)})
+                         .css("background", hex_to_rgb(hex)));
       });
       $colors.on("click", e => {
-        let el = e.target.closest('.icon-button');
+        let el = e.target.closest('.swatch');
         if (el) {
           let color = Q(el).prop("data-color");
           if (color) {
@@ -219,18 +223,20 @@ export class KnotRasterView {
 
       this.mark_color = function (i) {
         /* Set a color button to be active, depending on the color index i. */
-        $colors.query(".icon-button").forEach(b => {
+        $colors.query(".swatch").forEach(b => {
           b.toggleClass("active", b.prop("data-color") === i);
         });
       };
       this.mark_color(global_painting_state.color);
     }
 
-    $div.append(Q.create("br"));
+    let $imagecard = Q.div({className: "control-group"}).appendTo($div);
+    $imagecard.append(Q.create("span", {className: "control-label"}, "Image"));
 
-    $div.append(
-      Q.create("label", {title: "Load an image from a file (can also drag and drop from the filesystem or sometimes copy and paste)"},
-               "Load image: ",
+    $imagecard.append(
+      Q.create("label", {className: "btn btn-add-alt file-btn",
+                         title: "Load an image from a file (can also drag and drop from the filesystem or sometimes copy and paste)"},
+               "Load image…",
                Q.create("input", {type: "file", accept: "image/*"})
                .on("change", e => {
                  let file = e.target.files[0];
@@ -247,11 +253,16 @@ export class KnotRasterView {
                  }
                })
               ));
+    $imagecard.append(Q.create("p", {className: "label-hint"},
+                               "Or drop an image onto the canvas, or paste one, to trace it."));
 
-    $div.append(Q.create("hr"));
+    let $strokecard = Q.div({className: "control-group"}).appendTo($div);
+    $strokecard.append(Q.create("span", {className: "control-label"}, "Strokes"));
+    let $strokerow = Q.div({className: "control-row"}).appendTo($strokecard);
 
-    $div.append(Q.create("input", {type: "button",
-                                   title: "Find cores of curves by morphological thinning"})
+    $strokerow.append(Q.create("input", {type: "button",
+                                         className: "btn",
+                                         title: "Find cores of curves by morphological thinning"})
                 .value("Clean up")
                 .on("click", e => {
                   let knot = this.copy();
@@ -259,10 +270,9 @@ export class KnotRasterView {
                   undo_stack.push(knot);
                 }));
 
-    $div.append(Q.create("br"));
-
-    $div.append(Q.create("input", {type: "button",
-                                   title: "Clear boundary pixels of curves"})
+    $strokerow.append(Q.create("input", {type: "button",
+                                         className: "btn",
+                                         title: "Clear boundary pixels of curves"})
                 .value("Thin")
                 .on("click", e => {
                   let knot = this.copy();
@@ -270,8 +280,9 @@ export class KnotRasterView {
                   undo_stack.push(knot);
                 }));
 
-    $div.append(Q.create("input", {type: "button",
-                                   title: "Add boundary pixels to curves"})
+    $strokerow.append(Q.create("input", {type: "button",
+                                         className: "btn",
+                                         title: "Add boundary pixels to curves"})
                 .value("Thicken")
                 .on("click", e => {
                   let knot = this.copy();
@@ -279,16 +290,18 @@ export class KnotRasterView {
                   undo_stack.push(knot);
                 }));
 
-    $div.append(Q.create("hr"));
+    let $diagcard = Q.div({className: "control-group"}).appendTo($div);
+    $diagcard.append(Q.create("span", {className: "control-label"}, "Diagram"));
 
-    $div.append(Q.create("input", {type: "button",
-                                   title: "Analyze picture and convert to a diagram"})
+    $diagcard.append(Q.create("input", {type: "button",
+                                        className: "btn btn-primary",
+                                        title: "Analyze picture and convert to a diagram"})
                 .value("Convert to diagram")
                 .on("click", e => {
                   undo_stack.push(this.convert());
                 }));
-    $div.append(Q.create("br"));
-    $div.append(Q.create("label", {title: "Calculate invariants and identify the knot."
+    $diagcard.append(Q.create("label", {className: "check-row",
+                                        title: "Calculate invariants and identify the knot."
                                           + " Unchecking this turns off potentially expensive computations."},
                          Q.create("input", {type: "checkbox",
                                             checked: this.calculate_invariants})
@@ -296,10 +309,10 @@ export class KnotRasterView {
                            this.calculate_invariants = e.target.checked;
                            global_painting_state.calculate_invariants = this.calculate_invariants;
                          }),
-                         " Calculate invariants"));
+                         "Calculate invariants"));
 
     if (this.the_error) {
-      let $error = Q.div({className: "error"},
+      let $error = Q.div({className: "error note bad"},
                          Q.create("h2", "Error"))
           .appendTo($div);
       if (this.the_error instanceof Array) {
@@ -541,7 +554,7 @@ export class KnotRasterView {
         }
       }
 
-      for (let i = 0; i < WIDTH * HEIGHT; i++) {
+      for (let i = 0; i < buf.length; i++) {
         let t = temp[i];
         if (t >= 0) {
           buf[i] = t;

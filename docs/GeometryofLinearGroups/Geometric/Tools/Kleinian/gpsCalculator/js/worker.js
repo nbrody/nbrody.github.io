@@ -4,10 +4,37 @@
 import { analyze, parseForm, parseVector } from './gps.js';
 import { pieceRecords } from './glue.js';
 import { bil } from './linalg.js';
+import { rightAngledWalls } from './chamber.js';
+import { findPartners, chamberOfForm } from './partners.js';
+
+let stopPartners = false;
 
 self.onmessage = ev => {
-    const { id, input } = ev.data;
+    const { id, input, job } = ev.data;
     const post = (type, payload) => self.postMessage({ id, type, ...payload });
+    if (job === 'stop-partners') { stopPartners = true; return; }
+    if (job === 'chamber') {
+        try {
+            const A = parseForm(input.formText);
+            const v = parseVector(input.vText, A.length);
+            const c = chamberOfForm(A, input.vinbergMs || 20000, v, input.lattice || 'auto');
+            if (!c.ok) post('fail', { reason: c.why });
+            else post('result', { view: c.rec });
+        } catch (e) { post('error', { message: e.message || String(e) }); }
+        return;
+    }
+    if (job === 'partners') {
+        stopPartners = false;
+        try {
+            findPartners(input.chamber, {
+                amin: input.amin, amax: input.amax, perFormMs: input.perFormMs,
+                onResult: r => post('partner', { result: r }),
+                shouldStop: () => stopPartners,
+            });
+            post('result', { view: null });
+        } catch (e) { post('error', { message: e.message || String(e) }); }
+        return;
+    }
     try {
         const A = parseForm(input.formText);
         const v = parseVector(input.vText, A.length);
@@ -64,7 +91,7 @@ function viewModel(res, input) {
             volume: P.volume, chi: P.chi, consistent: P.consistent,
             faceAreas: P.faceData ? P.faceData.map(F => F.area) : null,
         },
-        sym: res.sym.length, i0: res.i0, mirrorClass: res.mirrorClass,
+        sym: res.sym.length, i0: res.i0, mirrorClass: res.mirrorClass, rightAngled: rightAngledWalls(P.coxM),
         formInfo: res.formInfo, origInfo: res.origInfo, hypInfo: res.hypInfo,
         cover: {
             N: cover.N, order, nSym: cover.nSym, tiles: cover.tiles, nPieces: cover.nPieces,

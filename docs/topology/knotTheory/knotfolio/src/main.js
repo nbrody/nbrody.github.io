@@ -6,24 +6,7 @@ import {Point} from "./geom2d.js";
 import Q from "./kq.js";
 
 Q(function () {
-  // Panel toggle functionality
-  Q("#panel-toggle").on("click", (e) => {
-    e.stopPropagation();
-    let $panel = Q("#control-panel");
-    let $toggle = Q("#panel-toggle");
-    if ($panel.hasClass("collapsed")) {
-      $panel.removeClass("collapsed");
-      $toggle.empty().append("▼");
-    } else {
-      $panel.addClass("collapsed");
-      $toggle.empty().append("▲");
-    }
-  });
-
-  Q("#panel-header").on("click", (e) => {
-    if (e.target.id === "panel-toggle") return;
-    Q("#panel-toggle")[0].click();
-  });
+  // Panel collapse (#collapse-btn) is wired by ../../assets/poincare-ui.js.
 
   window.addEventListener('error', function (e) {
     let close = Q.create("input", {type:"button", className:"program-error-close"}).value("X");

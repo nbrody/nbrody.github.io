@@ -129,19 +129,22 @@ export class KnotImageImportView {
   toolbox(undo_stack, ctxt) {
     let $div = this.$div = Q.div();
 
-    $div.append(
-      Q.div(
+    let $toolcard = Q.div({className: "control-group"}).appendTo($div);
+    $toolcard.append(
+      Q.div({className: "control-row spread"},
+        Q.span({className: "control-label"}, "Tools"),
+        Q.div({className: "icon-row"},
         Q.span({"data-tool": "move",
                 title: "Move image [right click]",
-                className: "icon-button"},
+                className: "icon-btn"},
                Q.create("span", {className: "icon24-move"})),
         Q.span({"data-tool": "crop",
                 title: "Crop image",
-                className: "icon-button"},
+                className: "icon-btn"},
                Q.create("span", {className: "icon24-crop"})),
-      )
+      ))
         .on("click", e => {
-          let el = e.target.closest('.icon-button');
+          let el = e.target.closest('.icon-btn');
           if (el) {
             let tool = Q(el).prop('data-tool');
             if (typeof tool === "string") {
@@ -153,9 +156,11 @@ export class KnotImageImportView {
           }
         })
     );
+    $toolcard.append(Q.p({className: "label-hint"},
+                         "Drag to crop or move the image; right-drag always moves it. Scroll to rescale."));
 
     this.update_tool = (toolname) => {
-      $div.query(".icon-button").forEach($e => {
+      $div.query(".icon-btn").forEach($e => {
         let button_tool = $e.prop("data-tool");
         if (typeof button_tool === "string") {
           $e.toggleClass("active", button_tool === toolname);
@@ -164,10 +169,13 @@ export class KnotImageImportView {
     };
     this.update_tool(global_tool_state.tool);
 
+    let $adjust = Q.div({className: "control-group"}).appendTo($div);
+    $adjust.append(Q.span({className: "control-label"}, "Adjust"));
+
     var $scale;
-    $div.append(
-      Q.create("label", {title: "Rescale the image [mouse wheel]"},
-               "Scale: ",
+    $adjust.append(
+      Q.create("label", {className: "range-row", title: "Rescale the image [mouse wheel]"},
+               Q.span({className: "range-head"}, Q.span({className: "range-name"}, "Scale")),
                $scale = Q.create("input", { type: "range",
                                             min: "1",
                                             max: "300",
@@ -186,23 +194,9 @@ export class KnotImageImportView {
     };
     this.set_scale(this.scale);
 
-    $div.append(Q.create("br"));
-
-    $div.append(
-      Q.create("label", { title: "Invert the values of all the colors, for example if this is a chalk drawing." },
-               "Invert colors: ",
-               Q.create("input", {type: "checkbox"})
-               .on("input", e => {
-                 this.invert = e.target.checked;
-                 this.paint(ctxt);
-               })
-              ));
-
-    $div.append(Q.create("br"));
-
-    $div.append(
-      Q.create("label", {title: "Blur radius"},
-               "Blur: ",
+    $adjust.append(
+      Q.create("label", {className: "range-row", title: "Blur radius"},
+               Q.span({className: "range-head"}, Q.span({className: "range-name"}, "Blur")),
                Q.create("input", { type: "range",
                                    min: "0",
                                    max: "10",
@@ -215,11 +209,9 @@ export class KnotImageImportView {
                })
               ));
 
-    $div.append(Q.create("br"));
-
-    $div.append(
-      Q.create("label", {title: "Adaptive radius"},
-               "Adaptive radius: ",
+    $adjust.append(
+      Q.create("label", {className: "range-row", title: "Adaptive radius"},
+               Q.span({className: "range-head"}, Q.span({className: "range-name"}, "Adaptive radius")),
                Q.create("input", { type: "range",
                                    min: "1",
                                    max: "40",
@@ -232,11 +224,9 @@ export class KnotImageImportView {
                })
               ));
 
-    $div.append(Q.create("br"));
-
-    $div.append(
-      Q.create("label", {title: "Threshold for black"},
-               "Threshold: ",
+    $adjust.append(
+      Q.create("label", {className: "range-row", title: "Threshold for black"},
+               Q.span({className: "range-head"}, Q.span({className: "range-name"}, "Threshold")),
                Q.create("input", {type: "range",
                                   min: "-500",
                                   max: "500",
@@ -249,11 +239,22 @@ export class KnotImageImportView {
                })
               ));
 
-    $div.append(Q.create("br"));
+    $adjust.append(
+      Q.create("label", { className: "check-row",
+                          title: "Invert the values of all the colors, for example if this is a chalk drawing." },
+               Q.create("input", {type: "checkbox"})
+               .on("input", e => {
+                 this.invert = e.target.checked;
+                 this.paint(ctxt);
+               }),
+               "Invert colors"
+              ));
 
-    $div.append(
+    let $acceptcard = Q.div({className: "control-group"}).appendTo($div);
+    $acceptcard.append(
       Q.create("input", {type: "button",
                          value: "Accept",
+                         className: "btn btn-primary",
                          title: "Take selection to painting mode"})
         .on("click", e => {
           this.paint(ctxt, true);
@@ -262,6 +263,7 @@ export class KnotImageImportView {
           undo_stack.push(view);
         })
     );
+    $acceptcard.append(Q.p({className: "label-hint"}, "Takes the cropped selection into painting mode."));
 
     return $div;
   }

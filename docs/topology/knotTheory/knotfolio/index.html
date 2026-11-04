@@ -1,40 +1,112 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="light">
   <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KnotFolio - Knot Drawing Tool</title>
+    <link rel="stylesheet" href="../../assets/poincare-ui.css">
     <link rel="stylesheet" href="style.css">
+    <script src="../../assets/poincare-ui.js"></script>
     <script type="module" src="src/main.js"></script>
   </head>
   <body>
     <div id="editor"></div>
 
+    <!-- Current mode (top-left) -->
+    <div id="mode-info" class="status-banner accent" role="status" aria-live="polite">
+      <div class="status-banner-text">
+        <span class="kicker">Mode</span>
+        <span class="headline modename"></span>
+      </div>
+      <button class="status-banner-close" title="Collapse" aria-label="Collapse the mode readout">×</button>
+    </div>
+
+    <!-- Floating control panel -->
     <div id="control-panel">
-      <div id="panel-header">
-        <div id="project-name">KnotFolio</div>
-        <button id="panel-toggle" title="Toggle Panel">▼</button>
+      <div class="tab-navigation">
+        <div class="panel-name">KnotFolio</div>
+        <button id="help-btn" class="collapse-btn" title="How to use KnotFolio" aria-label="How to use KnotFolio">
+          <span class="collapse-icon">?</span>
+        </button>
+        <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
+          <span class="collapse-icon">×</span>
+        </button>
       </div>
 
-      <div id="panel-content">
-        <div id="undo-controls">
-          <button class="action-undo" title="Undo">↶</button>
-          <span class="undo-state">1/10</span>
-          <button class="action-redo" title="Redo">↷</button>
-          <button class="action-clear" title="Clear">✕</button>
-        </div>
+      <div class="panel-content">
+        <div class="panel-stack">
+          <div>
+            <h2 class="panel-title">Knot Drawing</h2>
+            <p class="panel-subtitle">Draw a knot or link with coloured pencils, or trace a picture of one,
+              then convert it to a diagram and read off its invariants.</p>
+          </div>
 
-        <div id="mode-info">
-          <strong>Mode:</strong> <span class="modename"></span>
-        </div>
+          <div id="undo-controls" class="control-group">
+            <div class="control-row spread">
+              <span class="control-label">History</span>
+              <div class="icon-row">
+                <button class="icon-btn action-undo" title="Undo" aria-label="Undo">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+                </button>
+                <span class="undo-state">1/10</span>
+                <button class="icon-btn action-redo" title="Redo" aria-label="Redo">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+                </button>
+                <button class="icon-btn action-clear" title="Clear" aria-label="Clear">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
 
-        <div id="tools"></div>
+          <div id="tools"></div>
+        </div>
       </div>
     </div>
 
     <div id="drop-area">
       <div class="drop-border">
         Drop images here
+      </div>
+    </div>
+
+    <!-- How-to (opened by ?) -->
+    <div id="help-modal" class="example-modal" hidden>
+      <div class="example-modal-backdrop"></div>
+      <div class="example-modal-panel narrow" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <div class="example-modal-head">
+          <h3 id="help-title">Using KnotFolio</h3>
+          <button class="example-modal-close" title="Close" aria-label="Close">×</button>
+        </div>
+        <div class="help-body">
+          <h4>Drawing</h4>
+          <p>Drag on the canvas with the <b>pencil</b>. A stroke that runs into an existing line goes
+            <b>over</b> it and leaves a gap in the line underneath. Hold <kbd>Shift</kbd> while drawing to go
+            <b>under</b> instead, or pick a pencil mode: over, through (no automatic gaps) or under.</p>
+          <p>Drag with the right mouse button, or choose the <b>eraser</b>, to erase. Gaps are only bridged
+            between strands of the same colour, so colours keep the components of a link apart.</p>
+          <p><b>Clean up</b> thins every stroke to its core line; <b>Thin</b> and <b>Thicken</b> remove or add one
+            boundary pixel.</p>
+
+          <h4>Tracing an image</h4>
+          <p>Use <b>Load image</b>, drop an image onto the window, or paste one. In image mode, drag to crop
+            (or choose the move tool, or drag with the right button, to move it), scroll to rescale, and adjust
+            the blur, adaptive radius and threshold until the strands come out cleanly. <b>Accept</b> takes the
+            cropped selection into painting mode.</p>
+
+          <h4>Diagrams</h4>
+          <p><b>Convert to diagram</b> analyses the picture. If some junction cannot be read, usually because an
+            understrand has fused to the overstrand, it is marked in red; a little erasing fixes it.</p>
+          <p>In diagram mode, choose a tool and click the diagram: change a crossing, toggle a virtual crossing,
+            reverse a component, delete a component, or recolour it. <b>Beautify</b> redraws the diagram with a
+            Tutte embedding; drag empty space to move the diagram and scroll to zoom. The panel lists crossings, components, writhe,
+            bridges, genera and the PD and DT codes. <b>Convert to drawing</b> goes back to free-form editing.</p>
+          <p>Undo and redo cover every step, including mode changes.</p>
+
+          <h4>Credits</h4>
+          <p>A simplified version of <a href="https://github.com/kmill/knotfolio" target="_blank" rel="noopener">KnotFolio</a>
+            by Kyle Miller.</p>
+        </div>
       </div>
     </div>
 </body>

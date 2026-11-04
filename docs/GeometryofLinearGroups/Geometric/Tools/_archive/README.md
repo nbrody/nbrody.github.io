@@ -31,3 +31,4 @@ archived pages' relative links mostly still resolve.
 | `pAdicHelper.js` | `Tools/padicGroups/js/pAdicHelper.js` | Unused ℤ_p / Hensel-lifting helpers |
 | `LLL.js` | `Tools/Euclidean/LLL.js` | Unused (gpsCalculator has its own `lll()`) |
 | `SL3Rcopy.html` | `Geometric/SL3Rcopy.html` | `Tools/freeProduct` (the original SL₃(ℤ[½]) ℝ³-vs-ℙ² page, kept when SL3.html became the building viewer) |
+| `mandelbrot-cpu.html` | `Tools/Kleinian/mandelbrot.html` (an unsynced Dropbox conflicted copy, 2026-10-12) | `Kleinian/mandelbrot.html`, rebuilt 2026-10-30 as a WebGL 2 perturbation renderer (zoom to about 10⁻³⁰, Julia panel, cycle readouts); its custom-polynomial mode was ported to the GPU with a MathQuill input and still opens from `?poly=…` |

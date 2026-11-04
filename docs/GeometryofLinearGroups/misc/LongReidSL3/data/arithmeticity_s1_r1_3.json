@@ -1,0 +1,13 @@
+{
+ "representation": "rho_{s=1, r=1/3}: A=[[1,0,1],[7/9,0,-2/9],[0,1,0]], B=[[-2/3,0,-1],[7/9,-1/3,-2/9],[0,-1,1/3]], [A,B]=diag(1,-1,-1)",
+ "claim": "Gamma = <A,B> has finite index in SL3(Z[1/3]); equivalently Gamma ∩ SL3(Z) has finite index in SL3(Z)",
+ "transvection_u": {"word": "BBAbABaabbbbABBBABabbbbaBB", "center_v": [18,-28,-21], "axis_phi": [7,0,6], "u": "I + (28/2187) v phi"},
+ "fixes_center_moves_axis": {"word": "bbABBBBabb", "role": "g v ∥ v, phi g^-1 ∦ phi  =>  u, g u g^-1 span a rank-2 lattice in U_v"},
+ "fixes_axis_moves_center": {"word": "babABB", "role": "phi h ∥ phi, h v ∦ v  =>  u, h^-1 u h span a rank-2 lattice in U^L; conjugate by A to the opposite radical U^{A L} (v ∉ A L)"},
+ "frame_basis_P_integral": [[1008,-9,0],[-1568,56,0],[-1176,0,56]],
+ "U_v_coefficients_in_P": [["-7/486","56/729"],["-3241/354294","-54040/531441"]],
+ "U^AL_coefficients_in_P": [["43904/2187","-21952/729"],["-1009792/19683","-21952/6561"]],
+ "elementary_matrices": "E12(m),E13(m),E21(m),E31(m) in P-coordinates for m = lcm(26656, 351232) = 2^10 7^3 17; E23(m^2)=[E21(m),E13(m)], E32(m^2)=[E31(m),E12(m)]; Tits => finite index in SL(P Z^3)",
+ "congruence_indices": {"2-adic (stable at 4,8,16)": 96, "7-adic (stable at 7,49)": 4788, "5,11,13,17,25": 1, "mod 14": 114912, "mod 28": 459648, "mod 56": 459648, "mod 98": 114912, "index_in_SL3(Z[1/3])": 459648},
+ "verification": "python/tits_frame.py (sympy exact), GAP cong*.g"
+}

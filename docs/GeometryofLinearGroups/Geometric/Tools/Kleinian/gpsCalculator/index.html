@@ -4,90 +4,192 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GPS Calculator</title>
-    <meta name="description" content="Arithmetic pieces from congruence covers: an arithmetic lattice O′(f, ℤ), an immersed totally geodesic hypersurface, a cover in which it embeds, the splitting along it, and Gromov–Piatetski-Shapiro gluing of pieces.">
+    <meta name="description" content="Arithmetic pieces and Gromov–Piatetski-Shapiro hybrids: Vinberg chambers, congruence covers cut along totally geodesic hypersurfaces, gluing of pieces and of right-angled chambers, the invariants of the hybrid at every place, and export to poincare and the Presentation Calculator.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <!-- MathQuill: poincare's vendored copy -->
+    <link rel="stylesheet" href="../vendor/mathquill/build/mathquill.css">
+    <script src="../vendor/jquery/jquery-3.7.1.min.js"></script>
+    <script src="../vendor/mathquill/build/mathquill.min.js"></script>
+    <script>
+        // dark is the default, as in poincare; a saved choice or ?theme=light|dark overrides it
+        (function () {
+            const q = new URLSearchParams(location.search);
+            let t = q.get('theme');
+            if (t !== 'dark' && t !== 'light') { t = null; try { t = localStorage.getItem('gpsCalc-theme'); } catch (e) { /* storage blocked */ } }
+            if (t === 'light') document.documentElement.classList.add('light');
+        })();
+    </script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="page">
-    <header class="top">
-        <h1>GPS Calculator</h1>
-        <div class="ex-wrap">
-            <button class="quiet" id="examples-btn" aria-haspopup="true" aria-expanded="false">examples</button>
-            <div class="ex-pop" id="ex-pop" hidden></div>
-        </div>
-    </header>
-    <p class="lead">Choose an arithmetic lattice <span data-tex="\Gamma = \mathrm{O}'(f,\mathbb Z)"></span> and an immersed totally geodesic hypersurface <span data-tex="H = v^\perp"></span>. The calculator finds a congruence cover in which <span data-tex="H"></span> embeds, cuts the cover along it, and keeps the pieces. Pieces from incommensurable lattices glue into non-arithmetic manifolds (Gromov–Piatetski-Shapiro). In dimension 2, <a href="hybrid2d/index.html">the hybrid picture</a> draws two such tilings glued along a geodesic, and hybrids of triangle groups.</p>
+<div id="viz-container">
+    <canvas id="canvas" aria-label="The splitting in the universal cover"></canvas>
+    <div id="viz-empty" class="viz-empty">
+        <div class="viz-empty-title" data-tex="\text{GPS Calculator}"></div>
+        <p>Arithmetic lattices <span data-tex="\mathrm O'(f,\mathbb Z)"></span>, cut along totally geodesic hypersurfaces into pieces that glue into non-arithmetic manifolds and orbifolds (Gromov–Piatetski-Shapiro). Choose a form in the panel, or load an example.</p>
+    </div>
+</div>
 
-    <section class="card input-card">
-        <div class="in-grid">
-            <label for="form-in">Quadratic form <span data-tex="f"></span></label>
-            <div class="in-cell">
-                <input id="form-in" class="mono" type="text" spellcheck="false" autocomplete="off" value="-1, 1, 1, 1">
-                <div class="hint" id="form-hint">diagonal entries, or the rows of the Gram matrix separated by semicolons</div>
-            </div>
-            <label for="v-in">Hypersurface <span data-tex="v"></span></label>
-            <div class="in-cell">
-                <input id="v-in" class="mono" type="text" spellcheck="false" autocomplete="off" value="0, 0, 0, 1">
-                <div class="hint" id="v-hint"></div>
-            </div>
-            <label for="n-in">Level <span data-tex="N"></span></label>
-            <div class="in-cell row">
-                <input id="n-in" class="mono narrow" type="number" min="3" max="25" step="1" value="3">
-                <label class="inline" for="cut-in">cut along</label>
-                <select id="cut-in">
-                    <option value="one">one lift Σ₀ of H</option>
-                    <option value="fix">every lift fixed by r_v</option>
-                </select>
-            </div>
-        </div>
-        <div class="compute-row">
-            <button class="btn primary" id="compute-btn">Compute</button>
-            <button class="quiet" id="settings-btn" aria-expanded="false">settings</button>
-            <span class="status" id="status"></span>
-        </div>
-        <div class="settings-grid" id="settings" hidden>
-            <label for="lattice-in">Lattice</label>
-            <select id="lattice-in">
-                <option value="auto">automatic</option>
-                <option value="given">ℤⁿ⁺¹ as given (v must be a root)</option>
-                <option value="split">L_v ⊕ ℤv (split at H)</option>
-            </select>
-            <label for="vin-ms">Vinberg time limit (s)</label><input id="vin-ms" type="number" min="1" max="120" value="15">
-            <label for="cap-in">Max |Γ/Γ(N)|</label><input id="cap-in" type="number" min="1000" max="3000000" step="1000" value="800000">
-        </div>
-    </section>
+<div id="status-banner" class="status-banner" hidden>
+    <span class="status-banner-text" id="status-text"></span>
+    <button class="status-banner-close" id="status-close" aria-label="Collapse the status">×</button>
+</div>
 
-    <div id="results" hidden>
-        <section class="card result" id="summary"></section>
+<div id="legend-bar" class="legend-bar" hidden></div>
 
-        <section class="card" id="card-picture">
-            <h2>Picture <span class="tag" id="pic-tag"></span></h2>
-            <div class="pic-tools" id="pic-tools"></div>
-            <div class="canvas-wrap"><canvas id="canvas"></canvas></div>
-            <p class="caption" id="pic-caption"></p>
-            <div class="legend" id="legend"></div>
-        </section>
-
-        <section class="card" id="card-lattice"><h2><span class="num">1</span> The lattice</h2><div class="body"></div></section>
-        <section class="card" id="card-hyp"><h2><span class="num">2</span> The hypersurface</h2><div class="body"></div></section>
-        <section class="card" id="card-cover"><h2><span class="num">3</span> A cover in which it embeds</h2><div class="body"></div></section>
-        <section class="card" id="card-split"><h2><span class="num">4</span> The splitting and its pieces</h2><div class="body"></div></section>
+<div id="control-panel">
+    <div class="tab-navigation">
+        <button class="tab-btn active" data-tab="lattice">Lattice</button>
+        <button class="tab-btn" data-tab="pieces">Pieces</button>
+        <button class="tab-btn" data-tab="glue">Glue <span class="tab-count" id="glue-count"></span></button>
+        <button class="tab-btn" data-tab="view">View</button>
+        <button id="help-btn" class="collapse-btn" title="About the calculator" aria-label="About the calculator"><span class="collapse-icon">?</span></button>
+        <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+            <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+        </button>
+        <button id="collapse-btn" class="collapse-btn" title="Collapse panel (H)" aria-label="Collapse panel"><span class="collapse-icon">×</span></button>
     </div>
 
-    <section class="card" id="card-bench">
-        <h2>Workbench <span class="tag" id="bench-tag"></span></h2>
-        <p class="hint" id="bench-hint">Saved pieces appear here. Click a boundary component of one piece and then a boundary component of another to test whether they glue.</p>
-        <div id="bench-list"></div>
-        <div id="glue-msg"></div>
-        <div id="assembly"></div>
-    </section>
+    <div class="panel-content">
+        <!-- ============ Lattice ============ -->
+        <div id="tab-lattice" class="tab-content active">
+            <div>
+                <h2 class="panel-title">Arithmetic Lattice</h2>
+                <p class="panel-subtitle">A form <span data-tex="f"></span> of signature <span data-tex="(n,1)"></span> gives the lattice <span data-tex="\Gamma = \mathrm O'(f,\mathbb Z)"></span> in <span data-tex="\mathrm{Isom}\,\mathbb H^n"></span>, and a spacelike <span data-tex="v"></span> an immersed totally geodesic hypersurface <span data-tex="H = v^\perp"></span>. The calculator finds a cover <span data-tex="\mathbb H^n/\Gamma(N)"></span> in which <span data-tex="H"></span> embeds and cuts it along <span data-tex="H"></span>.</p>
+            </div>
 
-    <footer class="foot">
-        Vinberg's algorithm for the reflection chamber; principal congruence covers Γ(N), N ≥ 3 (torsion-free by Minkowski, H embedded by Millson's argument); every certificate is checked combinatorially on the tiled cover.
-    </footer>
+            <div class="control-group">
+                <div class="field-row">
+                    <label class="control-label" for="form-in">Form <span class="label-tex" data-tex="f"></span></label>
+                    <span id="form-in" class="mq-field" data-latex="-1, 1, 1, 1"></span>
+                </div>
+                <p class="label-hint" id="form-hint"></p>
+                <div class="field-row">
+                    <label class="control-label" for="v-in">Hypersurface <span class="label-tex" data-tex="v"></span></label>
+                    <span id="v-in" class="mq-field" data-latex="0, 0, 0, 1"></span>
+                </div>
+                <p class="label-hint" id="v-hint"></p>
+                <div class="field-row">
+                    <label class="control-label" for="n-in">Level <span class="label-tex" data-tex="N"></span></label>
+                    <input id="n-in" class="number-input" type="number" min="3" max="25" step="1" value="3">
+                    <div class="seg" id="cut-seg" role="radiogroup" aria-label="Cut along">
+                        <button class="seg-opt active" data-cut="one" title="Cut along one lift of H" data-tex="\Sigma_0"></button>
+                        <button class="seg-opt" data-cut="fix" title="Cut along every lift fixed by the reflection in v" data-tex="\mathrm{Fix}(r_v)"></button>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button id="compute-btn" class="btn btn-add grow">Compute</button>
+                    <button id="examples-btn" class="btn btn-add-alt grow">Load Example…</button>
+                </div>
+                <details class="fold" id="settings-fold">
+                    <summary>Settings</summary>
+                    <div class="fold-body">
+                        <div class="field-row">
+                            <span class="control-label">Lattice</span>
+                            <div class="seg" id="lattice-seg">
+                                <button class="seg-opt active" data-lattice="auto">auto</button>
+                                <button class="seg-opt" data-lattice="given" data-tex="\mathbb Z^{n+1}"></button>
+                                <button class="seg-opt" data-lattice="split" data-tex="L_v\oplus\mathbb Zv"></button>
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <label class="control-label" for="vin-ms">Vinberg time limit</label>
+                            <input id="vin-ms" class="number-input" type="number" min="1" max="120" value="15"><span class="unit">s</span>
+                        </div>
+                        <div class="field-row">
+                            <label class="control-label" for="cap-in">Largest <span class="label-tex" data-tex="|\Gamma/\Gamma(N)|"></span></label>
+                            <input id="cap-in" class="number-input wide" type="number" min="1000" max="3000000" step="1000" value="800000">
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div id="lattice-results" class="results"></div>
+        </div>
+
+        <!-- ============ Pieces ============ -->
+        <div id="tab-pieces" class="tab-content">
+            <div>
+                <h2 class="panel-title">Pieces</h2>
+                <p class="panel-subtitle" id="pieces-sub">Compute a lattice first: this tab shows the hypersurface, the cover in which it embeds, and the arithmetic pieces left after cutting.</p>
+            </div>
+            <div id="pieces-results" class="results"></div>
+        </div>
+
+        <!-- ============ Glue ============ -->
+        <div id="tab-glue" class="tab-content">
+            <div>
+                <h2 class="panel-title">Workbench</h2>
+                <p class="panel-subtitle" id="bench-hint">Saved pieces and chambers appear here. Click a boundary of one and then a boundary of another to test whether they glue. Pieces from incommensurable lattices glue into non-arithmetic manifolds; right-angled chambers glue into non-arithmetic Coxeter polytopes.</p>
+            </div>
+            <div id="bench-list" class="bench-list"></div>
+            <div id="glue-msg"></div>
+            <div id="assembly" class="results"></div>
+            <div id="partners" class="results"></div>
+        </div>
+
+        <!-- ============ View ============ -->
+        <div id="tab-view" class="tab-content">
+            <div>
+                <h2 class="panel-title">View</h2>
+                <p class="panel-subtitle" id="view-caption">The picture appears once a lattice is computed.</p>
+            </div>
+            <div class="control-group" id="view-controls">
+                <div class="field-row" id="source-row" hidden>
+                    <span class="control-label">Show</span>
+                    <div class="seg" id="source-seg">
+                        <button class="seg-opt active" data-source="cover">the cover</button>
+                        <button class="seg-opt" data-source="hybrid">the glued chambers</button>
+                    </div>
+                </div>
+                <div class="field-row" id="mode-row" hidden>
+                    <span class="control-label">Model</span>
+                    <div class="seg" id="mode-seg">
+                        <button class="seg-opt" data-mode="sphere">sphere</button>
+                        <button class="seg-opt" data-mode="plane">cross-section</button>
+                    </div>
+                </div>
+                <div class="field-row" id="rho-row" hidden>
+                    <label class="control-label" for="rho-in">Radius <span class="label-tex" data-tex="\rho"></span></label>
+                    <input id="rho-in" class="range-input" type="range" min="0.5" max="6" step="0.05" value="3.2">
+                    <span class="range-value" id="rho-val"></span>
+                </div>
+                <button id="reset-view" class="toggle-btn">Reset View</button>
+            </div>
+            <div class="control-group" id="legend-group" hidden>
+                <span class="control-label">Legend</span>
+                <div id="legend" class="legend"></div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- examples -->
+<div id="example-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="example-title">
+        <div class="modal-head">
+            <h3 id="example-title">Examples</h3>
+            <button class="modal-close" data-close aria-label="Close">×</button>
+        </div>
+        <div class="modal-body" id="example-body"></div>
+    </div>
+</div>
+
+<!-- help -->
+<div id="help-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <div class="modal-head">
+            <h3 id="help-title">About the GPS Calculator</h3>
+            <button class="modal-close" data-close aria-label="Close">×</button>
+        </div>
+        <div class="modal-body help-body" id="help-body"></div>
+    </div>
+</div>
+
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

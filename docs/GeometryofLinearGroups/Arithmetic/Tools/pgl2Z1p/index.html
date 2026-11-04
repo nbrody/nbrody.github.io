@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unravelling PGL₂(ℤ[1/p])</title>
+<meta name="description" content="PGL₂(ℤ[1/p]) acting on H² × T_{p+1}: the modular group as a vertex stabiliser, the conjugation by diag(p,1) between Γ₀(p) and Γ⁰(p), the folded HNN extension, and a step-by-step normal form algorithm.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<link rel="stylesheet" href="../../../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.css">
+<script defer src="../../../Geometric/Tools/Kleinian/vendor/jquery/jquery-3.7.1.min.js"></script>
+<script defer src="../../../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">Arithmetic · S-arithmetic groups · the upper-half-plane model of the tree</div>
+  <h1>Unravelling <span class="tex">$\PGL_2(\Z[1/p])$</span></h1>
+  <p class="lede">
+    The group <span class="tex">$\Gamma = \PGL_2(\Z[1/p])$</span> is dense in <span class="tex">$\PGL_2(\R)$</span>,
+    so the hyperbolic plane alone sees nothing discrete. Add the <span class="tex">$p$</span>-adic place and it
+    acts on <span class="tex">$\mathbb{H}^2 \times T_{p+1}$</span>. There the modular group
+    <span class="tex">$\Lambda = \PGL_2(\Z)$</span> is the stabiliser of a vertex and
+    <span class="tex">$t = \begin{psmallmatrix} p&0\\0&1\end{psmallmatrix}$</span> steps to the next one.
+    Reading the tree as a graph of groups gives an HNN extension, folded once. Walking the tree gives a normal form for every element.
+  </p>
+  <div class="controls-top">
+    <div class="prime-pick" role="radiogroup" aria-label="Prime p">
+      <span class="ctl-label">prime <span class="tex">$p$</span></span>
+      <div class="seg" id="prime-seg"></div>
+    </div>
+    <dl class="notation">
+      <div><dt class="tex">$t$</dt><dd class="tex">$\begin{psmallmatrix} p&0\\0&1\end{psmallmatrix}$</dd></div>
+      <div><dt class="tex">$T$</dt><dd class="tex">$\begin{psmallmatrix} 1&1\\0&1\end{psmallmatrix}$</dd></div>
+      <div><dt class="tex">$S$</dt><dd class="tex">$\begin{psmallmatrix} 0&1\\-1&0\end{psmallmatrix}$</dd></div>
+      <div><dt class="tex">$R$</dt><dd class="tex">$\begin{psmallmatrix} -1&0\\0&1\end{psmallmatrix}$</dd></div>
+      <div><dt class="tex">$\sigma$</dt><dd class="tex">$\begin{psmallmatrix} 0&1\\1&0\end{psmallmatrix}$</dd></div>
+      <div><dt class="tex">$W_p$</dt><dd class="tex">$\begin{psmallmatrix} 0&1\\p&0\end{psmallmatrix}$</dd></div>
+    </dl>
+  </div>
+</header>
+
+<!-- ======================================================== 1 -->
+<section class="sec" id="sec-tree">
+  <div class="sec-head">
+    <div class="sec-num">1</div>
+    <h2>A tree of Farey tessellations</h2>
+  </div>
+  <div class="prose">
+    <p>
+      <span class="tex">$\Gamma$</span> acts on the tree <span class="tex">$T_{p+1} = \PGL_2(\Q_p)/\PGL_2(\Z_p)$</span> through
+      its <span class="tex">$p$</span>-adic embedding. In the upper-half-plane model the vertices are
+    </p>
+    <div class="display tex">$$\fl{q}{n} \;=\; \begin{pmatrix} p^n & q \\ 0 & 1 \end{pmatrix} \cdot o, \qquad n \in \Z,\quad q \in \Z[1/p]/p^n\Z,$$</div>
+    <p>
+      with <span class="tex">$o = \fl{0}{0}$</span> and <span class="tex">$q$</span> taken in <span class="tex">$[0, p^n)$</span>. The parent of
+      <span class="tex">$\fl{q}{n}$</span> is <span class="tex">$\fl{q}{n-1}$</span> (towards <span class="tex">$\infty$</span>). Its <span class="tex">$p$</span> children
+      are <span class="tex">$\fl{q + jp^n}{n+1}$</span> for <span class="tex">$0 \le j < p$</span>. The stabiliser of <span class="tex">$o$</span> is
+      <span class="tex">$\Gamma \cap \PGL_2(\Z_p) = \PGL_2(\Z) = \Lambda$</span>. Since the upper triangular matrices above lie in
+      <span class="tex">$\Gamma$</span>, the action is transitive, so vertices are cosets <span class="tex">$\Gamma/\Lambda$</span>.
+    </p>
+    <p>
+      The same coset acts on <span class="tex">$\mathbb{H}^2$</span>. <span class="tex">$\Lambda$</span> is the full symmetry group of the
+      Farey tessellation <span class="tex">$\mathcal{F}$</span>, so the vertex <span class="tex">$\fl{q}{n}$</span> carries the tessellation
+      <span class="tex">$p^n\mathcal{F} + q$</span>, which is well defined because <span class="tex">$\mathcal{F} + 1 = \mathcal{F}$</span>. One tree, one
+      tessellation per vertex: that is the picture of <span class="tex">$\mathbb{H}^2 \times T_{p+1}$</span> to keep in mind.
+      <em>Click a vertex</em> to see its tessellation.
+    </p>
+  </div>
+
+  <figure class="fig fig-pair">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">The tree <span class="tex">$T_{p+1}$</span> — ball of radius <span id="ball-r-read">2</span> about <span class="tex">$o$</span></span>
+      </div>
+      <svg id="ball-tree" class="tree-svg" role="img" aria-label="Ball in the Bruhat–Tits tree"></svg>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">The plane <span class="tex">$\mathbb{H}^2$</span> — orbit of <span class="tex">$i$</span>, sorted by tree distance</span>
+        <button class="btn-ghost" id="ball-reset" type="button">Reset view</button>
+      </div>
+      <div class="canvas-wrap"><canvas id="ball-h2" class="h2-canvas"></canvas><div class="tip" id="ball-tip" hidden></div></div>
+    </div>
+    <div class="fig-controls">
+      <label class="slider">
+        <span class="ctl-label">tree radius <span class="tex">$r$</span></span>
+        <input type="range" id="ball-r" min="0" max="6" step="1" value="2">
+        <output id="ball-r-out">2</output>
+      </label>
+      <div class="legend" id="ball-legend" aria-label="Colour by tree distance"></div>
+      <div class="readout" id="ball-readout"></div>
+    </div>
+    <figcaption>
+      The orbit <span class="tex">$\Gamma\cdot i$</span> is dense in <span class="tex">$\mathbb{H}^2$</span>. It is also the union, over vertices
+      <span class="tex">$v = g_v\cdot o$</span>, of the discrete orbits <span class="tex">$g_v\Lambda\cdot i$</span>: one point on every edge of the tessellation at <span class="tex">$v$</span>.
+      A ball in the tree contributes finitely many discrete pieces. The points only fill the plane as <span class="tex">$r \to \infty$</span>, which is the sense in which
+      <span class="tex">$\Gamma$</span> is a lattice in <span class="tex">$\PGL_2(\R)\times\PGL_2(\Q_p)$</span>. Scroll to zoom, drag to pan, hover a point to see its vertex.
+    </figcaption>
+  </figure>
+</section>
+
+<!-- ======================================================== 2 -->
+<section class="sec" id="sec-conj">
+  <div class="sec-head">
+    <div class="sec-num">2</div>
+    <h2>Two subgroups of index <span class="tex">$p+1$</span>, and one conjugation</h2>
+  </div>
+  <div class="prose">
+    <p>
+      <span class="tex">$\Lambda$</span> permutes the <span class="tex">$p+1$</span> edges at <span class="tex">$o$</span> through its action on
+      <span class="tex">$\mathbb{P}^1(\mathbb{F}_p)$</span>. Two edges matter: the edge <span class="up">up</span> to <span class="tex">$t^{-1}o = \fl{0}{-1}$</span> and the edge
+      <span class="down">down</span> to <span class="tex">$t\,o = \fl{0}{1}$</span>. Their stabilisers in <span class="tex">$\Lambda$</span> are the two congruence subgroups
+    </p>
+    <div class="display tex">$$\begin{aligned} \htmlClass{c-up}{\Lambda_0(p)} &= \Lambda \cap t^{-1}\Lambda t = \left\{ \begin{pmatrix} a&b\\c&d \end{pmatrix} \in \Lambda : c \equiv 0 \bmod p \right\} = \mathrm{Stab}_\Lambda\bigl(t^{-1}o\bigr), \\ \htmlClass{c-down}{\Lambda^0(p)} &= \Lambda \cap t\Lambda t^{-1} = \left\{ \begin{pmatrix} a&b\\c&d \end{pmatrix} \in \Lambda : b \equiv 0 \bmod p \right\} = \mathrm{Stab}_\Lambda\bigl(t\,o\bigr), \end{aligned}$$</div>
+    <p>
+      each of index <span class="tex">$p+1$</span>. Since <span class="tex">$t$</span> carries the first edge onto the second, it conjugates the first stabiliser onto the second:
+    </p>
+    <div class="display tex">$$t\begin{pmatrix} a&b\\c&d\end{pmatrix}t^{-1} = \begin{pmatrix} a & pb \\ c/p & d\end{pmatrix}, \qquad t\,\htmlClass{c-up}{\Lambda_0(p)}\,t^{-1} = \htmlClass{c-down}{\Lambda^0(p)}.$$</div>
+    <p class="aside">
+      Subscript means the lower-left entry is divisible by <span class="tex">$p$</span>, as for <span class="tex">$\Gamma_0(N)$</span>. The thesis (§2.3) writes
+      <span class="tex">$\Lambda_0(p)$</span> for the upper-right version, i.e. for <span class="tex">$\Lambda^0(p)$</span> here.
+    </p>
+  </div>
+
+  <figure class="fig fig-conj">
+    <div class="panel panel-wide">
+      <div class="panel-head">
+        <span class="panel-title">On <span class="tex">$\mathbb{H}^2$</span>, <span class="tex">$t$</span> is <span class="tex">$z \mapsto pz$</span></span>
+        <span class="panel-note" id="conj-s-read"></span>
+      </div>
+      <div class="canvas-wrap"><canvas id="conj-h2" class="h2-canvas tall"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">On <span class="tex">$T_{p+1}$</span>, <span class="tex">$t$</span> slides the spine down one step</span></div>
+      <svg id="conj-tree" class="tree-svg" role="img" aria-label="The spine of the tree and the two edges"></svg>
+      <div class="matrix-demo" id="conj-demo"></div>
+      <button class="btn" id="conj-another" type="button">Another element of <span class="tex">$\Lambda_0(p)$</span></button>
+    </div>
+    <div class="fig-controls">
+      <button class="btn btn-play" id="conj-play" type="button">Apply <span class="tex">$t$</span></button>
+      <label class="slider">
+        <span class="ctl-label"><span class="tex">$z \mapsto p^s z$</span></span>
+        <input type="range" id="conj-s" min="0" max="1" step="0.001" value="0">
+      </label>
+      <div class="key">
+        <span><i class="sw sw-up"></i> <span class="tex">$\Lambda_0(p)$</span>: domain, and edge <span class="tex">$[t^{-1}o,\,o]$</span></span>
+        <span><i class="sw sw-down"></i> <span class="tex">$\Lambda^0(p)$</span>: domain, and edge <span class="tex">$[o,\,to]$</span></span>
+      </div>
+    </div>
+    <figcaption>
+      The <span class="up">magenta</span> region is a fundamental domain for <span class="tex">$\Lambda_0(p)$</span>: a strip of width <span class="tex">$\tfrac12$</span> above <span class="tex">$p$</span> small arcs,
+      cut into <span class="tex">$p+1$</span> copies of the <span class="tex">$(2,3,\infty)$</span> triangle at scale <span class="tex">$1/p$</span>, i.e. tiles of the tessellation at <span class="tex">$t^{-1}o$</span>.
+      Scaling by <span class="tex">$p$</span> carries it onto the <span class="down">blue</span> fundamental domain for <span class="tex">$\Lambda^0(p)$</span>, the region over
+      <span class="tex">$[0, \tfrac p2]$</span> above the unit arcs, now tiled by <span class="tex">$p+1$</span> tiles of <span class="tex">$\mathcal{F}$</span> itself. Cusp widths trade places:
+      <span class="tex">$\tfrac12$</span> at <span class="tex">$\infty$</span> becomes <span class="tex">$\tfrac p2$</span>.
+    </figcaption>
+  </figure>
+</section>
+
+<!-- ======================================================== 3 -->
+<section class="sec" id="sec-hnn">
+  <div class="sec-head">
+    <div class="sec-num">3</div>
+    <h2>An HNN extension, folded once</h2>
+  </div>
+  <div class="prose">
+    <p>
+      One vertex orbit, vertex stabiliser <span class="tex">$\Lambda$</span>, and an element <span class="tex">$t$</span> moving <span class="tex">$o$</span> to a neighbour. Bass–Serre theory then
+      points to the HNN extension in which <span class="tex">$t$</span> identifies the two finite-index subgroups:
+    </p>
+    <div class="display tex">$$\Lambda *_t \;=\; \bigl\langle\, \Lambda,\ t \;\bigm|\; t g t^{-1} = \varphi(g) \text{ for } g \in \Lambda_0(p) \,\bigr\rangle, \qquad \varphi(g) = tgt^{-1} \in \Lambda^0(p).$$</div>
+    <p>
+      Including <span class="tex">$\Lambda$</span> and sending <span class="tex">$t \mapsto \mathrm{diag}(p,1)$</span> defines a surjection
+      <span class="tex">$\Lambda*_t \to \Gamma$</span>. It is <em>not</em> injective. In <span class="tex">$\PGL_2$</span> the flip
+      <span class="tex">$\sigma \in \Lambda$</span> satisfies
+    </p>
+    <div class="display tex">$$\sigma\, t\, \sigma = \begin{pmatrix} 1&0\\0&p \end{pmatrix} = t^{-1}, \qquad\text{equivalently}\qquad W_p = \sigma t = \begin{pmatrix} 0&1\\p&0\end{pmatrix},\quad W_p^2 = 1.$$</div>
+    <p>
+      The Fricke involution <span class="tex">$W_p$</span> swaps <span class="tex">$o$</span> and <span class="tex">$t^{-1}o$</span>, so <span class="tex">$\Gamma$</span> acts on <span class="tex">$T_{p+1}$</span> with an
+      inversion. In <span class="tex">$\Lambda *_t$</span>, by contrast, <span class="tex">$\sigma t$</span> has infinite order.
+    </p>
+    <p>
+      <strong>Folding.</strong> The Bass–Serre tree of <span class="tex">$\Lambda*_t$</span> is <span class="tex">$(2p+2)$</span>-regular. At <span class="tex">$o$</span> there are <span class="tex">$p+1$</span> outgoing edges
+      <span class="tex">$c\,t\cdot o$</span>, one for each <span class="tex">$c$</span> in the transversal <span class="tex">$\{T^0,\dots,T^{p-1},\sigma\}$</span> of <span class="tex">$\Lambda/\Lambda^0(p)$</span>.
+      There are also <span class="tex">$p+1$</span> incoming edges <span class="tex">$c'\,t^{-1}\cdot o$</span>, one for each <span class="tex">$c'$</span> in the transversal
+      <span class="tex">$\{1, T^0\sigma,\dots,T^{p-1}\sigma\}$</span> of <span class="tex">$\Lambda/\Lambda_0(p)$</span>. The relation glues them in pairs:
+      <span class="tex">$\sigma t\cdot o = t^{-1}\cdot o$</span> and <span class="tex">$T^j t\cdot o = T^j\sigma t^{-1}\cdot o$</span>. The result is <span class="tex">$T_{p+1}$</span>.
+    </p>
+  </div>
+
+  <figure class="fig fig-fold">
+    <div class="panel panel-wide">
+      <svg id="fold-svg" class="fold-svg" role="img" aria-label="Folding the Bass–Serre tree of the HNN extension onto T_{p+1}"></svg>
+    </div>
+    <div class="fig-controls">
+      <button class="btn btn-play" id="fold-play" type="button">Fold</button>
+      <label class="slider">
+        <span class="ctl-label">fold</span>
+        <input type="range" id="fold-s" min="0" max="1" step="0.001" value="0">
+      </label>
+      <div class="key">
+        <span><i class="sw sw-out"></i> outgoing <span class="tex">$c\,t$</span></span>
+        <span><i class="sw sw-in"></i> incoming <span class="tex">$c'\,t^{-1}$</span></span>
+      </div>
+    </div>
+    <figcaption>
+      The star of <span class="tex">$o$</span> in the Bass–Serre tree of <span class="tex">$\Lambda*_t$</span>, where every edge has a <span class="tex">$t$</span>-orientation.
+      As the fold closes, each outgoing edge meets the incoming edge it is identified with. The merged edges carry arrows both ways, because
+      the orientation does not survive: <span class="tex">$W_p$</span> reverses the edge <span class="tex">$[t^{-1}o, o]$</span>. The edge toward <span class="tex">$\infty$</span> is the image of
+      <span class="tex">$\sigma t$</span> and of <span class="tex">$t^{-1}$</span>. The other <span class="tex">$p$</span> are the images of <span class="tex">$T^j t$</span> and of <span class="tex">$T^j\sigma t^{-1}$</span>.
+    </figcaption>
+  </figure>
+
+  <div class="thm">
+    <div class="thm-head">Theorem</div>
+    <p>
+      <span class="tex">$\Gamma \;=\; \Lambda *_t \,\big/\, \langle\!\langle (\sigma t)^2 \rangle\!\rangle \;\cong\; \Lambda \ast_{\Lambda_0(p)} \langle \Lambda_0(p), W_p\rangle.$</span>
+      The quotient graph of groups is a half-edge. The vertex group is <span class="tex">$\Lambda$</span> and the edge group is <span class="tex">$\Lambda_0(p)$</span>. At the midpoint of
+      <span class="tex">$[t^{-1}o, o]$</span> the group is the Fricke extension <span class="tex">$\langle\Lambda_0(p), W_p\rangle$</span>, which contains <span class="tex">$\Lambda_0(p)$</span> with index 2.
+    </p>
+    <div class="gog">
+      <svg viewBox="0 0 600 146" class="gog-svg" id="gog-svg" role="img" aria-label="Graph of groups: an HNN loop folds to a half-edge">
+        <defs><marker id="gog-arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,1 L9,5 L0,9 z" class="gog-arrowhead"/></marker></defs>
+        <circle cx="60" cy="72" r="7" class="gog-v"/>
+        <path d="M 66 67 C 96 0, 214 4, 214 76 C 214 148, 96 152, 66 77" class="gog-e"/>
+        <path d="M 214 70 L 214 78" class="gog-e" marker-end="url(#gog-arrow)"/>
+        <circle cx="356" cy="72" r="7" class="gog-v"/>
+        <line x1="363" y1="72" x2="500" y2="72" class="gog-e"/>
+        <rect x="500" y="65" width="14" height="14" class="gog-half"/>
+      </svg>
+    </div>
+  </div>
+
+  <details class="callout">
+    <summary>Why not an honest HNN extension?</summary>
+    <p>
+      Every HNN extension maps onto <span class="tex">$\Z$</span>: send the stable letter to 1 and the base group to 0. <span class="tex">$\Gamma$</span> has no such map.
+      In its abelianisation, <span class="tex">$t = \sigma\cdot W_p$</span> is a product of two involutions, so <span class="tex">$2[t] = 0$</span>. Together with the finite group
+      <span class="tex">$\Lambda^{\mathrm{ab}} \cong (\Z/2)^2$</span> this makes <span class="tex">$\Gamma^{\mathrm{ab}}$</span> a finite 2-group. So <span class="tex">$\Gamma$</span> splits over
+      <span class="tex">$\Lambda_0(p)$</span> only as the amalgam above, and the fold cannot be avoided. (The same happens for <span class="tex">$\mathrm{SL}_2$</span>:
+      <span class="tex">$\mathrm{SL}_2(\Z[1/p]) = \mathrm{SL}_2(\Z) \ast_{\Gamma_0(p)} \mathrm{SL}_2(\Z)$</span>, with two vertex orbits instead of an inversion.)
+    </p>
+    <p>
+      Nothing is lost for normal forms. The fold glues one up-edge to one down-edge at each vertex, so Britton's normal form survives once we agree which of the
+      two glued labels to use: <span class="tex">$t^{-1}$</span> for the edge toward <span class="tex">$\infty$</span>, and <span class="tex">$T^j t$</span> for the <span class="tex">$p$</span> edges away from it.
+      This is exactly the parent/child structure of the upper-half-plane model.
+    </p>
+  </details>
+</section>
+
+<!-- ======================================================== 4 -->
+<section class="sec" id="sec-nf">
+  <div class="sec-head">
+    <div class="sec-num">4</div>
+    <h2>The normal form, and how to compute it</h2>
+  </div>
+
+  <div class="thm">
+    <div class="thm-head">Normal form</div>
+    <p>Every <span class="tex">$g \in \PGL_2(\Z[1/p])$</span> has a unique expression</p>
+    <div class="display tex">$$g \;=\; \htmlClass{c-up}{t^{-m}}\cdot \htmlClass{c-down}{(T^{j_1}t)(T^{j_2}t)\cdots(T^{j_k}t)}\cdot \htmlClass{c-lam}{\lambda}, \qquad m,k\ge 0,\quad 0\le j_i \lt p,\quad \lambda\in\PGL_2(\Z),$$</div>
+    <p>
+      with <span class="tex">$j_1 \neq 0$</span> whenever <span class="tex">$m,k>0$</span>. The prefix is the coset representative of Prop. 17:
+    </p>
+    <div class="display tex">$$t^{-m}(T^{j_1}t)\cdots(T^{j_k}t) = \begin{pmatrix} p^n & q\\ 0&1\end{pmatrix}, \qquad n = k-m,\quad q = p^{-m}\bigl(j_1 + j_2 p + \cdots + j_k p^{k-1}\bigr).$$</div>
+    <p>
+      The word traces the geodesic from <span class="tex">$o$</span> to <span class="tex">$g\cdot o$</span>: <span class="tex">$m$</span> steps <span class="up">up</span> toward <span class="tex">$\infty$</span>, then
+      <span class="tex">$k$</span> steps <span class="down">down</span>, reading the base-<span class="tex">$p$</span> digits of <span class="tex">$q$</span>. Its length is
+      <span class="tex">$m + k = d(o, g\cdot o) = v_p(\det\tilde g)$</span>, where <span class="tex">$\tilde g$</span> is the primitive integral representative of <span class="tex">$g$</span>.
+    </p>
+    <p class="proof">
+      <em>Uniqueness.</em> For any word of this shape, the vertices <span class="tex">$o,\ w_1 o,\ w_1w_2 o,\dots$</span> form a path without backtracking, since the
+      condition <span class="tex">$j_1\ne0$</span> is exactly what rules out turning back at the top. A path without backtracking in a tree is the geodesic
+      <span class="tex">$[o, g\cdot o]$</span>, which pins down every letter. Then <span class="tex">$\lambda$</span> is (prefix)<span class="tex">$^{-1}g$</span>, which fixes
+      <span class="tex">$o$</span>. <em>Existence</em> is the algorithm.
+    </p>
+  </div>
+
+  <div class="algo">
+    <div class="thm-head">Algorithm (peel one edge at a time)</div>
+    <ol>
+      <li>Replace <span class="tex">$g$</span> by its primitive integral representative, with <span class="tex">$\det g = \pm p^e$</span>.</li>
+      <li>While <span class="tex">$e > 0$</span>, reduce <span class="tex">$g$</span> mod <span class="tex">$p$</span>. It has rank one. Its column space is a point of
+        <span class="tex">$\mathbb{P}^1(\mathbb{F}_p) = \Lambda/\Lambda^0(p)$</span>, i.e. an edge at <span class="tex">$o$</span>: the first edge of the geodesic <span class="tex">$[o, g\cdot o]$</span>.
+        <ul>
+          <li><span class="tex">$[1:0]$, i.e. $\row_2 \equiv 0$</span>: the edge goes <span class="up">up</span>. Emit <span class="tex">$\htmlClass{c-up}{t^{-1}}$</span> and divide <span class="tex">$\row_2$</span> by <span class="tex">$p$</span>.
+            In HNN terms the coset is <span class="tex">$\sigma\Lambda^0(p)$</span>, so <span class="tex">$g = \sigma t\cdot g'$</span>, folded by <span class="tex">$\sigma t = t^{-1}\sigma$</span>.</li>
+          <li><span class="tex">$[j:1]$, i.e. $\row_1 \equiv j\,\row_2$</span>: the edge goes <span class="down">down</span> through digit <span class="tex">$j$</span>. Emit <span class="tex">$\htmlClass{c-down}{T^j t}$</span> and replace
+            <span class="tex">$\row_1$</span> by <span class="tex">$(\row_1 - j\,\row_2)/p$</span>. The coset is <span class="tex">$T^j\Lambda^0(p)$</span>, so <span class="tex">$g = T^j t\cdot g'$</span>.</li>
+        </ul>
+        Each step lowers <span class="tex">$e$</span> by exactly one, since we move one edge closer along the geodesic.</li>
+      <li>What is left has <span class="tex">$\det = \pm 1$</span>: it is <span class="tex">$\htmlClass{c-lam}{\lambda} \in \PGL_2(\Z) = \mathrm{Stab}(o)$</span>. The Euclidean
+        algorithm writes it in <span class="tex">$S, T, R$</span>.</li>
+    </ol>
+  </div>
+
+  <!-- the workbench -->
+  <div class="bench" id="bench">
+    <div class="bench-input">
+      <div class="seg seg-small" id="in-mode" role="tablist">
+        <button type="button" data-mode="word" aria-pressed="true">Word</button>
+        <button type="button" data-mode="matrix" aria-pressed="false">Matrix</button>
+      </div>
+      <div class="in-word" id="in-word-wrap">
+        <span class="mq-field mq-word" id="in-word" aria-label="Word in t, T, S, R, sigma, W"></span>
+        <span class="hint tex">letters $t, T, S, R, \sigma, W$; type ^ for a power, e.g. $t^{-1}$; brackets are fine, e.g. $(St)^3$</span>
+      </div>
+      <div class="in-matrix" id="in-matrix-wrap" hidden>
+        <div class="mat-in">
+          <span class="mq-field" id="m-a" aria-label="a"></span><span class="mq-field" id="m-b" aria-label="b"></span>
+          <span class="mq-field" id="m-c" aria-label="c"></span><span class="mq-field" id="m-d" aria-label="d"></span>
+        </div>
+        <span class="hint tex">entries in $\Z[1/p]$, and you may write $p$: e.g. $\frac{1}{p^2}$ (type 1/p^2)</span>
+      </div>
+      <details class="menu" id="presets">
+        <summary>Examples</summary>
+        <div class="menu-list" id="presets-list"></div>
+      </details>
+      <button class="btn btn-primary" id="in-run" type="button">Compute</button>
+      <button class="btn" id="in-random" type="button">Random</button>
+    </div>
+    <p class="err" id="in-err" role="status" aria-live="polite"></p>
+
+    <div class="transport">
+      <button class="btn" id="tr-reset" type="button" title="Back to the start (Home)">Start</button>
+      <button class="btn" id="tr-back" type="button" title="Back one step (left arrow)">Back</button>
+      <button class="btn btn-primary" id="tr-step" type="button" title="Next step (right arrow)">Step</button>
+      <button class="btn" id="tr-play" type="button" title="Play or pause">Play</button>
+      <button class="btn" id="tr-end" type="button" title="Jump to the end (End)">End</button>
+      <div class="progress" id="tr-progress"></div>
+    </div>
+
+    <div class="word-line" id="word-line"></div>
+
+    <div class="bench-grid">
+      <div class="panel panel-tree">
+        <div class="panel-head">
+          <span class="panel-title">The path in <span class="tex">$T_{p+1}$</span></span>
+          <span class="panel-note">ring: <span class="tex">$g\cdot o$</span>; dot: where the word has got to</span>
+        </div>
+        <svg id="walk-tree" class="tree-svg" role="img" aria-label="Geodesic from o to g·o"></svg>
+      </div>
+      <div class="panel panel-alg">
+        <div class="panel-head"><span class="panel-title">The arithmetic</span></div>
+        <div class="alg" id="walk-alg"></div>
+      </div>
+      <div class="panel panel-h2">
+        <div class="panel-head">
+          <span class="panel-title">The tessellation at the current vertex</span>
+        </div>
+        <div class="canvas-wrap"><canvas id="walk-h2" class="h2-canvas"></canvas></div>
+        <p class="panel-foot" id="walk-h2-note"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <p>
+    The tree model and coset representatives <span class="tex">$\fl{q}{n}$</span> follow N. Brody, <em>dissertation</em>, §2.1–2.3 (Props. 17–18, Figs. 2.1–2.3).
+    For the <span class="tex">$\mathrm{SL}_2$</span> amalgam see Serre, <em>Trees</em>, II.1.4. Arithmetic is exact (BigInt); <code>node tests/engine.test.mjs</code> checks the
+    normal form against Prop. 17 for <span class="tex">$p\le 11$</span>.
+  </p>
+</footer>
+</div>
+
+<script type="module" src="js/main.js"></script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>
