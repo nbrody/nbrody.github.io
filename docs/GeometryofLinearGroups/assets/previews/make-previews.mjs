@@ -42,8 +42,7 @@ const OVERRIDES = {
     // nothing to show: broken, empty, blank until drawn on, or never finishing a picture headless
     'Arithmetic/Tools/convexCocompactPSL2Z/compact_surface.html': { skip: 'fails to load: bare "react" import' },
     'Arithmetic/Tools/orthogonal.html': { skip: 'fails to load: mathjs@14.0.1 ESM build 404s on jsDelivr' },
-    'misc/projectorFeedback/index.html': { skip: 'fails to load: feedback.js is missing' },
-    'GroupLibrary/Groups/SL2Z.html': { skip: 'empty file' },
+    'misc/projectorFeedback/index.html': { skip: 'a redirect to mathArt/projectorFeedback' },
     'Geometric/Tools/Kleinian/coxeter.html': { skip: 'a blank graph to draw on' },
     'Geometric/Tools/Kleinian/4dExplorer/index.html': { skip: 'renders black headless' },
     'misc/rileySlice3D/index.html': { skip: 'renders only its axes headless' },

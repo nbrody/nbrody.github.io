@@ -122,7 +122,7 @@
     ]},
     { section: 'Group Library', icon: 'Γ', items: [
       { t: 'Group Library',         u: 'GroupLibrary/index.html' },
-      { t: 'SL₂(ℤ)',                u: 'GroupLibrary/Groups/SL2Z.html' },
+      { t: 'SL₂(ℤ)',                u: 'Geometric/Tools/Kleinian/poincare/index.html#s=eyJ2IjoxLCJtYXRzIjpbWyIxIiwiMSIsIjAiLCIxIl0sWyIwIiwiLTEiLCIxIiwiMCJdXX0' },
       { t: 'SO(3,ℚ)',               u: 'GroupLibrary/Groups/SO3Q.html' },
       { t: 'ℤ² × ℤ',                u: 'GroupLibrary/Groups/Z2*Z.html' },
       { t: 'ℤ² Surface Group',      u: 'GroupLibrary/Groups/Z2SurfaceGroup.html' },

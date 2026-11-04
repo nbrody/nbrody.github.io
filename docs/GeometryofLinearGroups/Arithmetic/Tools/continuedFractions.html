@@ -14,7 +14,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fraction.js/4.3.7/fraction.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fraction.js@4.3.7/fraction.min.js"
+        integrity="sha384-B+WvPhf1vDNhSyLghIHS4DUil5lWBXKDaZ/OGQMqOO/BYIlnf0V05VSWEeZV53vd"
+        crossorigin="anonymous"></script>
 
     <style>
         body {
@@ -293,7 +295,11 @@
                 return new Fraction(whole + sign * num / den);
             }
 
-            // Plain decimal or integer
+            // Plain decimal or integer: hand the digits to Fraction as a string, which is exact
+            // (going through Number turns 2.7182818 into 6280620/2310511)
+            if (/^-?(\d+\.?\d*|\.\d+)$/.test(s)) {
+                return new Fraction(s);
+            }
             const x = Number(s);
             if (Number.isFinite(x)) {
                 return new Fraction(x);
@@ -358,8 +364,8 @@
                 algorithmState.currentFraction = fractionalPart;
                 updateStatusDisplay();
 
-                // If fractional part is basically zero, we are done
-                if (fractionalPart.valueOf() < epsilon) {
+                // The arithmetic is exact, so this only happens if current was an integer
+                if (fractionalPart.equals(0)) {
                     finishAlgorithm();
                     return;
                 }

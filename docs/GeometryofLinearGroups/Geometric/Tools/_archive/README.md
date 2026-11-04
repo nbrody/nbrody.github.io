@@ -1,6 +1,7 @@
 # Archived Geometric tools
 
-Retired tools, kept so their code and old URLs stay reachable. Nothing on the site links here:
+Retired tools, kept in git so their code stays available. They are not served: the Pages
+build runs Jekyll, which skips folders whose names start with an underscore. Nothing on the site links here:
 no cards, no site-nav entries, no sitemap entries. Each tool moved here unchanged (with
 `git mv`, so `git log --follow` still shows its history). The exception is a fix to a
 relative path where the move would have broken it.
