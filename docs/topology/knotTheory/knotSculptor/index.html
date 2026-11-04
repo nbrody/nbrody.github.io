@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knot Sculptor</title>
+<meta name="description" content="Draw a knot in the air with hand tracking on a Meta Quest (or with a mouse), then see its invariants, its projections and a Seifert surface.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Source+Serif+4:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=1">
+<script>
+  // follow the system setting until the page's own toggle runs
+  document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  window.MathJax = {
+    tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+    svg: { fontCache: 'local' },
+    startup: { typeset: false },
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+<script>
+  // ?emulate loads Meta's Immersive Web Emulation Runtime: a virtual Quest 3 with tracked hands,
+  // for trying the VR mode on a desktop (window.iwerDevice moves the hands; pinch with updatePinchValue)
+  if (new URLSearchParams(location.search).has('emulate')) {
+    window.__xrReady = import('https://cdn.jsdelivr.net/npm/iwer@2.6.0/build/iwer.module.js').then(({ XRDevice, metaQuest3 }) => {
+      const dev = new XRDevice(metaQuest3);
+      dev.installRuntime({ forceInstall: true });
+      dev.primaryInputMode = 'hand';
+      dev.position.set(0, 1.6, 0);
+      window.iwerDevice = dev;
+    });
+  }
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<main id="app">
+  <div id="stage">
+    <canvas id="view" aria-label="3D view of the knot"></canvas>
+  </div>
+
+  <aside id="sidebar">
+    <header class="top">
+      <div>
+        <h1>Knot Sculptor</h1>
+        <p class="lede">Draw a knot in the air, then take it apart: its invariants, its projections and a surface it bounds.</p>
+      </div>
+      <button class="icon-btn" data-action="theme" aria-label="Switch between light and dark" title="Light / dark">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg>
+      </button>
+    </header>
+
+    <section class="panel xr">
+      <div class="row two">
+        <button id="enter-vr" class="primary" disabled>Enter VR</button>
+        <button id="enter-ar" class="primary soft" disabled>Passthrough</button>
+      </div>
+      <p id="xr-status" class="muted small">Checking for a headset…</p>
+    </section>
+
+    <section class="panel">
+      <h2>Knot</h2>
+      <label class="field">
+        <span>Library</span>
+        <select id="library"></select>
+      </label>
+      <div class="seg" role="group" aria-label="What dragging does">
+        <button data-action="mode" data-value="draw">Draw</button>
+        <button data-action="mode" data-value="move">Orbit</button>
+      </div>
+      <label class="field">
+        <span>Crossings while drawing</span>
+        <select id="cross-mode">
+          <option value="alternate">Alternate over and under</option>
+          <option value="over">New strand goes over</option>
+          <option value="under">New strand goes under</option>
+        </select>
+      </label>
+      <div class="row three">
+        <button data-action="undo">Undo</button>
+        <button data-action="clear">Clear</button>
+        <button data-toggle="addStrand" data-action="addStrand" title="The next drawing adds a component instead of replacing the knot">Add strand</button>
+      </div>
+      <div class="row two">
+        <button data-toggle="relax" data-action="relax">Relax</button>
+        <button data-toggle="flatten" data-action="flatten">Flatten</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Seifert surface</h2>
+      <div class="row two">
+        <button data-toggle="surface" data-action="surface">Show surface</button>
+        <button data-toggle="sweep" data-action="sweep">Sweep</button>
+      </div>
+      <label class="field slider">
+        <span>Level <output id="level-value">2π</output></span>
+        <input id="level" type="range" min="0" max="12.566370614359172" step="0.39269908169872414" value="6.283185307179586">
+      </label>
+      <p class="muted small">The surface is a level set of the solid angle $\Omega$ the knot subtends. Its two sides get two colors: it is orientable. Sweep runs through every level.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Invariants</h2>
+      <div id="invariants" aria-live="polite"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Projection</h2>
+      <canvas id="proj-canvas" aria-label="Knot diagram of the current view"></canvas>
+      <div class="row three">
+        <button data-toggle="circles" data-action="circles">Seifert circles</button>
+        <button data-toggle="globe" data-action="globe">Globe</button>
+        <button data-action="best">Best view</button>
+      </div>
+      <p class="muted small">The globe colors each viewing direction by how many crossings that projection has; the simplest views are teal. Click it to look from there.</p>
+    </section>
+
+    <section class="panel help">
+      <h2>On a Quest</h2>
+      <ul>
+        <li><b>Draw:</b> pinch with your right hand and move. Let go and the loop closes.</li>
+        <li><b>Turn it:</b> pinch with your left hand, anywhere, and turn your wrist. Both hands: scale and spin.</li>
+        <li><b>Menu:</b> turn your left palm toward your face and poke the buttons with your right index finger.</li>
+        <li><b>Globe:</b> poke a color on the globe to see the knot from that direction.</li>
+      </ul>
+    </section>
+  </aside>
+</main>
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>
