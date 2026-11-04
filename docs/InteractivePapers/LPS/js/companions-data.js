@@ -135,7 +135,7 @@ export const DEFINITIONS = [
   { key: 'padic', topic: 3, level: 'intermediate', origin: 'background', term: R`$p$-adic numbers $\Q_p$, $\Z_p$`,
     text: R`$\Q_p$ completes $\Q$ for $|x|_p=p^{-v_p(x)}$; $\Z_p$ is its unit ball. They give the paper's second picture of the tree, $\PGL_2(\Q_p)/\PGL_2(\Z_p)$.`, where: '§1' },
   { key: 'singular', topic: 3, level: 'specialized', origin: 'paper', term: 'Singular series',
-    text: R`The Hardy–Littlewood prediction for $r_Q(n)$: a product of local densities, one for each prime and one at infinity. For four or more variables it is the coefficient of the Eisenstein part of the theta series; here it is $C(n)$.`, where: '(4.16), Proposition 3.3' },
+    text: R`The Hardy–Littlewood prediction for $r_Q(n)$, made from the singularities of $\theta_Q$ at the cusps $a/m$: a sum of Gauss sums over all $a/m$, which factors as a product of local densities, one for each prime, times the volume factor at infinity. For four or more variables it is the coefficient of the Eisenstein part of the theta series; here it is $C(n)$.`, where: '(4.16), Proposition 3.3, Figure S3' },
   { key: 'strongapprox', topic: 3, level: 'specialized', origin: 'background', term: 'Strong approximation',
     text: R`For a simply connected group such as the norm-one quaternions, noncompact at a place $v$, the rational points are dense in the adelic points away from $v$. Taking $v=p$, it says $\Lambda(2)$ reduces onto $\PSL_2(\F_q)$: Remark 1's route to Proposition 3.3.`, where: 'Proposition 3.3' },
 
@@ -166,6 +166,38 @@ export const DEFINITIONS = [
     text: R`Second kind: $U_t(\cos\theta)=\frac{\sin(t+1)\theta}{\sin\theta}$; the paper's $H_t(x)=p^{t/2}U_t(x/2\sqrt p)$ (Remark 2). First kind: $T_l(\cos\theta)=\cos l\theta$, used in (5.3).`, where: 'Remark 2, (5.3)' },
   { key: 'closedwalks', topic: 5, level: 'intermediate', origin: 'paper', term: R`Closed walks $\rho(l)$`,
     text: R`The number of walks of length $l$ in the tree that start and end at a given vertex. $\frac1n\sum_j\lambda_j^l$ counts closed walks in a graph, so the two agree below the girth.`, where: 'Proposition 4.2, (4.4)' },
+
+  // From the harmonic-analysis supplement (background, not in the paper)
+  { key: 'laplacian', topic: 0, level: 'intermediate', origin: 'background', term: 'Graph Laplacian',
+    text: R`$(p+1)-\Delta$ on a $(p+1)$-regular graph. Its eigenvalue is small exactly when $\Delta$'s is near $p+1$: the eigenfunction barely changes across edges, which on a finite graph means a bottleneck.`, where: 'the supplement before §4' },
+  { key: 'spherical', topic: 5, level: 'specialized', origin: 'background', term: R`Spherical function $\varphi_\lambda$`,
+    text: R`The radial $\lambda$-eigenfunction on the tree with $\varphi_\lambda(o)=1$: $\varphi(n-1)+p\varphi(n+1)=\lambda\varphi(n)$, so $\varphi_\lambda(n)\approx p^{-n/2}\cos(n\theta+\cdot)$ with $\lambda=2\sqrt p\cos\theta$. Averaging any $\lambda$-eigenfunction over a sphere of radius $l$ multiplies it by $\varphi_\lambda(l)$; that is why the kernels of §4 are diagonal.`, where: '(4.8), (4.10), Figures S1, S2' },
+  { key: 'planewave', topic: 5, level: 'specialized', origin: 'background', term: 'Plane wave, horofunction',
+    text: R`For an end $\xi$ of the tree and a horofunction $b$ (one neighbour with $b-1$, $p$ with $b+1$), $p^{-s\,b(x)}$ is an eigenfunction with $\lambda=p^s+p^{1-s}$; on $\mathbb H$, $y^s$ has $\Delta_{\mathbb H}$-eigenvalue $s(1-s)$. Averaged over all ends they give the spherical function.`, where: 'Figure S1' },
+  { key: 'tempered', topic: 5, level: 'specialized', origin: 'background', term: 'Tempered',
+    text: R`A wave, or a representation, that decays exactly like the inverse square root of the volume: $p^{-n/2}$ on the tree, $e^{-\rho/2}$ on $\mathbb H$. On the tree this is $|\lambda|\le2\sqrt p$, $\theta$ real; on $\mathbb H$ it is $\lambda\ge\frac14$. A Ramanujan graph is one whose nontrivial eigenvalues are all tempered.`, where: 'Figures S1, S4' },
+  { key: 'complementary', topic: 5, level: 'specialized', origin: 'background', term: 'Complementary series',
+    text: R`Unitary representations that are not tempered: $2\sqrt p<|\lambda|<p+1$ on the tree, $0<\lambda<\frac14$ on $\mathbb H$. An eigenvalue of a graph or surface in this range is called exceptional; Theorem 4.1 says $X^{p,q}$ has none.`, where: 'Figure S4' },
+  { key: 'plancherel', topic: 5, level: 'specialized', origin: 'background', term: 'Plancherel measure',
+    text: R`How $L^2$ of a group or homogeneous space decomposes into irreducible representations. For the tree's vertices it is Kesten's measure $\mu_{p+1}$; for $\mathbb H$ it is a density on the principal series; for $\PGL_2(\R)$ it also has atoms, the discrete series.`, where: 'Proposition 4.3, Figure S4' },
+  { key: 'discreteseries', topic: 4, level: 'specialized', origin: 'background', term: R`Discrete series $D_k$`,
+    text: R`The representations of $\PGL_2(\R)$, $k=2,4,6,\dots$, that occur discretely in $L^2(\PGL_2(\R))$: their matrix coefficients are square-integrable. They have no $O(2)$-fixed vector, and a holomorphic modular form of weight $k$ generates $D_k$. Under Jacquet–Langlands the eigenfunctions of $X^{p,q}$ correspond to forms with $D_2$ at $\infty$, which is why the Ramanujan bound is known for them.`, where: 'Figure S4' },
+  { key: 'maass', topic: 4, level: 'specialized', origin: 'background', term: 'Maass form',
+    text: R`A square-integrable eigenfunction of $\Delta_{\mathbb H}$ on $\Gamma\backslash\mathbb H$, cuspidal. At $\infty$ it generates a principal or complementary series representation. The Ramanujan conjecture for Maass forms is open, at $\infty$ (Selberg's $\lambda_1\ge\frac14$) and at every prime.`, where: 'Figure S4' },
+  { key: 'selberg', topic: 4, level: 'specialized', origin: 'background', term: 'Selberg eigenvalue conjecture',
+    text: R`$\lambda_1(\Gamma(N)\backslash\mathbb H)\ge\frac14$ for every congruence subgroup. Selberg proved $\frac3{16}$; the best known bound is $\frac{975}{4096}$ (Kim–Sarnak). It is the surface analogue of the Ramanujan property, and it makes the Cayley graphs of $\SL_2(\Z/q\Z)$ with the elementary generators expanders, but not Ramanujan graphs.`, where: 'the supplement before §4' },
+  { key: 'satake', topic: 4, level: 'specialized', origin: 'background', term: R`Satake parameter $z$`,
+    text: R`The number with $\lambda=\sqrt p\,(z+z^{-1})$, that is $z=e^{i\theta}$. Tempered means $|z|=1$. For a weight-two form, $z=\alpha/\sqrt p$ with $\alpha$ an eigenvalue of Frobenius, so the Ramanujan bound is a Riemann hypothesis.`, where: 'Figure S4' },
+  { key: 'jl', topic: 4, level: 'specialized', origin: 'background', term: 'Jacquet–Langlands correspondence',
+    text: R`Matches automorphic forms on the units of a quaternion algebra with cusp forms on $\mathrm{GL}_2$ having the same Hecke eigenvalues wherever the algebra splits. For the definite algebra $H$ it sends the trivial representation of $SO(3)$ at $\infty$ to $D_2$, so functions on $X^{p,q}$ become holomorphic forms of weight two.`, where: 'Figure S4' },
+  { key: 'eichlershimura', topic: 4, level: 'specialized', origin: 'background', term: 'Eichler–Shimura relation',
+    text: R`For a weight-two Hecke eigenform, $a_p$ is the trace of Frobenius on the Jacobian of a modular curve over $\F_p$. With Weil's Riemann hypothesis for curves this gives $|a_p|\le2\sqrt p$, the case of the Ramanujan conjecture that (1.5) uses.`, where: '(1.5), Figure S4' },
+  { key: 'squarecomplex', topic: 5, level: 'specialized', origin: 'background', term: R`The square complex $S^{p,q}$`,
+    text: R`One vertex, a loop for each pair $\alpha^{\pm1}$ of norm $p$ and $\beta^{\pm1}$ of norm $q$, and a square for each relation $\alpha\beta=\pm\beta'\alpha'$. The link of the vertex is $K_{p+1,q+1}$, so the universal cover is $T_{p+1}\times T_{q+1}$.`, where: 'Figure S5' },
+  { key: 'hyperplane', topic: 5, level: 'specialized', origin: 'background', term: 'Hyperplane of a square complex',
+    text: R`The graph made of the midlines of squares that cross a given family of edges. Slicing at $\frac14$ and $\frac34$ instead gives its double cover. In $S^{p,q}$ these slices are exactly $Y^{p,q}$ and $Y^{q,p}$.`, where: 'Figure S5' },
+  { key: 'localdensity', topic: 3, level: 'specialized', origin: 'background', term: R`Local density $\delta_\ell(n)$`,
+    text: R`$\lim_k\ell^{-3k}\#\{v\bmod\ell^k:Q(v)\equiv n\}$ for a quaternary form: how much more or less often $Q(v)\equiv n$ holds modulo powers of $\ell$ than for random residues. The singular series is $\prod_\ell\delta_\ell(n)$.`, where: 'Figure S3' },
 ];
 
 // ───────────────────────── notation ─────────────────────────
@@ -235,6 +267,19 @@ export const NOTATION_GROUPS = [
     [R`$r=|A|,\ \nu=r/n$`, 'its size and proportion', '(5.5)', R`Not the $r$ of $p^r$ in Lemma 3.1.`],
     [R`$c$, $f$`, R`the constant and test function in (5.5)`, '(5.5)'],
   ]},
+  { title: 'Supplement (not in the paper)', rows: [
+    [R`$\varphi_\lambda(n)$`, R`spherical function: the radial $\lambda$-eigenfunction on the tree`, 'Figure S1'],
+    [R`$b(x)$, $\xi$`, R`a horofunction and its end`, 'Figure S1'],
+    [R`$s$`, R`spectral parameter: $\lambda=p^s+p^{1-s}$ on the tree, $s(1-s)$ on $\mathbb H$`, 'Figure S1', R`Not the $s=\frac{p+1}2$ of §3.`],
+    [R`$\Delta_{\mathbb H},\ \lambda_{\mathbb H}$`, R`hyperbolic Laplacian $-y^2(\partial_x^2+\partial_y^2)$ and its eigenvalue`, 'Figure S1'],
+    [R`$z$`, R`Satake parameter, $\lambda=\sqrt p\,(z+z^{-1})$`, 'Figure S4', R`Not the variable $z$ of the theta series.`],
+    [R`$G(a/m)$`, R`normalized Gauss sum of $Q$ at the cusp $a/m$`, 'Figure S3', R`Not the periodic $G$ of Lemma 4.4.`],
+    [R`$\mathfrak S(n),\ \delta_\ell(n)$`, R`singular series and its local densities`, 'Figure S3'],
+    [R`$D_k$`, R`discrete series of $\PGL_2(\R)$, weight $k$`, 'Figure S4'],
+    [R`$a_p$`, R`Hecke eigenvalue of a weight-two form at $p$`, 'Figure S4'],
+    [R`$S^{p,q}$`, R`the square complex of norms $p$ and $q$`, 'Figure S5'],
+    [R`$\beta_j$`, R`quaternions of norm $q$, the vertical loops of $S^{p,q}$`, 'Figure S5', R`The paper's generators $\alpha_j$ have norm $p$.`],
+  ]},
 ];
 
 // ───────────────────────── cited results ─────────────────────────
@@ -274,6 +319,7 @@ export const SLIPS = [
   { where: '(1.1), Proposition 4.2', text: R`Printed as "lim"; the statement and proof are a liminf.` },
   { where: '§1', text: R`The cases on p. 263 use $\leg qp$; everywhere else it is $\leg pq$. They agree by quadratic reciprocity, since $p\equiv q\equiv1\pmod4$.` },
   { where: '(4.14)', text: R`The sum before (4.14) is printed over $r\lt k/2$. It must include $r=k/2$ (the identity, $\alpha=\pm p^{k/2}$), as in (4.9); without it $r_Q(p^2)=2$ would be counted as $0$. Checked numerically.` },
+  { where: '(4.16)–(4.18)', text: R`$C(n)=\sum_{d\mid n}dF(d)$ with $F$ periodic cannot hold in Case i, where $C(p^k)$ vanishes for odd $k$: it would force $F(p^{2j})=c_2(1+p^{-1}+\dots+p^{-2j})$. The Eisenstein coefficients carry a character of $n/d$: $C(n)=\frac{c_2}2\sum_{d\mid n}d\,(1+\leg dq\leg{n/d}q)$ for $n\equiv1\pmod4$ prime to $q$ (checked for $n<3000$, $q=5,13$). Along even $k$ it is a periodic divisor sum again, so the proof stands, and (4.19) is correct. Found while building Figure S3.` },
   { where: '(4.19)', text: R`In Case i the remaining sum is printed once from $j=1$ and once from $j=2$ to $n-2$; it runs over every $j$ except $0$ and $n-1$.` },
   { where: '(5.2)', text: R`§5 cites (4.4) and (4.5) for $k_m$ and $K_m$, which are (4.6) and (4.7).` },
   { where: 'Remark 2, (5.3)', text: R`$H_t$ names two different polynomials: Remark 2's $H_t=xH_{t-1}-pH_{t-2}$, and (5.3)'s $H_l(x)=\cos(l\arccos x)$.` },
@@ -305,4 +351,17 @@ export const GUIDE_HTML = R`<h3 class="cmp-h3" id="guide-parts">Status of each p
   <li><b>The spectral argument only.</b> Definition 1.1 and (1.1); the generators (2.1); Corollary 3.2 and Proposition 3.3, for the identification $X^{p,q}=\Lambda(2)/\Lambda(2q)$; then (4.14), (4.15), (1.5), Lemma 4.4, (4.19)–(4.20) and Theorem 4.1. Figures 5 and 6 follow this route.</li>
   <li><b>The combinatorics.</b> §2, Lemma 3.1 and Theorem 3.4 for the girth; then Theorem 5.1 and Proposition 5.2 for the diameter, independence and chromatic numbers. Figures 2, 3 and 8.</li>
   <li><b>Background first.</b> "Before the paper", then Propositions 4.2 and 4.3 (what every large graph must do, Figure 4), then Theorem 4.1 as the statement that $X^{p,q}$ meets that limit exactly.</li>
-</ol>`;
+</ol>
+<p>If the harmonic analysis in §4 is new to you, open the orange supplement just before §4 first: what the eigenvalues mean on the tree (Figures S1, S2), where the main term comes from (Figure S3), and why the Ramanujan bound is known for these forms (Figure S4). It is not part of the paper and nothing in the proof depends on it.</p>`;
+
+// ───────────────────────── wording for the shared companion framework ─────────────────────────
+export const TEXT = {
+  kicker: 'Ramanujan Graphs · companion',
+  trace: 'Trace what Theorem 4.1 rests on',
+  intro: {
+    defs: 'Every definition the paper makes, and the background terms it assumes. Filter by level — <b>basic</b> (an undergraduate course), <b>intermediate</b> (a first graduate course), <b>specialized</b> (number theory and automorphic forms) — or search. References are links: hover to preview, click to jump.',
+    notation: 'Every symbol in the paper, where it first appears, and where the paper uses one letter for two things (marked <span class="clash">clash</span>). The paper writes $\\Delta$ for the adjacency matrix; this page often writes $A$.',
+    cited: 'The results the paper takes from elsewhere, stated, with where each one is used. The deep one is the Ramanujan conjecture in weight two; the rest is classical.',
+    slips: 'Small errors in the printed paper (Combinatorica 8, 1988), found while transcribing it. The page states the intended reading and marks each place with a quiet "In print" note. None affects the results.',
+  },
+};

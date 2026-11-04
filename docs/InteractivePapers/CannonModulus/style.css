@@ -1,0 +1,27 @@
+/* Cannon's conjecture (modulus proof): what only this paper needs, on top of ../interactivePaper.css.
+   Colour roles are fixed across the page:
+     --c-u     cobalt  the scalar function (u, H_N, its levels and level continua), crossings
+     --c-w     teal    a second function or transform (w, F_j, V = W∘g⁻¹), the partner of a pair
+     --c-mu    violet  measure and energy: μ, cost balls, dual weights, punctures
+     --c-mesh  gray    cells, nets, tiles, the Cayley graph */
+
+:root {
+  --c-u: #2f6fde;
+  --c-w: #00788a;
+  --c-mu: #8150c4;
+  --c-mesh: #7d8794;
+}
+:root[data-theme="dark"] {
+  --c-u: #5a96ff;
+  --c-w: #2bb2c4;
+  --c-mu: #b892ec;
+  --c-mesh: #8d96a2;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --c-u: #5a96ff;
+    --c-w: #2bb2c4;
+    --c-mu: #b892ec;
+    --c-mesh: #8d96a2;
+  }
+}

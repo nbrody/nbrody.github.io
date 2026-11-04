@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive Papers</title>
+<meta name="description" content="Mathematics papers read with live figures: each page follows one paper in its own order and numbering, and its figures run the paper's constructions and check its statements in the browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='3' width='24' height='26' rx='4' fill='%232f6fde'/%3E%3Cpath d='M10 10h12M10 15h12M10 20h7' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="interactivePaper.css">
+<script>
+  (function () {
+    // light/dark and the page style, shared with every paper (core/look.js)
+    var t = null, s = null;
+    try { t = localStorage.getItem('ip-theme'); s = localStorage.getItem('ip-style'); } catch (e) {}
+    if (t) document.documentElement.dataset.theme = t;
+    if (s && s !== 'latex') document.documentElement.dataset.style = s;
+  })();
+  window.MathJax = {
+    tex: { inlineMath: [['$', '$']], macros: { HH: '\\mathbb{H}', PSL: '\\operatorname{PSL}' } },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] },
+    chtml: { scale: 1, matchFontHeight: false }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<script type="module">
+  import { initLook } from './core/look.js';
+  initLook(document.getElementById('theme-toggle'));
+</script>
+<style>
+  /* The index of interactive papers: one featured paper, then the rest as rows. */
+  .ip-wrap { max-width: 60rem; margin: 0 auto; padding: 0 var(--gutter) 5rem; }
+  .ip-wrap .hero { padding-top: 4.5rem; }
+  .ip-wrap .hero h1 { margin-bottom: 0.9rem; }
+  .ip-wrap .lede { max-width: 44rem; }
+  .ip-note { color: var(--muted); font-size: 0.92rem; max-width: 44rem; }
+
+  .ip-group { margin: 3.2rem 0 0.9rem; font-size: var(--h3); }
+  .ip-group-sub { color: var(--muted); font-size: 0.92rem; margin: -0.4rem 0 1.1rem; max-width: 44rem; }
+
+  /* previews follow light and dark */
+  .pv { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+  .pv-d { display: none; }
+  :root[data-theme="dark"] .pv-l { display: none; }
+  :root[data-theme="dark"] .pv-d { display: block; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .pv-l { display: none; }
+    :root:not([data-theme="light"]) .pv-d { display: block; }
+  }
+
+  a.ip-feature, a.ip-row { color: var(--text); text-decoration: none; }
+  a.ip-feature:hover, a.ip-row:hover { color: var(--text); }
+  .ip-shot { aspect-ratio: 16 / 10; overflow: hidden; border-radius: var(--r-sm); background: var(--field); }
+
+  .ip-feature {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 1.6rem;
+    align-items: center;
+    padding: 1.1rem;
+    border-radius: var(--r);
+    background: var(--surface-2);
+    transition: background-color 0.18s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .ip-feature:hover { background: var(--field); transform: translateY(-2px); }
+  .ip-feature .ip-kicker { color: var(--accent-ink); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+  .ip-feature h2 { font-size: 1.9rem; margin: 0.35rem 0 0.4rem; }
+  .ip-feature p { margin: 0.6rem 0; }
+
+  .ip-rows { display: grid; gap: 0.5rem; }
+  .ip-row {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    gap: 1.1rem;
+    align-items: center;
+    padding: 0.7rem;
+    border-radius: var(--r);
+    background: var(--surface-2);
+    transition: background-color 0.18s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .ip-row:hover { background: var(--field); transform: translateX(3px); }
+  .ip-row h3 { font-size: 1.15rem; margin: 0 0 0.15rem; }
+  .ip-row p { margin: 0.25rem 0 0; font-size: 0.95rem; }
+
+  .ip-cite { color: var(--muted); font-size: 0.86rem; }
+  .ip-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.55rem; }
+  .ip-tag { font: 700 0.7rem/1 var(--font-body); padding: 0.32rem 0.6rem; border-radius: 99px; background: var(--field); color: var(--muted); white-space: nowrap; }
+  .ip-tag.new { background: var(--accent-soft); color: var(--accent-ink); }
+  .ip-tag.wip { background: var(--supp-soft); color: var(--supp-ink); }
+
+  .ip-make { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.5rem; }
+  .ip-make a { display: block; padding: 0.85rem 1rem; border-radius: var(--r); background: var(--surface-2); color: var(--text); text-decoration: none; transition: background-color 0.18s ease; }
+  .ip-make a:hover { background: var(--field); color: var(--text); }
+  .ip-make b { display: block; margin-bottom: 0.15rem; }
+  .ip-make span { color: var(--muted); font-size: 0.86rem; }
+
+  @media (max-width: 760px) {
+    .ip-feature { grid-template-columns: 1fr; gap: 0.9rem; padding: 0.8rem; }
+    .ip-feature h2 { font-size: 1.55rem; }
+    .ip-row { grid-template-columns: 7.2rem minmax(0, 1fr); gap: 0.8rem; padding: 0.55rem; }
+    .ip-row p { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .ip-feature, .ip-row { transition: none; } .ip-feature:hover, .ip-row:hover { transform: none; } }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Theme and page style" aria-haspopup="dialog" aria-expanded="false" aria-controls="look-menu"></button>
+
+<main class="ip-wrap">
+
+<header class="hero">
+  <div class="kicker">Papers, read with live figures</div>
+  <h1>Interactive Papers</h1>
+  <p class="lede">Each page walks through one mathematics paper, in the paper's own order and numbering, so you can read it with the PDF open beside it. Its figures run the paper's constructions in your browser and check its numbered statements live.</p>
+  <p class="ip-note">The round button at the top right sets light or dark and the page style (LaTeX, Modern, Book or Large print). The choice carries over to every paper built on the shared design.</p>
+</header>
+
+<a class="ip-feature" href="CannonModulus/">
+  <div class="ip-shot">
+    <img class="pv pv-l" src="previews/CannonModulus-light.webp" alt="Figure 1 of the Cannon page: a ball on the sphere at infinity and its image under an expansion" width="720" height="450">
+    <img class="pv pv-d" src="previews/CannonModulus-dark.webp" alt="" width="720" height="450">
+  </div>
+  <div>
+    <div class="ip-kicker">Newest</div>
+    <h2>Cannon's Conjecture</h2>
+    <div class="ip-cite">OpenAI, <em>A Modulus Proof of Cannon's Conjecture</em>, preprint, September 23, 2026</div>
+    <p>A hyperbolic group whose boundary is a $2$-sphere acts geometrically on $\HH^3$, because one combinatorial modulus stays bounded. The page follows the proof section by section: expansions, separating levels, the two contradictions.</p>
+    <div class="ip-tags"><span class="ip-tag new">shared design</span><span class="ip-tag">8 live figures</span><span class="ip-tag">preprint, not refereed</span><span class="ip-tag">November 2026</span></div>
+  </div>
+</a>
+
+<h2 class="ip-group" id="shared">On the shared design</h2>
+<p class="ip-group-sub">Built from the skill in <span class="mono">InteractivePapers.md</span>: a contents rail, reference links with previews, companion pages (definitions, notation, dependency graph, reading guide), and orange supplements for material that is not in the paper.</p>
+<div class="ip-rows">
+  <a class="ip-row" href="LPS/">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/LPS-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/LPS-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>Ramanujan Graphs</h3>
+      <div class="ip-cite">Lubotzky, Phillips, Sarnak · <em>Combinatorica</em> 8 (1988)</div>
+      <p>Integer quaternions of norm $p$ build explicit optimal expanders; the proof counts quaternions and rests on the Ramanujan conjecture in weight two.</p>
+      <div class="ip-tags"><span class="ip-tag new">the reference page</span><span class="ip-tag">13 live figures</span><span class="ip-tag">2 supplements</span><span class="ip-tag">refereed</span></div>
+    </div>
+  </a>
+</div>
+
+<h2 class="ip-group" id="october">October 2026 walkthroughs</h2>
+<p class="ip-group-sub">Scroll pages in the earlier house style, each on a preprint from OpenAI's September 2026 release, with exact figures.</p>
+<div class="ip-rows">
+  <a class="ip-row" href="cannon/">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/cannon-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/cannon-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>Cannon's Conjecture, by Modulus</h3>
+      <div class="ip-cite">OpenAI, <em>A Modulus Proof of Cannon's Conjecture</em> (2026)</div>
+      <p>The first walkthrough of the same preprint, with a WebGL zoom into the sphere at infinity of a reflection group.</p>
+      <div class="ip-tags"><span class="ip-tag">7 figures</span><span class="ip-tag">preprint</span><span class="ip-tag">October 2026</span></div>
+    </div>
+  </a>
+  <a class="ip-row" href="residual/">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/residual-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/residual-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>Hyperbolic, Not Residually Finite</h3>
+      <div class="ip-cite">OpenAI, <em>A torsion-free hyperbolic group that is not residually finite</em> (2026)</div>
+      <p>A finite triangle complex with very large links gives a hyperbolic group in which some element dies in every finite quotient.</p>
+      <div class="ip-tags"><span class="ip-tag">6 figures</span><span class="ip-tag">preprint, with a Lean development</span><span class="ip-tag">October 2026</span></div>
+    </div>
+  </a>
+  <a class="ip-row" href="catalan/">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/catalan-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/catalan-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>Catalan's Constant, by Determinants</h3>
+      <div class="ip-cite">OpenAI, <em>Catalan's constant is irrational</em> (2026)</div>
+      <p>Determinants that would be rational if Catalan's constant were get caught between an arithmetic floor and an analytic ceiling.</p>
+      <div class="ip-tags"><span class="ip-tag">7 exact figures</span><span class="ip-tag">preprint, with a Lean development</span><span class="ip-tag">October 2026</span></div>
+    </div>
+  </a>
+</div>
+
+<h2 class="ip-group" id="earlier">Earlier pages</h2>
+<p class="ip-group-sub">Each in its own style: a slide deck, guided tours, an overview and a transcript.</p>
+<div class="ip-rows">
+  <a class="ip-row" href="nonsofic/">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/nonsofic-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/nonsofic-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>A Non-Sofic Group</h3>
+      <div class="ip-cite">OpenAI, <em>Ten Advances in Mathematics and Theoretical Computer Science</em>, Chapter 3</div>
+      <p>The unit group of the binary Leavitt algebra is not sofic: a counterexample to the soficity conjecture, as a slide deck with embedded calculators.</p>
+      <div class="ip-tags"><span class="ip-tag">slide deck</span><span class="ip-tag wip">some widgets unfinished</span><span class="ip-tag">August 2026</span></div>
+    </div>
+  </a>
+  <a class="ip-row" href="brooksMatelski/">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/brooksMatelski-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/brooksMatelski-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>Two-Generator Subgroups of $\PSL(2,\mathbb C)$</h3>
+      <div class="ip-cite">Brooks, Matelski · Stony Brook conference 1978, published 1981</div>
+      <p>When a discrete two-generator group deforms into an indiscrete one, and how that question produced an early picture of the Mandelbrot set.</p>
+      <div class="ip-tags"><span class="ip-tag">guided tour</span><span class="ip-tag">May 2026</span></div>
+    </div>
+  </a>
+  <a class="ip-row" href="martelli/">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/martelli-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/martelli-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>The Martelli Manifold</h3>
+      <div class="ip-cite">Bruno Martelli's hyperbolic $5$-manifold</div>
+      <p>A hyperbolic $5$-manifold that fibers over the circle, built from $\mathbb Z[\zeta_5]$, an Anosov map, and the Hantzsche–Wendt and Ratcliffe–Tschantz manifolds.</p>
+      <div class="ip-tags"><span class="ip-tag">guided tour</span><span class="ip-tag">November 2025</span></div>
+    </div>
+  </a>
+  <a class="ip-row" href="superrigidity/">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/superrigidity-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/superrigidity-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>Margulis Superrigidity</h3>
+      <div class="ip-cite">G. A. Margulis</div>
+      <p>The main steps of the superrigidity theorem for irreducible lattices in higher rank: lattices and rank, proximal boundaries, the extension theorem.</p>
+      <div class="ip-tags"><span class="ip-tag">overview</span><span class="ip-tag">January 2026</span></div>
+    </div>
+  </a>
+  <a class="ip-row" href="jorgensen.html">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/jorgensen-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/jorgensen-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>Hyperbolic $3$-Manifolds Fibering over the Circle</h3>
+      <div class="ip-cite">T. Jørgensen, <em>Compact 3-manifolds of constant negative curvature fibering over the circle</em> (1977)</div>
+      <p>Jørgensen's paper, section by section: isometric hemispheres, the matrices, and the fibered manifolds they give.</p>
+      <div class="ip-tags"><span class="ip-tag">transcript</span><span class="ip-tag">June 2025</span></div>
+    </div>
+  </a>
+</div>
+
+<h2 class="ip-group" id="tools">Tools</h2>
+<div class="ip-rows">
+  <a class="ip-row" href="groupBuilder/">
+    <div class="ip-shot"><img class="pv pv-l" src="previews/groupBuilder-light.webp" alt="" loading="lazy" width="720" height="450"><img class="pv pv-d" src="previews/groupBuilder-dark.webp" alt="" loading="lazy" width="720" height="450"></div>
+    <div>
+      <h3>Matrix Group Builder</h3>
+      <div class="ip-cite">A tool, not a paper</div>
+      <p>Define a number ring by generators and relations, and two $2\times2$ matrices over it.</p>
+      <div class="ip-tags"><span class="ip-tag">tool</span><span class="ip-tag">December 2025</span></div>
+    </div>
+  </a>
+</div>
+
+<h2 class="ip-group" id="making">Making one</h2>
+<p class="ip-group-sub">How these pages are built, for anyone writing the next one.</p>
+<div class="ip-make">
+  <a href="https://github.com/nbrody/nbrody.github.io/blob/main/docs/InteractivePapers/InteractivePapers.md"><b>The skill</b><span>The process, the page markup, the figure contract and the decision log.</span></a>
+  <a href="template/"><b>The starter page</b><span>A complete small paper with one live figure, to copy.</span></a>
+  <a href="https://github.com/nbrody/nbrody.github.io/tree/main/docs/InteractivePapers/core"><b>The shared code</b><span>The stylesheet and the modules behind every control.</span></a>
+</div>
+
+</main>
+</body>
+</html>

@@ -1,5 +1,7 @@
 # Interactive Papers — Style Guide
 
+> **Superseded for new papers** by [`InteractivePapers.md`](InteractivePapers.md) (November 3, 2026), which uses the shared `interactivePaper.css` and `interactivePaper.js`. This guide still describes the October 2026 pages (`cannon/`, `residual/`, `catalan/`).
+
 An *interactive paper* is a long-form web page that walks a reader through one mathematical paper, section by section, with live figures for the mechanisms that carry the argument.
 
 **Reference implementation:** [`cannon/`](cannon/), a walkthrough of *A Modulus Proof of Cannon's Conjecture* (October 2026). When this guide and that page disagree, the page wins; update this guide.

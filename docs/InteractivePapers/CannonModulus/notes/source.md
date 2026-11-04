@@ -1,0 +1,9 @@
+# Source
+
+- **Paper:** OpenAI, *A Modulus Proof of Cannon's Conjecture*, preprint dated September 23, 2026, posted October 6, 2026 in the `openai/math` repository (commit `adc7f12`, folder `preprints/A-Modulus-Proof-of-Cannons-Conjecture-September-23-2026/`). 31 pages: an introduction, five sections of proof, a two-paragraph completion, consequences, 24 references.
+- **Link:** https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/A-Modulus-Proof-of-Cannons-Conjecture-September-23-2026/paper.pdf
+- **On disk (not published):** `~/Dropbox/Textbooks/Geometric Group Theory/OpenAI Cannon modulus proof/`: `paper.pdf`, the LaTeX source in `build/` (`main.tex`, `sections/01_geometry.tex` … `05_pairs.tex`, `figures/level-continuum.tex`, `figures/pair-cost.tex`, `bibliography.tex`), and `CannonGeometricAction.lean`. Downloaded November 3, 2026.
+- **Numbering:** taken from the compiled `.aux` (pdflatex, November 3, 2026). Statements share one counter per section; equations are numbered within sections; the paper has two figures.
+- **Status:** a preprint, not refereed as of November 3, 2026. The companion Lean file `lean/ComparatorChallenges/CannonGeometricAction.lean` states the theorem and ends in `sorry`: it is a comparator challenge, not a formal proof. Some sites have described the result as Lean-verified; it is not.
+- **Deep inputs:** Bonk–Kleiner's quasisymmetric uniformization (Invent. Math. 2002) through Bourdon–Kleiner's Corollary 3.5 (Groups Geom. Dyn. 2013); Sullivan's invariant conformal structure and Tukia's circumcenter (1978–1980); the measurable Riemann mapping theorem (Ahlfors–Bers). For the consequences: Agol (2013) and Bergeron–Wise (2012).
+- **Earlier page:** `../cannon/` (October 7, 2026) walks through the same paper in the older style. It stays as it is; this page replaces nothing.

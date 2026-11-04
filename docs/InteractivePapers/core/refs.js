@@ -9,7 +9,7 @@
 import { reveal } from './collapse.js';
 
 const KIND = String.raw`(Definitions?|Defs?\.|Lemmas?|Corollar(?:y|ies)|Cors?\.|Propositions?|Props?\.|Theorems?|Thms?\.|Remarks?|Rems?\.|Figures?|Figs?\.)`;
-const NUM = String.raw`\d+(?:\.\d+)?`;
+const NUM = String.raw`S?\d+(?:\.\d+)?`; // "Figure S2": supplement figures
 // groups: 1 kind, 2 space, 3 number list · 4 equation number, 5 prime · 6 section
 const RE = new RegExp(String.raw`\b${KIND}(\s+)(${NUM}(?:\s*(?:,|and|&|–)\s*${NUM})*)|\((\d+\.\d+)\)(′)?|§\s?(\d+)`, 'g');
 
@@ -48,7 +48,7 @@ function getIndex() {
 function resolve(m) {
   const idx = getIndex();
   if (m[1]) {
-    const kind = canonKind(m[1]), list = m[3], parts = [], numRe = /\d+(?:\.\d+)?/g;
+    const kind = canonKind(m[1]), list = m[3], parts = [], numRe = /S?\d+(?:\.\d+)?/g;
     let k, last = 0, first = true;
     while ((k = numRe.exec(list))) {
       const tg = idx.get(kind + ' ' + k[0]) || null;
@@ -65,7 +65,7 @@ function resolve(m) {
 
 function makeLink(text, target) {
   const a = document.createElement('a');
-  a.className = 'ref';
+  a.className = 'ref' + (target.closest && target.closest('.supp') ? ' supp-ref' : '');
   a.textContent = text;
   if (target.dataset.href) { a.href = target.dataset.href; a.dataset.external = '1'; }
   else a.href = '#' + target.id;

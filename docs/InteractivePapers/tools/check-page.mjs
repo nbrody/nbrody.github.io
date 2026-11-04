@@ -1,5 +1,6 @@
 // Headless check of an interactive paper.
 //   node docs/InteractivePapers/tools/check-page.mjs <url> [outDir]
+//   IP_STYLE=book node … checks a page style from the theme menu (latex, modern, book, large)
 // Loads the page at desktop (1280) and phone (390, mobile) widths in light and dark,
 // scrolls every figure into view so it mounts, and reports:
 //   console errors and exceptions, MathJax errors, page width vs viewport,
@@ -13,6 +14,7 @@ import { join } from 'node:path';
 
 const url = process.argv[2];
 const outDir = process.argv[3] || join(tmpdir(), 'ip-check');
+const STYLE = process.env.IP_STYLE || '';
 if (!url) { console.error('usage: node check-page.mjs <url> [outDir]'); process.exit(2); }
 mkdirSync(outDir, { recursive: true });
 
@@ -85,6 +87,14 @@ async function main() {
     }
     await evaluate(`MathJax.startup.promise.then(() => true)`);
     await evaluate(`try { localStorage.removeItem('ip-theme'); } catch (e) {}; delete document.documentElement.dataset.theme; document.documentElement.style.scrollBehavior = 'auto'; true`);
+    if (STYLE) await evaluate(`window.ipLook ? window.ipLook.set('auto', ${JSON.stringify(STYLE)}) : (document.documentElement.dataset.style = ${JSON.stringify(STYLE)}); true`);
+    // supplements (material not in the paper) start closed behind a button: open them so their figures are checked too
+    // wait until the page has wired its supplement buttons (they get aria-controls), or clicks are lost
+    for (let i = 0; i < 60; i++) {
+      if (await evaluate(`[...document.querySelectorAll('.supp-toggle')].every((b) => b.hasAttribute('aria-controls'))`)) break;
+      await sleep(100);
+    }
+    const supps = await evaluate(`(() => { const b = [...document.querySelectorAll('.supp-toggle[aria-expanded="false"]')]; b.forEach((x) => x.click()); return b.length; })()`);
     const ids = await evaluate(`[...document.querySelectorAll('figure.fig')].map(f => f.id)`);
     for (const id of ids) {
       await evaluate(`document.getElementById(${JSON.stringify(id)}).scrollIntoView({ block: 'start' }); true`);
@@ -106,7 +116,7 @@ async function main() {
       unlinked: (() => {
         const kinds = { def: 'Definition', lem: 'Lemma', cor: 'Corollary', pro: 'Proposition', the: 'Theorem', thm: 'Theorem', rem: 'Remark', fig: 'Figure' };
         const has = (key) => [...document.querySelectorAll('[id][data-ref], [id][data-alias]')].find(e => e.dataset.ref === key || (e.dataset.alias || '').split('|').includes(key));
-        const RE = /\\b(Definitions?|Defs?\\.|Lemmas?|Corollar(?:y|ies)|Cors?\\.|Propositions?|Props?\\.|Theorems?|Thms?\\.|Remarks?|Figures?|Figs?\\.)\\s+(\\d+(?:\\.\\d+)?)|\\((\\d+\\.\\d+)\\)/g;
+        const RE = /\\b(Definitions?|Defs?\\.|Lemmas?|Corollar(?:y|ies)|Cors?\\.|Propositions?|Props?\\.|Theorems?|Thms?\\.|Remarks?|Figures?|Figs?\\.)\\s+(S?\\d+(?:\\.\\d+)?)|\\((\\d+\\.\\d+)\\)/g;
         const EX = 'a, h1, h2, h3, .label, .fig-head, .rail, mjx-container, button, .cv-labels, .ref-pop, script, style';
         const out = [], w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
         while (w.nextNode()) {

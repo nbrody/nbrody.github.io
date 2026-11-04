@@ -1,6 +1,6 @@
 // Figure 4 — Proposition 4.2 / 4.3: the spectrum of X^{p,q} against Kesten's density μ_{p+1},
 // and the moments (1/n)Σλ^l against the tree's closed-walk counts ρ(l), equal below the girth (4.4).
-import { el, makeCanvas, labelLayer, setTex, chips, controls, palette, onTheme, fmt, ticks, rgba } from './common.js';
+import { el, cssVar, makeCanvas, labelLayer, setTex, chips, controls, palette, onTheme, fmt, ticks, rgba } from './common.js';
 import { kestenDensity, treeClosedWalks, lambdaX, legendre, girth, buildX } from './lps.js';
 import { getSpectrum, SPECTRUM_PAIRS } from './spectrum.js';
 
@@ -172,7 +172,7 @@ export function mount(root) {
     ctx.strokeStyle = P.muted;
     ctx.beginPath(); ctx.moveTo(X0, Y0 + 0.5); ctx.lineTo(X1, Y0 + 0.5); ctx.stroke();
     ctx.fillStyle = P.muted;
-    ctx.font = '11px "Atkinson Hyperlegible", system-ui, sans-serif';
+    ctx.font = `11px ${cssVar('--font-body')}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (const t of ticks(-xmax, xmax, w < 520 ? 5 : 8)) {

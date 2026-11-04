@@ -1,19 +1,37 @@
-# Interactive Papers: from paper to website
+# Interactive Papers
 
-*Working protocol, started November 2, 2026. Status: draft, being tested on LPS.*
+*How we turn a mathematics paper into an interactive web page. Revised November 3, 2026, after building LPS. The reference implementation is [`LPS/`](LPS/).*
 
-This file describes how we turn a mathematics paper into an interactive web page. For now it is a hypothesis. We will build one paper, Lubotzky–Phillips–Sarnak's *Ramanujan graphs* (1988), until we are happy with it. Then we will write down what we liked and turn this file into a reusable Claude Code skill.
+An interactive paper is one long web page that walks a reader through one paper, in the paper's own order and numbering, with live figures for the steps that carry the argument. Every paper shares one design system and one set of page controls, so a reader who has used one knows them all.
 
-**Companion files**
+**Contents:** [0. Quick start](#0-quick-start) · [1. What we are making](#1-what-we-are-making) · [2. The pipeline](#2-the-pipeline) · [3. The page](#3-the-page) · [4. The global controls](#4-the-global-controls) · [5. Look](#5-look) · [6. Figures](#6-figures) · [7. Writing](#7-writing) · [8. Verification](#8-verification) · [9. Publishing](#9-publishing) · [10. The papers](#10-the-papers) · [11. Decision log](#11-decision-log)
 
-- [`README.md`](README.md) is the current style guide, written on October 7, 2026 from the `cannon/` page. It covers markup, CSS tokens, the figure-module contract and the verification checklist. This file covers the *process* and the *open decisions*. When LPS is done, the two merge into the skill.
-- `~/Dropbox/Code/private/tasteLab/profile/taste.md`, section "Interactive papers & lessons", records Nic's design taste as measured by Taste Lab (October 31, 2026). It disagrees with `README.md` in several places (see §5.2).
+---
+
+## 0. Quick start
+
+| File | What it is |
+|---|---|
+| [`interactivePaper.css`](interactivePaper.css) | The design system and every global control: tokens, the four page styles, light/dark, type, statement boxes, figures and their controls, the contents rail, reference previews, collapsible sections, supplements, the style menu, the companion pages. Every paper links it first. |
+| [`interactivePaper.js`](interactivePaper.js) | `initPaper(config)`: wires all of the above into a page. |
+| [`core/`](core/) | The modules behind it: `common.js` (figure helpers), `refs.js`, `collapse.js`, `look.js`, `companions.js`. |
+| [`template/`](template/) | A complete small paper to copy: page skeleton, colour roles, `main.js`, `companions-data.js`, one figure and its node test. It loads and passes the page check as is. |
+| [`tools/check-page.mjs`](tools/check-page.mjs) | Headless check of a finished page in every mode (§8). |
+| [`index.html`](index.html) | The index of all papers: one featured paper, then rows with preview stills that follow light and dark. Add every new paper here (§9). |
+| [`tools/make-previews.mjs`](tools/make-previews.mjs) | Photographs each paper's signature figure, light and dark, into `previews/<slug>-{light,dark}.webp` for the index. |
+| [`LPS/`](LPS/) | The reference paper: 13 figures, 2 supplements, 6 companion pages. When this file and LPS disagree, LPS wins; update this file. |
+
+To start a paper:
+
+1. Copy `template/` to `<Slug>/`. Use a short folder name that names the paper (`LPS`, `CannonModulus`).
+2. Run the pipeline in §2. Each stage leaves a file in `<Slug>/notes/`, so a later session can pick up where one stopped.
+3. Serve the repo root (any static server; we use a Python `ThreadingHTTPServer` on port 8847 with `Cache-Control: no-store`) and open `http://localhost:8847/docs/InteractivePapers/<Slug>/`.
+
+[`README.md`](README.md) is the older style guide, written from the October 2026 `cannon/` page. It still describes `cannon/`, `residual/` and `catalan/`. New papers follow this file.
 
 ---
 
 ## 1. What we are making
-
-An interactive paper is a long-form web page that walks a reader through one paper, in the paper's own order, with live figures for the steps that carry the argument.
 
 What a reader should feel, in Nic's words from Taste Lab: *"Intrigued, inspired, satisfied, motivated."*
 
@@ -22,224 +40,469 @@ A paper is done when:
 1. A reader understands the statement, the shape of the proof, and where the weight sits, faster than from the PDF alone.
 2. Every figure computes something true about the paper's actual objects and checks it live.
 3. Nothing on the page misstates the paper. Every numbered statement has been checked against the source.
-4. It works on a phone, in light and dark mode, with no console errors.
+4. It works on a phone, in light and dark, in every page style, with no console errors.
+
+**Principles**
+
+1. **The paper is the spine.** The page's sections are the paper's sections, with the same titles, numbers, and statement and equation numbers, even where the numbering collides (LPS has both a Lemma 4.4 and a Theorem 4.4). A reader with the PDF open always knows where they are.
+2. **Honest framing first.** A context box says where and when the paper appeared, whether it is refereed, whether anything is formally verified, and what deep inputs it rests on. A Lean file that ends in `sorry` is a statement, not a proof.
+3. **The paper's own route.** Explain the proof the paper gives, with the paper's attributions, not the route later textbooks take. Say so when a modern gloss differs.
+4. **Explain, don't transcribe.** Restate in your own words. Formulas may be reproduced; prose may not.
+5. **Every figure computes something real** and checks it live. Figures are models, not proof; say so once in the context box and once in the footer.
+6. **What is not in the paper is marked.** Primers, asides and new pictures go behind an orange Supplement button (§3.8).
+7. **Neutral voice.** Present tense, third person ("the paper shows"), no "I". Point to load-bearing steps without inventing criticism. Correct slips quietly (§3.6).
 
 ---
 
-## 2. The plan
+## 2. The pipeline
 
-1. **Build LPS until we are happy with it.** Run the draft pipeline (§4) on LPS. Each time we make a choice or change our minds, add a line with the reason to the decision log (§6.6).
-2. **Review.** Read the log and the finished page. Sort what we liked into three piles: rules for every paper, defaults that can be overridden, and things specific to LPS.
-3. **Write the skill** (§7): the pipeline with its check-ins, a refreshed style guide, a starter template and the check scripts.
-4. **Test the skill on a second paper** in a fresh session that has only the skill. Compare the result with LPS and fix whatever the skill gets wrong.
-
----
-
-## 3. What exists already
-
-| Page | Paper | Format | Built | Notes |
-|---|---|---|---|---|
-| `cannon/` | OpenAI, *A Modulus Proof of Cannon's Conjecture* | scroll page, 7 inline figures | Oct 2026 | reference implementation for `README.md` |
-| `residual/` | OpenAI, torsion-free hyperbolic group that is not residually finite | scroll page, 6 figures | Oct 2026 | |
-| `catalan/` | OpenAI, Catalan's constant is irrational | scroll page, 7 exact figures | Oct 2026 | figures recompute the paper's tables in BigInt |
-| `nonsofic/` | OpenAI, a non-sofic group (book chapter) | reveal.js 2D deck plus standalone embeds and a calculator | Aug 2026 | several widgets are still placeholders |
-| `LPS/` | Lubotzky–Phillips–Sarnak, *Ramanujan graphs* | reveal.js deck plus 4 iframe apps | Oct 28, 2026 | untracked; see §6.4 |
-| `brooksMatelski/` | Brooks–Matelski, 2-generator subgroups of PSL(2,ℂ) | dark page with canvases | May 2026 | an older `brooksmatelski.html` and a Dropbox conflicted copy sit beside it |
-| `martelli/` | the Martelli manifold | light page with canvases | Nov 2025 | |
-| `superrigidity/` | Margulis superrigidity | short overview page | Jan 2026 | |
-| `jorgensen.html` | Jørgensen's inequality | single page | Jun 2025 | |
-| `groupBuilder/` | (none) | a matrix-group tool | Dec 2025 | a tool, not a paper |
-
-No page on the site links to the October papers yet. Only `.claude/launch.json` points at them.
-
-**Lessons so far**
-
-- The three October scroll pages were quick to build from the README and look consistent. Their figures use exact arithmetic (BigInt, exact Möbius maps) and were tested in node.
-- The decks (`nonsofic`, `LPS`) read like talks. They tell a good story, but they are hard to read with the PDF open beside them, and they drop the paper's numbering.
-- Standalone apps in iframes are reusable as tools. But each one brings its own style and state, and the page cannot talk to them without a postMessage contract.
-- Gotchas worth keeping (details in `README.md` §8–9 and in memory): write `\lt` instead of `<` inside math; tagged displays force a minimum width on phones; a hidden preview pane freezes `requestAnimationFrame` and `IntersectionObserver`, so verify with headless Chrome over CDP; smooth scrolling stops figures from mounting during CDP checks; LaTeX source is far better than parsing a PDF when it exists.
-
----
-
-## 4. Draft pipeline
-
-Each stage leaves a file behind, so a later session can pick up where the last one stopped. Stages marked ◆ end with a check-in with Nic before going on.
+Stages marked ◆ end with a check-in with Nic before going on.
 
 ### Stage 0: Intake
 
-- Find the best source. In order of preference: arXiv LaTeX, a publisher PDF with a real text layer, a scan. A scan's OCR layer is good enough to find the structure but garbles the math, so read statements from the page images.
-- Record the full citation, where the source lives on disk, the date and venue, whether it is refereed, and any formal verification. A Lean file that ends in `sorry` is a statement, not a proof.
-- Keep copyrighted PDFs out of the published folder, because the repo is public on GitHub Pages. Link to the publisher or arXiv instead. (`nonsofic/` currently ships a chapter PDF.)
-- **Leaves:** `<slug>/notes/source.md`.
+- Find the best source. In order of preference: arXiv or preprint LaTeX, a publisher PDF with a real text layer, a scan. A scan's OCR finds the structure but garbles math, so read statements from the page images.
+- Keep source files out of the published folder: the repo is public on GitHub Pages. Put them under `~/Dropbox/Textbooks/…` and link to the publisher, arXiv or the repository instead.
+- Record the full citation, where the source lives on disk, the date and venue, whether it is refereed, and any formal verification.
+- **Leaves:** `notes/source.md`.
 
 ### Stage 1: Read and outline ◆
 
 - Read the whole paper before writing anything.
-- Write `notes/outline.md` with:
+- Write `notes/outline.md`:
   - the section tree, with page numbers;
-  - every numbered statement and equation, transcribed in LaTeX, with its page. Keep the paper's numbering even where it collides (LPS has both a Lemma 4.4 and a Theorem 4.4);
-  - a dependency graph: which statement uses which;
-  - for each step, whether it is new, a classical input, or routine;
+  - every numbered statement and equation, transcribed in LaTeX, with its page;
+  - a dependency graph: which statement uses which (this becomes the companion page's `DEP_NODES`);
+  - for each step: new, a classical input, or routine; whom the paper credits for each input;
   - where each hypothesis is first used;
-  - **the paper's own proof route**, not the route later textbooks take. Also note whom the paper credits for each input.
-- **Check-in:** Nic reads the outline. Is this the right story, and the right level?
+  - slips in the source, each with the intended reading and a check;
+  - the paper's own proof route.
+- Recompute anything that can be recomputed (small cases, constants, identities) in a script under `notes/checks/`. LPS found three print slips this way.
+- **Check-in:** is this the right story, at the right level?
 
 ### Stage 2: Spine and map
 
-- The page's sections are the paper's sections, with the same titles and numbers.
-- Decide what comes before the paper's §1: the background a reader needs, kept short and marked as background.
-- Draw the "proof at a glance" map (`README.md` §5).
-- Write the status or context box (§5.5).
+- The page's `h2` sections are the paper's sections. Decide what goes in "Before the paper" (background the reader needs, short) and in "Afterwards" (what came next).
+- Draw the proof-at-a-glance map (§3.7) and write the context box (§3.3).
+- Plan the companion pages from the outline: definitions, notation, cited results, slips, the dependency graph, the reading guide (§4.6).
 
 ### Stage 3: Figure plan ◆
 
-- List candidate figures. For each, write down:
-  - the numbered statement it illustrates;
-  - what it computes, exactly;
-  - its live check: an identity or inequality that turns green;
-  - its default state, which must already show the phenomenon on load;
-  - its presets, including the case where a hypothesis fails.
-- Rank the candidates and keep 5–8.
-- Write the math for each figure as a pure module and test it in node before building any UI.
-- **Leaves:** `notes/figures.md`. **Check-in:** Nic approves the figure list.
+- For each candidate figure, write down: the numbered statement it illustrates; what it computes, exactly; its live check (an identity or inequality that turns green); its default state, which must already show the phenomenon on load; its presets, including the case where a hypothesis fails.
+- Keep the 5–8 that carry the argument. Anything not in the paper (a primer figure, a picture the paper doesn't draw) is a supplement figure, numbered S1, S2, … so the paper's figure numbers never move.
+- Write each figure's math as a pure exported function and test it in node before building any UI.
+- **Leaves:** `notes/figures.md`. **Check-in:** Nic approves the list.
 
 ### Stage 4: Write the prose
 
-- Write the prose, statement boxes and figure shells with full captions (`README.md` §3–4).
-- After every statement box, write one paragraph: what it says, and why the argument needs it.
+- Prose, statement boxes, equations, figure shells with full captions (§3, §7).
+- After every statement box, one paragraph: what it says, and why the argument needs it.
+- Fill `js/companions-data.js`.
 
 ### Stage 5: Build the figures
 
-- Follow the module contract in `README.md` §6.
+- One ES module per figure, following §6. Independent figures can be built in parallel by subagents; give each one the module contract, the colour roles, the statement it checks, and its test file.
 
 ### Stage 6: Verify ◆
 
-- Run the `README.md` §9 checklist: node tests, no console errors, light and dark, 390px phone width over CDP, every control moved to both ends.
+- Node tests, the `\lt` check, and `tools/check-page.mjs` in all four styles (§8).
 - **Accuracy pass:** read the paper and the page side by side. Check each numbered statement. Recompute or cite each number on the page.
 - **Check-in:** Nic reads the finished page.
 
 ### Stage 7: Publish
 
-- List the paper wherever the site lists interactive papers (to decide, §5.6), with a preview still.
-- Commit only this paper's paths, since other sessions share the working tree.
+- Add the paper to [`index.html`](index.html): a row in its group (or the featured slot, moving the previous one into the list), with an entry in `PREVIEWS` in `tools/make-previews.mjs` naming its signature figure. Run `node docs/InteractivePapers/tools/make-previews.mjs <baseUrl> <Slug>`.
+- Commit only this paper's paths (with its previews and the index) and push (§9).
 
 ---
 
-## 5. Open decisions, to settle on LPS
+## 3. The page
 
-Each decision lists the options and a recommendation. Record the outcome in §6.6.
+Start from [`template/index.html`](template/index.html). Everything below is plain HTML in that one file; the shared code finds it by class and attribute.
 
-### 5.1 Format
+### 3.1 Head
 
-- **A. Scroll page** (`README.md`; cannon, residual, catalan).
-- **B. Deck** (LPS today, nonsofic).
-- **C. Both:** a scroll page for reading, with the deck kept separately as a talk.
+In this order:
 
-**Decided (November 2, 2026): C, with the scroll page as the interactive paper.** The paper-as-spine principle needs a page someone can read with the PDF open. Taste Lab already treats talk slides as a separate context with its own style. The scroll page takes `LPS/index.html`. (The old deck first moved to `LPS/talk/`; once the new page was built, Nic had it deleted along with the old apps.)
+1. The Google Fonts link for the other styles (Atkinson Hyperlegible, EB Garamond, JetBrains Mono, Playfair Display). Latin Modern, the LaTeX font, comes from `interactivePaper.css`.
+2. `<link rel="stylesheet" href="../interactivePaper.css">`, then the paper's own `style.css`.
+3. The early script that applies the saved light/dark mode and page style before first paint, and preloads Latin Modern when the style is LaTeX. Copy it as is.
+4. The MathJax config: the paper's macros (`\PSL`, `\Z`, `\leg`, …), `skipHtmlTags` including `canvas`, and **`chtml: { scale: 1, matchFontHeight: false }`**. Math size comes from the style's `--math-size` token, which MathJax's own matching cannot follow when the reader changes style.
+5. MathJax 3.2.2 from jsDelivr (`defer`).
+6. An importmap, only if a figure uses three.js (`"three": "https://unpkg.com/three@0.160.0/build/three.module.js"`).
+7. `<script type="module" src="js/main.js">`.
 
-### 5.2 Visual style
+`js/main.js` is one call:
 
-| | `README.md` (cannon) | `taste.md`, Papers (Oct 31) | LPS today |
-|---|---|---|---|
-| Default mode | light: warm paper `#fbfaf7` | dark: dim slate `#2b3138` | near-black `#07090f` |
-| Body font | Source Serif 4, ~17px, line height 1.62 | Atkinson Hyperlegible, 19px, line height 1.40 | Inter |
-| Headings | Source Serif 4 | Playfair Display, 600 | Inter |
-| UI font | Inter | (not set; Inter is on the Avoid list as a *body* font) | Inter |
-| Accent | blue `#2f5fd0`, vermillion `#cf5427` | cobalt `#2f6fde`, teal `#008497`, violet `#9c68dc` | cyan `#64e0ff`, orange `#ffb86b` |
-| Figures | framed cards with a soft shadow | unframed, caption below (untested) | full-bleed apps |
-| Avoid list hits | close to "Academic / LaTeX" | none | close to "Glass / dark sci-fi" |
+```js
+import { initPaper } from '../../interactivePaper.js';
+import * as companions from './companions-data.js';
+initPaper({
+  subtitle: 'Lubotzky · Phillips · Sarnak, 1988',   // under the title in the contents panel
+  filterHint: 'Jump to… (e.g. 4.15, girth)',        // the contents filter's placeholder
+  companions,                                       // optional
+  modules: { tree: () => import('./fig-tree.js') }, // figure modules by data-fig
+});
+```
 
-**Decided (November 2, 2026): build LPS on the `taste.md` Papers tokens**, since they are newer and measured (see the decision log). Keep the README's structural classes (`.thm`, `.key`, `.classical`, `.map`, the figure contract) and the light/dark toggle, with light mode as the alternative. After the first draft, compare it side by side with `cannon/` before committing to it.
+### 3.2 Body
 
-### 5.3 Figures: inline modules or iframe apps
+```html
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Theme and page style"
+        aria-haspopup="dialog" aria-expanded="false" aria-controls="look-menu"></button>
+<div class="rail" id="rail"></div>
+<main class="paper">
+  <header class="hero">…</header>
+  <section><h2 id="before" data-nav="Before the paper">Before the paper <span class="tag">background</span></h2> …</section>
+  <section><h2 id="s1" data-nav="Introduction"><span class="secnum">1.</span>Introduction</h2> …</section>
+  …
+  <section><h2 id="after">Afterwards</h2> … <h2 id="refs">References</h2> <ol class="refs">…</ol>
+    <footer class="end">…</footer></section>
+</main>
+```
 
-**Decided (November 2, 2026): inline figure modules**, as in `README.md`, with all math rewritten in `LPS/js/lps.js` and tested in node. The old standalone apps were deleted rather than linked.
+- One `<section>` per paper section; `h2[id]` with `<span class="secnum">N.</span>` for numbered sections and `<span class="tag">background</span>` for the unnumbered parts.
+- `h3[id]` for subsections. **Subsection titles are unnumbered** unless the paper numbers them (in LPS, "4.3" would collide with Proposition 4.3).
+- `data-nav` gives a heading's label in the contents rail when the heading text is long or holds markup. It may contain `$…$`.
+- `.wide` lets a block (figure, map, table) be wider than the reading column, up to 58rem.
 
-### 5.4 Reader and background
+### 3.3 Hero and context box
 
-**Recommendation:** write for a graduate student in geometry, group theory or number theory. Put the background (expanders, the Cheeger constant, Alon–Boppana, quaternions mod $q$) in a short "Before the paper" part, then follow the paper. Put the history (Margulis, Morgenstern, Friedman, Marcus–Spielman–Srivastava) in a short "Afterwards" section after the reading guide.
+```html
+<header class="hero">
+  <div class="kicker">Interactive paper</div>
+  <h1>Ramanujan Graphs</h1>
+  <div class="byline">Authors · <em>Venue</em> volume (year), pages</div>
+  <p class="lede">Three or four sentences: the objects, the result, the one idea.</p>
+  <div class="context"><span class="label">Context</span><p>…</p><p>…</p></div>
+</header>
+```
 
-### 5.5 The status box for a classical paper
+The context box gives dates and venue, refereed or not, formally verified or not, the deep inputs, and the line "figures are models, not proof" with a pointer to the contents rail. For a recent preprint, lead with its status; for a classical paper, lead with what it rests on.
 
-The status box was designed for 2026 preprints: is it refereed, and is it formally verified? For a 1988 refereed paper those questions are settled.
+### 3.4 Numbered items
 
-**Recommendation:** use a **context box** instead: venue and dates, the deep inputs the result rests on (for LPS, the Ramanujan–Petersson bound for weight-2 cusp forms, which the paper credits to Eichler and Igusa via Weil), and one line on what the result is used for today. Keep the line "figures are models, not proof".
+Any element with an `id` and a `data-ref` is a numbered item. An equation numbered inside a statement box (a `\tag` in the box's own display) gets no element of its own: list it in the box's `data-alias` (`data-alias="(2.2)|(2.3)"`), so references to it preview the statement. It becomes a target for reference links, gets a hover preview, and appears in the contents rail.
 
-### 5.6 Smaller questions
-
-- **Where papers are listed.** No index page links to them yet. Either add an "Interactive papers" page or put them on an existing index with preview stills (the tool-card preview pipeline).
-- **Vendoring.** The old LPS deck vendored reveal.js, MathJax and three.js to work offline. The new page loads MathJax from the CDN, like the README's pages, and needs nothing else. Vendor only for a talk that must run offline.
-- **Working notes.** `notes/` gets published with the site. That is fine for outlines and figure plans, as long as nothing copyrighted goes in it.
-
----
-
-## 6. LPS: the first paper
-
-### 6.1 Source
-
-- A. Lubotzky, R. Phillips, P. Sarnak, *Ramanujan graphs*, Combinatorica **8** (3) (1988), 261–277. Received June 25, 1986; revised August 5, 1987.
-- On disk: `~/Dropbox/Textbooks/Geometric Group Theory/Lubotzky Phillips Sarnak - Ramanujan Graphs.pdf`. It is a 17-page scan with an OCR layer. PyMuPDF extracts the text well enough to find the structure, but formulas come out garbled.
-- For checking (not as the spine): Davidoff–Sarnak–Valette, *Elementary Number Theory, Group Theory, and Ramanujan Graphs*, in `~/Dropbox/Textbooks/Number Theory/`.
-
-**Stages 0–6 have a first pass** (November 2, 2026): the new scroll page `LPS/index.html` with all prose, the link-tree rail and eight live figures, checked by `tools/check-page.mjs` (desktop/phone × light/dark, all clean). Waiting on Nic's read-through. Earlier notes: [`LPS/notes/source.md`](LPS/notes/source.md) (citation, deep inputs, slips in the printed paper, numerical checks) and [`LPS/notes/outline.md`](LPS/notes/outline.md) (every numbered item transcribed from the page images, dependencies, hypotheses, where the weight sits, proposed page spine). The tables below were the first pass; the notes supersede them.
-
-### 6.2 Structure (first pass)
-
-| § | Title | Numbered items |
+| Attribute | Example | Meaning |
 |---|---|---|
-| 1 | Introduction | Definition 1.1 (Ramanujan graph); (1.1) the Alon–Boppana bound; (1.2) Jacobi's four-square count $r_4(n)=8\sum_{d\mid n,\,4\nmid d} d$; the representation numbers $r_Q(n)$ of a quaternary form |
-| 2 | Construction of $X^{p,q}$ | the $p+1$ generators from $p=a_0^2+a_1^2+a_2^2+a_3^2$, $a_0>0$ odd, $a_1,a_2,a_3$ even; Cayley graphs of $\mathrm{PSL}_2(\mathbb F_q)$ or $\mathrm{PGL}_2(\mathbb F_q)$ according to the Legendre symbol $\left(\frac pq\right)$ |
-| 3 | Quaternions | Lemma 3.1 (unique factorization of quaternions of norm $p^k$); Corollary 3.2 (the unique reduced form, which makes $\Lambda(2)$ free and its Cayley graph a $(p+1)$-regular tree); Proposition 3.3 (the image mod $q$ is $\mathrm{PSL}_2$ or $\mathrm{PGL}_2$, by the Legendre symbol); Theorem 3.4 (girth: $\ge 4\log_p q - \log_p 4$ or $\ge 2\log_p q$) |
-| 4 | Spectrum of $X^{p,q}$ | Theorem 4.1 ($X^{p,q}$ is Ramanujan); Proposition 4.2 (Alon–Boppana, by counting closed walks); Proposition 4.3 (the spectral measure tends to the Kesten measure when the girth tends to infinity); identities (4.14)–(4.16); Lemma 4.4; Theorem 4.4 (the graphs $Y^{p,q}$ on $q+1$ vertices) |
-| 5 | Diameter and other quantities | Theorem 5.1 ($\operatorname{diam} X^{p,q} \le 2\log_p n + 2\log_p 2 + 1$); Proposition 5.2 (Alon: independence number of a non-bipartite Ramanujan graph, hence a chromatic-number bound) |
+| `data-ref` | `"Theorem 4.1"`, `"(4.15)"`, `"Figure 5"`, `"Figure S2"` | how prose refers to it |
+| `data-title` | `"the trace identity"` | a short name, shown in the rail and the preview |
+| `data-alias` | `"Remark 2\|the remark"` | more names, separated by `\|` |
+| `data-href` | `"../other/#thm-1"` | on an empty element: a target on another page |
 
-### 6.3 How the paper proves Theorem 4.1 (first-pass summary)
+**Ids:** `thm-4-1`, `lem-3-1`, `prop-3-3`, `cor-3-2`, `def-1-1`, `eq-4-15`, `fig-<name>`. Kinds the linker knows: Definition, Lemma, Corollary, Proposition, Theorem, Remark, Figure (with abbreviations and plurals: "Props. 4.2, 4.3", "Lemmas 3.1 and 3.2"), equation numbers "(4.15)" and "(3.2)′", and "§3" for any `h2` with a `.secnum`.
 
-1. **Harmonic analysis on the tree.** Write each nontrivial eigenvalue of $X^{p,q}$ as $\lambda_j = 2\sqrt p\cos\theta_j$. The graph is Ramanujan exactly when every $\theta_j$ is real.
-2. **Counting quaternions.** By Corollary 3.2, the integer quaternions of norm $p^k$ whose imaginary parts are divisible by $2q$ correspond to elements of $\Lambda(2q)$ that move a vertex a distance $k, k-2, k-4,\dots$ (identity (4.14)). Their number is $r_Q(p^k)$, the number of representations of $p^k$ by $Q = x_1^2 + 4q^2(x_2^2+x_3^2+x_4^2)$.
-3. **The trace identity (4.15).** Summing a point-pair function over the quotient gives
-   $$r_Q(p^k) \;=\; \frac{2p^{k/2}}{n}\sum_{j=0}^{n-1}\frac{\sin (k+1)\theta_j}{\sin\theta_j}.$$
-   Both sides are integers we can compute exactly for small $p$ and $q$. **Confirmed in Stage 1:** the identity holds exactly for four $(p,q)$ pairs and $k\le6$ (`LPS/notes/checks/lps415.py`).
-4. **Theta series.** $r_Q(n)$ is the $n$-th coefficient of the theta series of $Q$. That series is an Eisenstein part (the "singular series" $C(n)$) plus a cusp form. The cusp part is $O(n^{1/2+\varepsilon})$ by the Ramanujan–Petersson bound, which the paper credits to Eichler and Igusa. This gives (4.16).
-5. **Lemma 4.4**, about divisor sums $\sum_{d\mid p^k} d\,G(d)$ with periodic $G$, shows that the Eisenstein part accounts only for the trivial eigenvalues. So no eigenvalue can sit strictly between $2\sqrt p$ and $p+1$ in absolute value.
+### 3.5 Statement boxes, equations, proofs
 
-The old deck explained this step through Hecke operators and weight-2 modular forms, and credited the bound to "Eichler and Deligne". That is a fair modern gloss, but it is not the paper's route or its attribution.
+```html
+<div class="thm" id="lem-3-1" data-ref="Lemma 3.1"><span class="label">Lemma 3.1 <span class="who">(Gerritzen–van der Put)</span>.</span> …</div>
+<div class="thm key" …>        <!-- a load-bearing new step: about one per section -->
+<div class="thm classical" …>  <!-- a result imported from the literature -->
+<div class="eq" id="eq-4-15" data-ref="(4.15)" data-title="counting is a trace">$$ … \tag{4.15}$$</div>
+<details class="proof"><summary>Proof</summary> … </details>   <!-- or "Proof idea", or a specific label -->
+<div class="note" id="why-real"><span class="label">Why every θ is real</span> … </div>
+```
 
-### 6.4 What was in `LPS/` before the rewrite
+### 3.6 Slips in the source
 
-**Now (November 2, 2026):** `index.html`, `style.css`, `js/` (math, worker, rail, eight figures), `tests/`, `notes/`. The old version described below was moved to the macOS Trash (`~/.Trash/LPS-old-deck-2026-11-02`) at Nic's request; it was never in git.
+A slip gets a quiet note right after the corrected statement, and an entry in the Print slips companion page:
 
-The old version was built October 28, 2026, untracked:
+```html
+<p class="slip">The sum is printed over $r\lt k/2$. It must include $r=k/2$ …</p>
+```
 
-- `index.html` was a reveal.js deck with seven stacks: the problem, the spectral formulation, the construction, the tree, why Ramanujan, afterwards, references. reveal.js, MathJax and three.js are vendored in `vendor/`.
-- `apps/` held four standalone apps that shared `apps/common.css` (near-black, Inter, cyan and orange):
-  - **Expander Builder.** `lps.js` builds the generators and both graphs. It has a three.js force layout and computes the spectrum in a worker.
-  - **Mixing Lab.** A random walk from one vertex, on $Y^{p,q}$ and on graphs with a worse gap.
-  - **Quaternion Forge.** The four-square solutions, their reductions mod $q$, and the checks the generating set must pass.
-  - **Tree Walker.** Walks in the free group on the tree, and the shortest word that dies mod $q$.
-- **Gaps against `README.md`:**
-  - It does not follow the paper's sections or numbering.
-  - It has no status or context box.
-  - The §4 explanation does not follow the paper's route (§6.3).
-  - Its style matches neither `README.md` nor `taste.md`.
+The page states the intended reading in the box itself; the note says what is printed. CSS adds "In print:" in front.
 
-### 6.5 Candidate figures (rank in Stage 3)
+### 3.7 The proof at a glance
 
-| Statement | Figure | Live check | Existing code |
+HTML, not SVG, so it reflows on phones:
+
+```html
+<div class="map wide">
+  <div class="row"><a class="node" href="#s2"><b>Title</b><span>§2 · one-line gist</span></a></div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <a class="node key" …>      <!-- a key step (shaded) -->
+    <a class="node classic" …>  <!-- an input from the literature (dashed) -->
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row"><a class="node goal" href="#thm-4-1">…</a></div>   <!-- the main theorem (green) -->
+  <!-- class="node contra": a branch that ends in a contradiction (red, dashed) -->
+  <div class="legend">Shaded: the paper's key steps. Dashed: inputs from the literature. Green: the main theorem.</div>
+</div>
+```
+
+Follow it with one line pointing to the reading guide companion page (`<a href="#view-guide">`).
+
+### 3.8 Supplements: what is not in the paper
+
+Anything the paper does not contain (a primer on background, a picture the paper does not draw, a lab) goes behind an orange button. It starts closed, opens in place, and is remembered per page in the reader's browser.
+
+```html
+<div class="supp" id="supp-harmonic" data-title="The harmonic analysis, in pictures"
+     data-meta="What an eigenvalue of $\Delta$ means, the singular series, the discrete series. Four figures.">
+  <h2 id="supp-ha" class="supp-h2" data-nav="Supplement: the harmonic analysis">…</h2>   <!-- or h3 for one inside a section -->
+  …
+</div>
+```
+
+- The shared code builds the button from `data-title` and `data-meta` (both may hold math) and adds a "Close this supplement" button at the end. Add class `inline` for a short aside inside a section. The long form with an explicit `.supp-toggle` and `.supp-body` (as in LPS) also works.
+- A supplement's own `h2` takes class `supp-h2`, so it is not a collapsible section of the paper.
+- Orange means "we added this" everywhere: the button, a rule in the left margin while it is open, its entries and ticks in the contents rail, and links that point into it (`supp-ref`). Point to a supplement from the paper with `<p class="supp-pointer">… <a class="supp-link" href="#s-eigen">…</a></p>`.
+- Supplement figures are numbered S1, S2, … (`data-ref="Figure S2"`).
+- "Expand all" leaves supplements closed. The page checker opens them all.
+
+### 3.9 Tables
+
+Wrap wide tables in `<div class="table-scroll">`. `table.params` is the house style for parameter and status tables.
+
+---
+
+## 4. The global controls
+
+Everything here comes from `initPaper` and `interactivePaper.css`; a paper writes none of it.
+
+### 4.1 The contents rail
+
+A 52px strip on the left edge (a **Contents** button on phones). It shows a progress line, a numbered circle per numbered section (filled for the current one, outlined once passed), dots for unnumbered parts, ticks for subsections, orange ticks for supplements, and the companion pages as icons at the foot. Hovering opens a panel with the whole tree: sections, subsections, and every numbered item, collapsed except around the current position. A filter box jumps to any statement ("4.15", "girth"), and Expand all / Collapse all act on the paper's sections.
+
+### 4.2 Reference links and previews
+
+Every numbered reference in prose, captions, tables, companion pages and live figure readouts becomes a link: "Theorem 4.1", "Props. 4.2, 4.3", "(4.15)", "Figure S2", "§3". A reference whose target is not on the page stays plain text. Hovering a link shows the statement in a popover; clicking jumps to it (opening any collapsed section on the way). Figure readouts are linked when they are set with `setTex`.
+
+### 4.3 Collapsible sections
+
+Every `h2` and `h3` of the paper gets a small wiki-style caret (in the left margin on desktop, inline on phones). Collapsed state is remembered per page. A link or address that points inside a collapsed section opens it.
+
+### 4.4 Supplements
+
+See §3.8.
+
+### 4.5 The theme and style menu
+
+The round button at the top right opens a menu:
+
+- **Mode:** Light, Dark, or Auto (follow the system). The button's icon shows the current mode.
+- **Style:** the page's whole look. Each works in light and dark.
+
+| Style | Text and headings | Paper | Size | Math |
+|---|---|---|---|---|
+| **LaTeX** (default) | Latin Modern (Computer Modern), bold headings, regular-weight title, as in `article` | the Taste Lab palette | 20px, line height 1.45, 62ch | 100% |
+| **Modern** | Atkinson Hyperlegible, Playfair Display headings | the same | 19px, 1.4, 60ch | 114.1% |
+| **Book** | EB Garamond | warm paper, brick accents | 21px, 1.45, 62ch | 97% |
+| **Large print** | Atkinson Hyperlegible throughout | higher contrast, underlined links | 22px (20px on phones), rem 18px | 112% (106%) |
+
+The choice is saved in `localStorage` as `ip-theme` (`light`, `dark`, or absent for Auto) and `ip-style`, shared by every paper on the site, and applied before first paint. Changing it fires the `ip-theme` event twice: at once, and again when the new fonts have loaded, so canvases that measure text draw again. Arrow keys move within the menu and Escape closes it. `window.ipLook.set(mode, style)` sets both (the page checker uses it).
+
+### 4.6 Companion pages
+
+Pages that open over the paper as a sheet, each with its own address (`#view-graph`, `#view-defs/cayley`), closed by ×, Escape, the backdrop or the browser's Back button. A paper gets the pages its `js/companions-data.js` fills; an empty or missing export drops that page.
+
+| Page | Export | Each entry |
+|---|---|---|
+| Reading guide | `GUIDE_HTML` | HTML: a "Status of each part" table (Part / Status: new, cited, classical / Where the weight sits), then "Three ways through the paper" |
+| Dependency graph | `DEP_NODES` | `{ id, kind, label, gist, target, cite, uses }`; `kind` is `def`, `lemma`, `prop`, `thm`, `goal`, `eq`, `remark` or `input`; `target` is the page id; an `input` with no target names its `CITED` key in `cite`; `uses` lists the ids it rests on. Hovering lights up what a box rests on and what rests on it; a toggle traces everything the goal rests on. |
+| Definitions | `DEF_TOPICS`, `DEFINITIONS` | `{ key, term, topic, level, origin, text, where }`; `level` is `basic`, `intermediate` or `specialized`; `origin` is `paper` or `background`; filterable and searchable; address `#view-defs/<key>` |
+| Notation atlas | `NOTATION_GROUPS` | `{ title, rows: [[symbol, meaning, first, note]] }`; `first` is a reference or `#id` of a heading; a note starting "Not …", "Also …", "Distinct …" is marked as a clash |
+| Cited results | `CITED` | `{ key, name, who, statement, used }` |
+| Print slips | `SLIPS` | `{ where, text }` |
+| (wording) | `TEXT` | `{ kicker, trace, intro: { guide, graph, defs, notation, cited, slips }, blurbs }`: the paper's own words for the sheet's kicker, the trace toggle, and each page's intro |
+
+All strings are HTML with `$…$` math; write them with `String.raw` so backslashes survive. Numbered references inside them become links.
+
+---
+
+## 5. Look
+
+### 5.1 Tokens
+
+All colours are CSS variables on `:root` in `interactivePaper.css`, defined for light, for `[data-theme="dark"]`, and for the system's dark mode when the reader chose Auto. Figures read them at draw time through `palette()`. Never hard-code a colour in a figure, except theme-specific ramps chosen with `P.dark`.
+
+| Token | Use |
+|---|---|
+| `--bg`, `--surface`, `--surface-2`, `--field` | page, cards, readouts, inputs |
+| `--text`, `--muted`, `--border` | text, secondary text, hairlines |
+| `--accent`, `--accent-ink`, `--accent-soft` | cobalt: the primary object, buttons, section numbers |
+| `--link` | links: a subtler blue, no underline, the full accent on hover |
+| `--accent-2`, `--accent-3`, `--neutral` | teal (second object), violet (third), gray (lines, the background object) |
+| `--good`, `--bad` | live checks only (`.ok`, `.bad`) |
+| `--supp`, `--supp-ink`, `--supp-soft` | orange: material not in the paper |
+| `--thm-bg`, `--thm-key-bg`, `--thm-key-bd` | statement boxes |
+| `--cv-ink`, `--cv-grid` | canvas ink and grid lines |
+| `--font-body`, `--font-head`, `--font-num`, `--font-mono` | text, headings, numbers in readouts, code |
+| `--fs`, `--lh`, `--measure`, `--math-size`, `--head-weight` | set by the page style |
+
+### 5.2 Colour roles
+
+Each paper names its objects once, as `--c-<role>` in its own `style.css` (light, dark, and Auto-dark), and adds them to `palette()` in its `js/common.js`:
+
+```js
+export * from '../../core/common.js';
+import { palette as basePalette, cssVar } from '../../core/common.js';
+export function palette() {
+  return Object.assign(basePalette(), { graph: cssVar('--c-graph'), count: cssVar('--c-count') });
+}
+```
+
+A role keeps its colour in every figure and in every caption that names it (`<b style="color:var(--c-graph)">blue</b>`). LPS: cobalt for the graph and its eigenvalues, teal for the quaternion counts, violet for the trivial eigenvalues and the main term, gray for the tree.
+
+### 5.3 Rules
+
+- **Math is always LaTeX**, through MathJax: in prose, captions, buttons, chips, slider labels, readouts, and labels over canvases (use `labelLayer`, never `fillText` for math). No Unicode math such as g₁, ℚ₃, ⌊x⌋.
+- Figures are unframed, with the caption below. Panels have hairline borders; statement boxes are softly shaded.
+- Buttons are solid filled; chips are pills; corners are 12px (8px for small controls).
+- Subtle motion only: fades and short transitions.
+
+---
+
+## 6. Figures
+
+### 6.1 Choosing figures
+
+Pick the mechanisms a reader cannot see from the text alone: the paper's central object, built for real; the identity or inequality the proof turns on, with both sides computed; the counting or limiting argument, run; the classical input, made visible. Each figure models one numbered step and checks it live.
+
+### 6.2 The shell
+
+```html
+<figure class="fig wide" id="fig-trace" data-fig="trace" data-ref="Figure 5" data-title="counting is a trace">
+  <div class="fig-head"><span class="num">Figure 5</span><span class="title">Counting is a trace</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>…</figcaption>
+</figure>
+```
+
+A figure is mounted when it comes within 700px of the viewport, or when an address points at it.
+
+### 6.3 The module contract
+
+```js
+// js/fig-trace.js
+import { el, makeCanvas, labelLayer, slider, chips, controls, setTex, palette, onTheme, pointer } from './common.js';
+
+export function countBoth(p, q, k) { … }     // pure math, exported: no DOM at module top level
+
+export function mount(root) {
+  const row = el('div', { class: 'fig-row' });
+  const left = el('div', { class: 'grow' }), right = el('div', { class: 'side' });
+  row.append(left, right); root.append(row);
+  const st = { … };                            // defaults that already show the phenomenon
+  const cv = makeCanvas(left, { aspect: 0.7, maxHeight: 460, draw });
+  const labels = labelLayer(cv.wrap);
+  function draw(ctx, w, h) { const P = palette(); … labels.set([{ id, x, y, tex, anchor }]); readout(); }
+  const ctl = controls(right);
+  chips(ctl, { label: 'Pair $(p,q)$', options: [['5,13', '$(5,13)$'], …], value: '5,13', onchange: … });
+  slider(ctl, { label: 'length $k$', min: 1, max: 8, value: 4, fmt: (v) => v, oninput: … });
+  const ro = el('div', { class: 'readout' }); right.append(ro);
+  function readout() { setTex(ro, `<table>… (4.15) <span class="ok">✓</span></table>`); }
+  onTheme(() => cv.redraw());
+}
+```
+
+**`core/common.js`, through the paper's `js/common.js`:**
+
+| Helper | Does |
+|---|---|
+| `el(tag, attrs, ...kids)` | make an element (`class`, `style`, `html`, `on…` handlers) |
+| `palette()`, `role(name)`, `cssVar(name)`, `isDark()`, `onTheme(fn)` | colours at draw time; redraw on mode or style change |
+| `setTex(node, html)` | set HTML with `$…$`, typeset it, link its references; skips work when unchanged |
+| `typeset(nodes)`, `mathJaxReady()` | serialized MathJax typesetting |
+| `labelLayer(wrap).set([{ id, x, y, tex \| html, anchor, cls, color }])` | MathJax labels over a canvas (`anchor`: `c`, `n`, `s`, `e`, `w`, `ne`, `nw`, `se`, `sw`; `cls: 'halo'` for a background halo) |
+| `makeCanvas(parent, { aspect, maxHeight, minHeight, draw })` | a responsive, HiDPI canvas; `.redraw()`, `.wrap` |
+| `controls(parent)`, `slider`, `button`, `segmented`, `chips` | controls; every label may hold math |
+| `pointer(target, { down, move, up, hover, leave })` | mouse and touch dragging; `down` returns true to capture |
+| `fmt`, `ticks(lo, hi, n)`, `rgba`, `mix`, `hexToRgb` | number formats, axis ticks, colour math |
+| `chunked(fn, budget)` | run long work in ~10ms animation-frame slices |
+
+### 6.4 Behaviour
+
+1. **Interesting on load.** The first frame already shows the phenomenon.
+2. **A live check in every figure.** The readout states the paper's identity or inequality and marks it `✓` (`.ok`) or `✗` (`.bad`). The page checker counts them, so a `✗` on load is a bug unless it is the point of a preset.
+3. **Presets**, including the case where a hypothesis fails, so the reader sees why it is needed.
+4. **Handles:** 6–7px dots with a 2px surface-coloured stroke and a 13–16px hit radius, labelled with the paper's symbol.
+5. **Heavy computation** runs in `chunked` slices or a module worker; the readout says "running…" until done, and exact or certified results are preferred to floating point.
+6. **Canvas text** (axis numbers) uses `cssVar('--font-body')` at 11px, so it follows the page style. Math labels go in a `labelLayer`.
+7. **WebGL** only when the pixel work needs it. Read theme colours into uniforms and fall back to a `.fallback` message. For three.js, use the importmap (§3.1); shared viewers from the site's tools may be imported across folders.
+8. **Captions** have three parts: what you are looking at and why it is a faithful model; what to do, with bold imperatives (**Drag**, **Choose**, **Raise**); what to notice, naming the statement the live check confirms.
+
+### 6.5 Tests
+
+Each figure's math has a node test in `tests/fig-<name>.test.mjs` that imports the module (catching syntax errors) and checks the paper's claims over many cases. Modules imported by figures must not touch `document`, `location` or `localStorage` at load, or the tests cannot import them.
+
+---
+
+## 7. Writing
+
+- **Lead with intuition.** Before a formula, say in words what it measures.
+- **Name the role of each hypothesis** where it is first used.
+- **Short paragraphs, one idea each.** Lists for parallel items.
+- **Cross-reference** figures from the prose ("Figure 5 computes both sides") and statements from figures; the links are automatic.
+- **Dates are absolute** ("posted October 6, 2026").
+- **Keep the paper's symbols.** Define macros in the MathJax config rather than repeating `\operatorname`. Write `\lt` and `\gt` inside math (§8).
+- Long inline formulas break the phone layout in the larger styles; make them displayed equations.
+- "Before the paper" is short and marked as background; "Afterwards" is a short history with dates; the references list the source first.
+
+---
+
+## 8. Verification
+
+1. **Node tests:** `for t in tests/*.test.mjs; do node $t; done`.
+2. **`<` inside math** breaks the HTML (`$0<t<1$` parses `<t` as a tag). Use `\lt`. To check:
+   ```bash
+   python3 - index.html <<'EOF'
+   import re, sys
+   s = open(sys.argv[1]).read(); body = s.split('<body', 1)[-1]; off = len(s) - len(body); bad = 0
+   for m in re.finditer(r'\$\$.+?\$\$|\$.+?\$', body, re.S):
+       if re.search(r'<[A-Za-z/!]', m.group(0)):
+           bad += 1; print(s.count('\n', 0, off + m.start()) + 1, m.group(0)[:70])
+   print('ok' if not bad else f'{bad} math segment(s) need \\lt')
+   EOF
+   ```
+3. **The page checker**, once per style:
+   ```bash
+   node docs/InteractivePapers/tools/check-page.mjs http://localhost:8847/docs/InteractivePapers/<Slug>/ /tmp/check
+   IP_STYLE=book node docs/InteractivePapers/tools/check-page.mjs …     # also modern, large
+   ```
+   It loads the page in headless Chrome at desktop (1280) and phone (390, mobile emulation) widths, light and dark; opens every supplement; scrolls every figure into view; opens every companion page; and reports console errors, MathJax errors, unlinked numbered references, page width wider than the viewport (with the widest element), and per figure: mounted, canvases, ✓ and ✗ counts. It saves a screenshot of every figure. Run one check at a time: two at once can make the simple Python server drop connections.
+4. **Interaction:** press every preset, move every control to both ends, open the style menu and switch styles with a figure on screen.
+5. **Accuracy pass** (§2, Stage 6).
+
+**Gotchas**
+
+- A hidden preview pane freezes `requestAnimationFrame` and `IntersectionObserver`, so figures never mount there. Verify with headless Chrome over CDP (the checker does).
+- Headless `--window-size` has a minimum width of about 500px. Use CDP `Emulation.setDeviceMetricsOverride` for phone widths.
+- Smooth scrolling stops figures from mounting during scripted checks; set `scroll-behavior: auto` first.
+- Click a `.supp-toggle` only after it has `aria-controls` (the page wires it after load).
+- Headless WebGL needs `--enable-unsafe-swiftshader --use-angle=swiftshader`.
+- Tagged displays (`\tag`) carry an inline `min-width`; the shared CSS overrides it.
+
+---
+
+## 9. Publishing
+
+- GitHub Pages builds `docs/` with Jekyll, so URLs drop the `/docs` prefix: `https://nbrody.github.io/InteractivePapers/<Slug>/`. Make sure no `.md` or `.html` file contains a Liquid opener (two left braces, or a left brace followed by a percent sign): Pages renders Markdown without front matter, and Liquid would break the build.
+- Several sessions share the working tree. Commit only this paper's paths (and the shared files if they changed), with a temporary index based on `origin/main`, and push that commit; never ship another session's changes.
+- A change to `interactivePaper.css`, `interactivePaper.js` or `core/` affects every paper: run the checker on LPS too before pushing.
+- Notes in `<Slug>/notes/` are published; keep copyrighted material out of them.
+
+---
+
+## 10. The papers
+
+| Folder | Paper | Built on | Notes |
 |---|---|---|---|
-| (1.2), §2 | the four-square solutions of $p$ become the $p+1$ generators, as quaternions and as matrices mod $q$ | count is $p+1$; $\det = p$; the set is closed under inverses | Quaternion Forge |
-| Lemma 3.1, Cor. 3.2 | factor a quaternion of norm $p^k$ into a reduced word, and see $\Lambda(2)$ act freely on the tree | the factorization is unique and reduced, and multiplies back | Tree Walker (partly) |
-| Theorem 3.4 | the shortest nontrivial word that becomes scalar mod $q$, compared with the girth bound | girth ≥ bound | Tree Walker |
-| Prop. 4.2, 4.3 | closed walks on the graph against the tree; the eigenvalue histogram approaching the Kesten density as $q$ grows | moments equal the tree's counts below the girth | new |
-| **(4.15)** | **count the quaternions directly and compare with the spectral sum, for each $k$** | **both sides equal, exactly** | **new; a likely centerpiece** |
-| (1.5), (4.19), (4.20), Lemma 4.4 | $r_Q(p^k)$ against the main term $C(p^k)=\frac{4}{q(q^2-1)}\sum_{d\mid p^k}d$, with the error drawn on the $p^{k/2}$ scale | the error stays $O(p^{k/2})$ | new |
-| (4.14), Theorem 3.4 | the girth read off the counts: $r_Q(p^k)$ is $2$ or $0$ until $k$ reaches the girth | first jump at $k=$ girth | new |
-| Theorem 4.1 | $X^{p,q}$ and its spectrum against the window $[-2\sqrt p, 2\sqrt p]$ | every nontrivial $\lvert\lambda\rvert \le 2\sqrt p$ | Expander Builder |
-| Theorem 4.4 | $Y^{p,q}$ on $\mathbb P^1(\mathbb F_q)$, whose spectrum sits inside that of $X^{p,q}$ | $\operatorname{spec} Y \subseteq \operatorname{spec} X$ | Expander Builder |
-| Theorem 5.1 | diameter and mixing: a random walk from one vertex | diameter ≤ $2\log_p n + 2\log_p 2 + 1$ | Mixing Lab |
-| Prop. 5.2 | a large independent set, and why it cannot be larger | Alon's bound holds | new |
+| [`LPS/`](LPS/) | Lubotzky–Phillips–Sarnak, *Ramanujan graphs*, Combinatorica 8 (1988) | this skill | the reference: 13 figures, 2 supplements, 6 companion pages; notes in `LPS/notes/`; source scan in `~/Dropbox/Textbooks/Geometric Group Theory/` |
+| [`CannonModulus/`](CannonModulus/) | OpenAI, *A Modulus Proof of Cannon's Conjecture* (preprint, September 23, 2026) | this skill | the first paper built from the skill; the October `cannon/` page stays as it was |
+| [`cannon/`](cannon/), [`residual/`](residual/), [`catalan/`](catalan/) | OpenAI preprints, October 2026 | `README.md` | the older style; scroll pages with exact figures |
+| [`nonsofic/`](nonsofic/) | OpenAI, a non-sofic group | reveal.js deck | several widgets are placeholders |
+| `brooksMatelski/`, `martelli/`, `superrigidity/`, `jorgensen.html` | older pages | their own styles | |
 
-### 6.6 Decision log
+All of them are listed on [`index.html`](index.html), the page at `/InteractivePapers/`. Without it, GitHub Pages would render `README.md` there.
+
+---
+
+## 11. Decision log
+
+Every choice made while building LPS, with the reason, in order. The rules above are distilled from it.
 
 | Date | Decision | Why |
 |---|---|---|
@@ -263,17 +526,10 @@ The old version was built October 28, 2026, untracked:
 | 2026-11-02 | The **Reading guide** moved out of the paper into a companion page (first in the list), with its table ("Status of each part") and a new "Three ways through the paper"; the proof map links to it. | Nic: "Put the Reading Guide as a Companion page." |
 | 2026-11-02 | Links are a subtler blue with no underline: a `--link` token (`#3f5f93` light, `#a6bde3` dark; 6.3:1 and 6.9:1 on the background), shifting to the full accent on hover. Applies to every link, including the numbered-reference links. | Nic: "Instead of underlining and making links sooo blue, just make links a subtler blue." Matches Taste Lab's untested "colour-only links". |
 | 2026-11-02 | The collapsed rail is a visible 52px strip: a contents icon, a numbered circle per numbered section (filled for the current one, outlined once passed), dots for unnumbered parts, ticks for subsections, and an accent progress line. It still opens into the full tree on hover. | Nic: "The sidebar wiki summary is a bit too subtle." (The first version was a 2px line with faint ticks.) |
-| | | |
-
----
-
-## 7. The skill (end state)
-
-- **Name and place:** `interactive-paper`. Either in `~/.claude/skills/` (available from any project) or in the repo's `.claude/skills/` (versioned with the site). Decide at the end.
-- **Contents:**
-  - `SKILL.md`: when to use it, the pipeline with its check-ins, and the file each stage leaves behind;
-  - `STYLE.md`: `README.md` merged with the decisions from §6.6;
-  - `template/`: the `index.html` skeleton, `style.css`, `js/main.js` and `js/common.js`;
-  - `scripts/`: the `<`-in-math checker, the CDP phone-width check, and a script that screenshots every figure after it mounts;
-  - a pointer to `LPS/` as the reference implementation.
-- **Test:** run it on two more papers in fresh sessions: one with arXiv LaTeX source and one that exists only as a scan, so both intake paths get exercised.
+| 2026-11-02 | **Supplements**: material that is not in the paper (primers, asides, new pictures) sits behind an **orange button** (`.supp`: kicker "Supplement · not in the paper", title, one-line summary, Show/Hide) and opens in place. Closed by default; open ones are remembered per browser; "Expand all" leaves them closed. Open, a supplement is marked by an orange rule in the left margin (outside even the wide figures) and its headings, rail markers, tree entries and every link into it are orange, so a reader always knows when they have left the paper. Links into a closed supplement open it. Its figures are numbered S1, S2, … so the paper's own figure numbers never move. The Severi–Brauer aside in §3 became a small inline supplement. `js/collapse.js` (`makeSupplement`); `tools/check-page.mjs` opens every supplement before checking. | Nic: "These 'supplemental' aspects of a paper should be distinguished somehow - maybe make an orange button that reveals these sections." Blue stays the paper's colour; orange is reserved for what we added. |
+| 2026-11-02 | First full supplement: **the harmonic analysis, in pictures**, between §3 and §4, for a reader who does not know the background: what an eigenvalue of $\Delta$ means (the local equation, spherical and plane waves, $\theta$ as a frequency, why $2\sqrt p$ is the volume-growth threshold, the $\mathbb H$ analogue with $\frac14$ and Selberg), eigenvectors of $X^{p,q}$ seen from the tree (sphere averages are the spherical function, which is (4.8)–(4.10)), the singular series (the singularities of $\theta_Q$ at the cusps, Gauss sums, local densities, Eisenstein + cusp; four squares has no cusp forms so Jacobi is exact), and the discrete series (unitary duals of $\mathrm{PGL}_2(\mathbb R)$ and $\mathrm{PGL}_2(\mathbb Q_p)$, Plancherel atoms, definite algebra → Jacquet–Langlands → $D_2$ → Eichler–Shimura → Weil), with Figures S1–S4 and a three-column dictionary. Pointers (orange) from §1 and §4 at the places a reader gets stuck. 13 new background definitions and a notation group. | Nic: "I don't really get the harmonic analysis stuff. Can you create a detailed visual of what the Laplace eigenvalues mean, and help me understand the singular series and discrete series?" For the skill: when the reader's background runs out, add a supplement rather than bloating the paper's own sections. |
+| 2026-11-03 | Second supplement, inside §4 after Figure 7: a **square complex lab** (Figure S5). $S^{p,q}$ has one vertex, loops $\alpha_i$ (norm $p$) and $\beta_j$ (norm $q$), and a square for each relation $\alpha\beta=\pm\beta'\alpha'$. Its ¼/¾ hyperplane slices are $Y^{p,q}$ (horizontal) and $Y^{q,p}$ (vertical), edge for edge, under $\beta\mapsto$ the image of $\tilde\beta$ mod $q$, because $\xi(\beta')=\alpha\cdot\xi(\beta)$. Checked for every pair of primes $\equiv1\ (4)$ with $pq\le700$, together with the link $K_{p+1,q+1}$ (`tests/fig-squares.test.mjs`). The 3D view **reuses the quaternion calculator's `FoldedComplexView`** (imported across folders, three.js via an importmap in the page head), with its fold slider from the flat net to the folded space; its Unicode sprite labels are hidden and replaced by MathJax labels projected into an HTML layer, including side labels on the flat net. Below it, $Y^{p,q}$ and $Y^{q,p}$ are drawn as in Figure 7, linked both ways to the squares. | Nic: "Let's add a Supplemental Square complex lab, where we draw the square complex S^{p,q}, and allow for highlighting Y^{p,q} and Y^{q,p} within it", then "We've done this elsewhere, and can even fold the flat square complex gluing data into a topological space." For the skill: reuse a site tool's module in place rather than rebuild it. |
+| 2026-11-03 | **Default font is LaTeX's**: Computer Modern (Latin Modern, from the pinned `latex.css@1.11.0` npm package on jsDelivr) for text and headings, bold headings and a regular-weight title as in `article`, readout numbers in the same font. MathJax sizes math by a `--math-size` token (`matchFontHeight: false`, `scale: 1`), 100% here, so text and math are one typeface at one size. **The theme button opens a menu** (`js/look.js`): Light / Dark / Auto, and a page style set as `<html data-style>`: *LaTeX* (default), *Modern* (the earlier Taste Lab tokens, unchanged), *Book* (EB Garamond on warm paper, brick accents) and *Large print* (Atkinson 22px, larger rem, higher contrast, underlined links; one step smaller on phones). Saved as `ip-style` / `ip-theme`, applied before first paint; figures redraw on `ip-theme`. `check-page.mjs` takes `IP_STYLE=…`; all four styles pass. | Nic: "Let's make the default font the same as LaTeX default font. But let's give different global css style options one can choose by clicking on the light/dark mode." Overrides the Atkinson/Playfair row of 2026-11-02 (and Taste Lab's "avoid Academic / LaTeX") for the default; that look stays available as *Modern*. |
+| 2026-11-03 | **One shared layer for every paper.** `interactivePaper.css` (design system and global controls), `interactivePaper.js` (`initPaper(config)`), `core/` (common, refs, collapse, look, companions) and a working `template/`. LPS keeps only its colour roles, figures and companion data; companion wording (`TEXT`) and the set of companion pages come from the data. Supplements gain a short form (`data-title`, `data-meta`). This file is rewritten from a protocol into the skill; the earlier protocol text (open decisions, the LPS first-pass tables) is in git history. | Nic: "rewrite the InteractivePaper.md skill to include all of the relevant details in this page … link that .md to an interactivePaper.css that we'll use as global controls across these papers." |
+| 2026-11-03 | **Second paper from the skill: Cannon** (`CannonModulus/`, a new folder; the October `cannon/` page is kept as it was). Source is the preprint's LaTeX from `openai/math` (stored outside the site); every statement and equation number comes from the compiled `.aux`. The paper has two figures of its own: page figures are numbered 1–8 in page order, and the paper's are called "the paper's first figure" and "the paper's second figure", made live as Figures 5 and 8, so no number means two things. Equations numbered inside a statement box are `data-alias` targets on that box. The proof map gains `.node.contra` for the two branches that end in contradictions. Eight figures were built in parallel by subagents from `notes/figures.md`, porting the October page's math where it was sound. | Nic: "create an interactive paper for the OpenAI proof the Cannon conjecture"; Nic chose a new folder over rewriting `cannon/` in place. |
+| 2026-11-03 | **An index page** (`index.html`) lists every paper: one featured paper (the newest), then rows grouped as shared design / October 2026 walkthroughs / earlier pages / tools, each with a preview still that follows light and dark, and a "Making one" section linking the skill, the template and the shared code. Built on `interactivePaper.css` with the style menu. Previews come from `tools/make-previews.mjs` (Chrome writes WebP directly, 720 px, about 20–35 KB each). | Nic: "Write an index.html in /interactivePapers/ so we see what the options are." Layout from Taste Lab's index-page section: one large featured item followed by a list, flat panels, avoiding both picture-card grids and bare text lists. |

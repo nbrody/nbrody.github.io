@@ -1,12 +1,15 @@
-// Companion pages that open over the paper: dependency graph, definitions, notation, cited results, print slips.
+// Companion pages that open over the paper: reading guide, dependency graph, definitions, notation, cited results, print slips.
+// Shared by every interactive paper; each paper supplies the content in its js/companions-data.js.
 // Each has an address (#view-graph, #view-defs/cayley, …), so links can point at it and Back closes it.
 // Numbered references inside them are links with previews (refs.js); clicking one closes the sheet and jumps.
 import { el, setTex } from './common.js';
-import { DEP_NODES, DEFINITIONS, DEF_TOPICS, NOTATION_GROUPS, CITED, SLIPS, GUIDE_HTML } from './companions-data.js';
+// The content comes from the paper's js/companions-data.js, passed to initCompanions(data).
+let DEP_NODES = [], DEFINITIONS = [], DEF_TOPICS = [], NOTATION_GROUPS = [], CITED = [], SLIPS = [], GUIDE_HTML = '', TEXT = {};
 import { collapsibleHeadings, reveal, restore } from './collapse.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
-export const COMPANIONS = [
+/** Every companion page the framework knows; a paper gets the ones its data fills (companionsFor). */
+export const ALL_COMPANIONS = [
   { id: 'guide', title: 'Reading guide', blurb: 'where the weight sits',
     icon: svg('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5z"/>') },
   { id: 'graph', title: 'Dependency graph', blurb: 'what rests on what',
@@ -21,10 +24,26 @@ export const COMPANIONS = [
     icon: svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>') },
 ];
 
+export let COMPANIONS = [];
+
+/** The companion pages a paper's data provides, in the standard order. */
+export function companionsFor(data) {
+  const has = { guide: !!data.GUIDE_HTML, graph: !!(data.DEP_NODES && data.DEP_NODES.length),
+    defs: !!(data.DEFINITIONS && data.DEFINITIONS.length), notation: !!(data.NOTATION_GROUPS && data.NOTATION_GROUPS.length),
+    cited: !!(data.CITED && data.CITED.length), slips: !!(data.SLIPS && data.SLIPS.length) };
+  return ALL_COMPANIONS.filter((c) => has[c.id]).map((c) => ({ ...c, blurb: (data.TEXT && data.TEXT.blurbs && data.TEXT.blurbs[c.id]) || c.blurb }));
+}
+
 let root, sheet, body, titleEl, tabs, closeBtn, current = null, openedFromPage = false, lastFocus = null;
 const rendered = new Map();
 
-export function initCompanions() {
+/** data: the paper's companions-data.js module (DEP_NODES, DEFINITIONS, DEF_TOPICS, NOTATION_GROUPS,
+ *  CITED, SLIPS, GUIDE_HTML, TEXT). TEXT holds the paper's own wording: kicker, intros, trace label. */
+export function initCompanions(data) {
+  ({ DEP_NODES = [], DEFINITIONS = [], DEF_TOPICS = [], NOTATION_GROUPS = [], CITED = [], SLIPS = [], GUIDE_HTML = '', TEXT = {} } = data);
+  TEXT.intro = TEXT.intro || {};
+  COMPANIONS = companionsFor(data);
+  if (!COMPANIONS.length) return;
   root = el('div', { class: 'cmp', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'cmp-title', hidden: '' });
   const backdrop = el('div', { class: 'cmp-backdrop' });
   sheet = el('div', { class: 'cmp-sheet' });
@@ -36,7 +55,7 @@ export function initCompanions() {
   closeBtn = el('button', { class: 'cmp-close', type: 'button', 'aria-label': 'Close and return to the paper',
     html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>' });
   const head = el('header', { class: 'cmp-head' },
-    el('div', { class: 'cmp-titles' }, el('div', { class: 'cmp-kicker' }, 'Ramanujan Graphs · companion'), titleEl),
+    el('div', { class: 'cmp-titles' }, el('div', { class: 'cmp-kicker' }, TEXT.kicker || (document.querySelector('.hero h1')?.textContent.trim() + ' · companion')), titleEl),
     closeBtn, tabs);
   body = el('div', { class: 'cmp-body' });
   sheet.append(head, body);
@@ -185,8 +204,17 @@ function renderDefs(page) {
       </article>`).join('');
     return `<section class="def-topic"><h3 class="cmp-h3" id="defs-topic-${t}">${topic}</h3>${items}</section>`;
   }).join('');
-  setTex(intro, 'Every definition the paper makes, and the background terms it assumes. Filter by level — <b>basic</b> (an undergraduate course), <b>intermediate</b> (a first graduate course), <b>specialized</b> (number theory and automorphic forms) — or search. References are links: hover to preview, click to jump.');
+  setTex(intro, TEXT.intro.defs || 'Every definition the paper makes, and the background terms it assumes. Filter by level — <b>basic</b> (an undergraduate course), <b>intermediate</b> (a first graduate course), <b>specialized</b> (research-level background) — or search. References are links: hover to preview, click to jump.');
   return setTex(list, html).then(() => { collapsibleHeadings(list, '.def-topic > h3'); apply(); });
+}
+
+// "first appears" may point at a heading (#bg …): show that heading's own words
+function headingLabel(id) {
+  const h = document.getElementById(id);
+  if (!h) return 'Background';
+  const c = h.cloneNode(true);
+  c.querySelectorAll('.secnum, .tag, .caret, button').forEach((x) => x.remove());
+  return c.textContent.trim() || 'Background';
 }
 
 function renderNotation(page) {
@@ -195,12 +223,12 @@ function renderNotation(page) {
   const filters = el('div', { class: 'cmp-filters' }, el('div', { class: 'cmp-chiprow' }, search));
   const tables = el('div', { class: 'not-list' });
   page.append(intro, filters, tables);
-  setTex(intro, 'Every symbol in the paper, where it first appears, and where the paper uses one letter for two things (marked <span class="clash">clash</span>). The paper writes $\\Delta$ for the adjacency matrix; this page often writes $A$.');
+  setTex(intro, TEXT.intro.notation || 'Every symbol in the paper, where it first appears, and where the paper uses one letter for two things (marked <span class="clash">clash</span>).');
   const html = NOTATION_GROUPS.map((g, gi) => `
     <section class="not-group"><h3 class="cmp-h3" id="notation-group-${gi}">${g.title}</h3>
       <div class="table-scroll"><table class="not-table">
         <tr><th>Symbol</th><th>Meaning</th><th>First</th><th>Note</th></tr>
-        ${g.rows.map(([sym, meaning, first, note]) => `<tr><td class="not-sym">${sym}</td><td>${meaning}</td><td class="not-first">${first.startsWith('#') ? `<a class="ref" href="${first}" data-target="${first.slice(1)}">Before the paper</a>` : first}</td><td class="not-note">${note ? `${/Not |Also |reuses|collid|Distinct/.test(note) ? '<span class="clash">clash</span> ' : ''}${note}` : ''}</td></tr>`).join('')}
+        ${g.rows.map(([sym, meaning, first, note]) => `<tr><td class="not-sym">${sym}</td><td>${meaning}</td><td class="not-first">${first.startsWith('#') ? `<a class="ref" href="${first}" data-target="${first.slice(1)}">${headingLabel(first.slice(1))}</a>` : first}</td><td class="not-note">${note ? `${/Not |Also |reuses|collid|Distinct/.test(note) ? '<span class="clash">clash</span> ' : ''}${note}` : ''}</td></tr>`).join('')}
       </table></div></section>`).join('');
   search.addEventListener('input', () => {
     const q = search.value.trim().toLowerCase();
@@ -225,7 +253,7 @@ function renderCited(page) {
   const intro = el('p', { class: 'cmp-intro' });
   const list = el('div', { class: 'cited-list' });
   page.append(intro, list);
-  setTex(intro, 'The results the paper takes from elsewhere, stated, with where each one is used. The deep one is the Ramanujan conjecture in weight two; the rest is classical.');
+  setTex(intro, TEXT.intro.cited || 'The results the paper takes from elsewhere, stated, with where each one is used.');
   const html = CITED.map((c) => `
     <article class="cited" id="cited-${c.key}">
       <h4 class="cited-name">${c.name}</h4>
@@ -240,7 +268,7 @@ function renderSlips(page) {
   const intro = el('p', { class: 'cmp-intro' });
   const list = el('ol', { class: 'slip-list' });
   page.append(intro, list);
-  setTex(intro, 'Small errors in the printed paper (Combinatorica 8, 1988), found while transcribing it. The page states the intended reading and marks each place with a quiet "In print" note. None affects the results.');
+  setTex(intro, TEXT.intro.slips || 'Small errors in the source, found while transcribing it. The page states the intended reading and marks each place with a quiet "In print" note.');
   return setTex(list, SLIPS.map((s, i) => `<li id="slips-${i + 1}"><div class="slip-where">${s.where}</div><div>${s.text}</div></li>`).join(''));
 }
 
@@ -314,7 +342,7 @@ function renderGraph(page) {
   const legend = el('div', { class: 'dep-legend' });
   const scroller = el('div', { class: 'dep-scroll' });
   page.append(intro, controls, legend, scroller);
-  setTex(intro, 'Each box is a numbered statement, equation or cited result; an arrow runs from what is used to what uses it. <b>Hover</b> a box to light up everything it rests on (above) and everything that rests on it (below), and to preview the statement. <b>Click</b> to jump to it in the paper. Dashed boxes are results from the literature.');
+  setTex(intro, TEXT.intro.graph || 'Each box is a numbered statement, equation or cited result; an arrow runs from what is used to what uses it. <b>Hover</b> a box to light up everything it rests on (above) and everything that rests on it (below), and to preview the statement. <b>Click</b> to jump to it in the paper. Dashed boxes are results from the literature.');
 
   const st = { inputs: true, trace: true, hover: null };
   const row = el('div', { class: 'cmp-chiprow' });
@@ -325,7 +353,7 @@ function renderGraph(page) {
     row.append(b);
   };
   mk('Show cited results', 'inputs');
-  mk('Trace what Theorem 4.1 rests on', 'trace');
+  mk(TEXT.trace || 'Trace what the main theorem rests on', 'trace');
   controls.append(row);
   legend.innerHTML = ['goal', 'thm', 'prop', 'lemma', 'def', 'eq', 'remark', 'input'].map((k) => `<span class="dep-key"><i class="dep-swatch k-${k}"></i>${KIND_NAMES[k]}</span>`).join('');
 
@@ -421,7 +449,7 @@ function renderGuide(page) {
   const intro = el('p', { class: 'cmp-intro' });
   const body = el('div', { class: 'guide-body' });
   page.append(intro, body);
-  setTex(intro, 'Which parts of the paper are new, which are cited, and where a reader checking the argument should spend time. References are links: hover to preview, click to jump.');
+  setTex(intro, TEXT.intro.guide || 'Which parts of the paper are new, which are cited, and where a reader checking the argument should spend time. References are links: hover to preview, click to jump.');
   return setTex(body, GUIDE_HTML).then(() => collapsibleHeadings(body, 'h3'));
 }
 

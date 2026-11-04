@@ -1,7 +1,7 @@
 // Figure 7 — Theorem 4.4: the graphs Y^{p,q} on the q+1 points of P^1(F_q).
 // Draws Y around a circle, its spectrum against the Ramanujan window, and (when the
 // spectrum of X^{p,q} is affordable) checks spec Y ⊆ spec X.
-import { el, makeCanvas, labelLayer, setTex, chips, slider, controls, pointer, palette, onTheme, ticks, rgba } from './common.js';
+import { el, cssVar, makeCanvas, labelLayer, setTex, chips, slider, controls, pointer, palette, onTheme, ticks, rgba } from './common.js';
 import { buildY, denseAdjacency, symEigenvalues, lambdaX, legendre, primes1mod4, orderX, geodesicArc } from './lps.js';
 
 export { geodesicArc };
@@ -282,7 +282,7 @@ export function mount(root) {
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(X0, Y0 + 0.5); ctx.lineTo(X1, Y0 + 0.5); ctx.stroke();
     ctx.fillStyle = P.muted;
-    ctx.font = '11px "Atkinson Hyperlegible", system-ui, sans-serif';
+    ctx.font = `11px ${cssVar('--font-body')}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (const t of ticks(-xmax, xmax, w < 520 ? 5 : 8)) {

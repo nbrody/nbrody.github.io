@@ -8,11 +8,22 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%232f6fde'/%3E%3Cpath d='M16 6v20M7 11l18 10M25 11L7 21' stroke='white' stroke-width='2.4'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../interactivePaper.css">
 <link rel="stylesheet" href="style.css">
 <script>
   (function () {
-    try { var t = localStorage.getItem('ip-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    // light/dark and the page style, chosen from the theme button's menu (main.js)
+    var t = null, s = null;
+    try { t = localStorage.getItem('ip-theme'); s = localStorage.getItem('ip-style'); } catch (e) {}
+    if (t) document.documentElement.dataset.theme = t;
+    if (s && s !== 'latex') document.documentElement.dataset.style = s;
+    else {
+      var l = document.createElement('link');
+      l.rel = 'preload'; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = 'anonymous';
+      l.href = 'https://cdn.jsdelivr.net/npm/latex.css@1.11.0/fonts/LM-regular.woff2';
+      document.head.appendChild(l);
+    }
   })();
   window.MathJax = {
     tex: {
@@ -27,15 +38,17 @@
       }
     },
     options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'canvas'] },
-    chtml: { scale: 0.96 }
+    // math size comes from the style's --math-size (style.css), so it can change without re-typesetting
+    chtml: { scale: 1, matchFontHeight: false }
   };
 </script>
 <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 <script type="module" src="js/main.js"></script>
 </head>
 <body>
 
-<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch light or dark theme"></button>
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Theme and page style" aria-haspopup="dialog" aria-expanded="false" aria-controls="look-menu"></button>
 <div class="rail" id="rail"></div>
 
 <main class="paper">
@@ -106,6 +119,7 @@ $$C(p^k)=\begin{cases}c_1\sum_{d\mid p^k}d & \text{if }\leg pq=1,\\[2pt] c_2\sum
 </div>
 
 <p>The main term $C(p^k)$ grows like $p^k$; the error is roughly its square root. That square-root saving is exactly what the Ramanujan conjecture provides, and it is where the graphs get their name. The constants $c_1,c_2$ are not computed from modular forms: §4 reads them off the graph (both turn out to be $\frac{4}{q(q^2-1)}$; see Figure 6). That the graphs are Ramanujan will follow from (1.5).</p>
+<p class="supp-pointer">Why (1.5) is known for these forms and open for others: <a class="supp-link" href="#s-discrete">the discrete series</a>, in the supplement before §4.</p>
 
 <h3 id="s1-results">What is proved</h3>
 
@@ -223,8 +237,13 @@ $$8\Big(\sum_{0\le r\lt k/2}(p+1)p^{k-2r-1}+\delta(k)\Big)=8\,\frac{p^{k+1}-1}{p
 
 <p>Now consider all $\alpha\equiv1\pmod 2$ whose norm is a power of $p$, and identify $\alpha$ with $\beta$ when $\pm p^{v_1}\alpha=p^{v_2}\beta$. The classes form a group $\Lambda(2)$, with $[\alpha][\beta]=[\alpha\beta]$ and $[\alpha]^{-1}=[\bar\alpha]$. By Corollary 3.2 it is <b>free</b> on $[\alpha_1],\dots,[\alpha_s]$. Its Cayley graph with respect to $S$ is therefore the $(p+1)$-regular tree, also called $\Lambda(2)$. This realizes the tree inside number theory.</p>
 
-<div class="note" id="note-sb"><span class="label">Why exactly $p+1$, seen from $p$ (not in the paper)</span>
+<div class="supp inline" id="supp-sb">
+<button class="supp-toggle" type="button" aria-expanded="false"><span class="supp-icon"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span><span class="supp-text"><span class="supp-kicker">Supplement · not in the paper</span><span class="supp-title">Why exactly $p+1$, seen from $p$</span></span><span class="supp-action">Show</span></button>
+<div class="supp-body" hidden>
+<div class="note" id="note-sb">
 <p>The tree also explains the count. $H$ is ramified only at $2$ and $\infty$, so it splits at $p$: choosing $j$ with $j^2\equiv-1\pmod p$ identifies $H\otimes\F_p$ with $M_2(\F_p)$, and its Severi–Brauer variety, the conic $x^2+y^2+z^2=0$, with $\PP^1(\F_p)$. Each generator has norm $p\equiv0$, so its matrix is rank one and its kernel is a point of $\PP^1(\F_p)$. The $p+1$ generators land on the $p+1$ points, one each, and conjugation swaps kernel and image. Those $p+1$ points are the $p+1$ neighbours of a vertex in the Bruhat–Tits tree of $\PGL_2(\Q_p)$, which is why $\Lambda(2)$ acts simply transitively on it. Figure 1's second view draws this.</p>
+</div>
+</div>
 </div>
 
 <figure class="fig wide" id="fig-tree" data-fig="tree" data-ref="Figure 2" data-title="the free group on the tree">
@@ -269,6 +288,122 @@ $$\varphi:\Lambda(2)\to\PGL_2(\Z/q\Z),\qquad [\alpha]\mapsto\begin{pmatrix}a_0+i
 </figure>
 </section>
 
+<!-- ═══════════════════════════ SUPPLEMENT: HARMONIC ANALYSIS ═══════════════════════════ -->
+
+<div class="supp" id="supp-harmonic">
+<button class="supp-toggle" type="button" aria-expanded="false"><span class="supp-icon"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span><span class="supp-text"><span class="supp-kicker">Supplement · not in the paper</span><span class="supp-title">The harmonic analysis, in pictures</span><span class="supp-meta">What an eigenvalue of $\Delta$ means, the singular series, and the discrete series. Four figures.</span></span><span class="supp-action">Show</span></button>
+<div class="supp-body" hidden>
+
+<h2 id="supp-ha" class="supp-h2" data-nav="Supplement: the harmonic analysis">The harmonic analysis, in pictures</h2>
+
+<p>Section 4 uses three pieces of harmonic analysis that the paper takes as known: what an eigenvalue of $\Delta$ means on the tree, where the main term $C(n)$ comes from, and why the Ramanujan bound (1.5) is available for these particular forms. This supplement explains each one with a figure. None of it is needed to check the proof. It is here so that the proof stops looking like a coincidence.</p>
+
+<h3 id="s-eigen">What an eigenvalue of $\Delta$ measures</h3>
+
+<p>Start with the equation. $\Delta f=\lambda f$ says that at every vertex $x$,</p>
+$$\sum_{y\sim x}f(y)=\lambda\,f(x):$$
+<p>the $p+1$ neighbours of $x$ add up to $\lambda$ times the value at $x$. That is all it says. When $\lambda$ is close to $p+1$, each value is nearly the average of its neighbours, so $f$ changes slowly across edges, and the Laplacian $(p+1)-\Delta$ has a small eigenvalue. On a finite graph a slowly changing function is a bottleneck: it is large on one region and small on another, with few edges between them. When $\lambda$ is near $0$, the neighbours nearly cancel and $f$ flips from vertex to vertex.</p>
+
+<p>On the tree the equation can be solved outward from a vertex $o$. Look for a solution with $f(o)=1$ that depends only on the distance $n=d(o,x)$. A vertex at distance $n\ge1$ has one neighbour at distance $n-1$ and $p$ neighbours at distance $n+1$, so</p>
+$$\varphi(n-1)+p\,\varphi(n+1)=\lambda\,\varphi(n),\qquad\varphi(0)=1,\quad\varphi(1)=\frac{\lambda}{p+1}.$$
+<p>This is the <em>spherical function</em> $\varphi_\lambda$. Write $\lambda=2\sqrt p\cos\theta$, as in (4.11). The recursion has characteristic roots $p^{-1/2}e^{\pm i\theta}$, and</p>
+$$\varphi_\lambda(n)=p^{-n/2}\Big(\frac{2}{p+1}\cos n\theta+\frac{p-1}{p+1}\,\frac{\sin(n+1)\theta}{\sin\theta}\Big).$$
+<p>So $\theta$ is a frequency. Moving away from $o$, the wave oscillates like $\cos n\theta$ under an envelope $p^{-n/2}$.</p>
+
+<p>The envelope is where $2\sqrt p$ comes from. The sphere of radius $n$ has $(p+1)p^{n-1}$ points, so a wave of size $p^{-n/2}$ has the same total energy $\sum_{d(o,x)=n}|f(x)|^2$ on every sphere. That is the borderline of square-summability: the tree's version of a plane wave $e^{i\xi\cdot x}$ on $\R^d$, which has the same energy in every unit cube. When $|\lambda|\le2\sqrt p$, $\theta$ is real and the wave sits exactly on this borderline. Such waves are called <em>tempered</em>. When $|\lambda|>2\sqrt p$, $\theta$ is imaginary ($\theta=i\mu$, or $\pi+i\mu$ for negative $\lambda$). The oscillation stops, and the wave decays more slowly, like $p^{-n/2}e^{n\mu}$, so its energy on the sphere of radius $n$ grows exponentially. The tree carries waves at every frequency in the window and at no other. In the language of $L^2$ this is Kesten's theorem: the spectrum of the tree is $[-2\sqrt p,2\sqrt p]$ (Figure 4).</p>
+
+<p>There are plane waves too. Fix an end $\xi$ of the tree and a horofunction $b$ for it, so that every vertex has one neighbour where $b$ is one smaller (towards $\xi$) and $p$ neighbours where it is one larger. Then $f(x)=p^{-s\,b(x)}$ satisfies $\Delta f=(p^s+p^{1-s})f$, and $s=\frac12+\frac{i\theta}{\log p}$ gives $\lambda=2\sqrt p\cos\theta$ again. Averaging the plane waves over all ends $\xi$ gives back the spherical function.</p>
+
+<p>The hyperbolic plane works the same way, with $\Delta_{\mathbb H}=-y^2(\partial_x^2+\partial_y^2)$. The function $y^s$ has eigenvalue $s(1-s)$. A circle of radius $\rho$ has length about $\pi e^\rho$, so the borderline waves decay like $e^{-\rho/2}$, and they are exactly the ones with $s=\frac12+i\tau$, that is, $\lambda_{\mathbb H}=\frac14+\tau^2\ge\frac14$. So $\frac14$ on a hyperbolic surface plays the part of $2\sqrt p$ on a $(p+1)$-regular graph. Selberg's eigenvalue conjecture, that $\lambda_1\ge\frac14$ on every congruence surface $\Gamma(N)\backslash\mathbb H$ (he proved $\lambda_1\ge\frac3{16}$), is the surface version of the Ramanujan property.</p>
+
+<figure class="fig wide" id="fig-waves" data-fig="waves" data-ref="Figure S1" data-title="waves on the tree">
+  <div class="fig-head"><span class="num">Figure S1</span><span class="title">What an eigenvalue is: waves on the tree</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>Top: the spectrum of the tree. The point at angle $\theta$ on the arc casts the shadow $\lambda=2\sqrt p\cos\theta$; outside the window $\theta$ becomes imaginary. <b>Drag</b> $\lambda$, <b>choose</b> $p$, and pick a wave: the spherical function around $o$, a plane wave constant on horocycles toward an end $\xi$, or a mixture of plane waves. <b>Hover</b> a vertex: its $p+1$ neighbours add up to exactly $\lambda$ times its value, which is all an eigenvalue means. For a mixture, the averages over spheres around $o$ are $\varphi_\lambda(n)f(o)$: only $\lambda$ survives averaging. Below, $p^{n/2}\varphi_\lambda(n)$ stays bounded and oscillates exactly when $|\lambda|\le2\sqrt p$, and on the hyperbolic plane $e^{\rho/2}\varphi_s(\rho)$ does the same exactly when $s(1-s)\ge\frac14$.</figcaption>
+</figure>
+
+<h3 id="s-lift">Eigenvectors of $X^{p,q}$, seen from the tree</h3>
+
+<p>An eigenvector $u$ of $X^{p,q}$ pulls back to a function on the tree that is periodic under $\Lambda(2q)$. It is still an eigenfunction with the same eigenvalue, because the equation is local. It is not radial; seen from a vertex, it looks speckled. But its averages over spheres are completely determined by its eigenvalue. For every $\lambda$-eigenfunction $f$ on the tree, every vertex $x$ and every radius $l$,</p>
+$$\frac1{|S_l(x)|}\sum_{d(x,y)=l}f(y)=\varphi_\lambda(l)\,f(x).$$
+<p>To see this, average $f$ over the automorphisms of the tree that fix $x$. The result is radial, still an eigenfunction, and equal to $f(x)$ at $x$, so it is $f(x)\,\varphi_\lambda$.</p>
+
+<p>This is what makes the kernels of §4 diagonal. Summing over the sphere of radius $l$ is the point-pair kernel $k_l$ of (4.6). On $u_j$ it acts by the number $h_j(l)=|S_l|\,\varphi_{\lambda_j}(l)$, which is (4.8). Summing alternate shells as in (4.9) gives $p^{t/2}\frac{\sin(t+1)\theta_j}{\sin\theta_j}=H_t(\lambda_j)$, which is (4.10). Remark 2 reaches the same polynomials by counting walks.</p>
+
+<p>In these terms, the Ramanujan property says that every nontrivial eigenvector of $X^{p,q}$, seen from the tree, is a tempered wave: its sphere averages oscillate under the envelope $p^{-l/2}$. An eigenvalue $\lambda>2\sqrt p$ would be an eigenvector that stays correlated with itself over long distances. That is a slowly varying function, which means a bottleneck in the graph.</p>
+
+<figure class="fig wide" id="fig-lift" data-fig="lift" data-ref="Figure S2" data-title="an eigenvector from the tree">
+  <div class="fig-head"><span class="num">Figure S2</span><span class="title">An eigenvector of $X^{p,q}$, seen from the tree</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>Top: the distinct eigenvalues of $X^{p,q}$, with bar height the multiplicity. <b>Pick</b> one, or <b>choose</b> another pair. The disk shows its eigenvector $F=P_\lambda(e,\cdot)/P_\lambda(e,e)$ lifted to a ball in the tree around $e$. However speckled the colours (try an eigenvalue near $0$), the averages of $F$ over the spheres $S_r$ (dots below, scaled by $p^{r/2}$) lie exactly on the spherical function $\varphi_\lambda(r)$, for every $r$, below the girth and beyond it. Only the eigenvalue survives averaging, which is (4.8), and summing alternate shells gives $H_t(\lambda)$, which is (4.10). <b>Hover</b> a vertex to check $\sum_{y\sim w}F(y)=\lambda F(w)$ there. The eigenvector is computed exactly, on the orbits of the symmetries of $X^{p,q}$ that fix $e$ (conjugation by the quaternion units).</figcaption>
+</figure>
+
+<h3 id="s-singular">The singular series</h3>
+
+<p>Now the arithmetic side. The counts $r_Q(n)$ are the Fourier coefficients of the theta function, so for any $y>0$</p>
+$$\theta_Q(z)=\sum_{v\in\Z^4}e^{2\pi iQ(v)z}=\sum_{n\ge0}r_Q(n)\,e^{2\pi inz},\qquad r_Q(n)=\int_0^1\theta_Q(x+iy)\,e^{-2\pi in(x+iy)}\,dx.$$
+<p>As $y\to0$ the integral is dominated by a few places. Write $Q=\sum_ic_ix_i^2$. Near each rational $a/m$, $\theta_Q$ blows up like $y^{-2}$, half a power for each of the four variables, with a coefficient made of Gauss sums:</p>
+$$\theta_Q\Big(\frac am+iy\Big)\approx\frac{G(a/m)}{4\sqrt{\det Q}\;y^2},\qquad G(a/m)=\prod_{i=1}^4\frac1m\sum_{r\bmod m}e^{2\pi i\,ac_ir^2/m}.$$
+<p>These are the <em>singularities</em> of $\theta_Q$, and they sit at the cusps. Hardy and Littlewood's idea was to keep only the singular parts and see what count they predict. The answer is</p>
+$$C(n)=\frac{\pi^2n}{\sqrt{\det Q}}\;\mathfrak S(n),\qquad\mathfrak S(n)=\sum_{m\ge1}\ \sum_{\substack{a\bmod m\\(a,m)=1}}G(a/m)\,e^{-2\pi ian/m}.$$
+<p>The series $\mathfrak S(n)$ is the <em>singular series</em>. Its terms are multiplicative in $m$, so it is a product over primes,</p>
+$$\mathfrak S(n)=\prod_\ell\delta_\ell(n),\qquad\delta_\ell(n)=\lim_{k\to\infty}\frac{\#\{v\bmod\ell^k:\ Q(v)\equiv n\bmod\ell^k\}}{\ell^{3k}}.$$
+<p>Each <em>local density</em> $\delta_\ell(n)$ measures how much more or less often $Q(v)\equiv n$ holds modulo powers of $\ell$ than it would for random residues. The factor $\pi^2n/\sqrt{\det Q}$ is the density at infinity, the volume of the shell $n\le Q(v)\le n+1$. So $C(n)$ is the count you would predict if the lattice points on the ellipsoid $Q=n$ were spread at random, subject only to congruence conditions.</p>
+
+<p>Modular forms say exactly how good this prediction is. $\theta_Q$ is a modular form of weight $2$, and it splits as an Eisenstein series plus a cusp form. The Eisenstein part is the one determined by the behaviour at the cusps, and Siegel's theorem says its coefficients are exactly $C(n)$. The cusp form vanishes at every cusp, so the singularities never see it. Its coefficients are $O(n^{1/2+\varepsilon})$ by Eichler and Igusa, against $C(n)\approx n$: that is (1.5). For four squares there are no cusp forms of weight $2$ and level $4$, so the prediction is exact, and it is Jacobi's formula (1.2). For $Q$, of level $16q^2$, there are cusp forms, and the error is really there, of size about $\sqrt n$.</p>
+
+<p>The paper never evaluates $\mathfrak S$. It uses only that $C(p^k)$ is a divisor sum with periodic weights (for $k$ of fixed parity; see the note after (4.16)), and then Lemma 4.4 forces $C(p^k)$ to equal the contribution of the trivial eigenvalues. So the two sides of (4.15) line up piece by piece: the Eisenstein part of $\theta_Q$ matches the eigenvalues $\pm(p+1)$, and the cusp part matches all the others. Figure S3 colours them that way.</p>
+
+<figure class="fig wide" id="fig-singular" data-fig="singular" data-ref="Figure S3" data-title="the singular series">
+  <div class="fig-head"><span class="num">Figure S3</span><span class="title">The singular series: what the cusps predict</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><b>Lower</b> $y$ to bring $\theta_Q(x+iy)$ down to the real axis. It blows up at every rational $a/m$, and each spike climbs to the height $|G(a/m)|$ set by a Gauss sum mod $m$. Adding up what these singularities predict gives the singular series, a product of local densities, and with it the main term $C(n)=\frac{\pi^2n}{\sqrt{\det Q}}\prod_\ell\delta_\ell(n)$. <b>Choose</b> a form, and <b>hover</b> a point or <b>move</b> $n$ to see each factor. For four squares $C(n)=r_4(n)$ exactly, which is Jacobi's (1.2). For the form (1.3) the remainder $r_Q(n)-C(n)$ is the coefficient of a cusp form, and stays below a constant times $d(n)\sqrt n$. Recomputed this way, $C(p^k)$ agrees with (4.19)–(4.20) in every case tested.</figcaption>
+</figure>
+
+<h3 id="s-discrete">The discrete series, and why the bound is known</h3>
+
+<p>The last ingredient is (1.5) itself. Why is the Ramanujan bound available for these forms, when it is open for others? The cleanest answer uses representations.</p>
+
+<p>A group acting on a space acts on functions on it, and an eigenfunction generates a representation: the closed span of its translates. On the tree the group is $\PGL_2(\Q_p)$, and a $\lambda$-eigenfunction generates a <em>spherical</em> representation, one with a vector fixed by $\PGL_2(\Z_p)$, the stabilizer of a vertex. The unitary spherical representations come in three kinds: the tempered principal series ($|\lambda|\le2\sqrt p$), the complementary series ($2\sqrt p<|\lambda|<p+1$), and the trivial and sign characters ($\lambda=\pm(p+1)$). Only the tempered ones occur in $L^2$ of the tree, and their Plancherel measure is Kesten's density.</p>
+
+<p>On the hyperbolic plane the group is $\PGL_2(\R)$, and its unitary representations come in the same kinds: principal series ($\lambda_{\mathbb H}\ge\frac14$), complementary series ($0<\lambda_{\mathbb H}<\frac14$) and the trivial representation ($\lambda_{\mathbb H}=0$). There is also one more family, with no counterpart among functions on the tree's vertices: the <em>discrete series</em> $D_k$, $k=2,4,6,\dots$. These have no vector fixed by the rotations $O(2)$, so they do not come from functions on $\mathbb H$ at all. They come from holomorphic forms: a modular form of weight $k$ generates a copy of $D_k$. The name records how they sit in $L^2(\PGL_2(\R))$. The principal series fill out a continuum with a Plancherel density, while each $D_k$ occurs discretely, as an atom, because its matrix coefficients are square-integrable on the group.</p>
+
+<p>In this language the Ramanujan conjecture says that the representations generated by cusp forms are tempered at every place. At a prime $p$ it is the bound $|a_p|\le2\sqrt p$ on Hecke eigenvalues. At $\infty$ it is automatic for holomorphic forms, since $D_k$ is tempered; for Maass forms it is Selberg's conjecture $\lambda\ge\frac14$.</p>
+
+<p>Now the forms in LPS. An eigenfunction of $X^{p,q}$ is an automorphic form for the quaternion algebra $H$, and the adjacency operator is the Hecke operator $T_p$, so its eigenvalue is a Hecke eigenvalue. Because $H$ is definite, $H^\times(\R)/\R^\times\cong SO(3)$ is compact, and the component at $\infty$ is just the trivial representation. The Jacquet–Langlands correspondence matches such a form with a cusp form on $\mathrm{GL}_2$ that has the same Hecke eigenvalue at $p$, and it sends the trivial representation of $SO(3)$ to the discrete series $D_2$. (In general, the representation of $SO(3)$ of dimension $k-1$ goes to $D_k$.) So the partner is a holomorphic form of weight $2$, and weight $2$ has geometry behind it. Eichler and Shimura realized $a_p$ as the trace of Frobenius on the Jacobian of a modular curve over $\F_p$, so $a_p=\alpha+\bar\alpha$ with $|\alpha|=\sqrt p$ by Weil's Riemann hypothesis for curves, and $|a_p|\le2\sqrt p$. That is the subject of Eichler's 1954 paper, and it is the bound behind (1.5). The paper itself reaches these forms through the theta series of $Q$ and never mentions representations; the account here is the modern reading.</p>
+
+<p>Write $\lambda=\sqrt p\,(z+z^{-1})$. The number $z$ is the <em>Satake parameter</em>. Tempered means $|z|=1$, and for weight $2$, $z=\alpha/\sqrt p$, so the Ramanujan bound is literally a Riemann hypothesis: the parameters lie on a circle. With an indefinite algebra, or with $\SL_2(\Z)$ itself, the component at $\infty$ could be in the principal series, a Maass form, and then nothing of the kind is known; the Ramanujan conjecture for Maass forms is open, both at $p$ and at $\infty$. That is why the construction goes through a definite algebra. It is also why Selberg's $\frac3{16}$ theorem, applied to $\SL_2(\Z/q\Z)$ with generators $\left(\begin{smallmatrix}1&1\\0&1\end{smallmatrix}\right)$ and $\left(\begin{smallmatrix}1&0\\1&1\end{smallmatrix}\right)$, gives expanders but not Ramanujan graphs.</p>
+
+<figure class="fig wide" id="fig-duals" data-fig="duals" data-ref="Figure S4" data-title="two unitary duals">
+  <div class="fig-head"><span class="num">Figure S4</span><span class="title">Two unitary duals, and the discrete series</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>Top: the representations that can occur, each placed by the eigenvalue it gives. For $\PGL_2(\R)$ that is the Laplace eigenvalue $\lambda=s(1-s)$: the principal series carries the Plancherel density, the complementary series $(0,\frac14)$ carries none, and the discrete series $D_k$ are isolated atoms. For $\PGL_2(\Q_p)$ it is the Hecke eigenvalue, with the tempered band $[-2\sqrt p,2\sqrt p]$ under Kesten's density. The eigenvalues of $X^{p,q}$ all fall in the band except $\pm(p+1)$, and after Jacquet–Langlands each comes from a form whose part at $\infty$ is $D_2$. Bottom: the same eigenvalues as Satake parameters $z=e^{\pm i\theta}$, or one elliptic curve's $a_p$ over many primes; all lie on the unit circle. <b>Choose</b> a pair or a curve; <b>hover</b> an eigenvalue to see its representation, or a step of the chain to find it in the pictures.</figcaption>
+</figure>
+
+<h3 id="s-dictionary">The dictionary</h3>
+
+<p>The same structure in three languages. The first column is what the paper uses; the third is the modern language for both of the others.</p>
+
+<div class="table-scroll wide" id="tbl-dictionary" data-ref="Dictionary" data-title="graphs, surfaces, representations">
+<table class="params dictionary">
+<tr><th>Graph and tree</th><th>Surface and $\mathbb H$</th><th>Representations</th></tr>
+<tr><td>$\Delta$, the adjacency operator</td><td>$\Delta_{\mathbb H}=-y^2(\partial_x^2+\partial_y^2)$</td><td>Hecke operator $T_p$; Casimir operator</td></tr>
+<tr><td>$\lambda=2\sqrt p\cos\theta=\sqrt p\,(z+z^{-1})$</td><td>$\lambda=s(1-s)=\frac14+\tau^2$</td><td>Satake parameter $z$; spectral parameter $s$</td></tr>
+<tr><td>spherical function $\varphi_\lambda$, (4.10)</td><td>Legendre function $P_{-s}(\cosh\rho)$</td><td>spherical function</td></tr>
+<tr><td>$|\lambda|\le2\sqrt p$: the spectrum of the tree</td><td>$\lambda\ge\frac14$: the spectrum of $\mathbb H$</td><td>tempered principal series</td></tr>
+<tr><td>$2\sqrt p\lt|\lambda|\lt p+1$</td><td>$0\lt\lambda\lt\frac14$</td><td>complementary series</td></tr>
+<tr><td>$\lambda=\pm(p+1)$</td><td>$\lambda=0$</td><td>trivial and sign characters</td></tr>
+<tr><td>Kesten's measure $\mu_{p+1}$, Proposition 4.3</td><td>density $\frac12\tanh\pi\tau$ on $\lambda\ge\frac14$</td><td>Plancherel measure</td></tr>
+<tr><td>none on vertices</td><td>holomorphic forms of weight $k$</td><td>discrete series $D_k$</td></tr>
+<tr><td>$\pm(p+1)$ and the main term $C(p^k)$</td><td>Eisenstein series</td><td>Eisenstein part</td></tr>
+<tr><td>the other eigenvalues and the error term</td><td>cusp forms</td><td>cuspidal representations</td></tr>
+<tr><td>Ramanujan graph, Definition 1.1</td><td>Selberg's conjecture $\lambda_1\ge\frac14$</td><td>Ramanujan conjecture: tempered everywhere</td></tr>
+</table>
+</div>
+
+</div>
+</div>
+
 <!-- ═══════════════════════════ §4 ═══════════════════════════ -->
 
 <section>
@@ -308,6 +443,7 @@ $$d\mu_k(t)=\begin{cases}\dfrac{\sqrt{k-1-t^2/4}}{\pi k\,\big(1-(t/k)^2\big)}\,d
 </figure>
 
 <h3 id="s4-tree">Harmonic analysis on the tree</h3>
+<p class="supp-pointer">New to this? The supplement <a class="supp-link" href="#s-eigen">What an eigenvalue of $\Delta$ measures</a> draws the waves behind (4.8)–(4.11), in Figures S1 and S2.</p>
 
 <p>Let $\Gamma$ act freely on $T=T_k$ by isometries with $n=|T/\Gamma|$ finite, and let $L^2(T/\Gamma)$ be the $\Gamma$-periodic functions on $T$. The adjacency operator preserves this space, so it has an orthonormal eigenbasis:</p>
 <div class="eq" id="eq-4-5" data-ref="(4.5)">$$\Delta u_j=\lambda_ju_j,\qquad u_0(x)=\frac1{\sqrt n},\quad\lambda_0=p+1=k.\tag{4.5}$$</div>
@@ -359,6 +495,9 @@ $$r_Q(p^k)=\frac{2p^{k/2}}{n}\sum_{j=0}^{n-1}\frac{\sin(k+1)\theta_j}{\sin\theta
 
 <p>Where $C$ comes from: $r_Q(n)$ is the $n$-th coefficient of the theta function $\theta(z)=\sum_{v\in\Z^4}e^{2\pi iQ(v)z}$, a modular form of weight two (Hecke). It splits as a combination of Eisenstein series plus a cusp form. The cusp form contributes the error term, by the Ramanujan bound; the Eisenstein series contribute the "singular series" $C(n)$. From the known Fourier expansions of Eisenstein series, $C$ has the shape</p>
 $$C(n)=\sum_{d\mid n}d\,F(d),\qquad F:\NN\to\C\ \text{periodic of period }4q^2.$$
+<p class="slip">This shape is not quite right in Case i. There $C(p^k)$ is $0$ for odd $k$ and $c_2\,\sigma(p^k)$ for even $k$, which would force $F(p^{2j})=c_2\,(1+p^{-1}+\dots+p^{-2j})$, not periodic in $j$. The Eisenstein coefficients also carry a character of $n/d$: Siegel's formula gives $C(n)=\frac{c_2}2\sum_{d\mid n}d\,\big(1+\leg dq\leg{n/d}q\big)$ for $n\equiv1\pmod 4$ prime to $q$. For $k$ of fixed parity that is again a divisor sum with periodic weights, so the argument runs along even $k$, which is all Case i uses. The values (4.19) are correct: Figure S3 recomputes them from the local densities.</p>
+
+<p class="supp-pointer">Where $C$ comes from, with pictures: <a class="supp-link" href="#s-singular">the singular series</a>, Figure S3.</p>
 
 <p>The proof never computes $F$. Instead it compares $C(p^k)$ with the trivial eigenvalues, using a lemma about divisor sums with periodic weights.</p>
 
@@ -388,7 +527,9 @@ $$\sum_{j\ne0,\,n-1}\frac{\sin(k+1)\theta_j}{\sin\theta_j}=O_\varepsilon\big(p^{
 <p>The paper says "clearly". If $\theta_j=i\mu$ with $\mu>0$, the term is $\frac{\sinh(k+1)\mu}{\sinh\mu}$, which is positive and grows like $e^{k\mu}$. If $\theta_j=\pi+i\mu$, it is $(-1)^k\frac{\sinh(k+1)\mu}{\sinh\mu}$, which is also positive when $k$ is even. A real $\theta_j$ contributes at most $k+1$ in absolute value. So for even $k$ the non-real terms all have the same sign and cannot cancel, and a single one of them would outgrow $p^{\varepsilon k}$ for small $\varepsilon$. That is why the argument runs over even $k$.</p>
 </div>
 
-<p><b>Case ii, $\leg pq=1$.</b> Now $X^{p,q}$ is not bipartite (end of §3), so $|\lambda_j|\lt p+1$ for all $j\ne0$, and (4.16) reads $C(p^k)+O_\varepsilon(p^{k(1/2+\varepsilon)})=\frac{2(p^{k+1}-1)}{n(p-1)}+o(p^k)$. By Lemma 4.4,</p>
+<p><b>Case ii, $\leg pq=1$.</b> Now $X^{p,q}$ is not bipartite (end of §3), so $|\lambda_j|\lt p+1$ for all $j\ne0$, and (4.16) reads</p>
+$$C(p^k)+O_\varepsilon\big(p^{k(1/2+\varepsilon)}\big)=\frac{2(p^{k+1}-1)}{n(p-1)}+o(p^k).$$
+<p>By Lemma 4.4,</p>
 <div class="eq" id="eq-4-20" data-ref="(4.20)">$$C(p^k)=\frac{2(p^{k+1}-1)}{n(p-1)},\tag{4.20}$$</div>
 <p>and this time $\sum_{j=1}^{n-1}\frac{\sin(k+1)\theta_j}{\sin\theta_j}=O_\varepsilon(p^{k\varepsilon})$, so every $\theta_j$ with $j\ge1$ is real. That proves Theorem 4.1. ∎</p>
 
@@ -417,6 +558,33 @@ $$H_0(x)=1,\quad H_1(x)=x,\quad H_t(x)=xH_{t-1}(x)-pH_{t-2}(x)\ \ (t\ge2),$$
   <div class="fig-mount"></div>
   <figcaption>The $q+1$ points of $\PP^1(\F_q)$ as ideal points on the boundary of the Poincaré disk, each joined to its images under the $p+1$ generators by a hyperbolic geodesic; a repeated edge is one geodesic drawn thicker. A fixed point of a generator gives a loop, drawn as a small circle just outside the disk, tangent to the boundary at that point. Below it is the spectrum of $Y^{p,q}$ against the window, with the eigenvalues of $X^{p,q}$ as faint ticks when that spectrum is small enough to compute here. <b>Choose</b> $p$ and $q$; $q$ can go up to about $200$. Every eigenvalue except $p+1$ lies in the window, and $-(p+1)$ never appears, even when $X^{p,q}$ is bipartite. That is Theorem 4.4.</figcaption>
 </figure>
+
+<div class="supp" id="supp-squares">
+<button class="supp-toggle" type="button" aria-expanded="false"><span class="supp-icon"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span><span class="supp-text"><span class="supp-kicker">Supplement · not in the paper</span><span class="supp-title">Square complex lab: $Y^{p,q}$ and $Y^{q,p}$ inside $S^{p,q}$</span><span class="supp-meta">Use both primes at once and the quaternions build a square complex whose hyperplanes are the graphs $Y$. One figure, in 3D.</span></span><span class="supp-action">Show</span></button>
+<div class="supp-body" hidden>
+
+<h3 id="s-squares" data-nav="Square complex lab">The square complex $S^{p,q}$</h3>
+
+<p>In the paper the two primes play different parts: $p$ gives the generators and $q$ the quotient. Put them on an equal footing. Take the $p+1$ quaternions $\alpha$ of norm $p$ from §2 and the $q+1$ quaternions $\beta$ of norm $q$ made the same way. Unique factorization, Lemma 3.1's argument for norm $pq$, says that for every $\alpha$ and $\beta$ there is exactly one way to write</p>
+$$\alpha\beta=\pm\beta'\alpha',$$
+<p>with $\alpha'$ of norm $p$ and $\beta'$ of norm $q$. Make a square for each such relation, with sides $\alpha$, $\beta$, $\alpha'$, $\beta'$, and glue. The result has one vertex, a horizontal loop for each pair $\alpha^{\pm1}$, a vertical loop for each pair $\beta^{\pm1}$, and $\frac{(p+1)(q+1)}4$ squares. Call it $S^{p,q}$. Each corner of each square is a pair $(\alpha^{\pm1},\beta^{\pm1})$, and each pair occurs exactly once, so the link of the vertex is the complete bipartite graph $K_{p+1,q+1}$. That makes the universal cover the product of trees $T_{p+1}\times T_{q+1}$, on whose vertices the quaternions of norm $p^aq^b$ act simply transitively (Mozes; Burger and Mozes).</p>
+
+<p>Cut every square along its midlines. The horizontal midlines join vertical sides and fit together into graphs, the horizontal hyperplanes; the vertical midlines form the vertical hyperplanes. Slice at heights $\frac14$ and $\frac34$ instead of $\frac12$, and each hyperplane opens into a double cover whose vertices are the oriented vertical edges: the $q+1$ generators $\beta^{\pm1}$.</p>
+
+<p><b>These slices are the graphs $Y$.</b> A quaternion $\beta$ of norm $q$ is rank one mod $q$, so it has a point $\xi(\beta)\in\PP^1(\F_q)$, the image of its matrix (2.1), and the $q+1$ points are all different. This is the Severi–Brauer picture of §3, with $q$ in place of $p$. If a square says $\alpha\beta=\pm\beta'\alpha'$, then mod $q$ the image of the left side is $\alpha\cdot\xi(\beta)$ and the image of the right side is $\xi(\beta')$, so</p>
+$$\xi(\beta')=\alpha\cdot\xi(\beta).$$
+<p>The horizontal slice of that square joins $\beta'$ to $\beta$ at height $\frac14$, and their inverses at $\frac34$, so it is an edge $\xi\sim\alpha\xi$ of $Y^{p,q}$. Counting both slices of every square gives each edge of $Y^{p,q}$ exactly once. <b>The horizontal slices of $S^{p,q}$ are $Y^{p,q}$, and by symmetry the vertical slices are $Y^{q,p}$</b>, a $(q+1)$-regular graph on the $p+1$ points of $\PP^1(\F_p)$. The hyperplanes themselves, the $\frac12$ slices, are these graphs folded in half by $\beta\leftrightarrow\beta^{-1}$.</p>
+
+<p>Figure S5 draws $S^{p,q}$ both ways: as flat gluing data, one square per relation with labelled sides, and folded into $\R^3$, where each square becomes a curved patch through its four sides. The 3D view is the folded complex from the <a href="../../GeometryofLinearGroups/Geometric/Tools/padicGroups/quaternionCalculator/">quaternion calculator</a>, which has more controls.</p>
+
+<figure class="fig wide" id="fig-squares" data-fig="squares" data-ref="Figure S5" data-title="the square complex lab">
+  <div class="fig-head"><span class="num">Figure S5</span><span class="title">$Y^{p,q}$ and $Y^{q,p}$ inside the square complex $S^{p,q}$</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>Top: $S^{p,q}$ in $\R^3$. <b>Drag</b> the fold slider, or press <i>Lay it flat</i>, to open it into its gluing data, one flat square per relation, and to fold it back. <b>Turn on</b> $Y^{p,q}$ or $Y^{q,p}$ to draw the ¼ and ¾ slices of the horizontal or vertical hyperplanes inside the complex, and <b>slide</b> them to ½ to fold each graph onto its hyperplane. <b>Drag</b> the picture to turn it. Below: the same two graphs on their projective lines, drawn as in Figure 7. <b>Click</b> a square or <b>hover</b> an edge, and the square, its relation $\alpha\beta=\pm\beta'\alpha'$ and its two edges in each graph light up together; <b>hover</b> a point to see which generator sits there. The checks compare the slices with $Y^{p,q}$ and $Y^{q,p}$ edge for edge.</figcaption>
+</figure>
+
+</div>
+</div>
 </section>
 
 <!-- ═══════════════════════════ §5 ═══════════════════════════ -->

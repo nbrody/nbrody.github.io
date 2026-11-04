@@ -1,0 +1,19 @@
+/* TEMPLATE paper: what only this paper needs, on top of ../interactivePaper.css.
+   Name the paper's colour roles once and use them in every figure and caption:
+     --c-main    the primary object
+     --c-second  the second object */
+
+:root {
+  --c-main: #2f6fde;
+  --c-second: #00788a;
+}
+:root[data-theme="dark"] {
+  --c-main: #5a96ff;
+  --c-second: #2bb2c4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --c-main: #5a96ff;
+    --c-second: #2bb2c4;
+  }
+}

@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cannon's Conjecture</title>
+<meta name="description" content="An interactive walk through OpenAI's preprint A Modulus Proof of Cannon's Conjecture (September 2026): a hyperbolic group with sphere boundary acts geometrically on hyperbolic 3-space, with live figures that run the proof's constructions.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%232f6fde'/%3E%3Cellipse cx='16' cy='16' rx='14' ry='5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- fonts for the Modern, Book and Large print styles; LaTeX's Latin Modern comes from interactivePaper.css -->
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../interactivePaper.css">
+<link rel="stylesheet" href="style.css">
+<script>
+  (function () {
+    // light/dark and the page style, chosen from the theme button's menu (core/look.js)
+    var t = null, s = null;
+    try { t = localStorage.getItem('ip-theme'); s = localStorage.getItem('ip-style'); } catch (e) {}
+    if (t) document.documentElement.dataset.theme = t;
+    if (s && s !== 'latex') document.documentElement.dataset.style = s;
+    else {
+      var l = document.createElement('link');
+      l.rel = 'preload'; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = 'anonymous';
+      l.href = 'https://cdn.jsdelivr.net/npm/latex.css@1.11.0/fonts/LM-regular.woff2';
+      document.head.appendChild(l);
+    }
+  })();
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      // the paper's own macros (main.tex)
+      macros: {
+        RR: '\\mathbb{R}', NN: '\\mathbb{N}', ZZ: '\\mathbb{Z}', HH: '\\mathbb{H}', Sphere: '\\mathbb{S}^2',
+        cF: '\\mathcal{F}', cQ: '\\mathcal{Q}', Qhat: '\\widehat{\\mathcal{Q}}', cE: '\\mathcal{E}', cN: '\\mathcal{N}',
+        Mod: '\\operatorname{Mod}', osc: '\\operatorname{osc}', diam: '\\operatorname{diam}', dist: '\\operatorname{dist}',
+        Isom: '\\operatorname{Isom}', Stab: '\\operatorname{Stab}', id: '\\operatorname{id}'
+      }
+    },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'canvas'] },
+    // math size comes from the style's --math-size, so it can change without re-typesetting
+    chtml: { scale: 1, matchFontHeight: false }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Theme and page style" aria-haspopup="dialog" aria-expanded="false" aria-controls="look-menu"></button>
+<div class="rail" id="rail"></div>
+
+<main class="paper">
+
+<header class="hero">
+  <div class="kicker">Interactive paper</div>
+  <h1>Cannon's Conjecture</h1>
+  <div class="byline">OpenAI · <em>A Modulus Proof of Cannon's Conjecture</em>, preprint, September 23, 2026</div>
+  <p class="lede">A hyperbolic group whose boundary is a topological $2$-sphere acts properly and cocompactly by isometries on hyperbolic $3$-space. The preprint proves this by showing that one number stays bounded: $M(n)$, the cost of blocking every large path on the boundary with cells of size $a^{-n}$. Classical uniformization then finishes. If $M(n)$ were unbounded, the proof builds a continuous function on the boundary whose energy vanishes, and shows that two of its group translates would have to cut across each other's level sets, which costs energy they do not have.</p>
+  <div class="context">
+    <span class="label">Context</span>
+    <p>A preprint dated September 23, 2026, posted October 6, 2026 in the <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/A-Modulus-Proof-of-Cannons-Conjecture-September-23-2026/paper.pdf">openai/math repository</a> (commit <span class="mono">adc7f12</span>). It is not refereed. It is not formally verified: the companion Lean file <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/CannonGeometricAction.lean"><span class="mono">CannonGeometricAction.lean</span></a> states the theorem and ends in <code>sorry</code>, a challenge for comparison, not a proof. The deep inputs are Bonk–Kleiner's uniformization of metric spheres, in the form of Bourdon–Kleiner's modulus criterion, and the Sullivan–Tukia invariant conformal structure.</p>
+    <p>Every figure computes the paper's own construction on an explicit model and checks a numbered statement live. That illustrates the statements; it does not prove them. Numbering follows the paper. Hover the left edge (or press <b>Contents</b> on a phone) for a map of every section and statement. An earlier walkthrough of the same preprint, in the older style, is <a href="../cannon/">here</a>.</p>
+  </div>
+</header>
+
+<!-- ═══════════════════════════ BACKGROUND ═══════════════════════════ -->
+
+<section>
+<h2 id="before" data-nav="Before the paper">Before the paper <span class="tag">background</span></h2>
+
+<h3 id="before-hyperbolic">Hyperbolic groups and their boundaries</h3>
+
+<p>Fix a finite symmetric generating set of a group $G$ and draw its Cayley graph $\Gamma$: a vertex for each element, an edge of length one from $g$ to $gs$ for each generator $s$. The group is <em>hyperbolic</em> if geodesic triangles in $\Gamma$ are uniformly thin: each side lies within a fixed distance $\delta$ of the other two. Free groups, fundamental groups of closed negatively curved manifolds, and cocompact Kleinian groups are hyperbolic.</p>
+
+<p>The <em>boundary</em> $\partial G$ is the set of geodesic rays from the identity, two rays being identified when they stay a bounded distance apart. Two rays that agree for a long time end at nearby boundary points. The Gromov product $(y|z)_e$ measures how long the rays to $y$ and $z$ travel together, and a <em>visual metric</em> makes this exact up to constants: $d(y,z)\approx a^{-(y|z)_e}$ for some $a\gt1$. A free group has a Cantor set as boundary, a surface group a circle, and a cocompact Kleinian group the round $2$-sphere, on which the group acts by Möbius transformations.</p>
+
+<h3 id="before-conjecture">Cannon's conjecture</h3>
+
+<p>Cannon conjectured the converse of the last example: if $\partial G$ is homeomorphic to the $2$-sphere, then $G$ is, up to finite kernel, a cocompact Kleinian group. The topology of the boundary would then determine the geometry of the group. Bonk and Kleiner (2002) reduced this to a question about the metric on the boundary: the action is geometric as soon as the visual metric is quasisymmetrically equivalent to the round one, that is, as soon as it distorts shapes by a bounded amount at every scale.</p>
+
+<h3 id="before-modulus">Combinatorial modulus</h3>
+
+<p>The tool for comparing a metric sphere with the round one is <em>modulus</em>, the discrete version of extremal length. Cover the sphere by small cells. Given a family of paths, assign each cell a nonnegative weight so that every path in the family meets cells of total weight at least $1$. The modulus of the family is the least possible sum of squared weights: how expensive it is to block all the paths. On the round sphere, the modulus of the paths of diameter at least a fixed $d_0$ stays bounded as the cells shrink: weights about the size of a cell suffice, and there are about $(\text{cell size})^{-2}$ cells. Cannon's combinatorial Riemann mapping theorem (1994) and the Bonk–Kleiner and Bourdon–Kleiner criteria turn bounded modulus back into a round structure.</p>
+
+<h3 id="before-qc">Conformal structures</h3>
+
+<p>A homeomorphism of the sphere is quasiconformal if it maps infinitesimal circles to ellipses of bounded eccentricity. At a point, an ellipse up to scale is a point of the hyperbolic plane (positive definite quadratic forms modulo scalars), and a linear map acts on these by isometries. Sullivan's idea: if a group acts on the sphere with uniformly bounded distortion, the images of the round structure at each point form a bounded set in the hyperbolic plane, and its circumcenter is an invariant measurable conformal structure. The measurable Riemann mapping theorem straightens it, and the group becomes Möbius.</p>
+</section>
+
+<!-- ═══════════════════════════ §1 ═══════════════════════════ -->
+
+<section>
+<h2 id="s1" data-nav="Introduction"><span class="secnum">1.</span>Introduction</h2>
+
+<div class="thm key" id="thm-1-1" data-ref="Theorem 1.1" data-title="Cannon's conjecture"><span class="label">Theorem 1.1 <span class="who">(Cannon's conjecture)</span>.</span> Let $G$ be a hyperbolic group with $\partial G$ homeomorphic to $\Sphere$. There is a homomorphism $\rho:G\to\Isom(\HH^3)$ for which the action on $\HH^3$ is proper and cocompact. Its kernel is finite.</div>
+
+<p>Proper means that only finitely many group elements bring a compact set back to meet itself; cocompact means that translates of one compact set cover $\HH^3$. The image may contain orientation-reversing isometries, so no orientation needs to be chosen. For a torsion-free group the quotient $\HH^3/\rho(G)$ is a closed hyperbolic $3$-manifold, possibly nonorientable (Corollary 8.1).</p>
+
+<h3 id="s1-history">History and the classical reduction</h3>
+
+<p>The paper places itself on the analytic route:</p>
+<ul>
+  <li><b>Cannon (1994)</b>: the combinatorial Riemann mapping theorem recovers conformal coordinates on a sphere from discrete annular moduli.</li>
+  <li><b>Cannon–Swenson (1998)</b> state the group-boundary conjecture and relate a geometric action to conformality of the boundary's coverings; <b>Cannon–Floyd–Parry (1999)</b> show it suffices to bound discrete moduli of annuli from below around every point.</li>
+  <li><b>Bonk–Kleiner (2002)</b>: a metric sphere with suitable modulus bounds is quasisymmetric to the round sphere. The paper uses the exact form in <b>Bourdon–Kleiner (2013), Corollary 3.5</b>: on an approximately self-similar sphere, a uniform bound on the combinatorial $2$-modulus of paths of a fixed small diameter gives a quasi-Möbius parametrization by the round sphere.</li>
+  <li><b>Bonk–Kleiner (2005)</b> proved the conjecture when the Ahlfors regular conformal dimension (Pansu's invariant) is attained. Attainment is a hypothesis there.</li>
+</ul>
+<p>The algebraic route goes through surface subgroups and cube complexes: Kahn–Marković, Bergeron–Wise, Agol, Marković's criterion, Haïssinsky's planar-boundary criterion, and the drilling theorem of Groves, Haïssinsky, Manning, Osajda, Sisto and Walsh. Those results give the consequences in §8 once a Kleinian realization is known. The present proof takes the analytic route and proves the modulus bound directly.</p>
+
+<h3 id="s1-outline">The proof in outline</h3>
+
+<ol>
+  <li><b>Reduction (§2).</b> Cover the boundary $Z=\partial G$ at scale $a^{-n}$ by balls on a separated net. Let $M(n)$ be the least sum of squared weights blocking every path of diameter at least $d_0$. If $\sup_nM(n)\lt\infty$, Theorem 2.5 uniformizes $Z$ and Proposition 2.6 builds the action.</li>
+  <li><b>A scalar limit (§3).</b> Suppose $M(n)$ is unbounded. At record scales, crossing duality gives weights of energy $O(1/M(N))$ that block crossings of a rectangle. Shortest-path costs turn them into continuous functions $H_N$ whose level sets are separating continua. Their limit is a nonconstant function $u$ with a finite measure $\mu$ controlling its oscillation, (3.6). The approximants keep vanishing local energy after any fixed group translation.</li>
+  <li><b>Two branches.</b> If $M(n)$ grows exponentially, $u$ is Hölder, and magnifying its variation twice gives two transforms that are forced to be constant on each other's variation, a contradiction (§4). If $M(n)$ grows subexponentially, a tree of small balls carries a probability flow that puts definite mass on nodes with two separated variations (§5); comparing many such nodes in pairs charges more measure than their overlap allows (§6).</li>
+</ol>
+<p>Both contradictions come from one inequality, Lemma 3.8: two functions whose level sets cut across each other cannot both have small local energy.</p>
+
+<h3 id="map">The proof at a glance</h3>
+
+<div class="map wide">
+  <div class="row">
+    <a class="node" href="#lem-2-1"><b>Expansions</b><span>Lemma 2.1 · group elements magnify small balls and squeeze the rest to a puncture</span></a>
+    <a class="node classic" href="#thm-2-5"><b>Bonk–Kleiner; Bourdon–Kleiner</b><span>Thm. 2.5 · $\sup_nM(n)\lt\infty$ ⇒ quasi-Möbius to the round sphere</span></a>
+  </div>
+  <div class="arrow">↓ suppose $M(n)$ is unbounded</div>
+  <div class="row">
+    <a class="node" href="#lem-3-3"><b>Crossing duality</b><span>Lemma 3.3 · blocking weights of energy $O(1/M(N))$</span></a>
+    <a class="node key" href="#lem-3-4"><b>Separating levels</b><span>Lemma 3.4 · continuous $H_N$ whose levels meet every straddling path</span></a>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <a class="node key" href="#prop-3-7"><b>The scalar limit</b><span>Prop. 3.7 · $u$ nonconstant, $(\osc u)^2\le C\mu$</span></a>
+    <a class="node key" href="#lem-3-8"><b>Level comparison</b><span>Lemma 3.8 · crossing levels cost energy</span></a>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <a class="node contra" href="#prop-4-5"><b>Exponential growth: impossible</b><span>§4 · two magnifications with different punctures</span></a>
+    <a class="node contra" href="#prop-6-1"><b>Subexponential growth: impossible</b><span>§5–§6 · a probability flow, then far pairs over-charge $\mu$</span></a>
+  </div>
+  <div class="arrow">↓ so $\sup_nM(n)\lt\infty$</div>
+  <div class="row">
+    <a class="node classic" href="#prop-2-6"><b>Sullivan–Tukia</b><span>Prop. 2.6 · invariant conformal structure, Möbius action</span></a>
+    <a class="node goal" href="#thm-1-1"><b>Cannon's conjecture</b><span>Thm. 1.1 · a geometric action on $\HH^3$</span></a>
+  </div>
+  <div class="legend">Shaded: the paper's key steps. Dashed: inputs from the literature. Red: the two contradictions. Green: the main theorem.</div>
+</div>
+<p class="dim" style="font-size:.9rem">Which steps are new, which are cited, and where a checker should spend time: the <a href="#view-guide">reading guide</a>, a companion page.</p>
+</section>
+
+<!-- ═══════════════════════════ §2 ═══════════════════════════ -->
+
+<section>
+<h2 id="s2" data-nav="Boundary geometry and the modulus criterion"><span class="secnum">2.</span>Boundary geometry and the modulus criterion</h2>
+
+<p>Let $\Gamma$ be the Cayley graph, $e$ its identity vertex, $|v|$ the distance from $e$ to $v$, and $(y|z)_o=\tfrac12\bigl(d(o,y)+d(o,z)-d(y,z)\bigr)$ the Gromov product. Write $Z=\partial G$. A visual metric $d$ on $Z$ satisfies</p>
+<div class="eq" id="eq-2-1" data-ref="(2.1)" data-title="visual metric">$$C_v^{-1}a^{-(y|z)_e}\le d(y,z)\le C_va^{-(y|z)_e},\qquad y\ne z,\tag{2.1}$$</div>
+<p>for some $a\gt1$. Scales are $r_k=a^{-k}$.</p>
+
+<h3 id="s2-expansions">Expansions</h3>
+
+<p>Left multiplication by the inverse of a vertex far out along a ray magnifies a small ball of the boundary to macroscopic size. The point of the next lemma is that it also says what happens to everything else: the complement of the ball is squeezed toward one point, the <em>puncture</em>.</p>
+
+<div class="thm key" id="lem-2-1" data-ref="Lemma 2.1" data-alias="(2.2)|(2.3)|(2.4)" data-title="expansion formula"><span class="label">Lemma 2.1 <span class="who">(Expansion formula)</span>.</span> Let $v$ be the depth-$k$ vertex on a based ray to $x\in Z$, put $h=v^{-1}$ and $R=r_k$, and set $D_y=\max\{R,d(x,y)\}$. There are constants $c_E,C_E\gt0$, independent of these choices, with
+$$c_E\frac{R\,d(y,z)}{D_yD_z}\le d(hy,hz)\le C_E\frac{R\,d(y,z)}{D_yD_z}.\tag{2.2}$$
+So on $B(x,CR)$ the map $h$ is bi-Lipschitz with scale factor $R^{-1}$. If $d(x,z_0)\ge\varepsilon_*\gt0$, $R\lt\varepsilon_*/2$ and $p=hz_0$, then
+$$d(hy,p)\lesssim R/D_y\ \ (y\in Z),\qquad d(hy,p)\asymp R/D_y\ \ (d(x,y)\le\varepsilon_*/2),\tag{2.3}$$
+$$(v^{-1}|p)_e\ge k-C(\varepsilon_*).\tag{2.4}$$</div>
+
+<p>The proof is a change of base point in the Gromov product,</p>
+$$(y|z)_v=(y|z)_e+k-(v|y)_e-(v|z)_e+O(1),$$
+<p>together with $a^{-(v|y)_e}\asymp D_y$. Exponentiating gives (2.2). The denominator $D_yD_z$ is what makes the formula useful later: it controls the image of the whole sphere, not only of the ball. Points far from $x$ land within $O(R)$ of the puncture $p$, by (2.3).</p>
+
+<figure class="fig wide" id="fig-sphere" data-fig="sphere" data-ref="Figure 1" data-title="the sphere at infinity, expanded">
+  <div class="fig-head"><span class="num">Figure 1</span><span class="title">The sphere at infinity, expanded</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><p>The sphere at infinity of the right-angled dodecahedral reflection group $\Gamma$: twelve reflections of $\HH^3$ in the faces of a regular right-angled dodecahedron, a cocompact group with orientation-reversing elements, as the paper allows. The <b style="color:var(--c-mesh)">gray</b> circles are where its walls meet the sphere; $\Gamma$ preserves them. The visual metric is $d(y,z)=\tfrac12|y-z|=e^{-(y|z)_o}$. The point at depth $t$ on the ray from $o$ to $x$ is folded back into the dodecahedron by reflections; the reflections it takes spell an actual group element $v$, and $h=v^{-1}$ acts on $\Sphere$ as a Möbius or anti-Möbius map. Left: the ball $B(x,R)$ with $R=e^{-t}$ (<b style="color:var(--c-u)">blue</b>), the rings $D_y=2^kR$, the far region $d(x,y)\ge\varepsilon_*$ (<b style="color:var(--c-mu)">violet</b>) and a far point $z_0$; the inset enlarges $B(x,4R)$. Right: the same sphere after $h$, with an inset around the puncture $p=hz_0$.</p>
+<p><b>Click</b> the left sphere to move $x$, or <b>drag</b> $x$, $z_0$ or the inset. <b>Raise</b> $t$ or press <b>Deeper</b>. <b>Try</b> $x$ at a vertex, where the word is periodic, $v=(s_as_b)^k$, and $h$ fixes $x$.</p>
+<p>The blue ball, a speck at depth $7$, becomes about a hemisphere, and $h$ carries the circles of the left inset onto the circles of the whole right sphere. The rings around $x$ become circles nested about $p$ at distance $\asymp2^{-k}$, so everything far from $x$ is crowded into a ball of radius $\asymp R$ about $p$. The readout checks Lemma 2.1 live: the ratio in (2.2) stays in one band $[c_E,C_E]$ for every $x$ and $t$, and $d(hy,p)\,D_y/R$ stays bounded, as in (2.3). The band is proved, not fitted: $h$ is the translation along the ray, with ratios in $[\tfrac12,1]$, followed by an isometry that moves $o$ by at most the circumradius $\rho$ of the dodecahedron, so $c_E=\tfrac12e^{-\rho}$ and $C_E=e^{\rho}$.</p></figcaption>
+</figure>
+
+<p>Three routine facts follow from thin triangles and are used throughout.</p>
+
+<div class="thm" id="lem-2-2" data-ref="Lemma 2.2" data-title="prefixes"><span class="label">Lemma 2.2 <span class="who">(Prefixes)</span>.</span> Every vertex $v$ lies a bounded distance from a depth-$|v|$ vertex on a based ray, and (2.2) holds for $h=v^{-1}$ and $R=r_{|v|}$ with uniform constants. Moreover: (i) if $d(\xi,\eta)\le Cr_j$, depth-$j$ vertices on rays to $\xi$ and $\eta$ are a bounded distance apart; (ii) if $|v|=k$ and $(v|\xi)_e\ge k-C$, every geodesic from $e$ to $v$ stays a bounded distance from a ray to $\xi$ through depth $k$.</div>
+
+<div class="thm" id="lem-2-3" data-ref="Lemma 2.3" data-title="packing"><span class="label">Lemma 2.3 <span class="who">(Packing)</span>.</span> There are $Q\ge2$ and $C_P\lt\infty$ such that an $s$-separated subset of a ball of radius $t$ has at most $C_P(t/s)^Q$ points, for $0\lt s\le t\le\diam Z$. In particular $Z$ is doubling.</div>
+
+<div class="thm" id="lem-2-4" data-ref="Lemma 2.4" data-title="controlled paths"><span class="label">Lemma 2.4 <span class="who">(Controlled paths)</span>.</span> There is $L\ge1$ such that any two points of $\overline B(x,s)$ are joined by a path in $B(x,Ls)$. Any two points of a continuum can be joined by a path in any prescribed open neighbourhood of it.</div>
+
+<p>Lemma 2.4 is the first place the hypothesis $\partial G\cong\Sphere$ enters. Expand at $x$ by Lemma 2.1; the two points land a definite distance from the puncture; on a topological sphere they can be joined while avoiding a neighbourhood of the puncture; pulling back puts the path in $B(x,Ls)$. Because expansions exist at every scale, the constant $L$ is uniform.</p>
+
+<p>The whole action is also uniformly <em>quasi-Möbius</em>: the base-change factors cancel in cross-ratios, so one constant $C$ bounds the distortion of $\frac{d(x,z)d(y,w)}{d(x,w)d(y,z)}$ by every $g\in G$.</p>
+
+<h3 id="s2-reduction">The classical reduction</h3>
+
+<p>Choose a maximal $r_n$-separated set $T_n\subset Z$; its <em>cells</em> are the balls $B(q,2r_n)$, $q\in T_n$. For a family $\cF$ of paths,</p>
+$$\Mod_2(\cF,T_n)=\min_{\omega\ge0}\Bigl\{\sum_{q\in T_n}\omega(q)^2:\ \sum_{B(q,2r_n)\cap\pi\ne\varnothing}\omega(q)\ge1\ \text{for every }\pi\in\cF\Bigr\}.$$
+<p>Fix a small $d_0\gt0$ and take the macroscopic paths:</p>
+<div class="eq" id="eq-2-5" data-ref="(2.5)" data-title="the macroscopic modulus">$$\cF_0=\{\pi:\diam\pi\ge d_0\},\qquad M(n)=\Mod_2(\cF_0,T_n).\tag{2.5}$$</div>
+<p>The constant $d_0$ is chosen so that a path of diameter at least $R/2$ in $\overline B(x,3R)$ becomes macroscopic under a scale-$R$ expansion, which (2.2) allows. All-one weights are admissible and any single path gives a lower bound, so $0\lt M(n)\lt\infty$.</p>
+
+<div class="thm classical" id="thm-2-5" data-ref="Theorem 2.5" data-title="Bonk–Kleiner; Bourdon–Kleiner"><span class="label">Theorem 2.5 <span class="who">(Bonk–Kleiner; Bourdon–Kleiner)</span>.</span> If $\sup_nM(n)\lt\infty$, then $(Z,d)$ is quasi-Möbius homeomorphic to the round sphere.</div>
+
+<p>This is Bourdon–Kleiner's Corollary 3.5, derived from Bonk–Kleiner's Theorem 10.4. The paper checks its hypotheses: approximate self-similarity (each ball, rescaled by its radius, is uniformly bi-Lipschitz to an open subset) is Lemma 2.1, and the cells form a fixed $\kappa$-approximation at each dyadic scale, with modulus exactly $M(n)$. No Coxeter-group assumption is involved.</p>
+
+<div class="thm classical" id="prop-2-6" data-ref="Proposition 2.6" data-title="from the boundary to hyperbolic space"><span class="label">Proposition 2.6 <span class="who">(From the boundary to hyperbolic space)</span>.</span> If $(Z,d)$ is quasi-Möbius homeomorphic to the round sphere, then $G$ admits a proper cocompact isometric action on $\HH^3$ with finite kernel.</div>
+
+<details class="proof"><summary>How the action is built</summary>
+<ol>
+  <li><b>Uniform quasiconformality.</b> Conjugate the action to the round sphere by the uniformizing map $\psi$. The cross-ratio bound, with a fourth point held away, bounds the infinitesimal distortion of every $f=\psi g\psi^{-1}$ by one constant. By the metric characterization of quasiconformality (Heinonen–Koskela), every $f$ is quasiconformal with a common bound, orientation-reversing ones after a reflection.</li>
+  <li><b>An invariant structure.</b> Off a $G$-invariant null set, each $f$ has a nonsingular differential and the chain rule holds. At such a point $x$, the conformal structures form a hyperbolic plane $\mathcal C_x$, and pullback by any invertible linear map, of either orientation, is an isometry. The orbit $\{f^*q_{\rm round}(x)\}$ is bounded and contains the round form; its unique circumcenter $q(x)$ is measurable, bounded, and invariant, because pullback permutes the orbit (Sullivan, with Tukia's circumcenter).</li>
+  <li><b>Straightening.</b> The measurable Riemann mapping theorem gives a quasiconformal $F$ with $F^*q_{\rm round}=q$. Each $FfF^{-1}$ is then conformal or anticonformal, so Möbius or anti-Möbius, and extends to an isometry of $\HH^3$.</li>
+  <li><b>Proper and cocompact.</b> On ordered distinct triples of boundary points the action is proper and cocompact, by expansions. The map from triples of $\Sphere$ to $\HH^3$ (via the stabilizer of a triple, of order two) is proper and equivariant, so both properties descend. The kernel fixes a point, so it is finite.</li>
+</ol>
+</details>
+
+<figure class="fig wide" id="fig-structure" data-fig="structure" data-ref="Figure 2" data-title="an invariant conformal structure">
+  <div class="fig-head"><span class="num">Figure 2</span><span class="title">An invariant conformal structure</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><p>The conformal structures at a point $x$ (positive definite forms on $T_x\Sphere$ up to scale) form a hyperbolic plane $\mathcal C_x$, drawn as a Poincaré disk with the round form $q_{\rm round}$ at the centre; each point is also drawn as its unit ellipse. A linear map $f$ of either orientation acts by pullback, $f^*q=f^{\mathsf T}qf$, an isometry with $d(q_{\rm round},f^*q_{\rm round})=\log K(f)$. The <b style="color:var(--c-u)">blue</b> points are the orbit $\{f^*q_{\rm round}\}$ of a finite group conjugated by $h$, so its distortion $K$ is bounded but greater than $1$. The <b style="color:var(--c-mu)">violet</b> circle is the orbit's minimal enclosing ball, computed exactly, with centre $q$.</p>
+<p><b>Drag</b> $h$, or <b>raise</b> $K(h)$, to change the conjugation. <b>Click</b> a generator to pull the orbit back by it. <b>Choose</b> the shear to see a set that is not a group orbit.</p>
+<p>Pullback permutes the orbit, so it maps the minimal ball to itself; that ball is unique, so $f^*q=q$ for every $f$, reflections included. This is the invariant structure in the proof of Proposition 2.6, and the orbit lies in $B(q_{\rm round},\log K)$, so $q$ is uniformly bounded. The first iterates of a shear are not a group orbit: the set is not invariant and its centre moves under $s^*$. Since $K(s^n)\to\infty$, the whole group $\langle s\rangle$ has no bounded orbit to take the centre of.</p></figcaption>
+</figure>
+
+<p>So the theorem comes down to one estimate: $\sup_nM(n)\lt\infty$. The rest of the paper assumes it fails and reaches a contradiction.</p>
+</section>
+
+<!-- ═══════════════════════════ §3 ═══════════════════════════ -->
+
+<section>
+<h2 id="s3" data-nav="A scalar limit from unbounded modulus"><span class="secnum">3.</span>A scalar limit from unbounded modulus</h2>
+
+<p>Assume $M(n)$ is unbounded. This section produces the object both contradictions are about: a nonconstant continuous function $u$ on an open part of $Z$, a finite measure $\mu$ controlling its oscillation, and approximants $H_N$ whose local energy tends to zero even after a fixed group element moves them.</p>
+
+<h3 id="s3-records">Record scales and crossing duality</h3>
+
+<p>If $\limsup M(n)^{1/n}\gt1$, choose $1\lt\lambda\lt\limsup M(n)^{1/n}$; otherwise put $\lambda=1$. Either way $M(n)/\lambda^n$ is unbounded, so there are record indices $N$ with $M(N)\to\infty$ and</p>
+<div class="eq" id="eq-3-1" data-ref="(3.1)" data-title="records">$$M(N-l)\le\lambda^{-l}M(N)\qquad(0\le l\le N).\tag{3.1}$$</div>
+<p>A record scale is one where the modulus is larger than at every coarser scale, after discounting by $\lambda$. The annular estimate (3.5) will compare scale $N$ with scale $N-l$; records make that comparison favourable.</p>
+
+<div class="thm" id="lem-3-1" data-ref="Lemma 3.1" data-title="localization to a rectangle"><span class="label">Lemma 3.1 <span class="who">(Localization to a rectangle)</span>.</span> There are coordinate rectangles $\cQ=[0,1]^2$ and $\Qhat=[0,1]\times[-1,2]$, with $\cQ\subset\Qhat\subset Z$, and a subsequence of record indices such that the left-to-right crossing modulus of $\cQ$ is at least $cM(N)$, with $c\gt0$ independent of $N$.</div>
+
+<p>A macroscopic path must cross one of finitely many coordinate strips, so one strip carries a fixed fraction of the modulus. The edge $y=0$ is the <em>top</em> of $\cQ$; $[0,1]\times[-1,0]$ is the top band and $[0,1]\times[1,2]$ the bottom band. Coordinates serve only topology and interpolation; all distances are visual.</p>
+
+<div class="thm" id="lem-3-2" data-ref="Lemma 3.2" data-title="crossings and blockers"><span class="label">Lemma 3.2 <span class="who">(Crossings and blockers)</span>.</span> In a closed coordinate rectangle: (i) every continuum meeting both lateral edges meets every top-to-bottom path; (ii) every compact set meeting all top-to-bottom paths contains a continuum meeting both lateral edges.</div>
+
+<p>Part (i) is the Jordan curve theorem. Part (ii) is proved by a grid argument: mark the squares meeting the blocker, label $A$ the unmarked squares reachable from the top and $B$ the rest, and follow the interfaces between labels. Each lateral side has an odd number of interface ends, so some interface component runs from side to side, and the $B$ squares along it are marked squares forming a lateral crossing. Figure 3 runs this argument.</p>
+
+<figure class="fig wide" id="fig-blocker" data-fig="blocker" data-ref="Figure 3" data-title="a blocker contains a crossing">
+  <div class="fig-head"><span class="num">Figure 3</span><span class="title">A blocker contains a crossing</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><p>The rectangle is cut into a square grid, and the <b style="color:var(--c-mesh)">gray</b> squares are the marked ones: the closed squares meeting a compact set $K$. The figure runs the proof of Lemma 3.2(ii) as written. $A$ (tinted) is the set of unmarked squares reachable from the top through edge-adjacent unmarked squares, together with an appended top row; $B$ is every other square, together with an appended bottom row. The <b style="color:var(--c-u)">blue</b> segments are the interfaces between unlike labels, and the dots are their ends on the two lateral sides.</p>
+<p><b>Click</b> or <b>drag</b> on the grid to mark and unmark squares, <b>choose</b> a preset, or <b>refine</b> the grid.</p>
+<p>Each lateral side has an odd number of ends, because its labels start at $A$ and finish at $B$, and interior vertices have even degree. So some interface component (bold) must run from side to side; in the default the spur gives the left side two extra ends, three in all. The <b style="color:var(--c-w)">teal</b> squares are the $B$ squares along that component: all are marked, and successive ones meet at least at a corner, so together they form a lateral crossing inside $K$. Open a gap in the wall and the hypothesis fails: an unmarked chain runs from top to bottom, and, as Lemma 3.2(i) requires, $K$ then contains no lateral crossing.</p></figcaption>
+</figure>
+
+<div class="thm key" id="lem-3-3" data-ref="Lemma 3.3" data-alias="(3.2)" data-title="crossing dual weights"><span class="label">Lemma 3.3 <span class="who">(Crossing dual weights)</span>.</span> For each retained $N$ there are nonnegative weights $\rho_q=\rho_q^{(N)}$, $q\in T_N$, admissible for top-to-bottom crossings of $\cQ$, such that
+$$\sum_{q\in T_N}\rho_q^2\le\frac{C}{M(N)}.\tag{3.2}$$</div>
+
+<p>Large modulus in one direction means small modulus in the other. The proof is finite-dimensional: let $P$ be the point of least norm in the convex hull of the cell-incidence vectors of left-to-right crossings. Minimality gives $\langle P,v\rangle\ge\|P\|^2$ for every crossing vector $v$, so the left-to-right modulus is exactly $\|P\|^{-2}$. By Lemma 3.2(i) every top-to-bottom path meets every left-to-right one, so its incidence vector has inner product at least $1$ with each $v$, hence with $P$: the weights $\rho=P$ block top-to-bottom paths, with energy $\|P\|^2\le C/M(N)$. This is discrete extremal-length duality (Cannon–Floyd–Parry; Albin–Poggi-Corradini), reproved for these cells.</p>
+
+<figure class="fig wide" id="fig-modulus" data-fig="modulus" data-ref="Figure 4" data-title="modulus by crossing duality">
+  <div class="fig-head"><span class="num">Figure 4</span><span class="title">Modulus by crossing duality</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><p>A hexagonal board whose cells play the role of the balls $B(q,2r_N)$. On a Hex board, a chain from left to right and a chain from top to bottom always share a cell, which is Lemma 3.2(i) on the board; the ring marks one. The proof of Lemma 3.3 runs as an algorithm: $P$, the point of least norm in the convex hull of the incidence vectors of left–right crossings, is found by pairwise Frank–Wolfe, each step asking Dijkstra for the cheapest crossing under the weights $P$ and shifting weight onto it. The <b style="color:var(--c-mu)">violet</b> shading is $P_q$; the <b style="color:var(--c-u)">blue</b> chain is a cheapest left–right crossing under $P$, the <b style="color:var(--c-w)">teal</b> chain a cheapest top–bottom crossing under $\rho=P$.</p>
+<p><b>Choose</b> a board, <b>change</b> the mesh, <b>drag</b> across the board to cut cells out or put them back, and <b>press</b> Replay or Step to watch $P$ spread from a single crossing.</p>
+<p>Every left–right crossing costs at least $m$ under $P$, so $P/m$ is admissible, and every admissible weight has inner product at least $1$ with $P$. Together these give the certified bounds $1/\|P\|^2\le\Mod_{LR}\le\|P\|^2/m^2$, which meet at the optimum, $\Mod_{LR}=\|P\|^{-2}$ (checks (a) and (c)). Check (b) holds at every step, not only at the end: each top–bottom crossing meets each left–right one, so it has inner product at least $1$ with $P$. That is (3.2) on the board, with the left–right modulus in place of $cM(N)$: $\Mod_{TB}\le\sum\rho^2=1/\Mod_{LR}$. On the square and long boards it is an equality ($\Mod_{LR}=n_r/n_c$ exactly); walls make it strict.</p></figcaption>
+</figure>
+
+<h3 id="s3-levels">Continuous functions with separating levels</h3>
+
+<p>The weights $\rho$ give every path $\pi\subset\Qhat$ a cost $\ell_\rho(\pi)=\sum_{B(q,2r_N)\cap\pi\ne\varnothing}\rho_q$. Let $b_N(x)$ be the least cost of a path from the top edge to $x$ inside $\cQ$. The raw function is $\min\{1,b_N\}$, extended by $0$ on the top band and $1$ on the bottom band; admissibility makes it $1$ on the bottom edge. Along every path, the raw values at the ends differ by at most the path's cost.</p>
+
+<p>Interpolating the raw values on a fine triangulation gives a continuous $U_N^0:\Qhat\to[0,1]$. Continuity alone does not make a level set separate: a level of $U_N^0$ can have islands. Two path envelopes repair this:</p>
+$$F_N(x)=\inf_{\pi:x\to\mathrm{top}}\max_\pi U_N^0,\qquad H_N(x)=\sup_{\pi:x\to\mathrm{bottom}}\inf_\pi F_N,$$
+<p>with paths in $\Qhat$ ending in the indicated band. $F_N(x)$ is the lowest height at which $x$ can escape to the top; $H_N(x)$ is the highest height from which $x$ can descend to the bottom without rising above $F_N$.</p>
+
+<div class="thm key" id="lem-3-4" data-ref="Lemma 3.4" data-alias="(3.3)" data-title="regularization and level continua"><span class="label">Lemma 3.4 <span class="who">(Regularization and level continua)</span>.</span> $F_N$ and $H_N$ are continuous, with the prescribed band values, and for every path $K\subset\Qhat$,
+$$\osc_KH_N\le\osc_KF_N\le\osc_KU_N^0.\tag{3.3}$$
+For every $0\lt t\lt1$, the set $\{H_N=t\}\cap\cQ$ contains a lateral crossing continuum $C_{N,t}$ of diameter at least a fixed $d_1\gt0$. Every path in $\Qhat$ whose endpoint values strictly straddle $t$ meets $C_{N,t}$.</div>
+
+<p>The envelopes never increase oscillation, so the energy estimates for $U_N^0$ pass to $H_N$. What they add is topology: every point with $H_N\gt t$ joins the bottom band inside $\{H_N\gt t\}$, and every point with $H_N\lt t$ joins the top inside $\{H_N\lt t\}$. A path straddling $t$ can therefore be completed to a top-to-bottom path whose added pieces avoid the level, and that path meets the lateral continuum by Lemma 3.2. The paper's first figure draws this; Figure 5 computes it.</p>
+
+<figure class="fig wide" id="fig-levels" data-fig="levels" data-ref="Figure 5" data-title="separating levels">
+  <div class="fig-head"><span class="num">Figure 5</span><span class="title">Separating levels</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><p>The rectangle $\Qhat$, drawn with $y$ increasing downward as in the paper: top band, $\cQ$, bottom band. Weights $\rho_q$ on a grid of cells give the raw cost $\min\{1,b_N\}$, the least $\sum\rho_q$ over cells met by a path from the top edge, computed at the cell corners by Dijkstra; $U^0_N$ interpolates it on the grid triangulation, and $F_N$ and $H_N$ are the two path envelopes, computed exactly by bottleneck shortest paths. The shading is the chosen function, and the <b style="color:var(--c-u)">blue</b> curve is its level $t$, thick where it runs from side to side: for $H_N$ this is $C_{N,t}$. The default weights are least-norm dual weights as in Lemma 3.3, scaled so that the cheapest top-to-bottom crossing costs exactly $1$.</p>
+<p><b>Drag</b> the handles of the <b style="color:var(--c-w)">path $\eta$</b>, <b>slide</b> $t$, and <b>switch</b> between $U^0_N$, $F_N$ and $H_N$. <b>Choose</b> <i>Rough weights</i>, which puts $\eta$ inside an island of $\{U^0_N=t\}$, then <b>switch</b> to $H_N$.</p>
+<p>When the ends of $\eta$ straddle $t$, the dashed strict-side extensions run inside $\{H_N\lt t\}$ to the top band and inside $\{H_N\gt t\}$ to the bottom band without touching the level, so the completed top-to-bottom path meets $C_{N,t}$ only along $\eta$. This is the last step of Lemma 3.4, and the figure is the paper's first figure made live. The readout checks (3.3), $\osc_\eta H_N\le\osc_\eta F_N\le\osc_\eta U^0_N$, along $\eta$, and tests 500 random straddling segments against $C_{N,t}$. A level of $U^0_N$ can have islands, around pits that $F_N$ fills and peaks that $H_N$ cuts down; a straddling path inside an island misses the lateral part, which is why the envelopes are needed.</p></figcaption>
+</figure>
+
+<h3 id="s3-annular">Oscillation and annular estimates</h3>
+
+<p>Let $U$ be the interior of $\Qhat$ in $Z$. For a continuous $f$ near a compact $K$ and $J\ge2$, the local oscillation energy at scale $n$ is</p>
+$$\cE_n^{(J)}(f;K)=\sum_{q\in T_n,\ B(q,2r_n)\cap K\ne\varnothing}\bigl(\osc_{\overline B(q,Jr_n)}f\bigr)^2.$$
+
+<div class="thm" id="lem-3-5" data-ref="Lemma 3.5" data-alias="(3.4)" data-title="local oscillation"><span class="label">Lemma 3.5 <span class="who">(Local oscillation)</span>.</span> For fixed compact $K\subset U$ and $J\gt0$, uniformly for $x\in K$ and large $N$,
+$$\osc_{\overline B(x,Jr_N)}H_N\le\sum_{q\in T_N,\ d(q,x)\le C(J)r_N}\rho_q.\tag{3.4}$$
+Consequently, for every fixed $g\in G$, compact $K'\subset gU$ and $J\ge2$,
+$$\cE_N^{(J)}(H_N\circ g^{-1};K')\le\frac{C(g,K',J)}{M(N)}\longrightarrow0.$$</div>
+
+<p>The oscillation of $H_N$ on a small ball is paid for by the weights nearby. Squaring and summing, the local energy is at most a constant times $\sum\rho_q^2\le C/M(N)$, and a fixed group element changes only the constant. This is the property both contradictions use: <em>every fixed translate of $H_N$ has vanishing local energy</em>.</p>
+
+<div class="thm" id="lem-3-6" data-ref="Lemma 3.6" data-alias="(3.5)" data-title="annular estimate"><span class="label">Lemma 3.6 <span class="who">(Annular estimate)</span>.</span> For every compact $K\subset U$ there are $R_*\gt0$ and $m_0$ such that if $x\in K$, $R=r_l\le R_*$ and $N-l\ge m_0$, then any two points joined by a path in $B(x,R/2)$ have $H_N$-values differing by $\Delta$ with
+$$\Delta^2\le CM(N-l)\sum_{q\in T_N,\ R/4\le d(q,x)\le4R}\rho_q^2.\tag{3.5}$$</div>
+
+<p>For each value $t$ between the two, the level continuum $C_{N,t}$ meets the short path and leaves $B(x,2R)$, so it crosses the annulus $R\le d(x,\cdot)\le2R$. Expanding at $x$ by Lemma 2.1 makes these crossings macroscopic at scale $N-l$, where macroscopic weights of energy $M(N-l)$ block them. Integrating over $t$ and applying Cauchy–Schwarz gives (3.5). This is where the records enter: by (3.1), $M(N-l)\le\lambda^{-l}M(N)$.</p>
+
+<h3 id="s3-limit">The limiting function and measure</h3>
+
+<p>The measures $\mu_N=M(N)\sum_q\rho_q^2\delta_q$ have bounded mass by (3.2).</p>
+
+<div class="thm key" id="prop-3-7" data-ref="Proposition 3.7" data-alias="(3.6)" data-title="scalar limit"><span class="label">Proposition 3.7 <span class="who">(Scalar limit)</span>.</span> Along a subsequence of record indices, $H_N\to u$ locally uniformly on $U$ and $\mu_N\rightharpoonup\mu$, where $u:U\to[0,1]$ is continuous and nonconstant and $\mu$ is finite. The function $u$ is $0$ and $1$ on the interiors of the two bands, and locally Hölder if $\lambda\gt1$. For every compact $K\subset U$ and small $s\gt0$, uniformly for $x\in K$,
+$$\bigl(\osc_{\overline B(x,s)}u\bigr)^2\le C\mu\bigl(\overline B(x,C_\mu s)\bigr).\tag{3.6}$$
+For each $0\lt t\lt1$ there is a continuum $C_t\subset\cQ$ of diameter at least $d_1$, with $u=t$ on $C_t\cap U$, meeting every compact path in $U$ whose endpoint values strictly straddle $t$. The fixed-transform energy bounds of Lemma 3.5 hold along the subsequence.</div>
+
+<p>Summing (3.5) over about $k$ disjoint annuli around two points at distance $r_k$ gives $|H_N(x)-H_N(y)|\le Ck^{-1/2}$: equicontinuity, so Arzelà–Ascoli applies. When $\lambda\gt1$ a single annulus gives $C\lambda^{-k/2}$, a Hölder bound with exponent $\log\lambda/(2\log a)$. The band values make $u$ nonconstant.</p>
+
+<h3 id="s3-tools">Two comparison tools</h3>
+
+<p>The scalar limit is used three ways: its level continua $C_t$ cross annuli; (3.6) turns oscillation on a small ball into $\mu$-mass of a larger one; and the approximants $H_N$, with vanishing energy after every fixed transformation, compare two transforms. The comparison is the next lemma, a finite-cell statement that does not depend on the construction.</p>
+
+<div class="thm key" id="lem-3-8" data-ref="Lemma 3.8" data-alias="(3.7)" data-title="a finite-cell level comparison"><span class="label">Lemma 3.8 <span class="who">(A finite-cell level comparison)</span>.</span> Let $f,w$ be continuous on an open $V\subset Z$, $K\subset V$ compact and $I\subset\RR$ an interval. Suppose that for every $t\in I$ there is a continuum $D_t\subset K$ with $f=t$ on $D_t$ and $\osc_{D_t}w\ge b_0\gt0$. Then for large $n$,
+$$b_0|I|\le\sum_{q\in T_n,\ B(q,2r_n)\cap K\ne\varnothing}\osc_{\overline B(q,2r_n)}f\,\osc_{\overline B(q,2r_n)}w.\tag{3.7}$$
+Consequently these hypotheses cannot hold along sequences with both local oscillation energies on $K$ tending to zero, if $b_0$ and $|I|$ stay bounded below.</div>
+
+<p>For each $t$, the range of $w$ on $D_t$ has length at least $b_0$ and is covered by the ranges of $w$ on the cells meeting $D_t$, each of which has $t$ in its $f$-range. Integrating over $t\in I$ gives (3.7). By Cauchy–Schwarz the right side is at most $\cE(f)^{1/2}\cE(w)^{1/2}$, so if $f$'s level sets cut across $w$'s variation, the two energies cannot both vanish. Figure 6 computes both sides.</p>
+
+<figure class="fig wide" id="fig-transverse" data-fig="transverse" data-ref="Figure 6" data-title="transversality costs energy">
+  <div class="fig-head"><span class="num">Figure 6</span><span class="title">Transversality costs energy</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><p>The magnified functions of §4 on a disk $K$ that avoids their punctures: $f=\mathrm{Re}\,\bigl(e^{i\theta}/(z-b)\bigr)$, whose levels are circles through $b$ (<b style="color:var(--c-u)">blue</b>), and $w=\mathrm{Re}\,\bigl(e^{i\varphi}/(z-c)\bigr)$, whose levels are circles through $c$ (<b style="color:var(--c-w)">teal</b>). For $t$ in an interval $I$ the level continuum $D_t=\{f=t\}\cap K$ is an arc; the arcs sweep the shaded band, and $b_0$ is the least oscillation of $w$ along any of them, reached on the outlined arc. Everything is exact: $z\mapsto e^{i\theta}/(z-b)$ straightens the levels of $f$ into chords and sends disks to disks. The cells are the paper's closed balls $\overline B(q,2r_n)$ about the net $r_n\ZZ^2$, $r_n=1/n$.</p>
+<p><b>Drag</b> $b$, $c$ and the ends of $I$, <b>turn</b> the angles, <b>choose</b> a mesh $n$, and <b>hover</b> or tap a cell to read its oscillations.</p>
+<p>The chart puts both sides of (3.7) on log scales: $S_n=\sum_q\osc f\,\osc w$ stays above $b_0|I|$ at every mesh fine enough that no cell meeting $K$ reaches a puncture (Lemma 3.8 asks for $n$ large; coarser meshes are grayed). The proof's middle sum $\sum_q\osc w\,|I\cap I_q(f)|$ sits between the two. With the same puncture and angle, $w=f$: every $D_t$ is a level of $w$, $b_0=0$, and (3.7) says nothing, which is why Lemma 4.3 needs $c\ne b$. The bound $S_n\le\sqrt{\cE(f)\cE(w)}$ is the lemma's "consequently": if both energies tended to zero, $S_n$ would fall below $b_0|I|$. These fixed smooth functions keep their energy, so the figure shows the inequality, not the limit.</p></figcaption>
+</figure>
+
+<div class="thm" id="lem-3-9" data-ref="Lemma 3.9" data-title="stopping a continuum at a sphere"><span class="label">Lemma 3.9 <span class="who">(Stopping a continuum at a sphere)</span>.</span> Let $D$ be a continuum, $p\in Z$ and $r\gt0$. If $x\in D\setminus\overline B(p,r)$ and $D\cap B(p,r)\ne\varnothing$, then $D$ contains a subcontinuum through $x$ meeting the radius-$r$ sphere about $p$ and avoiding $B(p,r)$.</div>
+
+<p>A point-set fact: the component of $x$ in $D\setminus B(p,r)$ must reach the sphere, or it would be clopen in $D$. It is used to cut level continua off before they reach a puncture.</p>
+</section>
+
+<!-- ═══════════════════════════ §4 ═══════════════════════════ -->
+
+<section>
+<h2 id="s4" data-nav="Exponential records"><span class="secnum">4.</span>Exponential records: comparing two magnifications</h2>
+
+<p>Suppose $\lambda\gt1$, so $u$ is locally Hölder. Magnify its variation to get a nonconstant function $W$ on the sphere minus one puncture. The level continua force every transform of $W$ with a different puncture to be constant wherever $W$ varies. A second magnification produces two transforms that must vary on the same two disks with disjoint ranges, which is impossible.</p>
+
+<h3 id="s4-magnify">Magnifying variation</h3>
+
+<div class="thm" id="lem-4-1" data-ref="Lemma 4.1" data-alias="(4.1)|(4.2)|(4.3)|(4.4)|(4.5)" data-title="Hölder magnification"><span class="label">Lemma 4.1 <span class="who">(Hölder magnification)</span>.</span> Let $f$ be locally Hölder on an open $\Omega\subset Z$, $O$ open with $\overline O\subset\Omega$ containing a compact path on which $f$ is nonconstant, and $z_0$ with $\dist(z_0,O)\gt0$. There are depths $k_i\to\infty$, centers $x_i\in O$, numbers $\sigma_i\gt0$ and expansions $h_i=v_i^{-1}$ at $(x_i,k_i)$ such that, after a subsequence, $p_i=h_iz_0\to b$, $\dist(x_i,Z\setminus O)/r_{k_i}\to\infty$, every compact subset of $Z\setminus\{b\}$ eventually lies in $h_i\Omega$, and
+$$F_i(z)=\frac{f(h_i^{-1}z)-f(x_i)}{\sigma_i}\tag{4.1}$$
+converges locally uniformly on $Z\setminus\{b\}$ to a nonconstant locally Hölder function $F$.</div>
+
+<p>The scales are chosen where a weighted oscillation $A_k=\sup_x\delta(x)^\eta\osc_{\overline B(x,r_k)}f$ is maximal over its tail; (4.2)–(4.5) in the proof record the bounds $ca^{-Qk}\le A_k\le Ca^{-\alpha_0k}$ and the resulting uniform Hölder control of the rescaled functions. The Hölder bound keeps the magnifications from degenerating.</p>
+
+<h3 id="s4-diagonal">A common mesh and escaping level continua</h3>
+
+<p>Apply Lemma 4.1 to $u$ and call the limit $W$, with puncture $b$.</p>
+
+<div class="thm" id="lem-4-2" data-ref="Lemma 4.2" data-alias="(4.6)" data-title="diagonal approximants"><span class="label">Lemma 4.2 <span class="who">(Diagonal approximants)</span>.</span> After thinning, there are scalar indices $N_j$ such that $f_j(z)=\bigl(H_{N_j}(h_j^{-1}z)-u(x_j)\bigr)/\sigma_j$ converges locally uniformly to $W$ on $Z\setminus\{b\}$, and for every fixed $g\in G$, compact $K\subset Z\setminus\{gb\}$ and $J\ge2$,
+$$\cE_{N_j}^{(J)}(f_j\circ g^{-1};K)\longrightarrow0.\tag{4.6}$$
+If a compact path $P\subset Z\setminus\{b\}$ has $W$-endpoint values strictly straddling a compact interval $I$, then for large $j$ and every $t\in I$ there is a continuum $D_{j,t}$ with $f_j=t$ on it, meeting $P$, and $\sup_t\dist(b,D_{j,t})\to0$.</div>
+
+<p>The order of choices matters: each expansion and its normalization are fixed first, and only then is $N_j$ taken large enough to make the energy small. The level continua are images of the large continua $C_{N,t}$, so after expansion they reach all the way to the puncture.</p>
+
+<h3 id="s4-compare">Comparison across punctures</h3>
+
+<p>Let $\cN(F)$ be the set of points where a continuous function $F$ is not locally constant.</p>
+
+<div class="thm key" id="lem-4-3" data-ref="Lemma 4.3" data-alias="(4.7)|(4.8)" data-title="transform comparison"><span class="label">Lemma 4.3 <span class="who">(Transform comparison)</span>.</span> If $c=gb\ne b$ and $V=W\circ g^{-1}$, then
+$$V(x)=V(b)\qquad\bigl(x\in\cN(W)\setminus\{c\}\bigr).\tag{4.7}$$
+More generally, for $W_s=W\circ s^{-1}$ and $p_s=sb$, if $p_s\ne p_t$,
+$$W_t(x)=W_t(p_s)\qquad\bigl(x\in\cN(W_s)\setminus\{p_t\}\bigr).\tag{4.8}$$</div>
+
+<p>Suppose $V(x)\ne V(b)$ at a point where $W$ varies. Near $x$, the level continua $D_{j,t}$ of $f_j$ cross a small variation path of $W$ and run off to $b$, where $V$ is close to $V(b)$. So the translate $w_j=f_j\circ g^{-1}$ oscillates by a definite amount along each level continuum of $f_j$. Lemma 3.8 then bounds $\varepsilon|I|$ by the product of the two local energies, and both tend to zero by (4.6). This is the situation of Figure 6 with two different punctures.</p>
+
+<h3 id="s4-second">The second magnification</h3>
+
+<div class="thm" id="lem-4-4" data-ref="Lemma 4.4" data-alias="(4.9)" data-title="stabilizer directions"><span class="label">Lemma 4.4 <span class="who">(Stabilizer directions)</span>.</span> For every $b\in Z$, the vertices of $E=\Stab_G(b)$ have at most two accumulation directions.</div>
+
+<p>The proof first shows linear growth, $\#\{q\in E:|q|\le t\}\le C'(t+1)$, which is (4.9). If $E$ accumulated anywhere other than $b$, it would contain a loxodromic element, and every element of $E$ would fix both of its endpoints.</p>
+
+<div class="thm key" id="prop-4-5" data-ref="Proposition 4.5" data-title="no exponential records"><span class="label">Proposition 4.5.</span> The contradiction setup cannot have $\lambda\gt1$.</div>
+
+<details class="proof"><summary>Proof idea</summary>
+<p>Choose a variation region $O$ for $W$ away from $b$ and the at most two directions of $\Stab(b)$; one exists because a function locally constant off finitely many points of a sphere is constant. Magnify $W$ again by Lemma 4.1, with expansions $s_i$ and punctures $p_i=s_ib$. The punctures can be taken pairwise distinct: repeats would put the centers in a stabilizer direction. The normalized transforms $W_i$ converge to a nonconstant $W_*$, so there are two small disks on which $W_*$ varies with disjoint ranges, and for large $i$ every $W_i$ varies on both. For two distinct indices, (4.8) says $W_j$ takes the single value $W_j(p_i)$ on the variation set of $W_i$ in both disks. Taking a point in each disk contradicts the disjoint ranges.</p>
+</details>
+</section>
+
+<!-- ═══════════════════════════ §5 ═══════════════════════════ -->
+
+<section>
+<h2 id="s5" data-nav="A probability flow"><span class="secnum">5.</span>A probability flow in the subexponential case</h2>
+
+<p>Now suppose the unbounded moduli grow subexponentially:</p>
+<div class="eq" id="eq-5-1" data-ref="(5.1)" data-title="subexponential growth">$$\limsup_{j\to\infty}M(j)^{1/j}\le1.\tag{5.1}$$</div>
+<p>Then $u$ need not be Hölder and magnification is unavailable. Instead the proof builds a tree of small balls, each carrying an interval of values of $u$. At each node either two separated variations survive expansion, or many children carry a substantial part of the interval. A probability flow down the tree forces the first alternative, at arbitrarily deep levels.</p>
+
+<h3 id="s5-nodes">Node intervals and transition probabilities</h3>
+
+<p>Fix $x_0$ where $u$ varies and a closed ball $K$ around it inside $U$. A <em>node</em> is a center $x\in K$, a scale $R=r_k$, and an open interval $J=(j_-,j_+)\subset(0,1)$ inside the range of $u$ on a fixed enlargement:</p>
+<div class="eq" id="eq-5-2" data-ref="(5.2)" data-title="node straddling">$$J\subset\Bigl(\min_{\overline B(x,c_0R)}u,\ \max_{\overline B(x,c_0R)}u\Bigr).\tag{5.2}$$</div>
+<p>Write $\Delta=|J|$. Children have scale $r=\theta R$ with $\theta=a^{-D}$, for one subdivision depth $D$ used throughout. The candidates are a maximal $r$-separated set $Y$ in an annulus $(A-1)R\le d(x,\cdot)\le(B_0+1)R$, so</p>
+<div class="eq" id="eq-5-3" data-ref="(5.3)" data-title="candidate count">$$\#Y\le C_Ya^{QD}.\tag{5.3}$$</div>
+<p>For a candidate $y$, $I_y^{\rm in}$ and $I_y^{\rm out}$ are the range intervals of $u$ on $\overline B(y,2r)$ and $\overline B(y,c_0r)$; the child interval is $J_y=J\cap\operatorname{int}I_y^{\rm out}$, with relative length $t_y=|J_y|/\Delta$, and</p>
+<div class="eq" id="eq-5-4" data-ref="(5.4)">$$|J\cap I_y^{\rm out}|=t_y\Delta.\tag{5.4}$$</div>
+
+<p>With $\kappa=c_*a^{-QD}$, a node is <em>good</em> if two candidates $y^-,y^+$ vary in the bottom and top quarters of $J$, with outer ranges a quarter of $J$ apart:</p>
+<div class="eq" id="eq-5-5" data-ref="(5.5)" data-title="good: inner ranges">$$|I_{y^-}^{\rm in}\cap(j_-,j_-+\Delta/4)|\ge\kappa\Delta,\qquad|I_{y^+}^{\rm in}\cap(j_-+3\Delta/4,j_+)|\ge\kappa\Delta,\tag{5.5}$$</div>
+<div class="eq" id="eq-5-6" data-ref="(5.6)" data-title="good: separated outer ranges">$$\dist\bigl(I_{y^-}^{\rm out},I_{y^+}^{\rm out}\bigr)\ge\Delta/4.\tag{5.6}$$</div>
+<p>A good node is what §6 needs: two separated regions of variation. The exponents are fixed once:</p>
+<div class="eq" id="eq-5-7" data-ref="(5.7)" data-title="the exponents">$$b_*=\frac12,\qquad\tau=\frac1{20},\qquad\beta=\frac{\tau}{4(Q+1)},\qquad\gamma=\frac\beta2.\tag{5.7}$$</div>
+<p>Each node gets an $Hr$-separated set of children with probabilities $p_y$ summing to one, such that</p>
+<div class="eq" id="eq-5-8" data-ref="(5.8)" data-title="transitions at nodes that are not good">$$p_y\le a^{-\gamma D}t_y,\qquad p_y\le a^{-b_*D}t_y^2\qquad\text{at nodes that are not good},\tag{5.8}$$</div>
+<div class="eq" id="eq-5-9" data-ref="(5.9)" data-title="transitions at good nodes">$$p_y\le a^{-\gamma D}t_y,\qquad p_y\le a^{\tau D}t_y^2\qquad\text{at good nodes}.\tag{5.9}$$</div>
+<p>The linear bounds multiply along a branch and telescope the interval ratios: a branch's probability is small compared with its interval. The quadratic bounds compare probability with squared interval length, which the measure controls. At a node that is not good the quadratic bound is much stronger, and that is the lever.</p>
+
+<h3 id="s5-children">Geometric choices and many large children</h3>
+
+<p id="p-5-10" data-alias="(5.10)">The constants $c_0$, $A$, $B_0$, $c_{\rm pat}$ and the separation $H$ are fixed before $D$, so that expanded inner balls fit inside expanded outer balls with room to spare; (5.10) is the inequality that makes this possible.</p>
+
+<div class="thm" id="lem-5-1" data-ref="Lemma 5.1" data-title="many children at a node that is not good"><span class="label">Lemma 5.1 <span class="who">(Many children at a node that is not good)</span>.</span> For large $D$, every node that is not good has at least $c_Ha^D$ mutually $Hr$-separated candidates with $t_y\ge1/8$, where $c_H\gt0$ is independent of the node and $D$.</div>
+
+<p>Every level continuum $C_t$, $t\in J$, crosses each sphere about $x$ in the candidate annulus, so at each radius the candidates' ranges cover $J$. If two of them had small $t_y$ while meeting the bottom and top quarters, the node would be good. So at each of about $a^D$ radii some candidate has $t_y\ge1/8$, and uniform probabilities on them satisfy (5.8).</p>
+
+<h3 id="s5-capacity">The capacity estimate</h3>
+
+<div class="thm key" id="lem-5-2" data-ref="Lemma 5.2" data-alias="(5.11)|(5.12)|(5.13)|(5.14)|(5.15)|(5.16)|(5.17)" data-title="separated capacity"><span class="label">Lemma 5.2 <span class="who">(Separated capacity)</span>.</span> For large $D$, uniformly over all nodes, there is an $Hr$-separated $Y'\subset Y$ with
+$$\sum_{y\in Y'}\min\bigl\{a^{-\gamma D}t_y,\ a^{\tau D}t_y^2\bigr\}\ge1.\tag{5.11}$$</div>
+
+<details class="proof"><summary>Where subexponential growth is used</summary>
+<p>If (5.11) failed, (5.12), candidates with $t_y\ge a^{-(\tau+\gamma)D}$ would have total length at most $C_Ha^{\gamma D}$, (5.13). Test the levels at an intermediate radius $s=a^{-D'}R$, $D'=\lceil\beta D\rceil$: there are about $a^{D'}$ radial bins, more than the large candidates can occupy, so a definite measure $ca^{D'}\Delta$ of (bin, level) pairs is free of large candidates, (5.14). Each free level continuum crosses a ball of radius $s$, and expanding at scale $s$ makes that crossing macroscopic at relative scale $r/s=a^{-(D-D')}$, where weights of energy $M(D-D')$ block it, (5.15)–(5.16). Comparing energies gives $\sum_{\text{small }y}t_y^2\ge ca^{-(Q-2)D'}/M(D-D')$, (5.17). Subexponential growth gives $M(D-D')\le a^{\tau D/4}$ for large $D$, and then the small candidates alone have capacity at least $ca^{\tau D/2}$, contradicting (5.12). The node's interval length cancels, so one $D$ works for every node.</p>
+</details>
+
+<p>At good nodes, normalize the capacities of $Y'$ into probabilities; they satisfy (5.9). At the other nodes use Lemma 5.1's uniform rule.</p>
+
+<h3 id="s5-patterns">Common target patterns</h3>
+
+<p id="p-5-18" data-alias="(5.18)">At a good node, expand by the node's fixed $h=v^{-1}$. The paths joining the extrema of the two inner balls land in balls of radius $c_{\rm pat}\theta/2$, and the outer balls' images contain balls of radius $10c_{\rm pat}\theta$, which is (5.18). Rounding to a fixed finite net gives an ordered pair of target balls $(\mathcal B^-,\mathcal B^+)$, the node's <em>pattern</em>. For $u\circ h^{-1}$, each pattern ball contains a path with endpoint variation at least $\kappa\Delta$, and the two whole-ball ranges are $\Delta/4$ apart. There are finitely many patterns, independently of depth.</p>
+
+<h3 id="s5-tree">The tree and its flow</h3>
+
+<p id="p-5-19" data-alias="(5.19)">Start at a root of scale $R_0$ with an interval $J_0$ of length $\Delta_0$ and build the tree. Children stay within $2(B_0+1)R$ of a parent of scale $R$, (5.19), and generation-$n$ centers are $Hr_{k_0+Dn}$-separated, so the measure enlargements in (3.6) are disjoint at each level and</p>
+<div class="eq" id="eq-5-20" data-ref="(5.20)" data-title="level energy">$$\sum_i\Delta_i^2\le E_0,\qquad E_0=C\mu(Z)\lt\infty.\tag{5.20}$$</div>
+<p>Let $P_i$ be the product of transitions down to node $i$, and $m_i$ the number of its ancestors that are not good. Multiplying (5.8)–(5.9) along the branch,</p>
+<div class="eq" id="eq-5-21" data-ref="(5.21)" data-title="the flow inequalities">$$P_i\le a^{-\gamma Dn}\frac{\Delta_i}{\Delta_0},\qquad\Delta_i^2\ge\Delta_0^2P_i\,a^{D((b_*+\tau)m_i-\tau n)},\tag{5.21}$$</div>
+<div class="eq" id="eq-5-22" data-ref="(5.22)" data-title="conditional flow">$$\frac{P_i}{P_j}\le a^{-\gamma Dm}\frac{\Delta_i}{\Delta_j}\le a^{-\gamma Dm}\quad\text{if $i$ is $m$ generations below $j$}.\tag{5.22}$$</div>
+
+<div class="thm key" id="lem-5-3" data-ref="Lemma 5.3" data-title="levels with substantial good mass"><span class="label">Lemma 5.3 <span class="who">(Levels with substantial good mass)</span>.</span> Infinitely many generations have total probability at least $1/2$ on good nodes.</div>
+
+<p>By (5.21), (5.20) and Jensen's inequality,</p>
+$$\frac{E_0}{\Delta_0^2}\ \ge\ \sum_iP_i\,a^{D((b_*+\tau)m_i-\tau n)}\ \ge\ a^{D((b_*+\tau)\sum_iP_im_i-\tau n)},$$
+<p>so the average number of bad ancestors per generation is at most $\tau/(b_*+\tau)+O(1/n)=1/11+O(1/n)$. That average is the mean bad mass over the first $n$ generations. If good mass were eventually below $1/2$, bad mass would be eventually above $1/2$, far more than $1/11$. Every bad step multiplies a branch's squared interval by $a^{b_*D}$ more than its probability allows, and the energy budget $E_0$ cannot pay for many of them. Figure 7 runs the budget.</p>
+
+<figure class="fig wide" id="fig-flow" data-fig="flow" data-ref="Figure 7" data-title="the probability budget">
+  <div class="fig-head"><span class="num">Figure 7</span><span class="title">The probability budget</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><p>An explicit tree with the paper's transitions. Each node has a probability $P_i$, a value interval of length $\Delta_i$ (nested: $\Delta_y=t_y\Delta$) and a count $m_i$ of ancestors that are not good. Its children satisfy (5.8) below a node that is not good and (5.9) below a good one, with the exponents (5.7), $a=2$ and $D=2$. The quadratic bound holds with equality, so this is the cheapest tree the bounds allow. An adversary chooses which nodes are not good. The masses and energies per generation are exact for the whole tree (about $10^{52}$ nodes by generation 60); the inequalities are checked on 240 branches sampled by $P$.</p>
+<p><b>Choose</b> a preset, or <b>raise</b> the mass $\varepsilon$ on nodes that are not good. <b>Switch</b> between an adversary that gives that mass to the nodes with the fewest bad ancestors and an honest rule that ignores history. <b>Raise</b> the budget $E_0$.</p>
+<p>Multiplying the transitions gives (5.21), and Jensen's inequality turns the level energy bound (5.20), $\sum_i\Delta_i^2\le E_0$, into $\bar\varepsilon_n\le\tau/(b_*+\tau)+O(1/n)=1/11+O(1/n)$. Every generation that is not good multiplies the energy by $a^{b_*D}$, and a good one divides it by only $a^{\tau D}$. An adversary that keeps half the mass on nodes that are not good leaves the budget at a finite generation, however large $E_0$ is: the lemma wins, and infinitely many generations carry good mass at least $\tfrac12$, which is Lemma 5.3.</p></figcaption>
+</figure>
+
+<div class="thm" id="prop-5-4" data-ref="Proposition 5.4" data-title="properties of the flow"><span class="label">Proposition 5.4 <span class="who">(Properties of the flow)</span>.</span> The construction gives a fixed $D$ and a tree with $Hr_{k_0+Dn}$-separated generation-$n$ centers and descendant displacement (5.19); nested nonempty value intervals; probabilities satisfying (5.21) and (5.22); infinitely many levels with good mass at least $1/2$; a fixed expansion at every node; and at each good node a pattern from a finite list, whose two target balls contain paths of endpoint variation at least $\kappa\Delta_i$, have whole-ball ranges $\Delta_i/4$ apart, and lie in the images of the outer balls.</div>
+</section>
+
+<!-- ═══════════════════════════ §6 ═══════════════════════════ -->
+
+<section>
+<h2 id="s6" data-nav="Same-depth expansions"><span class="secnum">6.</span>Same-depth expansions and the measure comparison</h2>
+
+<p>Take a generation with good mass at least $1/2$. Its good nodes have expansions with the same pattern but different punctures. Comparing them two at a time, Lemma 3.8 forces one node of each pair to spend oscillation of $u$ near the other's puncture. Pulled back, those neighbourhoods carry more $\mu$-mass in total than their overlaps allow.</p>
+
+<div class="thm key" id="prop-6-1" data-ref="Proposition 6.1" data-title="no subexponential records"><span class="label">Proposition 6.1.</span> The moduli $M(n)$ cannot be unbounded while satisfying $\limsup_nM(n)^{1/n}\le1$.</div>
+
+<p>At generation $n$ write $k=k_0+Dn$, $R=a^{-k}$ and $p_i=h_iz_0$ for the punctures. The flow gives</p>
+<div class="eq" id="eq-6-1" data-ref="(6.1)" data-title="flow input">$$P_i\le a^{-\gamma Dn}\frac{\Delta_i}{\Delta_0},\qquad\frac{P_j}{P_A}\le a^{-\gamma Dm}\quad\text{if $j$ lies $m$ generations below $A$}.\tag{6.1}$$</div>
+
+<h3 id="s6-class">A probability class and separated punctures</h3>
+
+<div class="thm" id="lem-6-2" data-ref="Lemma 6.2" data-title="bounded puncture multiplicity"><span class="label">Lemma 6.2 <span class="who">(Bounded puncture multiplicity)</span>.</span> For every fixed $C\gt0$, the balls $\overline B(p_i,CR)$ over the nodes $i$ of generation $n$ have uniformly bounded multiplicity.</div>
+
+<p>Discarding nodes of tiny probability and sorting the rest by pattern and dyadic probability class leaves a class $\mathcal I$ of $\cN$ nodes with comparable probabilities $P_*\le P_i\le2P_*$ and</p>
+<div class="eq" id="eq-6-2" data-ref="(6.2)" data-title="a probability class">$$\sum_{i\in\mathcal I}P_i\ge\frac ck,\tag{6.2}$$</div>
+<div class="eq" id="eq-6-3" data-ref="(6.3)">$$\cN P_*\ge\frac c{2k}.\tag{6.3}$$</div>
+<p>Since $P_i\le a^{-\gamma Dn}$, the class is large: $\cN\ge ck^{-1}a^{\gamma Dn}$. Punctures are compared at the scale $a^{-l}$, with $\zeta=\gamma/Q$, $m=\lfloor\zeta n\rfloor$ and $l=Dm$, so that $Ql\le\gamma Dn$.</p>
+
+<div class="thm key" id="lem-6-3" data-ref="Lemma 6.3" data-alias="(6.4)" data-title="probability near a puncture"><span class="label">Lemma 6.3 <span class="who">(Probability near a puncture)</span>.</span> For every generation-$n$ node $i$,
+$$\sum_{j:\ d(p_j,p_i)\le a^{-l}}P_j\le Ca^{-\gamma Dm}.\tag{6.4}$$</div>
+
+<p>Split a geodesic word for $v_j^{-1}$ as $w_ju_j'$ with $|w_j|=l$. A nearby puncture pins down $w_j$, by (2.4), up to boundedly many choices; and reading the same word backwards, the descendant's position under a fixed ancestor $A$ pins down $u_j'$. So each ancestor has only boundedly many descendants near $p_i$, each with probability at most $P_Aa^{-\gamma Dm}$ by (6.1). Consequently all but a vanishing fraction of the class are far from each $p_i$, and at least $c\cN^2$ unordered pairs are <em>far pairs</em>:</p>
+<div class="eq" id="eq-6-5" data-ref="(6.5)" data-title="far pairs">$$d_{ij}:=d(p_i,p_j)\gt a^{-l}.\tag{6.5}$$</div>
+<p>For far pairs, $R/d_{ij}\le a^{-(k-l)}\to0$.</p>
+
+<h3 id="s6-domain">Comparison on a compact common domain</h3>
+
+<p id="p-6-6" data-alias="(6.6)">The puncture estimate (2.3) gives a radius $A_hR$ beyond which preimages stay in a compact part of $U$; this is (6.6). Put $E_i=\overline B(p_i,A_hR)$. For far pairs at large generations, $E_i$ and $E_j$ are disjoint, each lies compactly in the other's transformed domain, and the pattern balls avoid both.</p>
+
+<div class="thm key" id="lem-6-4" data-ref="Lemma 6.4" data-alias="(6.7)" data-title="pair alternative"><span class="label">Lemma 6.4 <span class="who">(Pair alternative)</span>.</span> Every far pair at a sufficiently large generation has an endpoint $i$ with
+$$\osc_{h_i^{-1}E_j}u\ge\frac{\kappa}{16}\Delta_i.\tag{6.7}$$</div>
+
+<p>Write $F_i=u\circ h_i^{-1}$. If $F_j$ already oscillates on $E_i$, endpoint $j$ qualifies. Otherwise one of the two shared pattern balls has an $F_j$-range far from its range on $E_i$. In that ball, node $i$'s variation path supplies level continua of $F_i$; if $F_i$ were nearly constant on $E_j$, these continua would avoid $E_j$, reach $E_i$, and carry an oscillation of $F_j$ at least $\Delta_j/32$. Lemma 3.8, applied to the approximants with the pair held fixed, contradicts the vanishing energies of Lemma 3.5. So $F_i$ oscillates on $E_j$, which is (6.7).</p>
+
+<h3 id="s6-cost">Cost balls and total multiplicity</h3>
+
+<p>For an ordered far pair put $z_{ij}=h_i^{-1}p_j$. Points of $h_i^{-1}E_j$ are close to $x_i$, and the two-sided puncture bound gives</p>
+<div class="eq" id="eq-6-8" data-ref="(6.8)" data-title="cost denominator">$$D_{z_{ij}}\asymp R/d_{ij}.\tag{6.8}$$</div>
+<p>The lower expansion bound then puts the preimage in a ball of radius $s_{ij}=C_2R^2/d_{ij}^2$:</p>
+<div class="eq" id="eq-6-9" data-ref="(6.9)" data-title="cost containment">$$h_i^{-1}E_j\subseteq\overline B(z_{ij},s_{ij}).\tag{6.9}$$</div>
+<p>Enlarge it to $\mathcal D_{ij}=\overline B(z_{ij},C_\mu s_{ij})$, as (3.6) requires. If $i$ is the endpoint chosen by Lemma 6.4, then</p>
+<div class="eq" id="eq-6-10" data-ref="(6.10)" data-title="cost lower bound">$$\mu(\mathcal D_{ij})\ge c\kappa^2\Delta_i^2.\tag{6.10}$$</div>
+<p>The radius is $O(R/d_{ij})$ times the denominator, a vanishing fraction, so the enlargement keeps a small image:</p>
+<div class="eq" id="eq-6-11" data-ref="(6.11)" data-title="cost image">$$h_i\mathcal D_{ij}\subseteq\overline B(p_j,C_3R).\tag{6.11}$$</div>
+<p>This separation of scales, $R^2/d_{ij}^2$ against $R/d_{ij}$, is what the paper's second figure shows; Figure 8 computes it with exact Möbius maps.</p>
+
+<figure class="fig wide" id="fig-pairs" data-fig="pairs" data-ref="Figure 8" data-title="the cost of a far pair">
+  <div class="fig-head"><span class="num">Figure 8</span><span class="title">The cost of a far pair</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><p>The paper's second figure, made live in an exact model. $Z$ is the Riemann sphere with the chordal metric, and the expansion at $x_i$ with scale $R$ is the Möbius map $h_i(u)=p_i+Re^{i\alpha}/u$ in stereographic charts based at $x_i$ (source) and near $p_i$ (target), so $p_i=h_iz_0$ for $z_0$ the antipode of $x_i$, and (2.2)–(2.3) hold with $D_y=\max\{R,d(x_i,y)\}$. Möbius maps send disks to disks and metric balls are spherical caps, so every set drawn is exact: the preimage $h_i^{-1}E_j$ of $E_j=\overline B(p_j,A_hR)$ (<b style="color:var(--c-w)">teal</b>) near $z_{ij}=h_i^{-1}p_j$; the ball $\overline B(z_{ij},s_{ij})$, $s_{ij}=C_2R^2/d_{ij}^2$ (dashed); the charged ball $\mathcal D_{ij}=\overline B(z_{ij},C_\mu s_{ij})$ (<b style="color:var(--c-mu)">violet</b>); and its image $h_i\mathcal D_{ij}$ inside the dashed $\overline B(p_j,C_3R)$. The constants are $A_h=1$, $C_2=\tfrac32$, $C_\mu=2$, $C_3=6$.</p>
+<p><b>Drag</b> $p_j$ (or $p_i$) and <b>slide</b> $R$; when $\mathcal D_{ij}$ is too small to see, the source panel opens a magnifier. <b>Bring</b> $p_j$ toward $p_i$, or <b>choose</b> "Near pair".</p>
+<p>While $R/d_{ij}$ is small, $D_{z_{ij}}d_{ij}/R$ stays near $1$, which is (6.8); the preimage has radius about $A_hR^2/d_{ij}^2$ and lies in $\overline B(z_{ij},s_{ij})$, which is (6.9); and even the enlargement maps into $\overline B(p_j,C_3R)$, which is (6.11), because the cost radius is tiny next to the distance $D_{z_{ij}}\asymp R/d_{ij}$ to $x_i$, so $h_i$ magnifies it almost evenly. Once $R/d_{ij}$ passes about $1/6$, $\mathcal D_{ij}$ reaches toward $x_i$ and its image balloons out of $\overline B(p_j,C_3R)$: (6.11) fails first, then (6.9). The far-pair condition (6.5), $R/d_{ij}\le a^{-(k-l)}\to0$, rules this out.</p></figcaption>
+</figure>
+
+<p>For fixed $i$, (6.11) and Lemma 6.2 bound how many partners $j$ can charge a given point. And since $d(x_i,z_{ij})\le CR/d_{ij}$,</p>
+<div class="eq" id="eq-6-12" data-ref="(6.12)" data-title="cost source">$$\mathcal D_{ij}\subseteq\overline B(x_i,C_4Ra^l),\tag{6.12}$$</div>
+<p>and the $HR$-separation of the centers bounds by $Ca^{Ql}$ how many indices $i$ can charge a given point.</p>
+
+<details class="proof" open><summary>Conclusion of the proof of Proposition 6.1</summary>
+<p>Assign each far pair to an endpoint that satisfies Lemma 6.4. The multiplicity bounds give</p>
+<div class="eq" id="eq-6-13" data-ref="(6.13)" data-title="total cost, upper">$$\sum_{\{i,j\}\text{ far, assigned to }i}\mu(\mathcal D_{ij})\le Ca^{Ql}\mu(Z).\tag{6.13}$$</div>
+<p>On the other side, each paying endpoint has $\Delta_i\ge\Delta_0a^{\gamma Dn}P_*$ by (6.1), and there are at least $c\cN^2$ far pairs, so by (6.10) and (6.3)</p>
+<div class="eq" id="eq-6-14" data-ref="(6.14)" data-title="total cost, lower">$$c\cN^2\kappa^2\Delta_0^2a^{2\gamma Dn}P_*^2\ \ge\ c'k^{-2}a^{2\gamma Dn}.\tag{6.14}$$</div>
+<p>Since $Ql\le\gamma Dn$, comparing the two gives $a^{\gamma Dn}\le Ck^2$, impossible as $k=k_0+Dn\to\infty$.</p>
+</details>
+</section>
+
+<!-- ═══════════════════════════ §7–8 ═══════════════════════════ -->
+
+<section>
+<h2 id="s7" data-nav="Completion of the proof"><span class="secnum">7.</span>Completion of the proof</h2>
+
+<p>If $M(n)$ were unbounded, the record selection of §3 would give either exponential records, excluded by Proposition 4.5, or subexponential growth, excluded by Proposition 6.1. So $\sup_nM(n)\lt\infty$. Theorem 2.5 uniformizes the boundary, and Proposition 2.6 supplies the proper cocompact action with finite kernel. This proves Theorem 1.1.</p>
+</section>
+
+<section>
+<h2 id="s8" data-nav="Consequences"><span class="secnum">8.</span>Consequences</h2>
+
+<div class="thm" id="cor-8-1" data-ref="Corollary 8.1" data-title="torsion-free groups"><span class="label">Corollary 8.1.</span> If $G$ is a torsion-free hyperbolic group and $\partial G$ is homeomorphic to $\Sphere$, then $G$ is the fundamental group of a closed hyperbolic three-manifold.</div>
+
+<p>Point stabilizers of a proper action are finite, hence trivial, so the action is free and $\HH^3/G$ is a closed manifold, possibly nonorientable.</p>
+
+<div class="thm classical" id="cor-8-2" data-ref="Corollary 8.2" data-title="virtual structure"><span class="label">Corollary 8.2 <span class="who">(Virtual structure in the torsion-free case)</span>.</span> Let $G$ be torsion-free hyperbolic with $\partial G$ homeomorphic to $\Sphere$. Some finite-index subgroup of $G$ is isomorphic to $\pi_1(\Sigma)\rtimes\ZZ$ for a closed connected orientable surface $\Sigma$. In particular $G$ has positive virtual first Betti number. Moreover $G$ is virtually compact special and residually finite.</div>
+
+<p>These follow from Corollary 8.1 by Agol's virtual fibering and virtual specialness theorems and Bergeron–Wise's cubulation, applied to the orientation cover.</p>
+</section>
+
+<!-- ═══════════════════════════ AFTERWARDS ═══════════════════════════ -->
+
+<section>
+<h2 id="after" data-nav="Afterwards">Afterwards</h2>
+
+<p>This page follows the preprint as posted on October 6, 2026. The preprint is not refereed, and the accompanying Lean file is a statement for comparison, not a formal proof. Two related conjectures are outside its scope: the relative Cannon conjecture, for relatively hyperbolic pairs whose boundary is a sphere, and the Kapovich–Kleiner conjecture, for hyperbolic groups whose boundary is a Sierpiński carpet.</p>
+
+<h2 id="refs" data-nav="References">References</h2>
+<ol class="refs">
+  <li>OpenAI, <em>A Modulus Proof of Cannon's Conjecture</em>, preprint, September 23, 2026. <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/A-Modulus-Proof-of-Cannons-Conjecture-September-23-2026/paper.pdf">openai/math, commit adc7f12</a>.</li>
+  <li>J. W. Cannon, <em>The combinatorial Riemann mapping theorem</em>, Acta Math. 173 (1994), 155–234.</li>
+  <li>J. W. Cannon, E. L. Swenson, <em>Recognizing constant curvature discrete groups in dimension 3</em>, Trans. AMS 350 (1998), 809–849.</li>
+  <li>J. W. Cannon, W. J. Floyd, W. R. Parry, <em>Squaring rectangles: the finite Riemann mapping theorem</em>, Contemp. Math. 169 (1994), 133–212; <em>Sufficiently rich families of planar rings</em>, Ann. Acad. Sci. Fenn. Math. 24 (1999), 265–304.</li>
+  <li>M. Bonk, B. Kleiner, <em>Quasisymmetric parametrizations of two-dimensional metric spheres</em>, Invent. Math. 150 (2002), 127–183.</li>
+  <li>M. Bonk, B. Kleiner, <em>Conformal dimension and Gromov hyperbolic groups with 2-sphere boundary</em>, Geom. Topol. 9 (2005), 219–246.</li>
+  <li>M. Bourdon, B. Kleiner, <em>Combinatorial modulus, the combinatorial Loewner property, and Coxeter groups</em>, Groups Geom. Dyn. 7 (2013), 39–107.</li>
+  <li>N. Albin, P. Poggi-Corradini, <em>Minimal subfamilies and the probabilistic interpretation for modulus on graphs</em>, J. Anal. 24 (2016), 183–208.</li>
+  <li>P. Pansu, <em>Dimension conforme et sphère à l'infini des variétés à courbure négative</em>, Ann. Acad. Sci. Fenn. Ser. A I Math. 14 (1989), 177–212.</li>
+  <li>D. Sullivan, <em>On the ergodic theory at infinity of an arbitrary discrete group of hyperbolic motions</em>, Ann. of Math. Studies 97 (1981), 465–496.</li>
+  <li>P. Tukia, <em>On two-dimensional quasiconformal groups</em>, Ann. Acad. Sci. Fenn. Ser. A I Math. 5 (1980), 73–78.</li>
+  <li>L. Ahlfors, L. Bers, <em>Riemann's mapping theorem for variable metrics</em>, Ann. of Math. 72 (1960), 385–404.</li>
+  <li>J. Heinonen, P. Koskela, <em>Definitions of quasiconformality</em>, Invent. Math. 120 (1995), 61–79.</li>
+  <li>K. Astala, T. Iwaniec, G. Martin, <em>Elliptic Partial Differential Equations and Quasiconformal Mappings in the Plane</em>, Princeton (2009).</li>
+  <li>M. R. Bridson, A. Haefliger, <em>Metric Spaces of Non-Positive Curvature</em>, Springer (1999).</li>
+  <li>K. Rajala, <em>Uniformization of two-dimensional metric surfaces</em>, Invent. Math. 207 (2017), 1301–1375.</li>
+  <li>O. Schramm, <em>Square tilings with prescribed combinatorics</em>, Israel J. Math. 84 (1993), 97–118.</li>
+  <li>J. Kahn, V. Marković, <em>Immersing almost geodesic surfaces in a closed hyperbolic three manifold</em>, Ann. of Math. 175 (2012), 1127–1190.</li>
+  <li>N. Bergeron, D. T. Wise, <em>A boundary criterion for cubulation</em>, Amer. J. Math. 134 (2012), 843–859.</li>
+  <li>I. Agol, <em>The virtual Haken conjecture</em>, Doc. Math. 18 (2013), 1045–1087.</li>
+  <li>V. Marković, <em>Criterion for Cannon's conjecture</em>, GAFA 23 (2013), 1035–1061.</li>
+  <li>P. Haïssinsky, <em>Hyperbolic groups with planar boundaries</em>, Invent. Math. 201 (2015), 239–307.</li>
+  <li>D. Groves, P. Haïssinsky, J. F. Manning, D. Osajda, A. Sisto, G. S. Walsh, <em>Drilling hyperbolic groups</em>, preprint (arXiv:2406.14667).</li>
+</ol>
+
+<footer class="end">This page explains the preprint; it does not verify it. The figures run the paper's constructions on explicit models: a reflection group whose boundary is the round sphere, finite boards, and exact Möbius maps.</footer>
+</section>
+
+</main>
+</body>
+</html>
