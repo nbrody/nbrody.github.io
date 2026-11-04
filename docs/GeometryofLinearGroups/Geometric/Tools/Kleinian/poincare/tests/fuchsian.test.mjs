@@ -2,7 +2,8 @@
 // Discreteness Calculator (Tools/_archive/fuchsianDiscreteness) decided end to
 // end, the commuting-loxodromic test of js/nondiscrete.js (axisTest), and the
 // classical certificates of js/classical.js for domains the certifier cannot
-// finish (cusps where two walls only touch, as for Γ(2)).
+// finish, and cusps where two walls only touch (Γ(2), a reflection with a
+// parabolic over ℚ(√7)), which the certifier now checks itself.
 //
 //   node --test --import ./tests/register.mjs tests/fuchsian.test.mjs
 import test from 'node:test';
@@ -14,10 +15,10 @@ const { runCompute, matToArr } = await import('../js/compute.js');
 const { findNondiscreteness } = await import('../js/nondiscrete.js');
 const { classicalDiscreteness } = await import('../js/classical.js');
 
-const read = (mats) => buildGroup({ mats, anti: [], consts: [] });
+const read = (mats, consts = []) => buildGroup({ mats, anti: [], consts });
 
-function compute(mats) {
-    const { matrices, exactCtx } = read(mats);
+function compute(mats, consts = []) {
+    const { matrices, exactCtx } = read(mats, consts);
     assert.ok(exactCtx, 'entries read exactly');
     const input = {
         gens: matrices.map(matToArr), origGens: matrices.map(matToArr),
@@ -104,10 +105,24 @@ test('two units of ℚ(√5) on a common axis are dependent: no certificate', ()
 
 const classical = (mats) => classicalDiscreteness(read(mats).exactCtx);
 
-test('Γ(2) is discrete by ping-pong (|ab| = 4), where the domain leaves its cusps unresolved', () => {
-    const rep = compute([['1', '2', '0', '1'], ['1', '0', '2', '1']]);
-    assert.equal(rep.classical.kind, 'parabolic-pair');
-    assert.equal(rep.entries[0].text, '— Discrete: a classical certificate —');
+test('Γ(2): the domain verifies with its three cusps, where two walls only touch; ping-pong (|ab| = 4) agrees', () => {
+    const G2 = [['1', '2', '0', '1'], ['1', '0', '2', '1']];
+    const rep = compute(G2);
+    assert.equal(rep.status, 'verified');
+    assert.equal(rep.cusps.length, 3);
+    assert.ok(rep.cusps.every((c) => c.loops.every((l) => l.type === 'parabolic')));
+    assert.equal(classical(G2).kind, 'parabolic-pair');
+});
+
+test('a reflection and a parabolic over ℚ(√7): ℤ/2 ∗ ℤ with one cusp at w = −√7, not verified at w = +√7', () => {
+    // the mirror of g₁ (from −1 to (4 + w)/3) fits in a strip of g₂ only at w = −√7
+    const mats = [['-1', '-1-w', '1-w', '1'], ['1', 'w', '0', '1']];
+    const at = (re) => compute(mats, [{ name: 'w', poly: 'w^2-7', near: { re, im: 0 } }]);
+    const rep = at(-Math.sqrt(7));
+    assert.equal(rep.status, 'verified');
+    assert.equal(rep.cusps.length, 1);
+    assert.equal(rep.presentation.display, '⟨ s1, s2 | s1^2 ⟩');
+    assert.notEqual(at(Math.sqrt(7)).status, 'verified');
 });
 
 test('⟨z + 1⟩ and ⟨z + 1, z + ½⟩ are cyclic', () => {

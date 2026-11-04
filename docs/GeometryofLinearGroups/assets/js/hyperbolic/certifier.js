@@ -110,6 +110,42 @@ function parabolicFixedBall(m) {
     return uhsToBall({ x: z.re, y: z.im, t: 0 });
 }
 
+const TANGENT_TOL = 1e-7;   // |r² − 1| for a line of two walls tangent to the sphere; |n·p − c|/|n| for a wall through p
+
+/**
+ * Ideal points where faces touch only at infinity. Two planes meet there in a
+ * line tangent to the sphere: parallel planes in the upper half-space, or the
+ * sides of a Fuchsian group's ideal polygon seen in H³. buildPolyhedron makes
+ * no vertex at such a point, so without this the cusp check never sees it.
+ * Returns the points of the closed domain that are not polyhedron vertices,
+ * each as { p, faces } with every face through it.
+ */
+function tangentIdealPoints(poly) {
+    const P = poly.planes, out = [];
+    const on = (m, p) => Math.abs(P[m].n.dot(p) - P[m].c) < TANGENT_TOL * P[m].n.length();
+    for (let i = 0; i < P.length; i++) {
+        for (let j = i + 1; j < P.length; j++) {
+            const ni = P[i].n, nj = P[j].n, ci = P[i].c, cj = P[j].c;
+            const dd = new THREE.Vector3().crossVectors(ni, nj).lengthSq();
+            if (dd < 1e-12 * ni.lengthSq() * nj.lengthSq()) continue;
+            // the point of the line nearest the origin, as in buildPolyhedron
+            const nn = ni.dot(nj);
+            const p = ni.clone().multiplyScalar(ci * nj.lengthSq() - cj * nn)
+                .addScaledVector(nj, cj * ni.lengthSq() - ci * nn)
+                .multiplyScalar(1 / dd);
+            if (Math.abs(p.lengthSq() - 1) > TANGENT_TOL) continue;
+            p.normalize();
+            if (out.some(t => t.p.distanceTo(p) < VERTEX_MATCH_TOL)) continue;
+            if (poly.vertices.some(v => v.ideal && v.k.distanceTo(p) < VERTEX_MATCH_TOL)) continue;
+            if (P.some(({ n, c }) => n.dot(p) > c + TANGENT_TOL * n.length())) continue;   // cut off by another wall
+            const faces = [];
+            for (let m = 0; m < P.length; m++) if (on(m, p)) faces.push(m);
+            out.push({ p, faces });
+        }
+    }
+    return out;
+}
+
 /**
  * Classify a cusp holonomy element (det normalized to 1). It is a
  * horospherical ISOMETRY iff it is the identity, parabolic, or elliptic —
@@ -594,10 +630,22 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
             emit('info', `ℹ ${rank1} ideal point(s) border the ordinary set (rank-1 cusps): no completeness condition there.`);
         }
         const mirrorCusps = idealNodes.filter(({ v }) => v.walls.every(isMirror));
+        // the ideal points whose cycles are followed below: [{ p, faces }]
+        let cuspNodes = null;
         if (idealNodes.length === 0) {
             if (hasParabolic && rank1 === 0) {
-                cuspResolved = false;
-                emit('warn', '⚠ parabolic faces present but no ideal vertices resolved — completeness NOT checked.');
+                // No vertices at all, e.g. a Fuchsian group whose polygon has only
+                // ideal corners: its parabolic sides are tangent at their fixed points.
+                const tangent = tangentIdealPoints(poly);
+                const missed = walls.some((w, i) => w.isParabolic && !tangent.some(t => t.faces.includes(i)));
+                if (tangent.length && !missed) {
+                    emit('info', `ℹ ${tangent.length} ideal point(s) where faces touch only at infinity (tangent walls): ` +
+                        'their cycles are checked as cusps.', { points: tangent.map(t => t.p) });
+                    cuspNodes = tangent;
+                } else {
+                    cuspResolved = false;
+                    emit('warn', '⚠ parabolic faces present but no ideal vertices resolved — completeness NOT checked.');
+                }
             }
         } else if (mirrorCusps.length === idealNodes.length) {
             // Every face at these ideal vertices is a mirror. A reflection in a
@@ -607,8 +655,11 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
                 'through an ideal point preserve its horospheres, so each cusp is complete.',
                 { points: idealNodes.map(n => kleinToBall(n.v.k)) });
         } else {
+            cuspNodes = idealNodes.map(({ v }) => ({ p: kleinToBall(v.k).normalize(), faces: v.walls.slice() }));
+        }
+        if (cuspNodes) {
             try {
-                const nodes = idealNodes.map(({ v }) => ({ p: kleinToBall(v.k).normalize(), faces: v.walls.slice() }));
+                const nodes = cuspNodes;
                 const findNode = (p) => {
                     for (let i2 = 0; i2 < nodes.length; i2++) {
                         if (nodes[i2].p.distanceToSquared(p) < VERTEX_MATCH_TOL * VERTEX_MATCH_TOL) return i2;

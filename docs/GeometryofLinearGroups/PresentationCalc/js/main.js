@@ -48,7 +48,7 @@ import { referenceMs } from './calibrate.js';
 import { randomGroup } from './randomGroup.js';
 import { elementarySection, elementaryTop } from './elementaryView.js';
 
-const VERSION = '2026-10-29a';          // busts the workers' module caches
+const VERSION = '2026-11-04a';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const ZARISKI_TIMEOUT = 120;
 const MAX_PRIMES = 12;
@@ -1732,7 +1732,14 @@ function sarithApplicable(R, factors) {
     const A = R.zariski.arith;
     const archF = A.spaces.factors.filter((f) => f.kind === 'real' || f.kind === 'complex');
     if (!A.ring.S.length) {
-        return { certifiable: false, note: '$\\Gamma$ is unbounded at no prime, so $X$ has no trees. Since $\\Gamma$ is not discrete at any one place at $\\infty$, it could only be a lattice in a product of at least two of them, as a Hilbert modular group is. Certifying finite covolume there is beyond this tool.' };
+        // only a place proved not discrete counts: one still open (or "probably discrete") may be discrete
+        const arch = R.places.filter((pl) => pl.tool === 'poincare');
+        const lead = arch.length && arch.every((pl) => pl.status === 'nondiscrete')
+            ? 'Since $\\Gamma$ is not discrete at any one place at $\\infty$, it could only be a lattice in a product of at least two of them, as a Hilbert modular group is.'
+            : factors.length >= 2
+                ? 'No place at $\\infty$ is known to be discrete. If $\\Gamma$ is discrete at one of them it is thin; if not, it could only be a lattice in their product, as a Hilbert modular group is.'
+                : 'Whether $\\Gamma$ is discrete at $\\infty$ is not decided.';
+        return { certifiable: false, note: `$\\Gamma$ is unbounded at no prime, so $X$ has no trees. ${lead} Certifying finite covolume there is beyond this tool.` };
     }
     if (archF.length >= 2) {
         // O_k has infinitely many units: the stabilizer of o is checked by a lattice of unipotents at a cusp (cusps.js)
@@ -2574,7 +2581,11 @@ function verdict() {
     if (s.status === 'yes') return { cls: 'yes', head: '$\\Gamma$ is thin.', sub: `It is Zariski dense, with infinite index in $${Ltex}$, and no place is known where it is discrete. ${s.detail}${still}` };
     // nothing shown yet: what is running
     if (z.status === 'running') return { cls: '', head: placesBusy ? 'Computing the Zariski closure, and deciding discreteness at every place…' : 'Computing the Zariski closure…', sub: placesBusy ? '' : `${p.head}. ${p.detail}` };
-    if (s.status === 'running') return { cls: '', head: placesBusy ? 'Deciding discreteness at every place, and whether $\\Gamma$ is arithmetic…' : 'Not discrete at any one place. Deciding whether it is arithmetic…' };
+    if (s.status === 'running') {
+        const allNot = placeOrder(R).every((x) => x.status === 'nondiscrete');
+        return { cls: '', head: placesBusy ? 'Deciding discreteness at every place, and whether $\\Gamma$ is arithmetic…'
+            : allNot ? 'Not discrete at any one place. Deciding whether it is arithmetic…' : 'No place proved discrete. Deciding whether $\\Gamma$ is arithmetic…' };
+    }
     if (placesBusy) return { cls: '', head: 'Deciding discreteness at every place…', sub: s.status === 'open' ? `The search for an arithmetic certificate stopped: ${s.detail}` : '' };
     if (s.status === 'idle' && z.status !== 'open') return { cls: '', head: 'Deciding whether $\\Gamma$ is arithmetic…' };
     // nothing shown, and nothing left running
