@@ -30,7 +30,6 @@ const click = (sel) => `document.querySelector(${JSON.stringify(sel)})?.click()`
 const clickText = (t) => `[...document.querySelectorAll('button')].find((b) => b.textContent.includes(${JSON.stringify(t)}))?.click()`;
 const OVERRIDES = {
     'Arithmetic/Tools/pseudomodular/index.html': { js: click('#compute-btn'), after: 4000 },
-    'Geometric/Tools/Kleinian/fuchsianDiscreteness/index.html': { js: `${click('#check-btn')}; setTimeout(() => ${clickText('Poincaré disk')}, 2500)`, after: 5000 },
     'Geometric/Tools/discretenessAlgorithm/index.html': { js: click('#decide-btn'), after: 9000 },
     'Algebraic/Tools/2dimFields/index.html': { js: "document.documentElement.classList.contains('light') && document.getElementById('theme-btn').click()", after: 1200 },
     // the presentation of PGL_2(O_k) for Q(sqrt -5) (page mode: the math is KaTeX in HTML)
@@ -40,14 +39,8 @@ const OVERRIDES = {
     'Arithmetic/Tools/convexCocompactPSL2Z/compact_surface.html': { skip: 'fails to load: bare "react" import' },
     'Arithmetic/Tools/orthogonal.html': { skip: 'fails to load: mathjs@14.0.1 ESM build 404s on jsDelivr' },
     'misc/projectorFeedback/index.html': { skip: 'fails to load: feedback.js is missing' },
-    'Geometric/Tools/Kleinian/apollodense.html': { skip: 'WebGPU shader module fails to compile' },
     'GroupLibrary/Groups/SL2Z.html': { skip: 'empty file' },
-    'Geometric/Tools/Kleinian/julia.html': { skip: 'its default polynomial (… + 0.3i) does not parse, so it opens black' },
-    'Geometric/Tools/Kleinian/knots/index.html': { skip: 'a blank canvas to draw on' },
-    'Geometric/Tools/Kleinian/knotfolio/index.html': { skip: 'a blank canvas to draw on' },
     'Geometric/Tools/Kleinian/coxeter.html': { skip: 'a blank graph to draw on' },
-    'Geometric/Tools/Kleinian/maskit1.html': { skip: 'its worker does not finish headless' },
-    'Geometric/Tools/Kleinian/maskit2.html': { skip: 'its worker does not finish headless' },
     'Geometric/Tools/Kleinian/4dExplorer/index.html': { skip: 'renders black headless' },
     'misc/rileySlice3D/index.html': { skip: 'renders only its axes headless' },
     // the controls are as telling as the picture

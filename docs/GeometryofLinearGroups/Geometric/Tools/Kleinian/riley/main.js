@@ -34,6 +34,11 @@ function calculatePolynomial(skipRileySliceUpdate = false) {
     html += `<h3>Stern-Brocot Tree for \\(\\frac{${reduced.p}}{${reduced.q}}\\)</h3>`;
     html += '<p style="text-align: center; color: #9ca3af; font-size: 14px; margin-bottom: 15px;">The path to the target fraction is highlighted in blue:</p>';
     html += generateSternBrocotTree(reduced.p, reduced.q);
+    // the continued fraction: its partial quotients are the run lengths of the path
+    const cf = [];
+    for (let a = reduced.p, b = reduced.q; b; [a, b] = [b, a % b]) cf.push(Math.floor(a / b));
+    const cfTex = cf.length > 1 ? `[${cf[0]};\\,${cf.slice(1).join(',\\,')}]` : `[${cf[0]}]`;
+    html += `<p style="text-align: center; color: #d1d5db; margin-top: 12px;">Continued fraction: \\(\\frac{${reduced.p}}{${reduced.q}} = ${cfTex}\\)</p>`;
     html += '</div>';
 
     // Display Farey word and matrix

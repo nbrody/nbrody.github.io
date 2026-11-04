@@ -1,3 +1,10 @@
+"""Beam search for relations among the generators drawn in index.html (Z^2 * Z in SL_3(Z[1/2])).
+
+Exact rational matrices (python-flint): the diagonal a, b generating Z^2 and the third
+generator M; words are scored by their distance from the identity, and the best are kept
+at each depth. A research companion to the page, not loaded by it. Needs `pip install
+python-flint`; run with `python3 z2xz.py`.
+"""
 import flint
 from flint import fmpq_mat, fmpq
 

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Calculator</title>
+    <meta name="description" content="Arithmetic pieces from congruence covers: an arithmetic lattice O′(f, ℤ), an immersed totally geodesic hypersurface, a cover in which it embeds, the splitting along it, and Gromov–Piatetski-Shapiro gluing of pieces.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+    <header class="top">
+        <h1>GPS Calculator</h1>
+        <div class="ex-wrap">
+            <button class="quiet" id="examples-btn" aria-haspopup="true" aria-expanded="false">examples</button>
+            <div class="ex-pop" id="ex-pop" hidden></div>
+        </div>
+    </header>
+    <p class="lead">Choose an arithmetic lattice <span data-tex="\Gamma = \mathrm{O}'(f,\mathbb Z)"></span> and an immersed totally geodesic hypersurface <span data-tex="H = v^\perp"></span>. The calculator finds a congruence cover in which <span data-tex="H"></span> embeds, cuts the cover along it, and keeps the pieces. Pieces from incommensurable lattices glue into non-arithmetic manifolds (Gromov–Piatetski-Shapiro). In dimension 2, <a href="hybrid2d/index.html">the hybrid picture</a> draws two such tilings glued along a geodesic, and hybrids of triangle groups.</p>
+
+    <section class="card input-card">
+        <div class="in-grid">
+            <label for="form-in">Quadratic form <span data-tex="f"></span></label>
+            <div class="in-cell">
+                <input id="form-in" class="mono" type="text" spellcheck="false" autocomplete="off" value="-1, 1, 1, 1">
+                <div class="hint" id="form-hint">diagonal entries, or the rows of the Gram matrix separated by semicolons</div>
+            </div>
+            <label for="v-in">Hypersurface <span data-tex="v"></span></label>
+            <div class="in-cell">
+                <input id="v-in" class="mono" type="text" spellcheck="false" autocomplete="off" value="0, 0, 0, 1">
+                <div class="hint" id="v-hint"></div>
+            </div>
+            <label for="n-in">Level <span data-tex="N"></span></label>
+            <div class="in-cell row">
+                <input id="n-in" class="mono narrow" type="number" min="3" max="25" step="1" value="3">
+                <label class="inline" for="cut-in">cut along</label>
+                <select id="cut-in">
+                    <option value="one">one lift Σ₀ of H</option>
+                    <option value="fix">every lift fixed by r_v</option>
+                </select>
+            </div>
+        </div>
+        <div class="compute-row">
+            <button class="btn primary" id="compute-btn">Compute</button>
+            <button class="quiet" id="settings-btn" aria-expanded="false">settings</button>
+            <span class="status" id="status"></span>
+        </div>
+        <div class="settings-grid" id="settings" hidden>
+            <label for="lattice-in">Lattice</label>
+            <select id="lattice-in">
+                <option value="auto">automatic</option>
+                <option value="given">ℤⁿ⁺¹ as given (v must be a root)</option>
+                <option value="split">L_v ⊕ ℤv (split at H)</option>
+            </select>
+            <label for="vin-ms">Vinberg time limit (s)</label><input id="vin-ms" type="number" min="1" max="120" value="15">
+            <label for="cap-in">Max |Γ/Γ(N)|</label><input id="cap-in" type="number" min="1000" max="3000000" step="1000" value="800000">
+        </div>
+    </section>
+
+    <div id="results" hidden>
+        <section class="card result" id="summary"></section>
+
+        <section class="card" id="card-picture">
+            <h2>Picture <span class="tag" id="pic-tag"></span></h2>
+            <div class="pic-tools" id="pic-tools"></div>
+            <div class="canvas-wrap"><canvas id="canvas"></canvas></div>
+            <p class="caption" id="pic-caption"></p>
+            <div class="legend" id="legend"></div>
+        </section>
+
+        <section class="card" id="card-lattice"><h2><span class="num">1</span> The lattice</h2><div class="body"></div></section>
+        <section class="card" id="card-hyp"><h2><span class="num">2</span> The hypersurface</h2><div class="body"></div></section>
+        <section class="card" id="card-cover"><h2><span class="num">3</span> A cover in which it embeds</h2><div class="body"></div></section>
+        <section class="card" id="card-split"><h2><span class="num">4</span> The splitting and its pieces</h2><div class="body"></div></section>
+    </div>
+
+    <section class="card" id="card-bench">
+        <h2>Workbench <span class="tag" id="bench-tag"></span></h2>
+        <p class="hint" id="bench-hint">Saved pieces appear here. Click a boundary component of one piece and then a boundary component of another to test whether they glue.</p>
+        <div id="bench-list"></div>
+        <div id="glue-msg"></div>
+        <div id="assembly"></div>
+    </section>
+
+    <footer class="foot">
+        Vinberg's algorithm for the reflection chamber; principal congruence covers Γ(N), N ≥ 3 (torsion-free by Minkowski, H embedded by Millson's argument); every certificate is checked combinatorially on the tiled cover.
+    </footer>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

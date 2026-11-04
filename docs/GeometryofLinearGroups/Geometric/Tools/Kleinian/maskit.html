@@ -2,12 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Kleinian Escape‐Time Visualization</title>
+  <title>Maskit Group: Escape Time and Limit Set</title>
   <style>
     body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #222; }
     canvas { border: 1px solid #555; }
   </style>
-</script>
   <link rel="stylesheet" href="../../../../assets/css/backBtn.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.min.js"></script>
 </head>
@@ -15,6 +14,11 @@
   <div id="controls" style="position:absolute; top:10px; right:10px; color:white; z-index:10;">
     u: <input id="inputU" type="number" step="0.1" value="1.9" style="width:60px;">
     v: <input id="inputV" type="number" step="0.01" value="0.15" style="width:60px;">
+    <select id="mode" title="Escape time: Jos Leys' algorithm, colouring the strip by where points escape. Orbit density: the images of a point under random words in the generators, which accumulate on the limit set.">
+      <option value="escape">Escape time</option>
+      <option value="density">Orbit density</option>
+    </select>
+    <span id="depthCtl" style="display:none">depth: <input id="inputDepth" type="number" min="4" max="60" step="1" value="24" style="width:50px;"></span>
     <button id="renderBtn">Render</button>
   </div>
   <canvas id="canvas" width="800" height="400"></canvas>
@@ -191,13 +195,86 @@
       }
       ctx.putImageData(img, 0, 0);
     }
-    document.getElementById('renderBtn').addEventListener('click', render);
+    // ——— Orbit density (from the retired maskit2.html) ———
+    // Random reduced words of a fixed length in a, A = a⁻¹ and z ↦ z ± 2, applied
+    // to 0; the images accumulate on the limit set. The group contains z ↦ z + 2,
+    // so the limit set is 2-periodic and x is wrapped into the window.
+    function renderDensity() {
+      const u = parseFloat(document.getElementById('inputU').value);
+      const v = parseFloat(document.getElementById('inputV').value);
+      const depth = Math.max(4, Math.min(60, parseInt(document.getElementById('inputDepth').value, 10) || 24));
+      const yMax = u + 0.1;
+      // [aRe, aIm, bRe, bIm, cRe, cIm, dRe, dIm]
+      const gens = [
+        [u, v, 0, -1, 0, -1, 0, 0],      // a(z) = (t z − i)/(−i z)
+        [0, 0, 0, 1, 0, 1, u, v],        // A(z) = i/(i z + t)
+        [1, 0, 2, 0, 0, 0, 1, 0],        // z + 2
+        [1, 0, -2, 0, 0, 0, 1, 0],       // z − 2
+      ];
+      const inverse = [1, 0, 3, 2];
+      const mul = (M, N) => {
+        const m = (ar, ai, br, bi) => [ar * br - ai * bi, ar * bi + ai * br];
+        const add = (x, y) => [x[0] + y[0], x[1] + y[1]];
+        const r = [
+          add(m(M[0], M[1], N[0], N[1]), m(M[2], M[3], N[4], N[5])),
+          add(m(M[0], M[1], N[2], N[3]), m(M[2], M[3], N[6], N[7])),
+          add(m(M[4], M[5], N[0], N[1]), m(M[6], M[7], N[4], N[5])),
+          add(m(M[4], M[5], N[2], N[3]), m(M[6], M[7], N[6], N[7])),
+        ];
+        return [r[0][0], r[0][1], r[1][0], r[1][1], r[2][0], r[2][1], r[3][0], r[3][1]];
+      };
+      const counts = new Uint32Array(width * height);
+      let maxCount = 0;
+      const plot = (x, y) => {
+        const px = Math.floor((x - xMin) / (xMax - xMin) * (width - 1));
+        const py = Math.floor((yMax - y) / (yMax - yMin) * (height - 1));
+        if (px < 0 || px >= width || py < 0 || py >= height) return;
+        const c = ++counts[py * width + px];
+        if (c > maxCount) maxCount = c;
+      };
+      const samples = 400000;
+      for (let s = 0; s < samples; s++) {
+        let last = Math.floor(Math.random() * 4);
+        let M = gens[last];
+        for (let k = 1; k < depth; k++) {
+          let g;
+          do { g = Math.floor(Math.random() * 4); } while (g === inverse[last]);
+          M = mul(M, gens[g]);
+          last = g;
+        }
+        // the image of 0 is b/d
+        const den = M[6] * M[6] + M[7] * M[7];
+        if (!(den > 1e-300)) continue;
+        const x = (M[2] * M[6] + M[3] * M[7]) / den, y = (M[3] * M[6] - M[2] * M[7]) / den;
+        if (!isFinite(x) || !isFinite(y)) continue;
+        const xw = x - 2 * Math.floor((x + 1) / 2);         // into [−1, 1)
+        plot(xw, y); plot(xw - 2, y); plot(xw + 2, y);
+      }
+      const img = ctx.createImageData(width, height);
+      const data = img.data;
+      for (let i = 0; i < width * height; i++) {
+        const t = counts[i] ? Math.pow(counts[i] / maxCount, 0.3) : 0;
+        data[4 * i] = Math.floor(255 * t);
+        data[4 * i + 1] = Math.floor(215 * t);
+        data[4 * i + 2] = Math.floor(150 * t);
+        data[4 * i + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    const modeSel = document.getElementById('mode');
+    const draw = () => (modeSel.value === 'density' ? renderDensity() : render());
+    modeSel.addEventListener('change', () => {
+      document.getElementById('depthCtl').style.display = modeSel.value === 'density' ? '' : 'none';
+      draw();
+    });
+    document.getElementById('renderBtn').addEventListener('click', draw);
     render();
 </script>
 <button id="backBtn">Back</button>
 <script>
   document.getElementById('backBtn').addEventListener('click', () => {
-    window.location.href = '../index.html';
+    window.location.href = '../../index.html';
   });
 </script>
 <!-- golg-nav-bootstrap -->
