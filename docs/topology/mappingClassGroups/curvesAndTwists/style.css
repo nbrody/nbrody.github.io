@@ -1,0 +1,278 @@
+/* Curves & Twists — only what is particular to this app; the panel, fields,
+   buttons and tokens come from ../../assets/poincare-ui.css. */
+
+:root {
+    --disk-fill: rgba(129, 140, 248, 0.035);
+    --disk-edge: rgba(226, 232, 240, 0.28);
+    --tile-edge: rgba(226, 232, 240, 0.10);
+    --poly-edge: rgba(226, 232, 240, 0.55);
+    --curve-ink: #e9ecf5;
+    --ref-ink: rgba(226, 232, 240, 0.30);
+}
+html.light {
+    --disk-fill: rgba(79, 70, 229, 0.03);
+    --disk-edge: rgba(15, 23, 42, 0.30);
+    --tile-edge: rgba(15, 23, 42, 0.10);
+    --poly-edge: rgba(15, 23, 42, 0.55);
+    --curve-ink: #23262e;
+    --ref-ink: rgba(15, 23, 42, 0.30);
+}
+
+#stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    touch-action: none;
+    cursor: crosshair;
+    z-index: 0;
+}
+#stage.over-puncture { cursor: grab; }
+#stage.dragging { cursor: grabbing; }
+#stage.panning { cursor: move; }
+#stage.busy { cursor: progress; }
+
+/* KaTeX labels laid over the picture */
+#overlay { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+.p-label {
+    position: absolute;
+    transform: translate(-50%, 0);
+    font-size: 13px;
+    color: var(--ink-dim);
+    white-space: nowrap;
+}
+.p-label.hot { color: var(--accent); font-weight: 600; }
+.caption {
+    position: absolute;
+    font-size: 15px;
+    color: var(--curve-ink);
+    white-space: nowrap;
+    opacity: 0.85;
+}
+/* branch weights of a zipped train track */
+.w-label {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 13px;
+    color: var(--accent);
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+}
+
+/* examples */
+.example-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.example-btn {
+    padding: 9px 10px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--hairline);
+    background: var(--w05);
+    color: var(--ink);
+    text-align: left;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 550;
+    line-height: 1.3;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s var(--ease-spring);
+}
+.example-btn small { display: block; font-weight: 450; font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+.example-btn:hover { background: var(--w08); border-color: var(--accent-line); transform: translateY(-1px); }
+.example-btn.current { border-color: var(--accent-line); box-shadow: inset 0 0 0 1px var(--accent-line); }
+
+/* readouts */
+.math-readout { display: flex; flex-direction: column; gap: 4px; }
+.readout-key { font-size: 11px; color: var(--ink-faint); letter-spacing: 0.02em; }
+.readout-val {
+    padding: 8px 10px;
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-sm);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: 36px;
+    scrollbar-width: thin;
+}
+.readout-val .katex-display { margin: 0; }
+.word-line { display: block; }
+.word-line + .word-line { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--hairline); }
+.wsp { font-size: 6px; }
+
+/* generator buttons: σ_i and σ_i^{-1} side by side */
+.gen-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.gen-btn {
+    padding: 7px 4px 6px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--hairline);
+    background: var(--w05);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 15px;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s var(--ease-spring), box-shadow 0.2s ease;
+}
+.gen-btn:hover { background: var(--accent-soft); border-color: var(--accent-line); box-shadow: 0 0 14px var(--accent-glow); }
+.gen-btn:active { transform: scale(0.95); }
+.gen-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+.gen-empty { grid-column: 1 / -1; }
+
+.toggle-btn.compact { width: auto; padding: 5px 10px; font-size: 12px; }
+
+/* MathQuill fields, dressed as the shared text fields */
+.mq-field.mq-editable-field {
+    flex: 1;
+    min-width: 0;
+    min-height: 36px;
+    padding: 6px 10px;
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-sm);
+    color: var(--ink);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.mq-field.mq-editable-field.mq-focused {
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    background: var(--field-bg-focus);
+}
+.mq-math-mode, .mq-math-mode .mq-root-block { font-family: KaTeX_Main, 'Times New Roman', serif; }
+.mq-math-mode var, .mq-math-mode i { font-family: KaTeX_Math, 'Times New Roman', serif; }
+.mq-editable-field .mq-cursor { border-left-color: var(--ink); }
+.mq-math-mode .mq-selection, .mq-editable-field .mq-selection,
+.mq-math-mode .mq-selection .mq-non-leaf, .mq-editable-field .mq-selection .mq-non-leaf { background: var(--accent-soft) !important; color: var(--ink) !important; }
+
+.kv-list { display: flex; flex-direction: column; }
+
+.help-body .katex { font-size: 1.05em; }
+
+/* the mural palette paints the page itself */
+
+/* side and curve labels over the picture */
+.s-label {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+}
+.c-label {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    white-space: nowrap;
+    padding: 0 3px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--bg, #05070f) 70%, transparent);
+}
+.c-label.hot { color: var(--accent); font-weight: 600; }
+
+/* the list of curves */
+.curve-list { display: flex; flex-direction: column; gap: 4px; }
+.curve-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--r-sm);
+    border: 1px solid transparent;
+    background: var(--w05);
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--ink);
+}
+.curve-row:hover { border-color: var(--hairline); }
+.curve-row.selected { border-color: var(--accent-line); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.curve-row .swatch { width: 14px; height: 4px; border-radius: 2px; flex: none; }
+.curve-row .meta { margin-left: auto; color: var(--ink-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.curve-empty { font-size: 12.5px; color: var(--ink-faint); padding: 4px 2px; }
+
+/* relations */
+.relations { display: flex; flex-direction: column; gap: 8px; }
+.rel-card {
+    padding: 9px 10px 8px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--hairline);
+    background: var(--w05);
+}
+.rel-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-dim); font-weight: 600; letter-spacing: 0.01em; }
+.rel-head .badge { margin-left: auto; font-weight: 600; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; }
+.badge.ok { color: #34d399; background: rgba(52, 211, 153, 0.12); }
+.badge.failed { color: #f87171; background: rgba(248, 113, 113, 0.12); }
+.badge.pending { color: var(--accent); background: var(--accent-soft); }
+html.light .badge.ok { color: #047857; }
+html.light .badge.failed { color: #b91c1c; }
+.rel-tex { margin: 6px 0 4px; font-size: 14px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.rel-tex .katex-display { margin: 0.2em 0; }
+.rel-note { font-size: 12px; color: var(--ink-faint); line-height: 1.45; }
+.rel-actions { display: flex; gap: 6px; margin-top: 6px; }
+.rel-actions .toggle-btn { width: auto; padding: 4px 10px; font-size: 12px; }
+.aux-list { font-size: 12.5px; color: var(--ink-dim); line-height: 1.6; }
+
+#tab-relations .control-row > * { flex: 1; width: auto; }
+
+/* ---------------------------------------------------------------- the surface view */
+.stage3d {
+    position: fixed;
+    z-index: 1;
+    overflow: hidden;
+    touch-action: none;
+}
+.stage3d-canvas { display: block; cursor: grab; }
+.stage3d-canvas:active { cursor: grabbing; }
+.stage3d-canvas.drawing { cursor: crosshair; }
+.labels3d { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.l3 {
+    position: absolute;
+    left: 0; top: 0;
+    font-size: 13px;
+    white-space: nowrap;
+    color: var(--ink-dim);
+    text-shadow: 0 0 4px var(--bg), 0 0 8px var(--bg);
+    will-change: transform;
+}
+.l3.user { color: var(--ink); font-size: 14px; }
+.tools3d {
+    position: absolute;
+    right: 12px; bottom: 12px;
+    display: flex; gap: 6px;
+    z-index: 2;
+}
+.tools3d .toggle-btn { background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+/* the Disk · Both · Surface switch, at the top right of the picture */
+.view-switch {
+    position: fixed;
+    top: var(--gap);
+    left: calc(var(--picture-w, 100vw) - 8px);
+    transform: translateX(-100%);
+    z-index: 60;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--glass);
+    border: 1px solid var(--hairline);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+.view-switch .seg-opt {
+    border: 0;
+    background: transparent;
+    color: var(--ink-dim);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 550;
+    padding: 5px 13px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.view-switch .seg-opt:hover { color: var(--ink); }
+.view-switch .seg-opt.active { background: var(--accent-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
+html.panel-collapsed .view-switch { left: calc(var(--picture-w, 100vw) - 72px); }
+@media (max-width: 860px) {
+    .view-switch { top: 12px; left: 50%; transform: translateX(-50%); }
+}

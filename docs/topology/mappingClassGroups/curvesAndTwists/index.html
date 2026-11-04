@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-key="curvesAndTwists.theme">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curves &amp; Twists</title>
+    <meta name="description"
+        content="Draw simple closed curves on a closed hyperbolic surface, pull them tight to geodesics, watch Dehn twists act on the surface in 3D, and check a presentation of the mapping class group.">
+    <link rel="stylesheet" href="../../assets/poincare-ui.css?v=6">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <link rel="stylesheet" href="../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.css">
+    <link rel="stylesheet" href="style.css?v=2">
+    <script src="../../assets/poincare-ui.js?v=6"></script>
+    <script>
+        try {
+            if (!localStorage.getItem('curvesAndTwists.theme') && matchMedia('(prefers-color-scheme: light)').matches)
+                document.documentElement.classList.add('light');
+        } catch (e) { }
+    </script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script defer src="../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/jquery/jquery-3.7.1.min.js"></script>
+    <script defer src="../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.min.js"></script>
+    <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+    </script>
+    <script type="module" src="js/main.js?v=2"></script>
+</head>
+
+<body>
+    <canvas id="stage"></canvas>
+    <div id="overlay" aria-hidden="true"></div>
+    <div id="stage3d" class="stage3d">
+        <div class="tools3d">
+            <button id="draw3d" class="toggle-btn compact" title="Drag on the surface to draw a curve; drag off it to turn the view">Draw on the surface</button>
+            <button id="reset3d" class="toggle-btn compact" title="Back to the starting view">Reset view</button>
+        </div>
+    </div>
+    <div id="view-switch" class="view-switch" role="group" aria-label="Picture">
+        <button class="seg-opt" data-v="disk" title="The polygon in the Poincaré disk (V cycles)">Disk</button>
+        <button class="seg-opt" data-v="both" title="The disk and the surface side by side">Both</button>
+        <button class="seg-opt" data-v="surface" title="The surface in space">Surface</button>
+    </div>
+
+    <div id="status-banner" class="status-banner accent" role="status" aria-live="polite">
+        <div class="status-banner-text">
+            <span class="kicker">Curves &amp; Twists</span>
+            <span id="status-headline" class="headline">Loading…</span>
+        </div>
+        <button class="status-banner-close" title="Collapse" aria-label="Collapse the title">×</button>
+    </div>
+
+    <div id="stage-hint" class="stage-hint">
+        <b>Drag</b> in the disk to draw a closed curve (crossing a side brings you back in through its partner) · <b>click</b> a curve to select it · <b>drag</b> the surface to turn it
+    </div>
+
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <div class="panel-tabs" role="tablist" aria-label="Controls">
+                <button class="tab-btn active" data-tab="curves" role="tab" aria-selected="true">Curves</button>
+                <button class="tab-btn" data-tab="twist" role="tab" aria-selected="false">Twist</button>
+                <button class="tab-btn" data-tab="relations" role="tab" aria-selected="false">Presentation</button>
+                <button class="tab-btn" data-tab="view" role="tab" aria-selected="false">View</button>
+            </div>
+            <button id="help-btn" class="collapse-btn" title="What is this?" aria-label="What is this?">
+                <span class="collapse-icon">?</span>
+            </button>
+            <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+                <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- ======================== Curves -->
+            <div id="tab-curves" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">Curves &amp; Twists</h2>
+                    <p class="panel-subtitle" id="curves-subtitle"></p>
+                </div>
+
+                <div class="control-group">
+                    <div class="seg-selector">
+                        <span class="seg-label">Genus</span>
+                        <div class="seg-options" id="genus">
+                            <button class="seg-opt active" data-g="2">2</button>
+                            <button class="seg-opt" data-g="3">3</button>
+                            <button class="seg-opt" data-g="4">4</button>
+                            <button class="seg-opt" data-g="5">5</button>
+                        </div>
+                    </div>
+                    <label class="control-label">Examples</label>
+                    <div class="example-row" id="examples"></div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row spread">
+                        <label class="control-label">Curves</label>
+                        <span id="curve-chip" class="chip">—</span>
+                    </div>
+                    <div id="curve-list" class="curve-list"></div>
+                    <div class="math-readout">
+                        <div class="readout-key" id="sel-key">Selected curve</div>
+                        <div id="sel-readout" class="readout-val">—</div>
+                    </div>
+                    <div class="math-readout">
+                        <div class="readout-key">Word in π<sub>1</sub> (the sides it crosses)</div>
+                        <div id="word-readout" class="readout-val">—</div>
+                    </div>
+                    <div class="math-readout">
+                        <div class="readout-key">Intersections with the Humphries curves</div>
+                        <div id="int-readout" class="readout-val">—</div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">From a word in π<sub>1</sub></label>
+                    <div class="control-row">
+                        <span id="word-input" class="mq-field" aria-label="Word in the fundamental group"></span>
+                        <button id="word-apply" class="btn btn-add" title="Add the geodesic of this word (Enter)">Add</button>
+                    </div>
+                    <p class="label-hint" id="word-hint"></p>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <button id="delete-curve" class="btn" title="Delete the selected curve (Delete)">Delete curve</button>
+                        <button id="clear-all" class="btn btn-danger" title="Remove every curve">Clear all</button>
+                    </div>
+                    <div class="control-row">
+                        <button id="undo-btn" class="btn" title="Undo (Z)">Undo</button>
+                        <button id="redo-btn" class="btn" title="Redo (Shift-Z)">Redo</button>
+                        <button id="copy-link" class="btn btn-add-alt" title="The link encodes the genus and the curves">Copy link</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================== Twist -->
+            <div id="tab-twist" class="tab-content">
+                <div>
+                    <h2 class="panel-title">Dehn twists</h2>
+                    <p class="panel-subtitle" id="twist-subtitle"></p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Twist about a Humphries curve</label>
+                    <div id="gen-grid" class="gen-grid"></div>
+                    <p class="label-hint" id="gen-hint"></p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Twist about the selected curve</label>
+                    <div class="control-row">
+                        <button id="tw-sel" class="btn" title="Twist every other curve about the selected one (T)">Left twist</button>
+                        <button id="tw-sel-inv" class="btn" title="The inverse twist (Shift-T)">Right twist</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Turn the pretzel by a half turn</label>
+                    <div class="control-row">
+                        <button id="turn-x" class="btn" title="About the long axis, through the holes (I)"></button>
+                        <button id="turn-z" class="btn" title="About the vertical axis"></button>
+                        <button id="turn-y" class="btn" title="About the short axis"></button>
+                    </div>
+                    <p class="label-hint" id="turn-hint"></p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Word in twists</label>
+                    <div class="control-row">
+                        <span id="twist-input" class="mq-field" aria-label="Word in Dehn twists"></span>
+                        <button id="twist-apply" class="btn btn-add" title="Apply the word, rightmost letter first (Enter)">Apply</button>
+                    </div>
+                    <p class="label-hint">Type <kbd>T_1T_2^{-1}</kbd>; powers and parentheses are fine, and <kbd>iota</kbd>, <kbd>rho</kbd> are the half turns. The rightmost letter acts first.</p>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row spread">
+                        <label class="control-label">Applied so far</label>
+                        <button id="repeat-btn" class="toggle-btn compact" title="Apply the last word again (R)">Repeat last</button>
+                    </div>
+                    <div id="twist-log" class="readout-val">—</div>
+                    <div class="range-row">
+                        <div class="range-head"><span class="range-name">Twist speed</span><span class="range-value" id="speed-val"></span></div>
+                        <input type="range" id="speed" class="range" min="0" max="100" value="55">
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">How a twist is carried out</h3>
+                    <p id="twist-explain"></p>
+                </div>
+            </div>
+
+            <!-- ======================== Presentation -->
+            <div id="tab-relations" class="tab-content">
+                <div>
+                    <h2 class="panel-title" id="pres-title">A presentation</h2>
+                    <p class="panel-subtitle" id="pres-subtitle"></p>
+                </div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <button id="check-all" class="btn btn-add" title="Check every relation on the oriented Humphries curves">Check all</button>
+                        <button id="show-aux" class="toggle-btn" title="Draw the auxiliary curves the relations use">Auxiliary curves</button>
+                    </div>
+                    <div id="pres-progress" class="label-hint"></div>
+                </div>
+                <div id="relations" class="relations"></div>
+                <div class="info-section">
+                    <h3 class="info-title">How a relation is checked</h3>
+                    <div id="pres-explain"></div>
+                </div>
+            </div>
+
+            <!-- ======================== View -->
+            <div id="tab-view" class="tab-content">
+                <div>
+                    <h2 class="panel-title">View and solver</h2>
+                </div>
+                <div class="control-group">
+                    <div class="seg-selector">
+                        <span class="seg-label">Picture</span>
+                        <div class="seg-options" id="view-mode">
+                            <button class="seg-opt" data-v="disk">Disk</button>
+                            <button class="seg-opt" data-v="both">Both</button>
+                            <button class="seg-opt" data-v="surface">Surface</button>
+                        </div>
+                    </div>
+                    <div class="toggle-row">
+                        <button id="t-see" class="toggle-btn" title="Make the surface translucent, to see curves on the back">See-through surface</button>
+                        <button id="t-poly3d" class="toggle-btn active" title="Draw the polygon's sides on the surface: 2g loops through one point">Polygon on the surface</button>
+                    </div>
+                    <div class="toggle-row">
+                        <button id="t-refs" class="toggle-btn active" title="Draw the Humphries curves c₀, c₁, …">Humphries curves</button>
+                        <button id="t-lifts" class="toggle-btn active" title="Draw the copies of the curves in the neighboring polygons">Neighboring tiles</button>
+                        <button id="t-sides" class="toggle-btn active" title="Label the sides with their letters">Side labels</button>
+                        <button id="t-solver" class="toggle-btn active" title="Run the solver (Space)">Solver running</button>
+                        <button id="t-verts" class="toggle-btn" title="Show the polygon's vertices">Vertices</button>
+                    </div>
+                    <div class="seg-selector">
+                        <span class="seg-label">Palette</span>
+                        <div class="seg-options" id="palette">
+                            <button class="seg-opt active" data-p="color" title="One color per curve">Colors</button>
+                            <button class="seg-opt" data-p="ink" title="Ink on the page">Ink</button>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <button id="svg-btn" class="btn btn-add-alt" title="Download the picture as SVG">Download SVG</button>
+                    </div>
+                    <div id="solver-readout" class="kv-list"></div>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">The surface and the solver</h3>
+                    <div id="solver-explain"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="help-modal" class="example-modal" hidden>
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel narrow" role="dialog" aria-labelledby="help-title">
+            <div class="example-modal-head">
+                <h3 id="help-title">Curves &amp; Twists</h3>
+                <button class="example-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="help-body" id="help-body"></div>
+        </div>
+    </div>
+</body>
+
+</html>
