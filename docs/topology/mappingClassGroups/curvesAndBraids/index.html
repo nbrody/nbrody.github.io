@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-key="curvesAndBraids.theme">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curves &amp; Braids</title>
+    <meta name="description"
+        content="Click to place punctures, draw a simple closed curve, and watch it pulled tight into its nicest shape — then braid the punctures and carry the curve along.">
+    <link rel="stylesheet" href="../../assets/poincare-ui.css?v=6">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <link rel="stylesheet" href="../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.css">
+    <link rel="stylesheet" href="style.css?v=2">
+    <script src="../../assets/poincare-ui.js?v=6"></script>
+    <script>
+        // no stored choice: follow the system
+        try {
+            if (!localStorage.getItem('curvesAndBraids.theme') && matchMedia('(prefers-color-scheme: light)').matches)
+                document.documentElement.classList.add('light');
+        } catch (e) { }
+    </script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script defer src="../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/jquery/jquery-3.7.1.min.js"></script>
+    <script defer src="../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.min.js"></script>
+    <script type="module" src="js/main.js?v=2"></script>
+</head>
+
+<body>
+    <canvas id="stage"></canvas>
+    <div id="overlay" aria-hidden="true"></div>
+
+    <div id="status-banner" class="status-banner accent" role="status" aria-live="polite">
+        <div class="status-banner-text">
+            <span class="kicker">Curves &amp; Braids</span>
+            <span id="status-headline" class="headline">Loading…</span>
+        </div>
+        <button class="status-banner-close" title="Collapse" aria-label="Collapse the title">×</button>
+    </div>
+
+    <div id="stage-hint" class="stage-hint">
+        <b>Click</b> to add a puncture · <b>drag</b> to draw a closed curve · <b>drag a puncture</b> to push the curve
+    </div>
+
+    <!-- ============================================================ control panel -->
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <div class="panel-tabs" role="tablist" aria-label="Controls">
+                <button class="tab-btn active" data-tab="curve" role="tab" aria-selected="true">Curve</button>
+                <button class="tab-btn" data-tab="braid" role="tab" aria-selected="false">Braid</button>
+                <button class="tab-btn" data-tab="view" role="tab" aria-selected="false">View</button>
+            </div>
+            <button id="help-btn" class="collapse-btn" title="What is this?" aria-label="What is this?">
+                <span class="collapse-icon">?</span>
+            </button>
+            <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+                <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- ======================== Curve -->
+            <div id="tab-curve" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">Curves &amp; Braids</h2>
+                    <p class="panel-subtitle">A simple closed curve in the plane minus some points, pulled tight like a
+                        rubber band of fixed thickness. It never crosses itself or a puncture, so it stays in its
+                        isotopy class.</p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Examples</label>
+                    <div class="example-row" id="examples"></div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row spread">
+                        <label class="control-label">This curve</label>
+                        <span id="curve-chip" class="chip">—</span>
+                    </div>
+                    <div id="curve-summary" class="summary three"></div>
+                    <div class="math-readout">
+                        <div class="readout-key">Dynnikov coordinates</div>
+                        <div id="dyn-readout" class="readout-val">—</div>
+                    </div>
+                    <div class="math-readout">
+                        <div class="readout-key">Word in π<sub>1</sub>, up to conjugacy and inversion</div>
+                        <div id="word-readout" class="readout-val">—</div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row spread">
+                        <label class="control-label">Train track</label>
+                        <button id="zip-btn" class="toggle-btn compact" title="Zip the bands of parallel strands into a weighted train track (T)">Zip</button>
+                    </div>
+                    <p class="label-hint" id="zip-hint"></p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">From Dynnikov coordinates</label>
+                    <div class="control-row">
+                        <span id="dyn-input" class="mq-field" aria-label="Dynnikov coordinates"></span>
+                        <button id="dyn-apply" class="btn btn-add" title="Draw the multicurve with these coordinates (Enter)">Draw</button>
+                    </div>
+                    <p class="label-hint" id="dyn-hint"></p>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <button id="clear-curve" class="btn" title="Remove the curve, keep the punctures">Clear curve</button>
+                        <button id="clear-all" class="btn btn-danger" title="Remove everything">Clear all</button>
+                    </div>
+                    <div class="control-row">
+                        <button id="undo-btn" class="btn" title="Undo (Z)">Undo</button>
+                        <button id="redo-btn" class="btn" title="Redo (Shift-Z)">Redo</button>
+                        <button id="copy-link" class="btn btn-add-alt" title="The link encodes the punctures and the curve">Copy link</button>
+                    </div>
+                </div>
+                <p id="curve-error" class="error-message"></p>
+            </div>
+
+            <!-- ======================== Braid -->
+            <div id="tab-braid" class="tab-content">
+                <div>
+                    <h2 class="panel-title">Braid the punctures</h2>
+                    <p class="panel-subtitle" id="braid-subtitle">The generator twists the
+                        punctures counterclockwise, and its inverse twists them clockwise, carrying the curve along.</p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Generators</label>
+                    <div id="gen-grid" class="gen-grid"></div>
+                    <p class="label-hint" id="gen-hint">Keys 1–9 apply the generators, Shift for inverses.</p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Braid word</label>
+                    <div class="control-row">
+                        <span id="braid-input" class="mq-field" aria-label="Braid word"></span>
+                        <button id="braid-apply" class="btn btn-add" title="Apply the word, left to right (Enter)">Apply</button>
+                    </div>
+                    <p class="label-hint">Type <kbd>sigma</kbd> for σ, then <kbd>_</kbd> and <kbd>^</kbd>; parentheses and powers are fine.</p>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row spread">
+                        <label class="control-label">Applied to this curve</label>
+                        <button id="repeat-btn" class="toggle-btn compact" title="Apply the last word again (R)">Repeat last</button>
+                    </div>
+                    <div id="braid-log" class="readout-val">—</div>
+                    <div class="range-row">
+                        <div class="range-head"><span class="range-name">Twist speed</span><span class="range-value" id="speed-val"></span></div>
+                        <input type="range" id="speed" class="range" min="0" max="100" value="55">
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">How the curve is carried</h3>
+                    <p id="braid-explain"></p>
+                </div>
+            </div>
+
+            <!-- ======================== View -->
+            <div id="tab-view" class="tab-content">
+                <div>
+                    <h2 class="panel-title">View and solver</h2>
+                </div>
+
+                <div class="control-group">
+                    <div class="seg-selector">
+                        <span class="seg-label">Look</span>
+                        <div class="seg-options" id="look">
+                            <button class="seg-opt active" data-look="geodesic" title="The geodesic of the hyperbolic metric on the punctured disk">Geodesic</button>
+                            <button class="seg-opt" data-look="track" title="A band of fixed thickness pulled tight: parallel strands, like a train track">Train track</button>
+                        </div>
+                    </div>
+                    <p class="label-hint" id="look-hint"></p>
+                </div>
+
+                <div class="control-group">
+                    <div class="seg-selector">
+                        <span class="seg-label">Spacing</span>
+                        <div class="seg-options" id="spacing-mode">
+                            <button class="seg-opt active" data-mode="auto" title="Strand spacing chosen so every band fits between the punctures">Auto</button>
+                            <button class="seg-opt" data-mode="manual" title="Fixed strand spacing">Fixed</button>
+                        </div>
+                    </div>
+                    <div class="range-row">
+                        <div class="range-head"><span class="range-name" id="spacing-name">Looser ↔ tighter</span><span class="range-value" id="spacing-val"></span></div>
+                        <input type="range" id="spacing" class="range" min="0" max="100" value="50">
+                    </div>
+                    <div class="seg-selector">
+                        <span class="seg-label">Palette</span>
+                        <div class="seg-options" id="palette">
+                            <button class="seg-opt active" data-p="ink" title="Ink on the page">Ink</button>
+                            <button class="seg-opt" data-p="mural" title="Paint on a gray wall, like the mural">Mural</button>
+                            <button class="seg-opt" data-p="color" title="One color per component">Colors</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="toggle-row">
+                        <button id="t-labels" class="toggle-btn active" title="Number the punctures from left to right">Puncture labels</button>
+                        <button id="t-word" class="toggle-btn active" title="Write the word under the curve, as on the mural">Word caption</button>
+                        <button id="t-solver" class="toggle-btn active" title="Run the solver (Space)">Solver running</button>
+                        <button id="t-verts" class="toggle-btn" title="Show the polygon's vertices">Vertices</button>
+                    </div>
+                    <div class="control-row">
+                        <button id="fit-btn" class="btn" title="Fit the picture (F)">Fit view</button>
+                        <button id="svg-btn" class="btn btn-add-alt" title="Download the picture as SVG">Download SVG</button>
+                    </div>
+                    <div id="solver-readout" class="kv-list"></div>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">The solver</h3>
+                    <div id="solver-explain"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ help -->
+    <div id="help-modal" class="example-modal" hidden>
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel narrow" role="dialog" aria-labelledby="help-title">
+            <div class="example-modal-head">
+                <h3 id="help-title">Curves &amp; Braids</h3>
+                <button class="example-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="help-body" id="help-body"></div>
+        </div>
+    </div>
+</body>
+
+</html>

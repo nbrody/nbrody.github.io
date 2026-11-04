@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temperley–Lieb Calculator</title>
+    <script>
+        // theme before first paint (per-viewer convenience; storage may be unavailable)
+        try { if (localStorage.getItem('tlcalc.theme') === 'light') document.documentElement.classList.add('light'); } catch (e) { }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- The stage: the current element, drawn as an equation of diagrams -->
+    <main id="stage" aria-live="polite"></main>
+
+    <!-- Evaluation status (top-left) -->
+    <div id="status-banner" class="status-banner" role="status">
+        <div class="status-banner-text" id="status-text"></div>
+        <button class="status-banner-close" id="status-close" title="Collapse" aria-label="Collapse the status">×</button>
+    </div>
+
+    <!-- Floating Control Panel -->
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="element">Element</button>
+            <button class="tab-btn" data-tab="view">View</button>
+            <button class="tab-btn" data-tab="info">Info</button>
+            <button id="help-btn" class="collapse-btn" title="Show the syntax" aria-label="Show the syntax">
+                <span class="collapse-icon">?</span>
+            </button>
+            <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+                <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+            </button>
+            <button id="refresh-btn" class="collapse-btn" title="Re-evaluate" aria-label="Re-evaluate">
+                <span class="collapse-icon">⟳</span>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- Element tab -->
+            <div id="tab-element" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">Temperley–Lieb Algebra</h2>
+                    <p class="panel-subtitle">Build an element of TL<sub>n</sub>(δ) from generators, braids and
+                        Jones–Wenzl projectors. Every coefficient is exact.</p>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <span class="control-label">Strands</span>
+                        <span class="stepper"><button id="nDown" aria-label="fewer strands">−</button><output id="nOut">3</output><button id="nUp" aria-label="more strands">+</button></span>
+                    </div>
+                    <div class="seg-selector">
+                        <span class="seg-label">Ring</span>
+                        <div class="seg-options" id="ringSeg">
+                            <button class="seg-opt" data-ring="delta" title="Rational functions in a generic loop value δ">ℚ(δ)</button>
+                            <button class="seg-opt" data-ring="A" title="Kauffman variable: δ = −A² − A⁻²; braid generators σᵢ = A + A⁻¹eᵢ">ℚ(A)</button>
+                            <button class="seg-opt" data-ring="num" title="Specialize δ to a rational number">δ =</button>
+                            <input id="deltaIn" value="1" aria-label="value of δ" title="a rational value for δ, e.g. 1, 0, -1, 3/2">
+                        </div>
+                    </div>
+                    <p class="label-hint" id="ringHint"></p>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Expression</span>
+                    <input id="expr" class="expr-input" spellcheck="false" autocomplete="off" autocapitalize="off"
+                        aria-label="expression" placeholder="e.g.  p3 - [3]/[4] p3 e3 p3   or   (s1 s2^-1)^2">
+                    <button id="evalBtn" class="btn btn-add btn-wide">Evaluate ⏎</button>
+                    <p id="err" class="error-message"></p>
+                    <div class="palette" id="palette"></div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <span class="control-label">Examples</span>
+                        <button id="load-example-btn" class="toggle-btn" style="flex:1; width:auto">Load Example…</button>
+                    </div>
+                    <div class="seg-selector">
+                        <span class="seg-label">Store</span>
+                        <div class="seg-options" id="storeSeg" title="Keep the result as x, y or z for later expressions">
+                            <button class="seg-opt" data-reg="x">→ x</button>
+                            <button class="seg-opt" data-reg="y">→ y</button>
+                            <button class="seg-opt" data-reg="z">→ z</button>
+                        </div>
+                    </div>
+                    <span class="control-label" style="margin-top:4px">History</span>
+                    <div class="history-list" id="history"><p class="empty-message">Nothing evaluated yet.</p></div>
+                </div>
+
+                <div class="control-group">
+                    <div class="toggle-pair">
+                        <button id="copy-text" class="btn btn-add-alt" title="Copy the result as a plain-text expression (re-parseable here, close to Sage syntax)">Copy as text</button>
+                        <button id="copy-link" class="btn btn-add-alt" title="The URL encodes n, the coefficients and the expression">Copy link</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View tab -->
+            <div id="tab-view" class="tab-content">
+                <div>
+                    <h2 class="panel-title">View Options</h2>
+                    <p class="panel-subtitle">What the stage shows, and how coefficients are written.</p>
+                </div>
+
+                <div class="control-group">
+                    <div class="seg-selector">
+                        <span class="seg-label">Stage</span>
+                        <div class="seg-options" id="modeSeg">
+                            <button class="seg-opt active" data-mode="result">Result</button>
+                            <button class="seg-opt" data-mode="builder">Diagram builder</button>
+                        </div>
+                    </div>
+                    <div class="seg-selector">
+                        <span class="seg-label">Terms</span>
+                        <div class="seg-options" id="viewSeg">
+                            <button class="seg-opt active" data-view="diagrams">Diagrams</button>
+                            <button class="seg-opt" data-view="words">Words in eᵢ</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Coefficients</span>
+                    <button id="deltaForm" class="toggle-btn active" title="In ℚ(A), write an element in δ when all of its coefficients lie in ℚ(δ)">δ-form where possible</button>
+                    <button id="factored" class="toggle-btn" title="Factor numerators and denominators into cyclotomic-type factors">Factored</button>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <span class="control-label">Theme</span>
+                        <div class="theme-options" role="group" aria-label="Background theme" style="margin-left:auto">
+                            <button class="theme-opt" data-theme="dark">Dark</button>
+                            <button class="theme-opt" data-theme="light">Light</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">How it Works</h3>
+                    <p>A basis of TL<sub>n</sub> is the set of planar matchings of n top and n bottom points
+                        (Catalan many). A product <em>x·y</em> stacks x on top of y; every closed loop that forms is
+                        erased and contributes a factor δ.</p>
+                    <p>Coefficients are exact rational functions. In ℚ(A) the loop value is δ = −A² − A⁻², and the
+                        braid generator σ<sub>i</sub> = A + A⁻¹e<sub>i</sub> gives the Kauffman bracket, hence the Jones
+                        polynomial, of a braid closure.</p>
+                    <p>The pills at the bottom multiply the element by a generator: click for x·g, ⌘/Ctrl-click for
+                        g·x, ⇧-click a σ for σ⁻¹.</p>
+                </div>
+            </div>
+
+            <!-- Info tab -->
+            <div id="tab-info" class="tab-content">
+                <nav class="info-jump" aria-label="Sections of the Info tab">
+                    <button type="button" class="info-jump-btn active" data-jump="info-invariants">Invariants</button>
+                    <button type="button" class="info-jump-btn" data-jump="info-algebra">Algebra</button>
+                    <button type="button" class="info-jump-btn" data-jump="info-syntax">Syntax</button>
+                </nav>
+
+                <section id="info-invariants" class="info-tab-section">
+                    <div>
+                        <h2 class="panel-title">Invariants</h2>
+                        <p class="panel-subtitle">Traces, braid closures, structure, the action on cell modules and the
+                            minimal polynomial of the current element.</p>
+                    </div>
+                    <div id="inv" class="info-tab-section" style="gap:14px"></div>
+                </section>
+
+                <section id="info-algebra" class="info-tab-section">
+                    <div>
+                        <h2 class="panel-title">The Algebra</h2>
+                        <p class="panel-subtitle" id="algTitle"></p>
+                    </div>
+                    <div id="alg" class="info-tab-section" style="gap:14px"></div>
+                </section>
+
+                <section id="info-syntax" class="info-tab-section">
+                    <div>
+                        <h2 class="panel-title">Syntax</h2>
+                        <p class="panel-subtitle">Juxtaposition multiplies; x·y puts x on top of y.</p>
+                    </div>
+                    <div class="info-section">
+                        <table class="syntax">
+                            <tr><td><code>e1</code> … <code>e7</code></td><td>generators e<sub>i</sub> (also <code>U1</code>, <code>e_1</code>); <code>1</code> or <code>id</code> is the identity</td></tr>
+                            <tr><td><code>s1</code>, <code>s1^-1</code></td><td>σ<sub>i</sub> = A + A⁻¹e<sub>i</sub> and its inverse (<code>S1</code>); ℚ(A) only. <code>Δ</code> half twist, <code>ft</code> full twist</td></tr>
+                            <tr><td><code>p</code>, <code>p3</code>, <code>JW(3,2)</code></td><td>Jones–Wenzl projector on all strands, on strands 1–3, on 3 strands from strand 2</td></tr>
+                            <tr><td><code>d</code>, <code>A</code>, <code>[3]</code></td><td>δ, the Kauffman variable, quantum integers ([2] = δ)</td></tr>
+                            <tr><td><code>{(()())}</code></td><td>a diagram by its boundary word: the top left→right, then the bottom right→left</td></tr>
+                            <tr><td><code>+ - * / ^</code></td><td>juxtaposition multiplies (<code>2e1e2</code>); <code>x^-1</code> inverts</td></tr>
+                            <tr><td><code>tr( )</code>, <code>plat( )</code></td><td>Markov trace (close each strand, δ per loop), plat closure (n even)</td></tr>
+                            <tr><td><code>star( )</code>, <code>mirror( )</code></td><td>flip top↔bottom (anti-automorphism), reflect left↔right</td></tr>
+                            <tr><td><code>rot( )</code>, <code>bar( )</code>, <code>inv( )</code></td><td>rotate one click, A ↦ A⁻¹ on coefficients, inverse</td></tr>
+                            <tr><td><code>x y z ans</code></td><td>stored results</td></tr>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generator pills (bottom centre) -->
+    <div id="isometry-controls"></div>
+
+    <!-- Term inspector (bottom-left) -->
+    <div id="face-info" class="face-info" hidden></div>
+
+    <!-- Example picker -->
+    <div id="example-modal" class="example-modal" hidden>
+        <div class="example-modal-backdrop" data-close="1"></div>
+        <div class="example-modal-panel" role="dialog" aria-modal="true" aria-labelledby="example-modal-title">
+            <div class="example-modal-head">
+                <h3 id="example-modal-title">Examples</h3>
+                <button class="example-modal-close" data-close="1" aria-label="Close">×</button>
+            </div>
+            <div class="example-modal-body" id="example-body"></div>
+        </div>
+    </div>
+
+    <script src="tl.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

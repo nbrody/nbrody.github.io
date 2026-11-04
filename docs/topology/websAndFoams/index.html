@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Webs &amp; Foams</title>
+<meta name="description" content="Edit pairs of planar webs and build, reshape and inspect foam cobordisms between them.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<!-- the foam fills the screen; everything else floats over it -->
+<div id="viz-container"></div>
+<div id="facetTip" class="float-tip"></div>
+
+<!-- left column: status banner + the web editor card -->
+<div id="left-col">
+  <div id="status-banner" class="status-banner pending" role="status" aria-live="polite">
+    <span class="status-banner-text">Loading…</span>
+    <button class="status-banner-close" title="Collapse" aria-label="Collapse">×</button>
+  </div>
+
+  <section id="web-card" class="glass-card" data-tab="foam">
+    <div class="tab-navigation">
+      <button class="tab-btn" data-tab="W0" title="Edit the bottom web">W₀ <small>bottom</small></button>
+      <button class="tab-btn active" data-tab="foam" title="Work on the frames of the foam movie">Movie</button>
+      <button class="tab-btn" data-tab="W1" title="Edit the top web">W₁ <small>top</small></button>
+      <button id="web-collapse" class="collapse-btn" title="Collapse"><span class="collapse-icon">×</span></button>
+    </div>
+    <div class="card-body">
+      <div id="tools" class="seg tool-seg"></div>
+      <div id="opts" class="opts-row"></div>
+      <div id="cv2dWrap">
+        <canvas id="cv2d"></canvas>
+        <div id="frameTag"></div>
+        <div id="hint"></div>
+      </div>
+      <div id="paneFoot">
+        <span class="webonly"><button id="btCopy01" class="mini-btn" title="Replace W₁ by a copy of W₀">W₀ → W₁</button></span>
+        <span class="webonly"><button id="btCopy10" class="mini-btn" title="Replace W₀ by a copy of W₁">W₁ → W₀</button></span>
+        <span class="webonly"><button id="btClearWeb" class="mini-btn danger" title="Erase this web (boundary points stay)">Clear web</button></span>
+        <span class="foamonly"><button id="btGhost" class="mini-btn on" title="Show W₁ dashed over an unfinished movie">W₁ ghost</button></span>
+        <span class="keys"><kbd>↑</kbd><kbd>↓</kbd> frames · <kbd>1</kbd>–<kbd>9</kbd> label · <kbd>Esc</kbd></span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- right: the control panel -->
+<div id="control-panel">
+  <div class="tab-navigation">
+    <button class="tab-btn active" data-ptab="movie">Movie</button>
+    <button class="tab-btn" data-ptab="info">Facets</button>
+    <button class="tab-btn" data-ptab="view">View</button>
+    <button class="tab-btn" data-ptab="setup">Setup</button>
+    <button id="help-btn" class="collapse-btn" title="How this works" aria-label="How this works"><span class="collapse-icon">?</span></button>
+    <button id="btUndo" class="collapse-btn" title="Undo (⌘Z)"><span class="collapse-icon">↶</span></button>
+    <button id="btRedo" class="collapse-btn" title="Redo (⇧⌘Z)"><span class="collapse-icon">↷</span></button>
+    <button id="collapse-btn" class="collapse-btn" title="Collapse panel"><span class="collapse-icon">×</span></button>
+  </div>
+  <div class="panel-content">
+    <!-- Movie -->
+    <div id="tab-movie" class="tab-content active">
+      <div>
+        <h2 class="panel-title">Foam movie</h2>
+        <p class="panel-subtitle">The foam read from bottom to top: W₀, a sequence of elementary foams, then W₁.
+          Click a frame to work on it; new moves go directly above it.</p>
+      </div>
+      <div class="control-group timeline-group">
+        <div id="timeline"></div>
+      </div>
+      <div class="control-group">
+        <div class="control-row">
+          <button id="btClearMovie" class="btn btn-danger" title="Delete every move">Clear movie</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Facets / invariants -->
+    <div id="tab-info" class="tab-content">
+      <div>
+        <h2 class="panel-title">Facets</h2>
+        <p class="panel-subtitle">Read off the triangulated foam: each facet's label, Euler characteristic, genus,
+          boundary circles and dots. Click a row (or a facet in the scene) to highlight it.</p>
+      </div>
+      <div id="info"></div>
+    </div>
+
+    <!-- View -->
+    <div id="tab-view" class="tab-content">
+      <div><h2 class="panel-title">View options</h2></div>
+      <div class="control-group">
+        <div class="seg-row"><span class="seg-label">Colour</span>
+          <div class="seg" id="segColor">
+            <button class="seg-opt active" data-v="auto">Auto</button>
+            <button class="seg-opt" data-v="label">Label</button>
+            <button class="seg-opt" data-v="facet">Facet</button>
+          </div>
+        </div>
+        <button id="tgTrans" class="toggle-btn active" title="See through the facets to the bindings behind them">Translucent facets</button>
+        <button id="tgSeams" class="toggle-btn active" title="Draw the bindings (where three facets meet)">Bindings</button>
+        <button id="tgSlice" class="toggle-btn active" title="Show the horizontal slice through the foam">Slice plane</button>
+        <button id="tgCyl" class="toggle-btn active" title="Outline the cylinder D² × [0,1]">Cylinder</button>
+        <div class="seg-row"><span class="seg-label">Step height</span>
+          <input id="inSlab" class="opacity-slider" type="range" min="0.25" max="1.2" step="0.05" value="0.55">
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="seg-row"><span class="seg-label">Camera</span>
+          <div class="seg">
+            <button class="seg-opt" id="btFit">Fit</button>
+            <button class="seg-opt" id="btTop">Top</button>
+            <button class="seg-opt" id="btSide">Side</button>
+          </div>
+        </div>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">Reading the picture</h3>
+        <p>Facets are the coloured sheets; red tubes are bindings, where three facets meet; gold balls are singular
+          vertices, where four bindings meet; black balls are dots. Drag to orbit, scroll to zoom.</p>
+      </div>
+    </div>
+
+    <!-- Setup -->
+    <div id="tab-setup" class="tab-content">
+      <div>
+        <h2 class="panel-title">Webs &amp; Foams</h2>
+        <p class="panel-subtitle">Edit two webs, then build and reshape a foam cobordism between them.</p>
+      </div>
+      <div class="control-group">
+        <div class="control-row">
+          <label class="control-label">Examples</label>
+          <button id="btExamples" class="toggle-btn" title="Browse the example library">Load Example…</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="control-row">
+          <label for="inN" class="control-label">Rank N</label>
+          <input id="inN" type="number" min="2" max="9" value="3" class="number-input">
+        </div>
+        <div class="seg-row"><span class="seg-label">Flow</span>
+          <div class="seg" id="segMode">
+            <button class="seg-opt" data-v="sl" title="sl(N): flow conserved mod N; a k-edge equals a reversed (N−k)-edge">sl(N) · mod N</button>
+            <button class="seg-opt" data-v="gl" title="gl(N): flow conserved exactly (MOY webs)">gl(N) · exact</button>
+          </div>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="control-row">
+          <button id="btExport" class="btn btn-add-alt" title="Download the webs and the foam as JSON">Export</button>
+          <button id="btImport" class="btn btn-add-alt" title="Load a JSON file">Import</button>
+          <button id="btHelp" class="btn btn-ghost" title="How this works">Guide</button>
+        </div>
+        <input type="file" id="fileIn" accept=".json,application/json" hidden>
+        <p class="label-hint">Your work is saved in this browser automatically.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- height scrubber -->
+<div id="scrubber">
+  <button id="btPlay" class="collapse-btn" title="Play the movie"><span class="collapse-icon">▶</span></button>
+  <input type="range" id="inH" class="opacity-slider" min="0" max="1" step="0.001" value="0" title="Height of the slice">
+  <span id="hReadout"></span>
+  <div class="seg mode-seg" id="segView" title="Show the foam, or the web moving in space">
+    <button class="seg-opt active" data-m="foam">Foam</button>
+    <button class="seg-opt" data-m="space">Web in space</button>
+  </div>
+</div>
+
+<div id="msg"></div>
+<div id="popup"></div>
+
+<div id="examples" class="example-modal" hidden>
+  <div class="example-modal-backdrop"></div>
+  <div class="example-modal-panel">
+    <div class="example-modal-head"><h3>Examples</h3><button class="example-modal-close" aria-label="Close">×</button></div>
+    <div class="example-modal-body"><div id="exampleGrid" class="example-grid"></div></div>
+  </div>
+</div>
+
+<div id="help" class="example-modal" hidden>
+  <div class="example-modal-backdrop"></div>
+  <div class="example-modal-panel help-panel">
+    <div class="example-modal-head"><h3>Guide</h3><button class="example-modal-close" aria-label="Close">×</button></div>
+    <div class="example-modal-body">
+      <p>A <b>web</b> is an oriented planar trivalent graph in a disk whose edges carry labels, with flow conserved at every vertex:
+      exactly for gl(N) (MOY) webs, modulo N for sl(N), where a k-edge is the same as a reversed (N−k)-edge, so sl₃ webs are
+      Kuperberg's bipartite webs. A <b>foam</b> between webs W₀ and W₁ is a 2-dimensional complex in D² × [0, 1] whose
+      horizontal slices are webs: labelled surfaces (<i>facets</i>) meeting three at a time along <i>bindings</i>, which meet four at a time
+      at <i>singular vertices</i>.</p>
+      <h4 class="example-cat-title">Editing the webs</h4>
+      <ul>
+        <li>Use the <b>W₀</b> and <b>W₁</b> tabs of the web card. <b>Draw</b> by dragging: start or end on a boundary point, a vertex, an edge (it gets split) or empty space; drag across the circle to make boundary points. Edges point the way you drag; a closed loop becomes a circle.</li>
+        <li>Boundary points are shared by both webs: they are the vertical boundary of the foam. Number keys set the label (hover an edge to relabel it), <kbd>r</kbd> reverses the hovered edge, <kbd>Delete</kbd> removes what is under the cursor.</li>
+        <li>Problems (dangling edges, flow violations, crossings) are ringed in red and listed in the status banner.</li>
+      </ul>
+      <h4 class="example-cat-title">Knotted webs</h4>
+      <p>Webs need not be planar: draw an edge across another and it makes a crossing (the new strand over, or under — see the option under the tools);
+      the <b>Crossing</b> tool switches it. Such a web lives in D² × [−1, 1], and a foam between two of them lives in D² × [−1, 1] × [0, 1].
+      The 3D view then shows its projection to D² × [0, 1], with dashed double lines where sheets pass through each other, and
+      <b>Web in space</b> (on the bottom bar) plays the movie: the web moving through space from W₀ to W₁, depth exaggerated.</p>
+      <h4 class="example-cat-title">Building the foam</h4>
+      <p>The foam is a <b>movie</b>: W₀ = F₀ followed by elementary foams, each a generic critical event of the height function.
+      Pick a frame in the Movie list (or with <kbd>↑</kbd> <kbd>↓</kbd>), choose a move in the web card and click in the frame;
+      hovering previews the result. New moves go directly above the selected frame, so you can change the foam anywhere along its height.</p>
+      <ul>
+        <li><b>Cup / Cap</b>: a minimum / maximum of a facet — a circle is born / dies.</li>
+        <li><b>Saddle</b>: a saddle point of a facet, between two oppositely oriented strands across a region.</li>
+        <li><b>Zip / Unzip</b>: a minimum / maximum of a binding. Zip merges two neighbouring strands into an H; unzip opens an H whose legs pair up.</li>
+        <li><b>Digon ±</b>, <b>Theta ±</b>: the other binding extrema — an edge grows or loses a digon, a theta web is born or dies.</li>
+        <li><b>I ↔ H</b>: a singular vertex (associativity of trivalent vertices).</li>
+        <li><b>Isotopy</b>: drag things in a frame; this inserts an isotopy step and reshapes everything above it.</li>
+        <li><b>Slide</b>: drag a strand over everything else (shift: under). This is an isotopy in space and covers Reidemeister II, III and IV; crossings appear and disappear as the strand passes. <b>Kink ±</b> are Reidemeister I; <b>Twist ±</b> is Reidemeister V (two legs at a vertex trade places, crossing once).</li>
+        <li><b>Dot</b>: decorate a facet (click an edge in a frame, or a facet in the scene; shift-click removes).</li>
+      </ul>
+      <p>When the last frame is isotopic to W₁ (rel boundary) a final isotopy is added automatically and the foam is complete;
+      otherwise W₁ floats dashed above the foam and over the last frame. Steps can be deleted (✕) or swapped with the one below (⇅);
+      steps that stop making sense after an edit are struck through until you fix or delete them.</p>
+      <h4 class="example-cat-title">Reading the foam</h4>
+      <p>Drag the height slider at the bottom (or press ▶) to sweep a plane through the foam; the web card then shows the true level set.
+      The Facets tab lists every facet with its label, Euler characteristic χ, genus g, boundary circles ∂ and dots, computed from the
+      triangulated surfaces themselves.</p>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
