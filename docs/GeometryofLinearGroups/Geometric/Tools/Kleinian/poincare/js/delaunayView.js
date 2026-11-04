@@ -15,8 +15,9 @@
  * of the plane by copies of it.
  */
 import * as THREE from 'three';
-import { lorentzMatrix, lorentzApply, covToGeom } from './math.js';
+import { lorentzMatrix, covToGeom } from './math.js';
 import { kleinToBall } from './polyhedron.js';
+import { planarSides, planarTileOf } from './delaunay.js';
 import { layer, disposeGroup, view } from './scene.js';
 import { typeset } from './format.js';
 import { cuspNull, horoballInBall, delaunayOrbit } from './cusps.js';
@@ -479,35 +480,49 @@ export function createDelaunayView() {
 
         /**
          * The polygon as a domain the plane shader can fold into: one wall per
-         * side (its covector and pairing in the SCENE frame S), paired sides
-         * cross-referenced. Colours are per side. Null unless the polygon is
-         * convex (the fold needs a convex polygon).
+         * side (its covector and pairing in the HOME frame), paired sides
+         * cross-referenced, and `toHome` (Lorentz, row-major) carrying the
+         * scene S into that frame. Colours are per side. Null unless the
+         * polygon is convex (the fold needs a convex polygon).
          */
         planarDomain(R, S, colors) {
             if (!R || !R.ok || R.dim !== 2 || !R.convex) return null;
-            const L = lorentzMatrix(S), Si = S.inv().normalized();
-            const centre = R.centre.clone();
-            const walls = R.raw.map(f => {
-                const [A, B] = pieceCorners(f);
-                const d = B.clone().sub(A);
-                let n = new THREE.Vector3(-d.z, 0, d.x);
-                let c = n.dot(A);
-                if (n.dot(centre) > c) { n.negate(); c = -c; }
-                const s = 1 / Math.sqrt(Math.max(1e-300, n.lengthSq() - c * c));
-                const cov = lorentzApply(L, new THREE.Vector4(n.x * s, 0, n.z * s, c * s));
-                return {
-                    cov,
-                    pairing: { matrix: S.mul(f.el.m).mul(Si).normalized(), partner: f.partner }
-                };
-            });
-            // Where the plane shader starts its walk (Klein, scene frame): the
-            // polygon's centre, as far from its sides and corners as can be, so
-            // that no segment from it runs along a side.
-            const v = new THREE.Vector4(centre.x, 0, centre.z, 1).applyMatrix4(new THREE.Matrix4().set(...L));
+            const walls = planarSides(R).map((sd, i) => ({
+                cov: new THREE.Vector4(sd.n.x * sd.s, 0, sd.n.z * sd.s, sd.c * sd.s),
+                pairing: { matrix: R.raw[i].el.m, partner: R.raw[i].partner }
+            }));
+            // Where the plane shader starts its walk: the polygon's centre, as far
+            // from its sides and corners as can be, so that no segment from it
+            // runs along a side.
             return {
                 walls, colors: R.raw.map(f => colors[f.region] || [0.7, 0.7, 0.8]),
-                centre: new THREE.Vector3(v.x / v.w, 0, v.z / v.w)
+                centre: R.centre.clone(), toHome: lorentzMatrix(S.inv().normalized())
             };
+        },
+
+        /**
+         * The element h with the scene point p (on P, ball coordinates) in the
+         * tile h·U (planarTileOf, in the home frame). A point of U itself picks
+         * the side within `near` world units of it (`scale`: world length of a
+         * hyperbolic unit at p), whose copy across is f.el⁻¹·U; null if none
+         * is that close.
+         */
+        planarTile(R, S, p, scale, near = 0.03) {
+            if (!R || !R.ok || R.dim !== 2) return null;
+            const L = lorentzMatrix(S.inv().normalized());
+            const r2 = p.lengthSq(), X = [2 * p.x, 2 * p.y, 2 * p.z, 1 + r2];
+            const H = [0, 1, 2, 3].map(r => L[4 * r] * X[0] + L[4 * r + 1] * X[1] + L[4 * r + 2] * X[2] + L[4 * r + 3] * X[3]);
+            const k = new THREE.Vector3(H[0] / H[3], 0, H[2] / H[3]);
+            const { el, crossed } = planarTileOf(R, k);
+            if (crossed > 0) return el;
+            // In U: the nearest side, if the point is on it (to within a few pixels).
+            const q = 1 / Math.sqrt(Math.max(1e-300, 1 - k.lengthSq()));
+            let best = -1, bd = Infinity;
+            planarSides(R).forEach((sd, j) => {
+                const dist = Math.asinh(Math.abs(sd.s * (sd.n.dot(k) - sd.c) * q));
+                if (dist < bd) { bd = dist; best = j; }
+            });
+            return best >= 0 && bd * scale < near ? R.raw[best].el.inv() : null;
         },
 
         // ---------------- face labels ----------------

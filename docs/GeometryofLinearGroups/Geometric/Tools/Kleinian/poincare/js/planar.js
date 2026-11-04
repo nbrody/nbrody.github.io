@@ -63,6 +63,10 @@ const fragmentShader = `
     uniform float u_opacity;
     uniform bool u_walk;        // fold by walking from u_centre (any convex polygon), not by the nearest wall
     uniform vec2 u_centre;      // a point inside the polygon, Klein coordinates on P
+    // With u_walk the walls, pairings and centre are in the domain's home frame,
+    // and this carries the scene into it: walked in the scene frame, the pairings
+    // conjugated by a far view lose float precision and the tiles break up.
+    uniform mat4 u_toHome;
     // With u_walk: the Dirichlet polygon of the same group, folded into first.
     uniform vec4 u_fwalls[${PLANAR_MAX_WALLS}];
     uniform mat4 u_fpair[${PLANAR_MAX_WALLS}];
@@ -103,6 +107,9 @@ const fragmentShader = `
             float parity = 0.0;
             bool resolved = false;
             if (u_walk) {
+                X = u_toHome * X;
+                X.y = 0.0;
+                X /= sqrt(max(1e-12, -mdot(X, X)));
                 // A polygon that is not a Dirichlet domain. The nearest-wall fold
                 // below is only sure for a Dirichlet domain, so: (1) fold into
                 // the group's Dirichlet polygon that way, which brings the point
@@ -231,6 +238,7 @@ export function createPlanarView(scene, shared) {
         u_selPartner: { value: -1 },
         u_opacity: { value: 1 },
         u_walk: { value: false },
+        u_toHome: { value: new THREE.Matrix4() },
         u_centre: { value: new THREE.Vector2() },
         u_fwalls: { value: Array.from({ length: PLANAR_MAX_WALLS }, () => new THREE.Vector4()) },
         u_fpair: { value: Array.from({ length: PLANAR_MAX_WALLS }, () => new THREE.Matrix4()) },
@@ -270,6 +278,8 @@ export function createPlanarView(scene, shared) {
             // A polygon that is not a Dirichlet domain brings a point inside it to
             // walk from, and the group's Dirichlet domain (`fold`) to fold into first.
             uniforms.u_walk.value = !!(domain && domain.centre);
+            if (domain && domain.toHome) uniforms.u_toHome.value.set(...domain.toHome);
+            else uniforms.u_toHome.value.identity();
             uniforms.u_fcount.value = 0;
             if (domain && domain.centre) {
                 uniforms.u_centre.value.set(domain.centre.x, domain.centre.z);
@@ -345,6 +355,22 @@ export function framePlanarCamera(camera, controls, model) {
 
 // ---------------- the polygon itself (labels, picking) ----------------
 
+/**
+ * Where a pick ray meets P: { w (world), p (ball point on P), scale (world
+ * length of a unit of hyperbolic length there) }, or null off the model.
+ */
+export function planarRayPoint(ray, uhs) {
+    const n = uhs ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
+    const den = ray.direction.dot(n);
+    if (Math.abs(den) < 1e-9) return null;
+    const t = -ray.origin.dot(n) / den;
+    if (t < 0) return null;
+    const w = ray.origin.clone().addScaledVector(ray.direction, t);
+    const p = planarBallPoint(w, uhs);
+    if (!p || p.lengthSq() > 0.9999) return null;
+    return { w, p, scale: uhs ? Math.max(1e-6, w.y) : (1 - p.lengthSq()) / 2 };
+}
+
 /** World point on P → ball point (x, 0, z), or null off the model. */
 export function planarBallPoint(w, uhs) {
     if (uhs) {
@@ -369,14 +395,9 @@ const hyp = (p) => {
  */
 export function planarPick(ray, domain, uhs) {
     if (!domain) return { index: -1 };
-    const n = uhs ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
-    const den = ray.direction.dot(n);
-    if (Math.abs(den) < 1e-9) return { index: -1 };
-    const t = -ray.origin.dot(n) / den;
-    if (t < 0) return { index: -1 };
-    const w = ray.origin.clone().addScaledVector(ray.direction, t);
-    const p = planarBallPoint(w, uhs);
-    if (!p || p.lengthSq() > 0.9999) return { index: -1 };
+    const hit = planarRayPoint(ray, uhs);
+    if (!hit) return { index: -1 };
+    const { w, p } = hit;
     const [x, z, h] = hyp(p);
     let worst = 1e-9, kOut = -1, dMin = Infinity, kIn = -1;
     domain.walls.forEach((wall, i) => {

@@ -18,7 +18,7 @@ const { exampleLibrary } = await import('../js/groupLibrary.js');
 const { runCompute, matToArr, arrToMat } = await import('../js/compute.js');
 const { buildPolyhedron } = await import('../js/polyhedron.js');
 const { isRealGroup } = await import('../js/planar.js');
-const { computeDelaunayDomain, delaunayVolume, planarHome, delaunayEdgesNear, segmentDistance, GRID_CLIP } = await import('../js/delaunay.js');
+const { computeDelaunayDomain, delaunayVolume, planarHome, delaunayEdgesNear, segmentDistance, GRID_CLIP, planarSides, planarTileOf } = await import('../js/delaunay.js');
 const P = await import('../js/presentation.js');
 
 const preset = (name) => {
@@ -257,6 +257,27 @@ test('cusp markers: glued ideal vertices get horoballs the gluings carry onto ea
         }
     }
     assert.ok(delaunayPairs > 20 && dirichletPairs > 20, `${delaunayPairs} / ${dirichletPairs} gluings checked`);
+});
+
+test('plane: the tile under a point, found by walking to it (double-click)', () => {
+    let seed = 5;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (const name of ['Genus-2 surface (generic basepoint)', '(2,3,7) triangle group (cocompact Fuchsian)', 'Modular group', 'Modular kaleidoscope (2,3,∞ mirrors)']) {
+        const { R } = delaunay(preset(name));
+        const sides = planarSides(R);
+        let far = 0;
+        for (let t = 0; t < 400; t++) {
+            // A point of the disc anywhere out to a hyperbolic distance of about 4 from the centre.
+            const a = 2 * Math.PI * rnd(), r = 0.999 * Math.sqrt(rnd());
+            const k = new THREE.Vector3(r * Math.cos(a), 0, r * Math.sin(a));
+            const { el, crossed } = planarTileOf(R, k);
+            const q = el.inv().apply(k);
+            const worst = Math.max(...sides.map(sd => sd.s * (sd.n.dot(q) - sd.c)));
+            assert.ok(worst < 1e-6, `${name}: the walk's tile misses the point by ${worst}`);
+            if (crossed > 2) far++;
+        }
+        assert.ok(far > 50, `${name}: only ${far} points more than two tiles out`);
+    }
 });
 
 test('Delaunay domain declines infinite covolume', () => {

@@ -791,6 +791,51 @@ export function delaunayVolume(R) {
  * pass both to computeDelaunayDomain (frame carries the result back home).
  * `gens` are the home-frame generators.
  */
+/**
+ * The sides of a plane Delaunay polygon (dim 2, home frame, Klein coordinates
+ * on y = 0), one per boundary piece R.raw[i]: the line n·k = c with the
+ * centre on the side n·k < c, and s normalising (n, c) to a unit covector.
+ */
+export function planarSides(R) {
+    return R.raw.map(f => {
+        const [A, B] = f.pts.map((k, i) => (f.ideal[i] ? k.clone().normalize() : k.clone()));
+        const d = B.clone().sub(A);
+        const n = new THREE.Vector3(-d.z, 0, d.x);
+        let c = n.dot(A);
+        if (n.dot(R.centre) > c) { n.negate(); c = -c; }
+        return { n, c, s: 1 / Math.sqrt(Math.max(1e-300, n.lengthSq() - c * c)) };
+    });
+}
+
+/**
+ * The tile of the plane holding the Klein point k (home frame) for the plane
+ * Delaunay polygon R: walk the segment from R.centre to k across one side at
+ * a time, carrying both ends back through that side's pairing (as the plane
+ * shader does; right for any convex fundamental polygon). Returns
+ * { el, crossed }: k ∈ el·U, after `crossed` sides.
+ */
+export function planarTileOf(R, k, maxSteps = 400) {
+    const sides = planarSides(R);
+    let x = k.clone(), y = R.centre.clone(), G = El.id(), crossed = 0;
+    for (let it = 0; it < maxSteps; it++) {
+        const d = x.clone().sub(y);
+        let tmin = 1, j = -1;
+        sides.forEach((sd, i) => {
+            const den = sd.n.dot(d);
+            if (den <= 1e-15) return;                        // not leaving through this side
+            const t = (sd.c - sd.n.dot(y)) / den;
+            if (t > 1e-12 && t < tmin) { tmin = t; j = i; }
+        });
+        if (j < 0) break;
+        const el = R.raw[j].el;
+        y = el.apply(y.clone().addScaledVector(d, tmin)).lerp(R.centre, 1e-6);
+        x = el.apply(x);
+        G = el.mul(G);
+        crossed++;
+    }
+    return { el: G.inv(), crossed };
+}
+
 export function planarHome(home, gens, { maxFaces = 96, maxDepth = 8 } = {}) {
     const onPlane = Math.abs(home.conePoint.y) < 1e-9;
     if (onPlane && !(home.stabilizer && home.stabilizer.order > 1)) return { home, frame: null };

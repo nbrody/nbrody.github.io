@@ -54,7 +54,7 @@ import {
     loadEdges, loadFaceRadii, loadDelaunayEdges
 } from './tessellation.js';
 import { readStateFromURL, writeStateToURL } from './permalink.js';
-import { createPlanarView, isRealGroup, framePlanarCamera, planarPick, PLANAR_MAX_WALLS } from './planar.js';
+import { createPlanarView, isRealGroup, framePlanarCamera, planarPick, planarRayPoint, PLANAR_MAX_WALLS } from './planar.js';
 import { createPostFX } from './postfx.js';
 
 const EMBED = document.documentElement.classList.contains('embed-mode');
@@ -426,7 +426,7 @@ function onSceneMoved({ fast = false } = {}) {
     loadDomainUniforms(D, faceColors(D));
     delaunayView.setFrame(sceneMatrix(), view.model === 'uhs');
     const dlPlane = planar.on && delaunayShowing() ? delaunayView.planarDomain(dl.result, sceneMatrix(), dl.colors) : null;
-    if (dlPlane) dlPlane.fold = app.scene;              // the plane shader folds into the Dirichlet polygon first
+    if (dlPlane) dlPlane.fold = app.home;               // the plane shader folds into the Dirichlet polygon first (home frame, as dlPlane)
     if (planar.on && !(dlPlane ? planarView.update(dlPlane, dlPlane.colors) : planarView.update(app.scene, faceColors(app.scene)))) {
         setBanner('warning', `2D view unavailable: the polygon has more than ${PLANAR_MAX_WALLS} edges.`);
         setPlanar(false);
@@ -1272,17 +1272,20 @@ function initUI() {
         if (delaunayShowing()) {
             // Roll the Delaunay domain across the face under the cursor: the
             // copy across a face f is s⁻¹·U, s the pairing carrying f to its partner.
+            // In the plane: onto the tile under the cursor, found by walking to it
+            // side by side (as the plane shader does), not by the side whose line
+            // the point is farthest beyond: the Delaunay polygon's corners are
+            // sharp, so that is often the wrong side.
             const R = dl.result, ray = rayFromEvent(e);
-            let idx = -1;
+            let g = null;
             if (planar.on) {
-                const plane = delaunayView.planarDomain(R, sceneMatrix(), dl.colors);
-                if (plane) idx = planarPick(ray, plane, view.model === 'uhs').index;
+                const hit = planarRayPoint(ray, view.model === 'uhs');
+                if (hit) g = delaunayView.planarTile(R, sceneMatrix(), hit.p, hit.scale);
             } else {
-                idx = delaunayView.pick(ray, sceneMatrix(), view.model === 'uhs');
+                const idx = delaunayView.pick(ray, sceneMatrix(), view.model === 'uhs');
+                if (idx >= 0) g = R.raw[idx].el.inv();
             }
-            const f = idx >= 0 ? R.raw[idx] : null;
-            if (!f) return;
-            const g = f.el.inv();
+            if (!g || !g.w.length) return;
             try { animateMatrix(wordToMatrix(g.w), [...g.w]); } catch (err) { /* */ }
             return;
         }
