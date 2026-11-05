@@ -28,7 +28,7 @@ import { FIELDS, cusps as kCusps, circles as kCircles, cuspName as kCuspName, pl
 import { makeKEngine } from './kengine.js';
 import { startTutorial } from './tutorial.js';
 import { PALETTES, RULES, shades, swatch } from './coloring.js';
-import { cpath, cmul, cinv, cnorm, capply, sphereOf } from './cmobius.js';
+import { cpath, cmul, cinv, cnorm, capply, sphereOf, cSingular, CID } from './cmobius.js';
 
 const $ = (id) => document.getElementById(id);
 const cv = $('cv');
@@ -1167,12 +1167,21 @@ function drawCollapse(e, act) {
 // into the base's. Collapsed, the largest few keep their circles on the one sphere, each in its
 // own colour, so the pictures of many vertices are seen at once on a single ℍ³.
 const OVERLAYS_K = 10;
+// A singular value (a pole of an entry) is not an isometry. Scaling it into SL₂(ℂ) is 0/0,
+// and one NaN matrix blanks every ball. Fall back to the frame alone, as if g did not act.
+const finiteNorm = (A) => (cSingular(A) ? CID : cnorm(A));
 function specItemsK(sources) {
-    const E = kE(), T = E.tree, ga = specMatC(g, spec.z), fc = new Map();
+    const E = kE(), T = E.tree, ga0 = specMatC(g, spec.z), ga = cSingular(ga0) ? null : ga0, fc = new Map();
     return sources.map((v) => {
         let u = v, d = null;
-        if (!gIsId) { const lm = T.localMap(g, v); u = lm.labels; d = cnorm(E.toComplex(lm.h)); }
-        const { F, gap } = ballFrameAt(u, fc), M = cnorm(cmul(ga, specMatC(T.frameOf(v), spec.z)));
+        if (!gIsId) {
+            const lm = T.localMap(g, v); u = lm.labels;
+            const h = E.toComplex(lm.h);
+            d = cSingular(h) ? null : cnorm(h);
+        }
+        const { F, gap } = ballFrameAt(u, fc);
+        const frame = specMatC(T.frameOf(v), spec.z);
+        const M = finiteNorm(ga ? cmul(ga, frame) : frame);
         return {
             key: T.keyOf(v), v, u, root: !u.length, dep: u.length, tc: shadeOf(cuspsOfK(u), cuspsOfK(v), LK),
             F0: F, gap0: gap, d, M, P: cpath(d ? cmul(M, cinv(d)) : M),
@@ -1268,7 +1277,9 @@ function startSpecAct() {
     if (!G) return;
     const job = inverse ? { M: G.Minv, Minv: G.M, letter: [i, -1] } : { M: G.M, Minv: G.Minv, letter: [i, 1] };
     if (st.field !== 'Q') {                 // γ(z) ∈ PSL₂(ℂ) moves the one ball along its screw motion
-        spec.act = { job, H: cpath(cnorm(specMatC(job.M, spec.z))), fl: false, t0: performance.now(), dur: st.dur * 1000 };
+        const Mz = specMatC(job.M, spec.z);
+        if (cSingular(Mz)) { startSpecAct(); return; }   // a pole: this generator does not act at t = z
+        spec.act = { job, H: cpath(cnorm(Mz)), fl: false, t0: performance.now(), dur: st.dur * 1000 };
         return;
     }
     const Ma = specMat(job.M, spec.a);
@@ -1386,8 +1397,11 @@ function qMatTex(Mq) {
 function showSpecList() {
     const el = $('spec-list'), a = aName();
     if (st.field !== 'Q') {                 // floating point, scaled into SL₂(ℂ)
-        const rows = gens.map((G, i) => `<div><b>${gName(i)}</b>(${a}) ≈ \\(${cMatTex(specMatC(G.M, spec.z))}\\)</div>`);
-        rows.push(`<div>current element at t = ${a}: \\(${cMatTex(specMatC(g, spec.z))}\\)</div>`);
+        const rowOf = (M, label, mark) => (cSingular(M)
+            ? `<div>${label} is singular, so it does not act once t = ${a}</div>`
+            : `<div>${label}${mark}\\(${cMatTex(M)}\\)</div>`);
+        const rows = gens.map((G, i) => rowOf(specMatC(G.M, spec.z), `<b>${gName(i)}</b>(${a})`, ' ≈ '));
+        rows.push(rowOf(specMatC(g, spec.z), `current element at t = ${a}`, ': '));
         el.innerHTML = rows.join('');
         UI.typeset([el]);
         return;
@@ -1407,7 +1421,7 @@ function syncSpecUI() {
     $('spec-sO').textContent = spec.s <= 0 ? 't = ∞' : spec.s >= 1 ? `t = ${aName()}` : '→';
     $('spec-go').textContent = collapsed ? 'Expand back to the tree' : `Collapse to t = ${aName()}`;
     document.querySelectorAll('#isometry-controls .isometry-btn').forEach((b, i) => {
-        const G = gens[i], singular = st.field === 'Q' && G && qdet(specMat(G.M, spec.a)).isZero();
+        const G = gens[i], singular = !!(G && (st.field === 'Q' ? qdet(specMat(G.M, spec.a)).isZero() : cSingular(specMatC(G.M, spec.z))));
         b.disabled = !!spec.items && (!collapsed || singular);
         b.title = !spec.items ? 'Apply this generator (⌘/Ctrl-click for its inverse)'
             : !collapsed ? 'Finish collapsing or expanding first'

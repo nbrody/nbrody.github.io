@@ -19,6 +19,15 @@ export const cmul = (A, B) => [
     ca(cm(A[2], B[0]), cm(A[3], B[2])), ca(cm(A[2], B[1]), cm(A[3], B[3])),
 ];
 export const cdet = (A) => cs(cm(A[0], A[3]), cm(A[1], A[2]));
+// A pole, or a specialization whose determinant has vanished: scaling it into SL₂(ℂ) divides by 0.
+export function cSingular(A) {
+    if (!A || A.length !== 4 || A.some((z) => !z || !Number.isFinite(z[0]) || !Number.isFinite(z[1]))) return true;
+    const d = cdet(A);
+    if (!Number.isFinite(d[0]) || !Number.isFinite(d[1])) return true;
+    let scale = 1;
+    for (const z of A) scale = Math.max(scale, z[0] * z[0] + z[1] * z[1]);
+    return d[0] * d[0] + d[1] * d[1] <= 1e-18 * scale * scale;
+}
 // scaled to determinant 1
 export function cnorm(A) { const k = cdiv([1, 0], csqrt(cdet(A))); return A.map((x) => cm(x, k)); }
 export const cinv = (A) => cnorm([A[3], csc(A[1], -1), csc(A[2], -1), A[0]]);
