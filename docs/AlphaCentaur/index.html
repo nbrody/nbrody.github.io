@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlphaCentaur — A workspace for mathematical research</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Josefin+Sans:wght@300;400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/assets/alphacentaur-demo.css">
+  <link rel="stylesheet" href="/Talks/AlphaCentaur/web/presentations/vendor/katex/katex.min.css">
+  <script defer src="/Talks/AlphaCentaur/web/presentations/vendor/katex/katex.min.js"></script>
+  <style>
+    :root {
+      --ink: #1a1810;
+      --cream: #f5f0e8;
+      --warm-white: #faf8f4;
+      --accent: #0047ab;
+      --accent-light: #4e78bd;
+      --muted: #7a7060;
+      --rule: #d4cfc4;
+      --paper: #f0ebe0;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--warm-white);
+      color: var(--ink);
+      font-family: 'Crimson Pro', Georgia, serif;
+      font-size: 18px;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.1rem 3rem;
+      background: rgba(250, 248, 244, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .nav-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      font-size: 1.1rem;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    /* other parts of the site, beside the name */
+    .nav-subs {
+      display: flex;
+      gap: 1.5rem;
+      margin-left: 1.5rem;
+    }
+
+    .nav-sub {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav-sub:hover {
+      color: var(--ink);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2.5rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--ink);
+    }
+
+    /* ── HERO ── */
+    #home {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 8rem 4rem 6rem 5rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero-institution {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.2rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.2s forwards;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(3.5rem, 6vw, 5.5rem);
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin-bottom: 0.3rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.35s forwards;
+    }
+
+    .hero-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-weight: 300;
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.5s forwards;
+    }
+
+    .hero-bio {
+      font-size: 1.05rem;
+      line-height: 1.8;
+      color: #3a3428;
+      max-width: 480px;
+      margin-bottom: 2.5rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.65s forwards;
+    }
+
+    .hero-bio em {
+      font-style: italic;
+      color: var(--muted);
+    }
+
+    .hero-contact {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.8s forwards;
+    }
+
+    .hero-contact a {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 300;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid var(--accent-light);
+      padding-bottom: 1px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .hero-contact a:hover {
+      color: var(--ink);
+      border-color: var(--ink);
+    }
+
+    .hero-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8rem 4rem 6rem 2rem;
+      position: relative;
+    }
+
+    /* Hero photo */
+    .hero-photo {
+      position: relative;
+      width: 340px;
+      height: 440px;
+      opacity: 0;
+      animation: fadeIn 1.2s 0.6s forwards;
+    }
+
+    .hero-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      border-radius: 12px;
+      filter: drop-shadow(0 12px 40px rgba(0, 71, 171, 0.15));
+    }
+
+    /* ── SECTION COMMON ── */
+    section {
+      padding: 6rem 0;
+      position: relative;
+    }
+
+    .section-inner {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 3rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 1.5rem;
+      margin-bottom: 3.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .section-label {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 300;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+      font-size: 2.4rem;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    /* ── RESEARCH ── */
+    #research {
+      background: var(--warm-white);
+    }
+
+    .paper-list {
+      list-style: none;
+    }
+
+    .paper-item {
+      display: grid;
+      grid-template-columns: 2.5rem 1fr;
+      gap: 0 1.2rem;
+      align-items: baseline;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--rule);
+      transition: background 0.15s;
+    }
+
+    .paper-item:first-child {
+      border-top: none;
+    }
+
+    .paper-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 300;
+      text-align: right;
+      padding-top: 2px;
+    }
+
+    .paper-content {}
+
+    .paper-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      font-size: 1.18rem;
+      line-height: 1.4;
+      color: var(--ink);
+      text-decoration: none;
+      transition: color 0.2s;
+      display: inline;
+    }
+
+    .paper-title:hover {
+      color: var(--accent);
+    }
+
+    .paper-title.no-link {
+      cursor: default;
+    }
+
+    .paper-title.no-link:hover {
+      color: var(--ink);
+    }
+
+    .paper-meta {
+      display: block;
+      margin-top: 0.25rem;
+      font-style: italic;
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    .paper-badge {
+      display: inline-block;
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.55rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      background: var(--paper);
+      color: var(--accent);
+      border: 1px solid var(--rule);
+      border-radius: 2px;
+      padding: 2px 6px;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+
+    /* ── EXPOSITORY ── */
+    #expository {
+      background: var(--cream);
+    }
+
+    .talk-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .talk-card {
+      background: var(--warm-white);
+      border: 1px solid var(--rule);
+      padding: 1.6rem 1.8rem;
+      transition: box-shadow 0.2s, transform 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .talk-card:hover {
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.07);
+      transform: translateY(-2px);
+    }
+
+    .talk-card-label {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.58rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+      margin-bottom: 0.5rem;
+    }
+
+    .talk-card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      font-size: 1.1rem;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+
+    .talk-card-no-link {
+      background: var(--warm-white);
+      border: 1px solid var(--rule);
+      padding: 1.6rem 1.8rem;
+      opacity: 0.7;
+    }
+
+    /* ── SOFTWARE ── */
+    #software {
+      background: var(--warm-white);
+    }
+
+    .app-intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+      gap: 2.5rem;
+      align-items: start;
+      margin-bottom: 2.75rem;
+    }
+
+    .app-lede {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+      font-size: 1.5rem;
+      line-height: 1.35;
+      color: var(--ink);
+      margin-bottom: 1rem;
+    }
+
+    .app-body {
+      font-size: 1.05rem;
+      line-height: 1.8;
+      color: #3a3428;
+      max-width: 540px;
+    }
+
+    .app-download {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.95rem 1.6rem 0.85rem;
+      border-radius: 999px;
+      background: var(--accent);
+      color: var(--warm-white);
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.74rem;
+      font-weight: 400;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      text-decoration: none;
+      white-space: nowrap;
+      box-shadow: 0 6px 20px rgba(0, 71, 171, 0.22);
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+
+    .download-btn-secondary {
+      padding: 0.72rem 1.1rem 0.65rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+    }
+
+    .download-btn:hover {
+      background: #00377f;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 26px rgba(0, 71, 171, 0.28);
+    }
+
+    .download-btn:focus-visible {
+      outline: 2px solid var(--accent-light);
+      outline-offset: 3px;
+    }
+
+    .download-btn svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      margin-top: -2px;
+    }
+
+    .app-feedback { color: var(--accent); font-size: 0.95rem; text-underline-offset: 3px; }
+
+    .app-meta {
+      font-style: italic;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    /* the screenshot, in a Mac window */
+    .app-shot {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--rule);
+      background: #fff;
+      box-shadow: 0 18px 50px rgba(0, 71, 171, 0.13), 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .app-shot-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 28px;
+      padding: 0 12px;
+      background: #f3f1ed;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .app-shot-bar span {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #ee6a5f;
+    }
+
+    .app-shot-bar span:nth-child(2) {
+      background: #f5bd4f;
+    }
+
+    .app-shot-bar span:nth-child(3) {
+      background: #61c454;
+    }
+
+    .app-shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .app-note {
+      margin-top: 1.5rem;
+      font-size: 0.95rem;
+      font-style: italic;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .golg-overview {
+      margin-top: 5rem;
+      padding-top: 0.5rem;
+    }
+
+    .golg-overview .section-header {
+      margin-bottom: 2rem;
+    }
+
+    .golg-overview .app-body {
+      max-width: 680px;
+    }
+
+    .golg-link {
+      margin-top: 1.5rem;
+    }
+
+    /* ── TEACHING ── */
+    #teaching {
+      background: var(--cream);
+    }
+
+    .teaching-body {
+      font-size: 1.05rem;
+      line-height: 1.9;
+      color: #3a3428;
+      max-width: 680px;
+      margin-bottom: 3rem;
+    }
+
+    .teaching-body p+p {
+      margin-top: 1.2rem;
+    }
+
+    .advised-header {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 300;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .student-entry {
+      padding: 1.2rem 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .student-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      font-size: 1.1rem;
+      color: var(--ink);
+    }
+
+    .student-thesis {
+      font-style: italic;
+      font-size: 0.97rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--ink);
+      color: rgba(245, 240, 232, 0.5);
+      padding: 2.5rem 5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    footer a {
+      color: rgba(245, 240, 232, 0.7);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--cream);
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* scroll-reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      #home {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .hero-right {
+        display: none;
+      }
+
+      .hero-left {
+        padding: 7rem 2rem 4rem;
+      }
+
+      nav {
+        padding: 1rem 1.5rem;
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
+      }
+
+      .nav-links {
+        flex-wrap: wrap;
+        gap: 0.4rem 1.5rem;
+      }
+
+      .talk-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .app-intro {
+        grid-template-columns: 1fr;
+        gap: 1.75rem;
+      }
+
+      .section-inner {
+        padding: 0 1.5rem;
+      }
+
+      footer {
+        padding: 2rem 1.5rem;
+        flex-direction: column;
+        gap: 0.8rem;
+        text-align: center;
+      }
+    }
+      #software { padding-top: 9rem; }
+    #software .section-header h2 { font-size: clamp(3rem, 7vw, 5rem); }
+    .landing-brand { font-size: 1.3rem; }
+    .landing-footer { margin-top: 1rem; }
+    @media (max-width: 900px) { #software { padding-top: 8rem; } }
+  </style>
+</head>
+<body>
+  <nav aria-label="Main navigation">
+    <a class="nav-name landing-brand" href="/AlphaCentaur/">AlphaCentaur</a>
+    <ul class="nav-links">
+      <li><a href="#download">Download</a></li>
+      <li><a href="https://github.com/nbrody/alphaCentaur-releases/issues/new/choose">Feedback</a></li>
+      <li><a href="/">Nic Brody</a></li>
+    </ul>
+  </nav>
+  <main>
+    <section id="software">
+    <div class="section-inner">
+      <div class="section-header reveal">
+        <h2>AlphaCentaur</h2>
+      </div>
+
+      <div class="app-intro reveal">
+        <div>
+          <p class="app-lede">A workspace for mathematical research.</p>
+          <p class="app-body">Each AlphaCentaur project integrates tools for all aspects of mathematical workflow. You can read, write, compute, draw, think, and create all in one interface that is easy for both human and AI collaboration. AlphaCentaur can work with a built-in chat feature, or you can use an MCP through Claude Code or Codex.</p>
+        </div>
+        <div class="app-download" id="download">
+          <!-- Always the newest release: github.com/nbrody/alphaCentaur-releases -->
+          <a class="download-btn" data-goatcounter-click="alphacentaur-download"
+            href="https://github.com/nbrody/alphaCentaur-releases/releases/latest/download/AlphaCentaur.pkg">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 2v8.5M4.5 7 8 10.5 11.5 7M3 13.5h10" />
+            </svg>
+            Download for macOS
+          </a>
+          <span class="app-meta">macOS 14 or newer · Apple Silicon and Intel</span>
+          <a class="download-btn download-btn-secondary" data-goatcounter-click="alphacentaur-windows-download"
+            href="https://github.com/nbrody/alphaCentaur-releases/releases/download/2026.11.05.1111/AlphaCentaur-windows-x64.zip">Download for Windows</a>
+          <a class="download-btn download-btn-secondary" data-goatcounter-click="alphacentaur-linux-download"
+            href="https://github.com/nbrody/alphaCentaur-releases/releases/download/2026.11.05.1111/AlphaCentaur-linux-x64.tar.gz">Download for Linux</a>
+          <span class="app-meta">Windows and Linux previews · 64-bit x86 · Python, Lean, and LaTeX execution not yet available. Updates are manual.</span>
+          <a class="app-feedback" href="https://github.com/nbrody/alphaCentaur-releases/issues/new/choose">Request a feature or share feedback ↗</a>
+          <span class="app-meta">Opens a public GitHub issue form; a GitHub account is required.</span>
+        </div>
+      </div>
+
+      <div class="app-shot reveal ac-preview" data-ac-preview aria-label="Interactive read-only AlphaCentaur preview">
+        <div class="app-shot-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+        <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
+          <symbol id="ac-i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+          <symbol id="ac-i-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></symbol>
+          <symbol id="ac-i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></symbol>
+          <symbol id="ac-i-book" viewBox="0 0 24 24"><path d="M4 5c3-1 6 0 8 2v13c-2-2-5-3-8-2zM20 5c-3-1-6 0-8 2v13c2-2 5-3 8-2z"/></symbol>
+          <symbol id="ac-i-pen" viewBox="0 0 24 24"><path d="m4 20 4-1 12-12-3-3L5 16zM14 7l3 3"/></symbol>
+          <symbol id="ac-i-chat" viewBox="0 0 24 24"><path d="M4 5h16v12H9l-5 3zM8 9h8M8 13h5"/></symbol>
+          <symbol id="ac-i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+        </svg>
+        <div class="ac-preview-window">
+          <div class="ac-preview-nav" role="group" aria-label="Explore AlphaCentaur features">
+            <div class="ac-preview-brand"><img src="assets/alphacentaur-demo-icon.png" width="27" height="27" alt=""><span>AlphaCentaur</span></div>
+            <div class="ac-preview-nav-label">Project workspace</div>
+            <button type="button" data-ac-view="overview" aria-pressed="true" aria-controls="ac-demo-overview"><svg aria-hidden="true"><use href="#ac-i-grid"/></svg>Overview</button>
+            <button type="button" data-ac-view="notes" aria-pressed="false" aria-controls="ac-demo-notes"><svg aria-hidden="true"><use href="#ac-i-doc"/></svg>Notes</button>
+            <button type="button" data-ac-view="notebook" aria-pressed="false" aria-controls="ac-demo-notebook"><svg aria-hidden="true"><use href="#ac-i-code"/></svg>Computations</button>
+            <button type="button" data-ac-view="lean" aria-pressed="false" aria-controls="ac-demo-lean"><svg aria-hidden="true"><use href="#ac-i-code"/></svg>Formalization</button>
+            <button type="button" data-ac-view="manuscript" aria-pressed="false" aria-controls="ac-demo-manuscript"><svg aria-hidden="true"><use href="#ac-i-book"/></svg>Manuscript</button>
+            <button type="button" data-ac-view="slides" aria-pressed="false" aria-controls="ac-demo-slides"><svg aria-hidden="true"><use href="#ac-i-grid"/></svg>Slides</button>
+            <button type="button" data-ac-view="library" aria-pressed="false" aria-controls="ac-demo-library"><svg aria-hidden="true"><use href="#ac-i-book"/></svg>Bibliography</button>
+            <button type="button" data-ac-view="ink" aria-pressed="false" aria-controls="ac-demo-ink"><svg aria-hidden="true"><use href="#ac-i-pen"/></svg>Handwriting</button>
+            <div class="ac-preview-spacer"></div>
+            <button type="button" data-ac-view="chat" data-ac-label="Collaborator" aria-pressed="false" aria-controls="ac-demo-chat"><svg aria-hidden="true"><use href="#ac-i-chat"/></svg>Collaborator</button>
+            <button type="button" data-ac-view="activity" aria-pressed="false" aria-controls="ac-demo-activity"><svg aria-hidden="true"><use href="#ac-i-clock"/></svg>Activity</button>
+          </div>
+          <div class="ac-preview-body">
+            <div class="ac-preview-top"><div>Free subgroups <span aria-hidden="true">›</span> <strong data-ac-current>Overview</strong></div><span class="ac-preview-badge">Read-only preview</span></div>
+            <div class="ac-preview-layout">
+              <div class="ac-preview-main">
+                <div class="ac-preview-panel" data-ac-panel="overview" id="ac-demo-overview">
+                  <div class="ac-preview-kicker">Research project</div><h3>Free subgroups of SL₂(ℤ)</h3>
+                  <p class="ac-preview-intro">A place to collect the ideas, calculations, and sources behind a mathematical question.</p>
+                  <div class="ac-preview-rule"></div><h4>Project scope and plan</h4>
+                  <p>Explore how two matrices generate a free subgroup, using dynamics on the projective line.</p>
+                  <div class="ac-preview-math" id="preview-matrices">A = [[1, 2], [0, 1]] &nbsp;&nbsp; B = [[1, 0], [2, 1]]</div>
+                  <div class="ac-preview-grid"><div class="ac-preview-card"><strong>Notes &amp; ideas</strong><span>Arguments and questions</span></div><div class="ac-preview-card"><strong>Computations</strong><span>Examples to explore</span></div><div class="ac-preview-card"><strong>Manuscript</strong><span>A paper in progress</span></div><div class="ac-preview-card"><strong>Bibliography</strong><span>Sources and reading</span></div></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="notes" id="ac-demo-notes" hidden>
+                  <div class="ac-preview-kicker">Notes · Markdown + LaTeX</div><h3>The ping-pong argument</h3>
+                  <p>To show that a group is free, look for disjoint subsets of a space that are moved into one another by its generators.</p>
+                  <div class="ac-preview-math">Aⁿ(Y) ⊂ X &nbsp; and &nbsp; Bⁿ(X) ⊂ Y, &nbsp; for n ≠ 0.</div>
+                  <h4>Working idea</h4><p>Use the action on the projective line. Track a point through a reduced word and observe which region contains the result.</p>
+                  <div class="ac-preview-card"><strong>Question</strong><span>Which regions make the dynamics easiest to see?</span></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="notebook" id="ac-demo-notebook" hidden>
+                  <div class="ac-preview-kicker">Computations · Python</div><h3>Exploring examples</h3>
+                  <p>Keep executable notebooks alongside the questions that led to them.</p>
+                  <div class="ac-preview-notebook"><div class="ac-preview-cell"><small>Code cell</small><pre class="ac-preview-code"><span class="kw">from</span> fractions <span class="kw">import</span> Fraction
+
+<span class="kw">def</span> A(x):
+    <span class="kw">return</span> x + 2
+
+[A(Fraction(n, 2)) <span class="kw">for</span> n <span class="kw">in</span> range(-2, 3)]</pre></div><div class="ac-preview-cell"><small>Example output</small><pre class="ac-preview-code">[1, 3/2, 2, 5/2, 3]</pre></div></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="lean" id="ac-demo-lean" hidden>
+                  <div class="ac-preview-kicker">Formalization · Lean</div><h3>Check an argument</h3><p>Keep formal proofs beside the notes and calculations that inspired them.</p>
+                  <div class="ac-preview-notebook"><div class="ac-preview-cell"><small>Lean source</small><pre class="ac-preview-code"><span class="kw">variable</span> {G : Type*} [Group G]
+
+<span class="kw">theorem</span> identity_mul (g : G) :
+    1 * g = g := <span class="kw">by</span>
+  simp</pre></div><div class="ac-preview-cell"><small>Example result</small><p style="margin:5px 0 0;color:#087e6c">Proof checked</p></div></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="manuscript" id="ac-demo-manuscript" hidden>
+                  <div class="ac-preview-kicker">Manuscript · LaTeX</div><h3>A paper in progress</h3><p>Write a manuscript and build a PDF in the same project.</p>
+                  <div class="ac-preview-paper"><h4>Free subgroups and the<br>ping-pong lemma</h4><p style="text-align:center;color:#9aa7a2">Research notes</p><p><strong>1. Introduction.</strong> We study a pair of matrices through their action on the projective line. This perspective turns a question about words in a group into one about dynamics.</p><p><strong>2. The construction.</strong> Let X and Y be disjoint subsets. The ping-pong lemma gives a criterion for freeness.</p></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="slides" id="ac-demo-slides" hidden>
+                  <div class="ac-preview-kicker">Presentation · Slides</div><h3>Share the idea</h3><p>Build a presentation alongside your research.</p>
+                  <div class="ac-preview-paper" style="min-height:175px;display:flex;flex-direction:column;justify-content:center;background:#f3f8f5"><div class="ac-preview-kicker">A mathematical story</div><h4 style="text-align:left;font-size:21px;color:#173f37">A ping-pong argument</h4><p>Two generators. Two regions.<br>One way to see a free group.</p></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="library" id="ac-demo-library" hidden>
+                  <div class="ac-preview-kicker">Bibliography · Reading</div><h3>Project library</h3><p>Bring papers and references together with the work they inform.</p>
+                  <div class="ac-preview-card"><strong>Trees</strong><span>Jean-Pierre Serre · Group actions on trees</span></div><div class="ac-preview-card" style="margin-top:9px"><strong>Free groups and projective dynamics</strong><span>Reading notes · Ping-pong methods</span></div><div class="ac-preview-card" style="margin-top:9px"><strong>Notes on SL₂(ℤ)</strong><span>Reference · Matrices and Möbius transformations</span></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="ink" id="ac-demo-ink" hidden>
+                  <div class="ac-preview-kicker">Handwriting · Sketchbook</div><h3>Think by hand</h3><p>Sketch a picture or work through an argument beside your other project files.</p>
+                  <svg class="ac-preview-drawing" viewBox="0 0 390 180" role="img" aria-label="A hand-drawn diagram of two regions and arrows between them"><path d="M32 91 C42 40 125 35 143 72 C160 108 121 143 77 133 C45 126 25 114 32 91 M248 74 C264 39 342 43 355 79 C370 117 329 141 286 132 C250 127 235 104 248 74" fill="none" stroke="#578379" stroke-width="2"/><path d="M156 72 C185 49 213 49 239 66 M228 55 l12 11 -15 1 M236 111 C211 131 184 131 155 112 M166 125 l-12 -13 16 1" fill="none" stroke="#99aaa0" stroke-width="2" stroke-linecap="round"/><text x="81" y="96" fill="#315e55" font-family="Georgia" font-style="italic" font-size="24">X</text><text x="294" y="96" fill="#315e55" font-family="Georgia" font-style="italic" font-size="24">Y</text><text x="189" y="52" fill="#829d93" font-family="Georgia" font-style="italic" font-size="16">Aⁿ</text><text x="189" y="149" fill="#829d93" font-family="Georgia" font-style="italic" font-size="16">Bⁿ</text></svg>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="chat" id="ac-demo-chat" hidden>
+                  <div class="ac-preview-kicker">AI collaboration</div><h3>A second perspective</h3><p>Discuss your project in the built-in chat, or connect Claude Code or Codex through MCP.</p><div class="ac-preview-card"><strong>Example prompt</strong><span>Help me find a proof strategy for the ping-pong lemma.</span></div><div class="ac-preview-card" style="margin-top:9px"><strong>Project context</strong><span>Choose the notes and files to bring into the conversation.</span></div><div class="ac-preview-math">Your research, with the tools and context in one place.</div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="activity" id="ac-demo-activity" hidden>
+                  <div class="ac-preview-kicker">Project record</div><h3>Activity &amp; provenance</h3><p>Follow saved changes and see where shared versions came from.</p><div class="ac-preview-activity"><div class="ac-preview-activity-item"><b>•</b><div>You edited ping-pong.md<small>Today · Saved revision</small></div></div><div class="ac-preview-activity-item"><b>•</b><div>Received a shared version from Alex<small>Yesterday · Collaborator-supplied name</small></div></div><div class="ac-preview-activity-item"><b>•</b><div>Run of examples.py succeeded<small>Yesterday · Computations</small></div></div></div>
+                </div>
+              </div>
+              <aside class="ac-preview-aside" aria-label="Example collaborator panel"><div class="ac-preview-aside-title"><span class="ac-preview-star">✧</span> Project collaborator</div><small>Free subgroups</small><h4>A second perspective.</h4><p>Bring your notes, questions, and ideas into the conversation.</p><div class="ac-preview-prompt">Help me develop a proof strategy</div><div class="ac-preview-prompt">Suggest an example to explore</div></aside>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ac-preview-caption reveal"><span>Explore the workspace by selecting a section.</span><span>Illustrative preview · read-only</span></div>
+
+    </div>
+  </section>
+  </main>
+  <footer class="landing-footer">
+    <span>AlphaCentaur · Nic Brody</span>
+    <a href="/">Back to nicbrody.github.io</a>
+  </footer>
+  <script>
+    // Scroll-reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const matrices = document.getElementById('preview-matrices');
+      if (matrices && window.katex) {
+        katex.render(String.raw`A = \begin{pmatrix} 1 & 2 \\ 0 & 1 \end{pmatrix} \qquad B = \begin{pmatrix} 1 & 0 \\ 2 & 1 \end{pmatrix}`, matrices, { throwOnError: false });
+      }
+    });
+  </script>
+
+  <script src="/assets/alphacentaur-demo.js" defer></script>
+
+  <!-- Visitor counts (no cookies): nbrody.goatcounter.com. It also counts clicks on
+       anything with data-goatcounter-click, such as the AlphaCentaur download button. -->
+  <script data-goatcounter="https://nbrody.goatcounter.com/count"
+    async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
