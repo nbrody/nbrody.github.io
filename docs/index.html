@@ -15,8 +15,8 @@
       --ink: #1a1810;
       --cream: #f5f0e8;
       --warm-white: #faf8f4;
-      --accent: #8b4513;
-      --accent-light: #c4783a;
+      --accent: #0047ab;
+      --accent-light: #4e78bd;
       --muted: #7a7060;
       --rule: #d4cfc4;
       --paper: #f0ebe0;
@@ -227,7 +227,7 @@
       object-fit: cover;
       object-position: center top;
       border-radius: 12px;
-      filter: drop-shadow(0 12px 40px rgba(139, 69, 19, 0.15));
+      filter: drop-shadow(0 12px 40px rgba(0, 71, 171, 0.15));
     }
 
     /* ── SECTION COMMON ── */
@@ -406,9 +406,9 @@
 
     .app-intro {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
       gap: 2.5rem;
-      align-items: end;
+      align-items: start;
       margin-bottom: 2.75rem;
     }
 
@@ -450,14 +450,20 @@
       text-transform: uppercase;
       text-decoration: none;
       white-space: nowrap;
-      box-shadow: 0 6px 20px rgba(139, 69, 19, 0.22);
+      box-shadow: 0 6px 20px rgba(0, 71, 171, 0.22);
       transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
     }
 
+    .download-btn-secondary {
+      padding: 0.72rem 1.1rem 0.65rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+    }
+
     .download-btn:hover {
-      background: #6f370f;
+      background: #00377f;
       transform: translateY(-1px);
-      box-shadow: 0 10px 26px rgba(139, 69, 19, 0.28);
+      box-shadow: 0 10px 26px rgba(0, 71, 171, 0.28);
     }
 
     .download-btn:focus-visible {
@@ -486,7 +492,7 @@
       overflow: hidden;
       border: 1px solid var(--rule);
       background: #fff;
-      box-shadow: 0 18px 50px rgba(139, 69, 19, 0.13), 0 2px 6px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 18px 50px rgba(0, 71, 171, 0.13), 0 2px 6px rgba(0, 0, 0, 0.05);
     }
 
     .app-shot-bar {
@@ -745,9 +751,9 @@
             Download for macOS
           </a>
           <span class="app-meta">macOS 14 or newer · Apple Silicon and Intel</span>
-          <a class="download-btn" data-goatcounter-click="alphacentaur-windows-download"
+          <a class="download-btn download-btn-secondary" data-goatcounter-click="alphacentaur-windows-download"
             href="https://github.com/nbrody/alphaCentaur-releases/releases/download/2026.11.05.1057/AlphaCentaur-windows-x64.zip">Download for Windows</a>
-          <a class="download-btn" data-goatcounter-click="alphacentaur-linux-download"
+          <a class="download-btn download-btn-secondary" data-goatcounter-click="alphacentaur-linux-download"
             href="https://github.com/nbrody/alphaCentaur-releases/releases/download/2026.11.05.1057/AlphaCentaur-linux-x64.tar.gz">Download for Linux</a>
           <span class="app-meta">Windows and Linux previews · 64-bit x86 · Python, Lean, and LaTeX execution not yet available. Updates are manual.</span>
           <a class="app-feedback" href="https://github.com/nbrody/alphaCentaur-releases/issues/new/choose">Request a feature or share feedback ↗</a>
