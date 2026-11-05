@@ -522,7 +522,6 @@ function setupDrawGuessController(container) {
                 roleEl.innerHTML = '🎨 <strong>You are drawing!</strong>';
                 drawerUI.style.display = 'flex';
                 guesserUI.style.display = 'none';
-                document.getElementById('dg-word-reveal').textContent = `Draw: ${state.word}`;
 
                 if (!dgCanvasSetup) {
                     dgCanvasSetup = true;
@@ -540,6 +539,19 @@ function setupDrawGuessController(container) {
             drawerUI.style.display = 'none';
             guesserUI.style.display = 'none';
             dgCanvasSetup = false;
+        }
+    });
+
+    // Secret word is published outside gameState so guessers never receive it
+    // on their shared gameState listener.
+    getRoomRef(myRoom).child('drawerSecret').on('value', (snapshot) => {
+        const secret = snapshot.val();
+        const wordEl = document.getElementById('dg-word-reveal');
+        if (!wordEl) return;
+        if (secret && secret.drawerId === myPlayerId && secret.word) {
+            wordEl.textContent = `Draw: ${secret.word}`;
+        } else {
+            wordEl.textContent = '';
         }
     });
 }
