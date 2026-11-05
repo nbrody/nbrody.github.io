@@ -28,14 +28,14 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-07-06a';
+            const APP_VERSION = '2026-08-13a';
             const im = {
                 imports: {
                     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
                     "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
                 }
             };
-            const mods = ['main', 'math', 'canonical', 'certifier', 'shaders', 'mirror',
+            const mods = ['main', 'math', 'canonical', 'certifier', 'cycleOrder', 'shaders', 'mirror',
                 'matrixInput', 'controlPanel', 'groupLibrary', 'export3mf'];
             for (const m of mods) {
                 im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;

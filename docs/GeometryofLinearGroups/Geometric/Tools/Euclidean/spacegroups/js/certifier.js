@@ -21,6 +21,8 @@
  *      NOT checked.
  */
 import * as THREE from 'three';
+import { MAX_CYCLE_ORDER, cycleOrderFromAngleSum } from './cycleOrder.js';
+export { MAX_CYCLE_ORDER, cycleOrderFromAngleSum } from './cycleOrder.js';
 import {
     Iso, isoKey, distFromIdentityIso,
     applyIso, wallSD, wallOutwardNormal, isInsideWalls,
@@ -564,26 +566,32 @@ export function certifyDomain(walls, basepoint) {
             continue;
         }
 
-        // Angle condition: angleSum = 2π/m
-        const mFloat = 2 * Math.PI / angleSum;
-        const m = Math.round(mFloat);
-        const angleOk = m >= 1 && Math.abs(angleSum - 2 * Math.PI / m) < ANGLE_TOL;
+        // Angle condition: angleSum = 2π/m. Guard before checking P^m:
+        // degenerate cycles can make m infinite or enormous, which would hang
+        // the browser if used as the loop bound below.
+        const { m, orderCheckable } = cycleOrderFromAngleSum(angleSum);
+        const angleOk = orderCheckable && Math.abs(angleSum - 2 * Math.PI / m) < ANGLE_TOL;
 
         // Cycle transformation condition: P^m = identity
-        let Pm = Iso.identity();
-        for (let k = 0; k < Math.max(1, m); k++) Pm = Pm.mul(P);
-        const orderRes = distFromIdentityIso(Pm.normalized());
-        const orderOk = orderRes < 1e-5;
+        let orderRes = Infinity;
+        let orderOk = false;
+        if (orderCheckable) {
+            let Pm = Iso.identity();
+            for (let k = 0; k < m; k++) Pm = Pm.mul(P);
+            orderRes = distFromIdentityIso(Pm.normalized());
+            orderOk = orderRes < 1e-5;
+        }
 
+        const mLabel = m === null ? 'invalid' : (m > MAX_CYCLE_ORDER ? `>${MAX_CYCLE_ORDER}` : m);
         const desc = `${cyclePairs.length} edges, Σθ = ${(angleSum / Math.PI).toFixed(5)}π ` +
-            `(2π/${m}), cycle elt ${wordStr(reduceWord(words))}` +
-            (m > 1 ? `, order ${m} residual ${orderRes.toExponential(1)}` : '');
+            `(2π/${mLabel}), cycle elt ${wordStr(reduceWord(words))}` +
+            (orderCheckable && m > 1 ? `, order ${m} residual ${orderRes.toExponential(1)}` : '');
         if (angleOk && orderOk) {
             log.push(`✓ edge cycle at (${e0.i},${e0.j}): ${desc}`);
         } else {
             ok = false;
             log.push(`✗ edge cycle at (${e0.i},${e0.j}): ${desc} — ` +
-                (!angleOk ? `angle sum is not 2π/m` : `cycle element does not have order ${m}`));
+                (!angleOk ? `angle sum is not 2π/m` : `cycle element does not have order ${mLabel}`));
         }
         edgeCycles.push({ pairs: cyclePairs, ok: angleOk && orderOk, m, angleSum });
     }
