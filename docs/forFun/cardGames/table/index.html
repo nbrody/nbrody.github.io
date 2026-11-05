@@ -175,7 +175,7 @@
       position: absolute;
       left: 50%; top: 50%;
       transform: translate(-80px, -50px);
-      cursor: pointer;
+      cursor: default;
       z-index: 15;
     }
     #deck-pile .deck-stack {
@@ -328,7 +328,7 @@
   <div id="felt-table">
 
     <!-- Deck pile -->
-    <div id="deck-pile" onclick="drawFromDeck()">
+    <div id="deck-pile">
       <div class="deck-stack">
         <div class="deck-card" style="top:6px; left:3px; opacity:0.4;"></div>
         <div class="deck-card" style="top:3px; left:1px; opacity:0.6;"></div>
@@ -587,13 +587,9 @@
     };
 
     window.drawFromDeck = function() {
-      // Table-side deck draw (for games where it makes sense)
-      if (!gameState.deck?.length) { toast('Deck is empty!'); return; }
-      const card = gameState.deck.pop();
-      const discard = document.getElementById('discard-pile');
-      discard.innerHTML = '';
-      discard.appendChild(renderCard(card));
-      updateTableView();
+      // Decorative pond/shoe only. Games draw through their engines
+      // (Go Fish ask → pond, Blackjack hit, etc.). A table-side pop()
+      // used to delete cards from the shared deck without dealing them.
     };
 
     window.newRound = function() {
