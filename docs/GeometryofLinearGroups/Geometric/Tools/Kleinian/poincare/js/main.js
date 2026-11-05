@@ -87,6 +87,7 @@ const insideHoneycomb = createInsideHoneycomb(scene);
 let insideHoneycombOn = false;
 const questTiling = createQuestTiling(scene);
 let questTilingOn = false;
+let tileLimit = 200;
 const render = { honeycomb: false, manifold: false, tieDye: false, unwrapped: false };
 
 // Every frame is smoothed by FXAA (postfx.js), which is nearly free. "Smooth"
@@ -173,6 +174,7 @@ function rebuildDelaunay() {
         });
     }
     if (render.honeycomb) rebuildHoneycomb();
+    if (questTilingOn) rebuildQuestTiling();
     syncDomainVisibility();
 }
 
@@ -180,7 +182,6 @@ function rebuildDelaunay() {
 function setDelaunay(on, { quiet = false } = {}) {
     on = !!on;
     if (on) {
-        if (questTilingOn) setQuestTiling(false);
         if (app.fordOn) setCuspView(false);
         if (insideView.isActive()) setInsideView(false);
         if (mirrorMode) setMirrorMode(false);
@@ -287,7 +288,8 @@ function syncDomainVisibility() {
     mesh.visible = !honey && !questTilingOn && !insideHoneycombOn && !planar.on && o > 0 && !render.unwrapped && !(dlOn && dl.result.dim === 3 && !honey);
     planarView.setVisible(planar.on && o > 0);
     planarView.setOpacity(o);
-    delaunayView.setVisible(dlOn && (dl.result.dim === 2) === planar.on && !(honey && !planar.on));
+    delaunayView.setVisible(!questTilingOn && dlOn && (dl.result.dim === 2) === planar.on && !(honey && !planar.on));
+    document.getElementById('tiling-limit-row')?.classList.toggle('disabled', !render.honeycomb && !questTilingOn);
     for (const id of ['honeycomb-walls-row', 'honeycomb-faces-row']) {
         document.getElementById(id)?.classList.toggle('disabled', !render.honeycomb);
     }
@@ -355,7 +357,7 @@ function setTieDye(on) {
 
 function rebuildHoneycomb() {
     honeycombView.rebuild(app.home, app.report, faceColors(app.home),
-        delaunayShowing() ? dl.result : null, dl.colors, view.theme);
+        delaunayShowing() ? dl.result : null, dl.colors, view.theme, tileLimit);
 }
 
 function setHoneycomb(on) {
@@ -397,14 +399,14 @@ function setInsideHoneycomb(on) {
 }
 
 function rebuildQuestTiling() {
-    questTiling.rebuild(app.home, app.report, faceColors(app.home), view.theme);
+    questTiling.rebuild(app.home, app.report, faceColors(app.home), view.theme,
+        delaunayShowing() ? dl.result : null, dl.colors, tileLimit);
 }
 
 function setQuestTiling(on) {
     if (on) {
         if (insideView.isActive()) setInsideView(false);
         if (planar.on) setPlanar(false);
-        if (dl.on) setDelaunay(false);
         if (app.fordOn) setCuspView(false);
         if (mirrorMode) setMirrorMode(false);
         if (render.tieDye) setTieDye(false);
@@ -1100,10 +1102,12 @@ function initUI() {
         onWordLengthChange: (depth) => { app.depth = depth; requestCompute(); },
         onPaletteChange: () => {
             invalidateFaceColors();
-            if (questTilingOn) rebuildQuestTiling();
             if (dl.result && dl.result.ok) { dl.home = null; delaunayResult(); }
             if (dl.on) rebuildDelaunay();
-            else if (render.honeycomb) rebuildHoneycomb();
+            else {
+                if (questTilingOn) rebuildQuestTiling();
+                if (render.honeycomb) rebuildHoneycomb();
+            }
             onSceneMoved();
             rebuildFaceLabels();
         },
@@ -1125,6 +1129,14 @@ function initUI() {
         requestCompute();
     });
     bindToggle('toggle-tiling', () => setQuestTiling(!questTilingOn));
+    const tileLimitInput = document.getElementById('tiling-limit');
+    tileLimitInput?.addEventListener('change', () => {
+        const value = readBoundedInteger(tileLimitInput, tileLimit);
+        if (value === tileLimit) return;
+        tileLimit = value;
+        if (questTilingOn) rebuildQuestTiling();
+        if (render.honeycomb) rebuildHoneycomb();
+    });
     bindToggle('toggle-cycles', (btn) => {
         inspect.showCycles = !inspect.showCycles;
         updateToggleBtn(btn, inspect.showCycles);

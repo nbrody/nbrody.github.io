@@ -71,7 +71,7 @@ export function createHoneycombView(scene) {
         group.add(mesh);
         return mesh;
     }
-    function rebuild(home, report, colors, delaunay, delaunayColors, theme) {
+    function rebuild(home, report, colors, delaunay, delaunayColors, theme, tileLimit = 200) {
         group.clear();
         wallMesh = faceMesh = null;
         geometries.splice(0).forEach(g => g.dispose());
@@ -101,7 +101,8 @@ export function createHoneycombView(scene) {
         }
         reach = finite ? Math.min(reach, 3) : 1.2;
         const gens = dl ? dl.sides.map(s => ({ elem: s.el.m })) : home.walls;
-        const tiles = tilesNear(gens, { centre, eye: centre, radius: reach + 2.2, max: 200 });
+        const radius = reach + 2.2 + 1.2 * Math.log(Math.max(1, tileLimit / 200));
+        const tiles = tilesNear(gens, { centre, eye: centre, radius, max: tileLimit });
         // The central tile and its neighbors can be filled separately from the films on all tiles.
         const nearby = tiles.filter(t => t.d <= reach * 2 + 0.05);
         if (dl && m.edges) {

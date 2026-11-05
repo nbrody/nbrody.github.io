@@ -8,6 +8,7 @@ import { exampleLibrary } from '../js/groupLibrary.js';
 import { runCompute, matToArr } from '../js/compute.js';
 import { serializeTowerContext } from '../js/tower.js';
 import { deserializeDomain } from '../js/domain.js';
+import { computeDelaunayDomain } from '../js/delaunay.js';
 
 test('Quest outside tiling builds and updates for closed and cusped domains', () => {
     for (const name of ['Weeks manifold (closed)', 'PSL(2,Z[w])']) {
@@ -23,6 +24,19 @@ test('Quest outside tiling builds and updates for closed and cusped domains', ()
         assert.equal(scene.children[0].visible, true);
         assert.ok(scene.children[0].children.some(x => x.isInstancedMesh && x.count > 1), name);
         assert.equal(scene.children[1].visible, true);
+        honey.rebuild(home, result.report, home.walls.map(() => [0.6, 0.6, 0.8]), 'dark', null, [], 10);
+        const few = scene.children[0].children.find(x => x.isInstancedMesh)?.count || 0;
+        honey.rebuild(home, result.report, home.walls.map(() => [0.6, 0.6, 0.8]), 'dark', null, [], 150);
+        const many = scene.children[0].children.find(x => x.isInstancedMesh)?.count || 0;
+        assert.ok(many > few, `${name}: increasing the limit adds tiles`);
+        const dl = computeDelaunayDomain(home, { dim: 3 });
+        assert.ok(dl.ok, name);
+        const colors = dl.sides.map(() => [0.1, 0.2, 0.3]);
+        honey.rebuild(home, result.report, home.walls.map(() => [0.6, 0.6, 0.8]), 'dark', dl, colors);
+        const group = scene.children[0];
+        assert.ok(group.children.some(x => x.isInstancedMesh && x.count > 1), `${name}: Delaunay neighbors`);
+        const faceColors = group.children[0].geometry.getAttribute('a_color');
+        assert.ok(Math.abs(faceColors.getX(0) - 0.1) < 1e-6, `${name}: Delaunay faces used`);
         honey.rebuild(null, null, [], 'dark');
         assert.equal(scene.children[0].children.length, 0);
     }

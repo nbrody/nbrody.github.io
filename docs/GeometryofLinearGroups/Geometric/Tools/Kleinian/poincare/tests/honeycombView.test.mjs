@@ -20,6 +20,10 @@ test('honeycomb renders both domains, adjusts faces, and clears old geometry', (
     const scene = new THREE.Scene(), view = createHoneycombView(scene);
     const colors = home.walls.map(() => [0.5, 0.6, 0.8]);
     const dlColors = dl.sides.map(() => [0.5, 0.6, 0.8]);
+    view.rebuild(home, out.report, colors, null, dlColors, 'dark', 10);
+    const few = scene.children[0].children[0].count;
+    view.rebuild(home, out.report, colors, null, dlColors, 'dark', 250);
+    assert.ok(scene.children[0].children[0].count > few, 'larger limits add honeycomb tiles');
     for (const domain of [null, dl]) {
         view.rebuild(home, out.report, colors, domain, dlColors, 'dark');
         view.setFrame(Matrix2x2.identity());

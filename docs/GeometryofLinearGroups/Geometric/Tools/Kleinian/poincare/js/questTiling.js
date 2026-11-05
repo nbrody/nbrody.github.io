@@ -1,7 +1,7 @@
 /** The Quest outside view: a solid home domain amid translucent instanced tiles. */
 import * as THREE from 'three';
 import { lorentzMatrix } from './math.js';
-import { dirichletMeshes, mapMaterial, sharedUniforms } from '../../../../../../quest/questGOLG/poincare/js/meshes.js';
+import { dirichletMeshes, delaunayMeshes, mapMaterial, sharedUniforms } from '../../../../../../quest/questGOLG/poincare/js/meshes.js';
 import { tilesNear, lorentz4 } from '../../../../../../quest/questGOLG/poincare/js/hyper.js';
 
 export function createQuestTiling(scene) {
@@ -37,20 +37,22 @@ export function createQuestTiling(scene) {
         mesh.renderOrder = order;
         group.add(mesh);
     }
-    function rebuild(home, report, colors, theme) {
+    function rebuild(home, report, colors, theme, delaunay = null, delaunayColors = [], tileLimit = 200) {
         group.clear();
         geometries.splice(0).forEach(g => g.dispose());
         shellMaterial.uniforms.u_color.value.setHex(theme === 'light' ? 0x9aa3b5 : 0xc9d2e6);
         shellMaterial.uniforms.u_alpha.value = theme === 'light' ? 0.10 : 0.12;
         if (!home || !home.poly) return;
+        const dl = delaunay && delaunay.ok && delaunay.dim === 3 ? delaunay : null;
         const wash = theme === 'light' ? 0.18 : 0;
-        const cols = colors.map(c => c.map(x => x + (1 - x) * wash));
-        const full = dirichletMeshes(home, cols, report);
-        const lite = dirichletMeshes(home, cols, report, { lite: true });
+        const cols = (dl ? delaunayColors : colors).map(c => c.map(x => x + (1 - x) * wash));
+        const full = dl ? delaunayMeshes(dl, cols) : dirichletMeshes(home, cols, report);
+        const lite = dl ? delaunayMeshes(dl, cols, { lite: true }) : dirichletMeshes(home, cols, report, { lite: true });
         add(full.faces, face, 2); add(full.edges, edge, 3); add(full.vertices, vertex, 4);
         const centre = home.q0 || new THREE.Vector3();
         let reach = 0, finite = false;
-        for (const v of home.poly.vertices) {
+        const vertices = dl ? dl.vertices.filter(v => v.corner) : home.poly.vertices;
+        for (const v of vertices) {
             if (v.ideal) continue;
             finite = true;
             const k = v.k, p = k.clone().multiplyScalar(1 / (1 + Math.sqrt(Math.max(0, 1 - k.lengthSq()))));
@@ -58,7 +60,9 @@ export function createQuestTiling(scene) {
             if (den > 0) reach = Math.max(reach, Math.acosh(1 + 2 * p.distanceToSquared(centre) / den));
         }
         reach = finite ? Math.min(reach, 3) : 1.2;
-        const tiles = tilesNear(home.walls, { centre, eye: centre, radius: reach + 1.4, max: 90 }).slice(1);
+        const gens = dl ? dl.sides.map(s => ({ elem: s.el.m })) : home.walls;
+        const radius = reach + 1.4 + 1.2 * Math.log(Math.max(1, tileLimit / 90));
+        const tiles = tilesNear(gens, { centre, eye: centre, radius, max: tileLimit }).slice(1);
         if (tiles.length) { add(lite.faces, tileFace, 5, tiles); add(lite.edges, tileEdge, 6, tiles); }
         else { if (lite.faces) lite.faces.dispose(); if (lite.edges) lite.edges.dispose(); }
         if (lite.vertices) lite.vertices.dispose();
