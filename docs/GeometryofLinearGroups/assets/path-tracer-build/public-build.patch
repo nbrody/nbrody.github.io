@@ -1,0 +1,208 @@
+--- a/demos/twoDimFieldsScene.ts
++++ b/demos/twoDimFieldsScene.ts
+@@ -9,7 +9,7 @@
+ 
+ import type { SceneDescription, RenderStrategy, Vec3 } from '../src/compiler/types.js';
+ import type { AsyncSceneSuiteEntry } from '../tests/witnesses/types.js';
+-import { loadInstances } from '../src/authoring/loadInstances.js';
++import { loadInstances, parseInstances } from '../src/authoring/loadInstances.js';
+ import { instanceCloud } from '../src/authoring/instance.js';
+ import { type PostedView, type PostedOptions, postedFile, fetchPosted, studio, surfaceFormula, postedEntry, usePostedView, setPostedPreview } from './posted.js';
+ 
+@@ -20,6 +20,19 @@
+     options?: PostedOptions;
+ }
+ 
++async function readStoredScene(id: string): Promise<{ files: { json: string; inst: ArrayBuffer } }> {
++    const db = await new Promise<IDBDatabase>((resolve, reject) => {
++        const req = indexedDB.open('2dimFields-path-trace', 1);
++        req.onupgradeneeded = () => req.result.createObjectStore('scenes');
++        req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error);
++    });
++    try { return await new Promise((resolve, reject) => {
++        const req = db.transaction('scenes', 'readonly').objectStore('scenes').get(id);
++        req.onsuccess = () => req.result ? resolve(req.result) : reject(new Error('Scene not found in browser storage. Return to 2dimFields and press Path Trace again.'));
++        req.onerror = () => reject(req.error);
++    }); } finally { db.close(); }
++}
++
+ type Look = 'matte' | 'metal' | 'glass';
+ 
+ /** How far a glass bead's tint goes from white toward its palette colour. */
+@@ -29,8 +42,10 @@
+ 
+ async function buildScene(id: string, look: Look, strategies: RenderStrategy[]): Promise<SceneDescription> {
+     const name = postedFile('twodim');
+-    const meta = await fetchPosted<TwoDimMeta>(name, '2dimFields');      // first: it says plainly when nothing was sent
+-    const table = await loadInstances(`/test-data/${name}.inst`);
++    const stored = new URLSearchParams(window.location.search).get('stored');
++    let meta: TwoDimMeta, table: Awaited<ReturnType<typeof loadInstances>>;
++    if (stored) { const data = await readStoredScene(stored); meta = JSON.parse(data.files.json); table = parseInstances(data.files.inst); }
++    else { meta = await fetchPosted<TwoDimMeta>(name, '2dimFields'); table = await loadInstances(`/test-data/${name}.inst`); }
+     const o = meta.options ?? {};
+     if (meta.view.ortho) console.warn('twoDimFields: the app was in orthographic view; rendering with a pinhole camera instead');
+     usePostedView(strategies, meta.view, look === 'glass' ? 12 : 6, o, name);
+--- a/demos/posted.ts
++++ b/demos/posted.ts
+@@ -170,14 +170,14 @@
+         blurb: 'A photographed sky over an autumn field: real light from every direction, and real reflections in metal and glass.',
+         lights: () => [],
+         backdrop: [0.55, 0.55, 0.5],
+-        environment: () => hdr('/hdri/autumn_field_1k.hdr'),
++        environment: () => hdr(`${import.meta.env.BASE_URL}hdri/autumn_field_1k.hdr`),
+     },
+     mountain: {
+         label: 'Mountain sky (HDR)',
+         blurb: 'A photographed clear sky over Table Mountain: bright blue light with a high sun.',
+         lights: () => [],
+         backdrop: [0.45, 0.6, 0.85],
+-        environment: () => hdr('/hdri/table_mountain_2_puresky_1k.hdr'),
++        environment: () => hdr(`${import.meta.env.BASE_URL}hdri/table_mountain_2_puresky_1k.hdr`),
+     },
+ };
+ 
+@@ -384,6 +384,11 @@
+     const rb = W * 4, px = img.pixels as Uint8Array;
+     const blob = await encodePNG(W, H, (y: number) => px.subarray((H - 1 - y) * rb, (H - y) * rb), app.buildRenderStamp('radiance'));
+     const name = `${file}-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.png`;
++    if (new URLSearchParams(window.location.search).has('stored')) {
++        const url = URL.createObjectURL(blob); const link = document.createElement('a');
++        link.href = url; link.download = name; link.click();
++        setTimeout(() => URL.revokeObjectURL(url), 60000); return name;
++    }
+     const res = await fetch(`/__import/${name}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob });
+     if (!res.ok) throw new Error(`saving ${name} failed (${res.status})`);
+     return `renders/${name}`;
+--- a/pages/registry.ts
++++ b/pages/registry.ts
+@@ -1,28 +1,5 @@
+-// pages/registry.ts — the merged view the PAGES render: witnesses (tests/witnesses/,
+-// the durable GPU test system) + demos (demos/, the replaceable layer). The merge
+-// exists solely for display — the gallery lists everything, ?scene=<id> resolves both
+-// kinds, keys 1-9 bind each entry's strategies. The witness runner iterates
+-// witnessSuite alone; codegen-coverage tests iterate both registries explicitly.
+-
+-import { witnessSuite } from '../tests/witnesses/index.js';
+-import { demoSuite } from '../demos/index.js';
+-import type { SceneSuiteEntry, AnySceneSuiteEntry } from '../tests/witnesses/types.js';
++import { twoDimFieldsScenes } from '../demos/twoDimFieldsScene.js';
+ export { isAsyncSceneEntry } from '../tests/witnesses/types.js';
+-
+-export type { SceneSuiteEntry, AnySceneSuiteEntry };
+-export { witnessSuite, demoSuite };
+-
+-// A demo key colliding with a witness key would silently WIN in this merge (audit
+-// P5) — fail loudly instead; suiteIntegrity.test.ts enforces the same rule statically.
+-for (const key of Object.keys(demoSuite)) {
+-    if (key in witnessSuite) {
+-        throw new Error(`registry: demo scene id '${key}' collides with a witness scene id — the merge would silently shadow the witness`);
+-    }
+-}
+-
+-export const sceneSuite: Record<string, AnySceneSuiteEntry> = {
+-    ...witnessSuite,
+-    ...demoSuite,
+-};
+-
+-export const DEFAULT_SCENE = 'two-light';
++export const witnessSuite = {};
++export const sceneSuite = twoDimFieldsScenes;
++export const DEFAULT_SCENE = 'twoDimFields';
+--- a/pages/studio.ts
++++ b/pages/studio.ts
+@@ -681,7 +681,7 @@
+     const now = el('div', { class: 'control-group' },
+         el('span', { class: 'control-label' }, 'This picture'),
+         el('div', { class: 'control-row' },
+-            button('Save PNG to renders/', 'btn btn-add-alt', saveNow, 'The tonemapped picture with its reproducibility stamp (X)'),
++            button('Download PNG with metadata', 'btn btn-add-alt', saveNow, 'The tonemapped picture with its reproducibility stamp (X)'),
+         ),
+         el('div', { class: 'control-row' },
+             button('Download PNG', 'btn', () => app.save(app.getDisplayedPicture(), 'png')),
+@@ -707,7 +707,7 @@
+     };
+     size.addEventListener('change', syncSize);
+     tiled.addEventListener('change', syncSize);
+-    const startBtn = button('Render', 'btn btn-primary', () => start(), 'Render the final picture (P), then save it to renders/');
++    const startBtn = button('Render', 'btn btn-primary', () => start(), 'Render the final picture (P), then download it');
+     const setup = el('div', { class: 'control-group', id: 'final-setup' },
+         el('span', { class: 'control-label' }, 'Final render'),
+         el('div', { class: 'control-row' }, el('label', { class: 'range-name', for: 'final-samples' }, 'Samples'), samples),
+@@ -715,7 +715,7 @@
+         custom,
+         el('label', { class: 'check-row', for: 'final-tiled' }, tiled, 'Render in tiles (one HDR and one PNG download)'),
+         tileRow,
+-        el('p', { class: 'label-hint' }, 'The settings lock while it renders. A plain final render is saved to renders/; a tiled one downloads.'),
++        el('p', { class: 'label-hint' }, 'The settings lock while it renders. The completed picture downloads to your computer.'),
+         startBtn);
+ 
+     // -- its progress, then what to do with it --
+@@ -876,7 +876,7 @@
+ function setupHelp() {
+     const keys: [string, string][] = [
+         ['Space', 'pause or resume'], ['R', 'restart the accumulation'], ['1–9', 'pick an estimator'],
+-        ['M', 'cycle the picture shown'], ['X', 'save the picture to renders/'], ['Shift X', 'download the HDR radiance'],
++        ['M', 'cycle the picture shown'], ['X', 'download the picture'], ['Shift X', 'download the HDR radiance'],
+         ['P', 'go to the final render'], ['Esc', 'cancel a final render'], ['H', 'fold the panel'],
+         ['J / O', 'save / load a session'],
+     ];
+--- a/studio.html
++++ b/studio.html
+@@ -7,9 +7,9 @@
+     <link rel="icon" href="data:," />
+     <!-- The panel kit of the math site beside this checkout (vite.config.ts: the @site alias);
+          studio/studio.css holds only what is particular to this page. -->
+-    <link rel="stylesheet" href="/@fs/__SITE__/topology/assets/poincare-ui.css" />
++    <link rel="stylesheet" href="./studio/poincare-ui.css" />
+     <link rel="stylesheet" href="/studio/studio.css" />
+-    <script src="/@fs/__SITE__/topology/assets/poincare-ui.js"></script>
++    <script src="./studio/poincare-ui.js"></script>
+     <script>
+         // No stored choice yet: follow the system's light or dark setting.
+         try {
+@@ -140,7 +140,7 @@
+             <div id="tab-save" class="tab-content">
+                 <div>
+                     <h2 class="panel-title">Save</h2>
+-                    <p class="panel-subtitle">Pictures go to the tracer's <b>renders/</b> folder, or download.</p>
++                    <p class="panel-subtitle">Download a PNG or HDR image to your computer.</p>
+                 </div>
+                 <div id="save-controls"></div>
+             </div>
+@@ -158,7 +158,7 @@
+             <svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4"/></svg>
+             <span class="pill-label">Restart</span>
+         </button>
+-        <button id="pill-save" class="pill" title="Save the picture to renders/ (X)">
++        <button id="pill-save" class="pill" title="Download the picture (X)">
+             <svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>
+             <span class="pill-label">Save PNG</span>
+         </button>
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -60,7 +60,7 @@
+ 
+ // The studio page (studio.html) wears the panel kit of the math site this checkout sits beside
+ // (nbrody.github.io/docs/topology/assets/poincare-ui.{css,js}), read from there rather than copied.
+-const siteDocs = fileURLToPath(new URL('../../../nbrody.github.io/docs/', import.meta.url))
++const siteDocs = process.env.PATH_TRACER_SITE_DOCS ?? '/Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/'
+ // studio.html names the kit's files as /@fs/__SITE__/…: a classic <script src> never passes
+ // through the alias resolver, so the page's HTML gets the folder written in.
+ const sitePath = {
+@@ -70,6 +70,7 @@
+ 
+ export default defineConfig({
+     plugins: [glsl(), importReceiver, sitePath],
++    base: './',
+     define: {
+         __GIT_HASH__: JSON.stringify(gitHash),
+     },
+@@ -85,7 +86,7 @@
+         environment: 'node', // or 'jsdom' if you want DOM APIs
+     },
+     build: {
+-        rollupOptions: { input: { suite: 'index.html', lab: 'lab.html', studio: 'studio.html' } },
++        rollupOptions: { input: { studio: 'studio.html' } },
+         minify: false,     // <- no minify (make true, or remove to go back to min)v
+     },
+     assetsInclude: ['**/*.hdr'],

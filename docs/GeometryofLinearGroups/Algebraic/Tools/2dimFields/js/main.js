@@ -29,6 +29,7 @@ import { makeKEngine } from './kengine.js';
 import { startTutorial } from './tutorial.js';
 import { PALETTES, RULES, shades, swatch } from './coloring.js';
 import { cpath, cmul, cinv, cnorm, capply, sphereOf } from './cmobius.js';
+import { encodeInst, wirePathTrace, mountPathTraceOptions, postFiles, isLocalPage, pathTraceStored } from '../../../../assets/js/pathTrace.js';
 
 const $ = (id) => document.getElementById(id);
 const cv = $('cv');
@@ -744,6 +745,75 @@ function buildBalls() {
     buildCost = lastBuild - t0;
     if (lastPointer) hover(lastPointer.x, lastPointer.y);
     else setHover(-1);
+}
+
+// ---------- every ball at once, for an offline renderer ----------
+// The tree of balls as buildBalls makes it, but with no camera: every ball of radius ≥ minR (the
+// base ball has radius 1) down to depth st.dep, largest first, at most cap of them, each with
+// its shade (linear sRGB). __twoDim.balls() returns them with the camera; the Path Trace button
+// (and __twoDim.sendToTracer()) posts them as a .inst file to Trettel's PathTracerGLSL
+// (assets/js/pathTrace.js).
+// The shades are the light theme's by default whatever the app shows: their albedos (about 0.5)
+// suit physical lighting, while the dark theme's are dim and rely on the app's strong lights.
+function exportBalls({ minR = 0.004, cap = 300000, shadeTheme = 'light' } = {}) {
+    if (st.field === 'Q') throw new Error('balls(): over ℚ the vertices are planes; switch to ℚ(i) or ℚ(ω)');
+    const K = KF(), list = [], heap = [];
+    const offer = (p, j) => {                                        // as offerChild, by radius
+        const c = list[p].kids[j];
+        if (!c) return;
+        const r = ballChild(c, list[p].dep === 0).sigma * list[p].F.R;
+        if (r >= minR) heapPush(heap, { p, j, rs: r });
+    };
+    const take = (F, cusps, parent, dep) => {                        // as addBall, without culling
+        const rec = { F, cusps, parent, dep, key: 'k:' + cusps.map((c) => c.key).join(' ') };
+        if (!gIsId && F.R >= 4 * minR) rec.C = decorOfK(labelsOf(rec), rec.key);
+        if (gIsId || (!st.carry && st.rule !== 'moved')) rec.tc = shadeOf(cusps, cusps, LK);
+        else if (rec.C) rec.tc = shadeOf(cusps, cuspsOfK(decor.get(rec.key).src), LK);
+        else rec.tc = parent >= 0 ? list[parent].tc : shadeOf(cusps, cusps, LK);
+        list.push(rec);
+        if (dep < st.dep) { rec.kids = kCusps(K, st.N, dep === 0); offer(list.length - 1, 0); }
+    };
+    take(baseBall(), [], -1, 0);
+    let full = false;
+    while (heap.length) {
+        if (list.length >= cap) { full = true; break; }
+        const { p, j } = heapPop(heap), P_ = list[p], c = P_.kids[j];
+        offer(p, j + 1);
+        const { sigma, ell } = ballChild(c, P_.dep === 0);
+        take(childBall(P_.F, c, sigma * P_.F.R, ballGap(ell, P_.F.R)), [...P_.cusps, c], p, P_.dep + 1);
+    }
+    const n = list.length, positions = new Float32Array(3 * n), sizes = new Float32Array(n);
+    const colors = new Float32Array(3 * n), depth = new Float32Array(n), S = shades(palette(), shadeTheme, TN).ball;
+    list.forEach((rec, i) => {
+        positions.set(rec.F.c, 3 * i);
+        sizes[i] = rec.F.R;
+        colors.set(S[rec.tc ?? 0], 3 * i);
+        depth[i] = rec.dep;
+    });
+    const view = {
+        position: camera.position.toArray(), target: controls.target.toArray(), up: camera.up.toArray(),
+        fov: THREE.MathUtils.degToRad(persp.fov), ortho: st.ortho, orthoHeight: (ortho.top - ortho.bottom) / ortho.zoom,
+        aspect: cv.clientWidth / cv.clientHeight,
+    };
+    const settings = { field: st.field, dep: st.dep, N: st.N, lam: st.lam, h: st.h, edges: st.edges, palette: st.palette,
+        rule: st.rule, theme: isLight() ? 'light' : 'dark', shadeTheme, identity: gIsId, minR, cap, truncated: full };
+    return { count: n, positions, sizes, colors, depth, view, settings, background: P.bg.toArray() };
+}
+
+// The files the tracer's twoDimFields scenes read: <name>.inst (the balls) and <name>.json (the
+// view, settings and the Path Trace button's Advanced options).
+function tracerFiles({ name = 'twodim', options, ...opts } = {}) {
+    const b = exportBalls(opts), s = b.settings;
+    const provenance = `2dimFields ${s.field} dep=${s.dep} N=${s.N} λ=${s.lam} h=${s.h} edges=${s.edges} `
+        + `palette=${s.palette} rule=${s.rule}${s.identity ? '' : ' moved'} minR=${s.minR} ${new Date().toISOString()}`;
+    const inst = encodeInst({ positions: b.positions, sizes: b.sizes, colors: b.colors, scalars: { depth: b.depth }, provenance });
+    const meta = JSON.stringify({ count: b.count, view: b.view, settings: s, background: b.background, provenance, ...(options ? { options } : {}) });
+    return { name, b, files: [[`${name}.inst`, inst, 'application/octet-stream'], [`${name}.json`, meta, 'application/json']] };
+}
+async function sendToTracer(opts = {}) {
+    const { b, files } = tracerFiles(opts);
+    await postFiles(files);
+    return { count: b.count, truncated: b.settings.truncated, bytes: files[0][1].byteLength };
 }
 
 // Balls as lit instances, their edges, and on the big ones the circles, carried by rec.C.
@@ -1700,6 +1770,7 @@ function setField(f) {
     $('denL').textContent = k ? 'Max height' : 'Max q';
     $('toggle-farey').textContent = k ? 'Circles through neighbours' : 'Farey geodesics';
     $('toggle-horo').disabled = k;
+    syncPathTrace();
     $('spec-a').value = k ? spec.zSrc : spec.a.toString();
     $('spec-err').textContent = '';
     document.querySelectorAll('#seg-base button').forEach((b) => { b.disabled = k; });
@@ -1742,6 +1813,38 @@ $('save-png').onclick = () => {
     a.href = cv.toDataURL('image/png');
     a.click();
 };
+// Path Trace: the tree of balls, as the app shows it, rendered by the local path tracer in a new
+// tab. Available only over
+// ℚ(i) and ℚ(ω), whose vertices are balls.
+function syncPathTrace() {
+    const btn = $('path-trace'), k = st.field !== 'Q';
+    btn.hidden = false;
+    btn.disabled = !k;
+    btn.title = k ? 'Render this tree of balls in the path tracer (opens in a new tab)'
+        : 'Path tracing draws the balls of ℚ(i) and ℚ(ω); switch the field to one of those';
+}
+syncPathTrace();
+const traceOptions = mountPathTraceOptions($('path-trace-hint'), {
+    app: '2dimFields',
+    downloadHint: true,
+    looks: [['auto', 'As shown (matte)'], ['matte', 'Matte'], ['metal', 'Metal'], ['glass', 'Glass']],
+    extra: [
+        { id: 'minR', label: 'Smallest', kind: 'number', min: 0.0005, max: 0.5, step: 0.001, value: 0.004,
+            hint: 'The smallest ball radius sent (the base ball has radius 1).' },
+        { id: 'cap', label: 'Most balls', kind: 'number', min: 1000, max: 1500000, step: 1000, value: 300000 },
+    ],
+});
+wirePathTrace($('path-trace'), {
+    transport: pathTraceStored,
+    prepare: () => {
+        const { minR, cap, ...options } = traceOptions.values();
+        const { name, b, files } = tracerFiles({ minR, cap, options });
+        const summary = `Sent ${b.count.toLocaleString()} balls${b.settings.truncated ? ' (the smallest left out)' : ''} to the path tracer.`;
+        return { scene: options.look === 'matte' ? 'twoDimFields' : `twoDimFields-${options.look}`, file: name, files, summary };
+    },
+    report: (kind, text) => { const hint = $('path-trace-hint'); hint.textContent = text; hint.hidden = false; },
+    after: syncPathTrace,
+});
 $('addMatrixBtn').onclick = () => { UI.addMatrixInput(); refreshGenerators(); };
 $('refresh-btn').onclick = () => { refreshGenerators(); build(); };
 $('reset-element').onclick = resetElement;
@@ -1918,5 +2021,6 @@ window.__twoDim = {
     st, build, render, get camera() { return camera; }, controls, get recs() { return recs; }, get anim() { return anim; },
     setHover, flyToPlane, resetView, stepFly, stepAnim, applyGenerator, setProjection, get g() { return g; },
     spec, startSpecRun, stepSpec, drawCollapse, setTheme, tutorialAPI,
+    balls: exportBalls, sendToTracer,
     nonFinite: () => [...lines.geometry.attributes.position.array].filter((x) => !Number.isFinite(x)).length,
 };

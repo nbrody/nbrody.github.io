@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-key="pathTracerStudio.theme">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Path Tracer Studio</title>
+    <link rel="icon" href="data:," />
+    <!-- The panel kit of the math site beside this checkout (vite.config.ts: the @site alias);
+         studio/studio.css holds only what is particular to this page. -->
+    <link rel="stylesheet" href="./studio/poincare-ui.css" />
+    <link rel="stylesheet" href="./studio/studio.css" />
+    <script src="./studio/poincare-ui.js"></script>
+    <script>
+        // No stored choice yet: follow the system's light or dark setting.
+        try {
+            if (!localStorage.getItem('pathTracerStudio.theme') && matchMedia('(prefers-color-scheme: light)').matches)
+                document.documentElement.classList.add('light');
+        } catch (e) { /* storage unavailable */ }
+    </script>
+  <script type="module" crossorigin src="./assets/studio-ChzZe-Z3.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/studio-DNPd_77q.css">
+</head>
+<body>
+    <!-- The picture: the canvas fills the area left of the panel. -->
+    <div id="stage" class="stage"></div>
+
+    <!-- Title chip (top-left): the scene, and what the renderer is doing. -->
+    <div id="title-chip" class="status-banner accent" role="status" aria-live="polite">
+        <div class="status-banner-text">
+            <span class="kicker">Path tracer</span>
+            <span id="chip-scene" class="headline">Loading…</span>
+            <span id="chip-state" class="chip-state"></span>
+        </div>
+        <button class="status-banner-close" title="Collapse" aria-label="Collapse the title">×</button>
+    </div>
+
+    <!-- ============================================================ control panel -->
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <div class="panel-tabs" role="tablist" aria-label="Controls">
+                <button class="tab-btn active" data-tab="render" role="tab">Render</button>
+                <button class="tab-btn" data-tab="scene" role="tab">Scene</button>
+                <button class="tab-btn" data-tab="save" role="tab">Save</button>
+            </div>
+            <button id="help-btn" class="collapse-btn" title="What is this?" aria-label="What is this?">
+                <span class="collapse-icon">?</span>
+            </button>
+            <button id="play-btn" class="collapse-btn" data-ui="manual" title="Pause (Space)" aria-label="Pause">
+                <svg class="icon-pause" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path class="solid" d="M7 5h3.2v14H7zM13.8 5H17v14h-3.2z"/></svg>
+                <svg class="icon-play" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path class="solid" d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+                <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel (H)" aria-label="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- ======================== Render -->
+            <div id="tab-render" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">Path Tracer</h2>
+                    <p id="scene-subtitle" class="panel-subtitle"></p>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Progress</span>
+                    <div class="summary three">
+                        <div><b id="ro-samples">0</b><span>Samples</span></div>
+                        <div><b id="ro-rate">—</b><span>Per second</span></div>
+                        <div><b id="ro-time">0 s</b><span>Time</span></div>
+                    </div>
+                    <div class="kv-row" id="ro-res-row" hidden>Resolution <b id="ro-res">—</b></div>
+                    <div class="control-row">
+                        <button id="btn-pause" class="btn btn-add-alt">Pause</button>
+                        <button id="btn-restart" class="btn" title="Start the accumulation over (R)">Restart</button>
+                    </div>
+                    <div class="range-row" id="row-stop">
+                        <div class="range-head">
+                            <label class="range-name" for="stop-at">Stop at</label>
+                            <span class="range-value" id="stop-at-value">never</span>
+                        </div>
+                        <input type="range" id="stop-at" min="0" max="12" step="1" value="0">
+                    </div>
+                </div>
+
+                <div class="control-group" id="group-estimator">
+                    <span class="control-label">Estimator</span>
+                    <div class="seg-selector">
+                        <div class="seg-options" id="seg-estimator" role="radiogroup" aria-label="Estimator"></div>
+                    </div>
+                    <p id="estimator-hint" class="label-hint"></p>
+                </div>
+
+                <div class="control-group" id="group-preview">
+                    <span class="control-label">Preview</span>
+                    <div id="preview-controls"></div>
+                </div>
+
+                <div class="control-group" id="group-picture" hidden>
+                    <span class="control-label">Picture</span>
+                    <div class="seg-selector">
+                        <div class="seg-options" id="seg-picture" role="radiogroup" aria-label="Picture shown"></div>
+                    </div>
+                </div>
+
+                <div class="control-group fold" id="fold-gpu">
+                    <button class="fold-toggle" type="button" aria-expanded="false">
+                        <span class="control-label">GPU timings</span><span class="fold-chev" aria-hidden="true"></span>
+                    </button>
+                    <div class="fold-body">
+                        <p class="label-hint">Measuring slows rendering, so it runs only while this is open (and not during a final render).</p>
+                        <div id="gpu-timings"></div>
+                    </div>
+                </div>
+
+                <div class="control-group fold" id="fold-about">
+                    <button class="fold-toggle" type="button" aria-expanded="false">
+                        <span class="control-label">About this scene</span><span class="fold-chev" aria-hidden="true"></span>
+                    </button>
+                    <div class="fold-body">
+                        <p id="about-scene" class="label-hint"></p>
+                        <p id="about-provenance" class="label-hint"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================== Scene -->
+            <div id="tab-scene" class="tab-content">
+                <div>
+                    <h2 class="panel-title">Scene</h2>
+                    <p class="panel-subtitle">The scene's live settings. Moving one restarts the accumulation.</p>
+                </div>
+                <div id="scene-lighting"></div>
+                <div id="scene-params"></div>
+            </div>
+
+            <!-- ======================== Save -->
+            <div id="tab-save" class="tab-content">
+                <div>
+                    <h2 class="panel-title">Save</h2>
+                    <p class="panel-subtitle">Download a PNG or HDR image to your computer.</p>
+                </div>
+                <div id="save-controls"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ transport -->
+    <div id="transport">
+        <button id="pill-play" class="pill" title="Pause / resume (Space)">
+            <svg class="icon-pause" viewBox="0 0 24 24"><path class="solid" d="M7 5h3.2v14H7zM13.8 5H17v14h-3.2z"/></svg>
+            <svg class="icon-play" viewBox="0 0 24 24"><path class="solid" d="M8 5l11 7-11 7z"/></svg>
+            <span class="pill-label" id="pill-play-label">Pause</span>
+        </button>
+        <button id="pill-restart" class="pill" title="Restart the accumulation (R)">
+            <svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4"/></svg>
+            <span class="pill-label">Restart</span>
+        </button>
+        <button id="pill-save" class="pill" title="Download the picture (X)">
+            <svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>
+            <span class="pill-label">Save PNG</span>
+        </button>
+    </div>
+
+    <!-- ============================================================ errors -->
+    <div id="error-modal" class="example-modal" hidden>
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel narrow" role="alertdialog" aria-modal="true" aria-labelledby="error-title">
+            <div class="example-modal-head">
+                <h3 id="error-title">The scene did not compile</h3>
+                <button class="example-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="help-body" id="error-body"></div>
+        </div>
+    </div>
+
+    <!-- ============================================================ help -->
+    <div id="help-modal" class="example-modal" hidden>
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel narrow" role="dialog" aria-modal="true" aria-labelledby="help-title">
+            <div class="example-modal-head">
+                <h3 id="help-title">Path Tracer Studio</h3>
+                <button class="example-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="help-body" id="help-body"></div>
+        </div>
+    </div>
+
+</body>
+</html>
