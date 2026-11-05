@@ -63,6 +63,12 @@ async function joinRoom(roomCode, playerName, avatar) {
     const result = await roomRef.transaction((room) => {
         if (room === null) { abortReason = 'notfound'; return; }
         if (room.closedAt) { abortReason = 'closed'; return; }
+        // Games snapshot players at construction; mid-game joiners are missing
+        // from that map and crash scoring / guess paths on the TV.
+        if (room.state === 'playing' || room.state === 'results') {
+            abortReason = 'inprogress';
+            return;
+        }
         if (!room.players) room.players = {};
 
         const existingCount = Object.keys(room.players).length;
@@ -85,6 +91,7 @@ async function joinRoom(roomCode, playerName, avatar) {
 
     if (!result.committed || !result.snapshot.exists()) {
         if (abortReason === 'closed') throw new Error('Room is closed');
+        if (abortReason === 'inprogress') throw new Error('Game already in progress');
         throw new Error('Room not found');
     }
 
