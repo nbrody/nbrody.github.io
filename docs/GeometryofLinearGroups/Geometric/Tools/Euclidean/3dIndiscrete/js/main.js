@@ -1,5 +1,13 @@
 // main.js — Indiscrete Isometry Groups walkthrough controller + 2D canvas
 
+import {
+    clampM,
+    clampDepth,
+    factorize,
+    generateZinvM,
+    generateO2Rotations,
+} from './zinvMath.js';
+
 // ============================================================
 // Canvas setup
 // ============================================================
@@ -37,67 +45,6 @@ const COLORS = {
     text: '#94a3b8',
     textDim: '#475569',
 };
-
-// ============================================================
-// Math utilities
-// ============================================================
-function factorize(n) {
-    const factors = [];
-    let d = 2;
-    while (d * d <= n) {
-        while (n % d === 0) {
-            if (!factors.includes(d)) factors.push(d);
-            n /= d;
-        }
-        d++;
-    }
-    if (n > 1) factors.push(n);
-    return factors;
-}
-
-function generateZinvM(m, maxK) {
-    // Generate all a/m^k in [-2, 2] for 0 ≤ k ≤ maxK
-    const points = new Set();
-    for (let k = 0; k <= maxK; k++) {
-        const denom = m ** k;
-        const maxA = Math.ceil(2 * denom);
-        for (let a = -maxA; a <= maxA; a++) {
-            const val = a / denom;
-            if (val >= -2 && val <= 2) {
-                points.add(val);
-            }
-        }
-    }
-    return Array.from(points).sort((a, b) => a - b);
-}
-
-// Generate some elements of O_2(Z[1/m]) — 2x2 rotations with rational entries
-function generateO2Rotations(m, maxK) {
-    const angles = new Set();
-    // Find angles θ where cos(θ) and sin(θ) are in Z[1/m]
-    for (let k = 0; k <= maxK; k++) {
-        const denom = m ** k;
-        for (let a = -denom; a <= denom; a++) {
-            const cosVal = a / denom;
-            const sinSq = 1 - cosVal * cosVal;
-            if (sinSq < 0) continue;
-            const sinVal = Math.sqrt(sinSq);
-            // Check if sinVal is also in Z[1/m]
-            for (let k2 = 0; k2 <= maxK; k2++) {
-                const denom2 = m ** k2;
-                const sinRound = Math.round(sinVal * denom2) / denom2;
-                if (Math.abs(sinRound - sinVal) < 1e-10 && sinRound !== 0) {
-                    const angle = Math.atan2(sinRound, cosVal);
-                    angles.add(angle);
-                    angles.add(-angle);
-                    angles.add(Math.PI - angle);
-                    angles.add(-Math.PI + angle);
-                }
-            }
-        }
-    }
-    return Array.from(angles).sort((a, b) => a - b);
-}
 
 // ============================================================
 // Drawing functions
@@ -530,8 +477,8 @@ function drawTheorem(m) {
 // Canvas mode management
 // ============================================================
 let currentMode = 'intro';
-let currentM = 65;
-let currentDepth = 3;
+let currentM = clampM(65);
+let currentDepth = clampDepth(3);
 
 function drawCanvas() {
     resizeCanvas();
@@ -736,14 +683,14 @@ function subscriptHTML(n) {
 }
 
 if (mInput) mInput.addEventListener('change', () => {
-    currentM = Math.max(2, parseInt(mInput.value) || 65);
+    currentM = clampM(mInput.value);
     mInput.value = currentM;
     updateExploreInfo();
     drawCanvas();
 });
 
 if (depthSlider) depthSlider.addEventListener('input', () => {
-    currentDepth = parseInt(depthSlider.value);
+    currentDepth = clampDepth(depthSlider.value);
     drawCanvas();
 });
 
