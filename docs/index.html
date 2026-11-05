@@ -398,9 +398,136 @@
       opacity: 0.7;
     }
 
+    /* ── SOFTWARE ── */
+    #software {
+      background: var(--warm-white);
+    }
+
+    .app-intro {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2.5rem;
+      align-items: end;
+      margin-bottom: 2.75rem;
+    }
+
+    .app-lede {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+      font-size: 1.5rem;
+      line-height: 1.35;
+      color: var(--ink);
+      margin-bottom: 1rem;
+    }
+
+    .app-body {
+      font-size: 1.05rem;
+      line-height: 1.8;
+      color: #3a3428;
+      max-width: 540px;
+    }
+
+    .app-download {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.95rem 1.6rem 0.85rem;
+      border-radius: 999px;
+      background: var(--accent);
+      color: var(--warm-white);
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.74rem;
+      font-weight: 400;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      text-decoration: none;
+      white-space: nowrap;
+      box-shadow: 0 6px 20px rgba(139, 69, 19, 0.22);
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+
+    .download-btn:hover {
+      background: #6f370f;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 26px rgba(139, 69, 19, 0.28);
+    }
+
+    .download-btn:focus-visible {
+      outline: 2px solid var(--accent-light);
+      outline-offset: 3px;
+    }
+
+    .download-btn svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      margin-top: -2px;
+    }
+
+    .app-meta {
+      font-style: italic;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    /* the screenshot, in a Mac window */
+    .app-shot {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--rule);
+      background: #fff;
+      box-shadow: 0 18px 50px rgba(139, 69, 19, 0.13), 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .app-shot-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 28px;
+      padding: 0 12px;
+      background: #f3f1ed;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .app-shot-bar span {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #ee6a5f;
+    }
+
+    .app-shot-bar span:nth-child(2) {
+      background: #f5bd4f;
+    }
+
+    .app-shot-bar span:nth-child(3) {
+      background: #61c454;
+    }
+
+    .app-shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .app-note {
+      margin-top: 1.5rem;
+      font-size: 0.95rem;
+      font-style: italic;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
     /* ── TEACHING ── */
     #teaching {
-      background: var(--warm-white);
+      background: var(--cream);
     }
 
     .teaching-body {
@@ -532,6 +659,11 @@
         grid-template-columns: 1fr;
       }
 
+      .app-intro {
+        grid-template-columns: 1fr;
+        gap: 1.75rem;
+      }
+
       .section-inner {
         padding: 0 1.5rem;
       }
@@ -556,6 +688,7 @@
     <ul class="nav-links">
       <li><a href="#research">Research</a></li>
       <li><a href="#expository">Expository</a></li>
+      <li><a href="#software">Software</a></li>
       <li><a href="#teaching">Teaching</a></li>
 
       <li><a href="mailto:nic@ucsc.edu">Contact</a></li>
@@ -714,6 +847,54 @@
     </div>
   </section>
 
+  <!-- ── SOFTWARE ── -->
+  <section id="software">
+    <div class="section-inner">
+      <div class="section-header reveal">
+        <span class="section-label">For Mathematicians</span>
+        <h2>alphaCentaur</h2>
+      </div>
+
+      <div class="app-intro reveal">
+        <div>
+          <p class="app-lede">A Mac workspace for mathematical research, where you and an AI collaborator work on the same project.</p>
+          <p class="app-body">
+            Each project holds notes in Markdown with live LaTeX, a manuscript you can build to PDF, Python
+            notebooks, Lean files, slides, handwritten notes, and a library of papers to read and annotate.
+            Bring an API key from Anthropic, OpenAI or Google, or run a model on your own computer. What the AI
+            writes is labeled as its own, and the documents you mark as yours stay yours.
+          </p>
+        </div>
+        <div class="app-download">
+          <!-- Always the newest release: github.com/nbrody/alphaCentaur-releases -->
+          <a class="download-btn" data-goatcounter-click="alphacentaur-download"
+            href="https://github.com/nbrody/alphaCentaur-releases/releases/latest/download/AlphaCentaur.pkg">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 2v8.5M4.5 7 8 10.5 11.5 7M3 13.5h10" />
+            </svg>
+            Download for macOS
+          </a>
+          <span class="app-meta">macOS 14 or newer · Apple Silicon and Intel</span>
+        </div>
+      </div>
+
+      <figure class="app-shot reveal">
+        <div class="app-shot-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+        <img src="assets/img/alphacentaur/alphacentaur-home.webp"
+          srcset="assets/img/alphacentaur/alphacentaur-home-1000.webp 1000w, assets/img/alphacentaur/alphacentaur-home.webp 2000w"
+          sizes="(max-width: 900px) calc(100vw - 3rem), 764px" width="2000" height="1250" loading="lazy"
+          decoding="async"
+          alt="alphaCentaur's Projects page, with cards for eight projects such as Free subgroups of SL₂(ℤ) and Bruhat–Tits trees">
+      </figure>
+
+      <p class="app-note reveal">
+        The installer isn't signed by Apple yet, so the first time you open it macOS stops it: open
+        System Settings → Privacy &amp; Security and click Open Anyway. After that, alphaCentaur keeps itself up to date.
+      </p>
+    </div>
+  </section>
+
   <!-- ── TEACHING ── -->
   <section id="teaching">
     <div class="section-inner">
@@ -763,6 +944,11 @@
 
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
   </script>
+
+  <!-- Visitor counts (no cookies): nbrody.goatcounter.com. It also counts clicks on
+       anything with data-goatcounter-click, such as the alphaCentaur download button. -->
+  <script data-goatcounter="https://nbrody.goatcounter.com/count"
+    async src="//gc.zgo.at/count.js"></script>
 </body>
 
 </html>
