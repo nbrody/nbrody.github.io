@@ -17,6 +17,9 @@ export async function start(root, backend) {
   const lib = {
     backend, info, embedded,
     refs: [], pdfs: [],
+    // Papers converted to read-only Markdown and the conversions under way
+    // (by reference id), and whether Marker is installed (server/paper-markdown.mjs).
+    converted: {}, conversions: {}, converter: false,
     filter: store.get('alphaLibrary.filter', 'all'),
     search: '',
     manuscript: 'project',
@@ -58,7 +61,7 @@ export async function start(root, backend) {
   const list = h('div', {class: 'lib-scroll'}, h('div', {class: 'lib-page'},
     h('header', {class: 'lib-head'},
       h('div', {},
-        h('div', {class: 'eyebrow'}, h('span', {class: 'applet-name', title: "alphaLibrary, alphaCentaur's reference library and PDF reader. It also runs on its own: node library/server.mjs <folder> --open"}, 'alphaLibrary'),
+        h('div', {class: 'eyebrow'}, h('span', {class: 'applet-name', title: "alphaLibrary, AlphaCentaur's reference library and PDF reader. It also runs on its own: node library/server.mjs <folder> --open"}, 'alphaLibrary'),
           embedded ? 'Project library' : 'Library'),
         h('h1', {}, embedded ? 'Bibliography' : info.name),
         h('p', {}, embedded ? 'Sources worth understanding. References worth citing.' : info.root)),
@@ -98,6 +101,13 @@ export async function start(root, backend) {
     }
     cards.replaceChildren(...shown.map(card));
   }
+  // Reading notes, with their $…$ math rendered like the title's.
+  function annotationEl(text) {
+    const p = h('p', {class: 'annotation'});
+    if (text) p.innerHTML = mathHTML(text);
+    else p.textContent = 'No reading notes yet.';
+    return p;
+  }
   function card(ref) {
     const r = recordOf(ref), pdf = hasPdf(r), role = roleOf(r, lib.manuscript);
     const offer = suggestedPdfs(r, lib.pdfs.map(p => p.path)).length ? 'Link PDF' : pdfDownload(r) ? 'Get PDF' : 'Attach PDF';
@@ -113,12 +123,13 @@ export async function start(root, backend) {
           h('code', {class: 'citation-key', title: 'Use this key in a LaTeX citation'}, r.key || `ref${String(ref.id).replace(/\W/g, '')}`)),
         titleBtn,
         h('p', {class: 'ref-meta'}, [r.authors || 'Authors not recorded', r.year].filter(Boolean).join(' · ')),
-        h('p', {class: 'annotation'}, r.annotation || 'No reading notes yet.'),
+        annotationEl(r.annotation),
         h('div', {class: 'ref-bottom'},
           h('span', {class: 'coverage'}, r.coverage || 'Unverified'),
           pdf ? h('button', {type: 'button', class: 'read-pdf', onclick: () => openPaper(ref.id)}, icon('bookOpenText', 13), 'Read PDF')
             : r.pdf ? h('button', {type: 'button', class: 'pdf-missing', title: `No file at ${r.pdf}`, onclick: () => attachPdf(lib, ref)}, icon('alert', 13), 'PDF missing')
             : h('button', {type: 'button', title: 'Attach a PDF, or drop one on this card', onclick: () => attachPdf(lib, ref)}, icon('paperclip', 13), offer),
+          pdf ? markdownControl(ref) : null,
           /^https?:/.test(r.url || '') ? h('a', {href: r.url, target: '_blank', rel: 'noreferrer'}, 'Open source', icon('arrowUpRight', 13)) : null,
           info.capabilities?.ask ? h('button', {type: 'button', onclick: () => backend.action('ask', {id: ref.id})}, icon('sparkles', 13), 'Discuss') : null)));
     // Drop a PDF on a card to attach it.
@@ -138,6 +149,62 @@ export async function start(root, backend) {
     });
     return el;
   }
+  // ------------------------------------------- PDF → Markdown (Marker)
+  // A card's Markdown control: convert, the conversion under way, or read
+  // the result (read-only, with highlights and annotations, in the reader).
+  function markdownControl(ref) {
+    const job = lib.conversions[ref.id];
+    if (job && job.state !== 'failed') {
+      return h('span', {class: 'converting', title: job.pages ? `${job.pages} pages, about ${Math.ceil(job.estimate / 60)} minutes in all` : ''},
+        icon('loader', 13, 'spin'), conversionLabel(job),
+        h('button', {type: 'button', title: 'Stop converting this PDF', onclick: () => cancelConversion(ref)}, 'Cancel'));
+    }
+    if (job) return h('button', {type: 'button', class: 'pdf-missing', title: `${job.error} Click to try again.`, onclick: () => convert(ref)}, icon('alert', 13), 'Markdown failed');
+    if (lib.converted[ref.id]) return h('button', {type: 'button', class: 'read-pdf', title: 'Read the paper as Markdown, with its math as LaTeX. Highlight and annotate it as you read.',
+      onclick: () => openPaper(ref.id, 'markdown')}, icon('fileText', 13), 'Read Markdown');
+    return h('button', {type: 'button',
+      title: lib.converter ? 'Convert the PDF to Markdown with its math as LaTeX, by OCR. It takes about 12 seconds a page, in the background.'
+        : 'Converting to Markdown needs Marker. Install it in Terminal with: uv tool install --python 3.12 marker-pdf',
+      onclick: () => convert(ref)}, icon('fileText', 13), 'To Markdown');
+  }
+  function conversionLabel(job) {
+    if (job.state === 'queued') return 'Waiting to convert';
+    const elapsed = (Date.now() - Date.parse(job.started)) / 1000;
+    if (!job.estimate) return `Converting · ${Math.max(1, Math.round(elapsed / 60))} min`;
+    const left = job.estimate - elapsed;
+    return left > 90 ? `Converting · about ${Math.round(left / 60)} min left` : 'Converting · almost done';
+  }
+  async function convert(ref) {
+    try {
+      const job = await backend.convert(ref.id);
+      if (job.state === 'done') { await load(); openPaper(ref.id, 'markdown'); return; } // this PDF already was
+      lib.conversions = {...lib.conversions, [ref.id]: job};
+      renderCards();
+      watchConversions();
+    } catch (e) { toast(e.message, {kind: 'error'}); }
+  }
+  async function cancelConversion(ref) {
+    try { await backend.cancelConvert(ref.id); }
+    catch (e) { toast(e.message, {kind: 'error'}); }
+    await load();
+  }
+  // While a conversion runs, ask how it is going every few seconds.
+  let poll = null;
+  function watchConversions() {
+    clearTimeout(poll);
+    if (Object.values(lib.conversions).some(j => j.state !== 'failed')) poll = setTimeout(() => void load(), 5000);
+  }
+  // Say so when a conversion finishes: its job is gone and the paper is
+  // converted, or it failed. (A cancelled one just goes.)
+  function announceConversions(before) {
+    for (const [id, job] of Object.entries(before)) {
+      if (job.state === 'failed') continue;
+      const now = lib.conversions[id], ref = lib.refs.find(x => x.id === id);
+      if (now?.state === 'failed') toast(`Markdown conversion failed: ${now.error}`, {kind: 'error'});
+      else if (!now && ref && lib.converted[id]) toast(`${plainText(recordOf(ref).title || ref.title).slice(0, 60)} is ready to read as Markdown.`, {kind: 'ok'});
+    }
+  }
+
   async function exportBib(btn) {
     try {
       btn.disabled = true;
@@ -152,15 +219,16 @@ export async function start(root, backend) {
 
   // --------------------------------------------------------- the reader
   let listScroll = 0;
-  function openPaper(id) {
+  // mode: 'pdf' or 'markdown' (a converted paper); left out, the one last used.
+  function openPaper(id, mode) {
     const ref = lib.refs.find(r => r.id === id);
     if (!ref) return;
-    if (lib.reader?.id === id) return;
+    if (lib.reader?.id === id) { if (mode) lib.reader.show(mode); return; }
     if (!lib.reader) listScroll = list.scrollTop;
     void lib.reader?.close();
     list.hidden = true;
     readerHost.hidden = false;
-    lib.reader = openReader(lib, readerHost, ref);
+    lib.reader = openReader(lib, readerHost, ref, {mode});
   }
   async function closeReader() {
     const reader = lib.reader;
@@ -178,8 +246,11 @@ export async function start(root, backend) {
   async function load() {
     loading ||= (async () => {
       try {
-        const {references, pdfs} = await backend.list();
-        lib.refs = references; lib.pdfs = pdfs;
+        const {references, pdfs, converted = {}, conversions = {}, converter = false} = await backend.list();
+        const before = lib.conversions;
+        lib.refs = references; lib.pdfs = pdfs; lib.converted = converted; lib.conversions = conversions; lib.converter = converter;
+        announceConversions(before);
+        watchConversions();
         if (!lib.reader) renderCards();
         else { renderFilters(); lib.reader.update(lib.refs.find(r => r.id === lib.reader.id)); }
       } catch (e) { toast(e.message, {kind: 'error'}); }

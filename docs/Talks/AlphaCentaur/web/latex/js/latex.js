@@ -256,3 +256,21 @@ export function referenceAt(lineText, column) {
   }
   return null;
 }
+
+// The paragraph of LaTeX around line `line` (1-based) that a click on the
+// PDF opens for editing: the run of non-blank lines around it. Sectioning
+// commands and the document's own scaffolding are blocks of their own, so a
+// paragraph never swallows the heading above it. Long runs are cut to `limit`
+// lines around the clicked one. Returns {from, to} line numbers, or null for
+// a blank line.
+const PARAGRAPH_BREAK = /^\s*\\((sub)*section|chapter|part|(sub)?paragraph|begin\{document\}|end\{document\}|maketitle|tableofcontents|bibliography(style)?|printbibliography|appendix)(?![a-zA-Z])/;
+export function paragraphAround(text, line, limit = 40) {
+  const lines = text.split('\n'), i = line - 1;
+  if (i < 0 || i >= lines.length || !lines[i].trim()) return null;
+  if (PARAGRAPH_BREAK.test(lines[i])) return {from: line, to: line};
+  let a = i, b = i;
+  while (a > 0 && lines[a - 1].trim() && !PARAGRAPH_BREAK.test(lines[a - 1])) a--;
+  while (b < lines.length - 1 && lines[b + 1].trim() && !PARAGRAPH_BREAK.test(lines[b + 1])) b++;
+  if (b - a + 1 > limit) { a = Math.max(a, i - Math.floor(limit / 2)); b = Math.min(b, a + limit - 1); }
+  return {from: a + 1, to: b + 1};
+}

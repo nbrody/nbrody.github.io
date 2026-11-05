@@ -21,7 +21,7 @@ backend.hello = async () => {
   for (let attempt = 0; ; attempt++) {
     const reply = await Promise.race([hello(), new Promise(r => setTimeout(() => r(null), 1500))]);
     if (reply) return reply;
-    if (attempt > 8) throw new Error('alphaCentaur did not answer.');
+    if (attempt > 8) throw new Error('AlphaCentaur did not answer.');
   }
 };
 

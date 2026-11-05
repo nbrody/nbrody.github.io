@@ -4,7 +4,7 @@
 // section and on its own (see main.js).
 //
 // A notebook is JSON:
-//   {version: 1, current, pages: [{id, background: 'grid'|'ruled'|'blank'|'pdf',
+//   {version: 1, current, pages: [{id, background: 'grid'|'ruled'|'dots'|'blank'|'pdf', paper?: 'paper'|'white'|'blue',
 //     backgroundImage?, sourcePage?, strokes: [{id, points: [{x, y, p}], color, width, tool}]}],
 //    sources?: [{name, mimeType, base64}]}
 // Every committed change calls onChange(JSON.stringify(notebook)).
@@ -16,7 +16,7 @@ export function parse(value) {
     const v = JSON.parse(value);
     if (v.pages?.length) return v;
   } catch { /* not a notebook yet */ }
-  return { version: 1, pages: [{ id: crypto.randomUUID(), background: 'grid', strokes: [] }], current: 0 };
+  return { version: 1, pages: [{ id: crypto.randomUUID(), background: 'ruled', paper: 'paper', strokes: [] }], current: 0 };
 }
 
 function el(tag, props = {}, ...children) {
@@ -56,7 +56,7 @@ export function createNotebook(container, { onChange, onRecognized, readOnly = f
   const undoBtn = el('button', { type: 'button', class: 'btn icon', 'aria-label': 'Undo stroke', title: 'Undo stroke', onclick: () => undo() }, ico('undo-2', 17));
   const redoBtn = el('button', { type: 'button', class: 'btn icon', 'aria-label': 'Redo stroke', title: 'Redo stroke', onclick: () => redoStroke() }, ico('redo-2', 17));
   const top = el('div', { class: 'ink-toolbar' },
-    el('span', { class: 'applet-name', title: "alphaNote, alphaCentaur's handwriting notebooks. It also runs on its own: node ink/server.mjs <folder> --open" }, 'alphaNote'),
+    el('span', { class: 'applet-name', title: "alphaNote, AlphaCentaur's handwriting notebooks. It also runs on its own: node ink/server.mjs <folder> --open" }, 'alphaNote'),
     el('div', { class: 'button-group', role: 'group', 'aria-label': 'Tools' }, toolButtons),
     colorInput,
     el('button', { type: 'button', class: 'btn', title: 'Thinner stroke', 'aria-label': 'Thinner stroke', onclick: () => { prefs.width = Math.max(1, prefs.width - 1); sync(); } }, ico('minus', 14)),
@@ -84,11 +84,12 @@ export function createNotebook(container, { onChange, onRecognized, readOnly = f
   const nextBtn = el('button', { type: 'button', class: 'btn', 'aria-label': 'Next page', title: 'Next page', onclick: () => goTo(book.current + 1) }, ico('chevron-right', 16));
   const pageLabel = el('span', { class: 'ink-page' });
   const addPageBtn = el('button', { type: 'button', class: 'btn outline', onclick: () => commit({
-    ...book, current: book.pages.length, pages: [...book.pages, { id: crypto.randomUUID(), background: 'grid', strokes: [] }],
+    ...book, current: book.pages.length, pages: [...book.pages, { id: crypto.randomUUID(), background: page().backgroundImage ? 'ruled' : (page().background || 'ruled'), paper: page().backgroundImage ? 'paper' : (page().paper || 'white'), strokes: [] }],
   }) }, ico('plus', 15), 'Page');
-  const bgButtons = ['grid', 'ruled', 'blank'].map(b => el('button', { type: 'button', onclick: () => commit({
-    ...book, pages: book.pages.map((p, i) => (i === book.current ? { ...p, background: b } : p)),
-  }) }, b));
+  const lineSelect = el('select', { 'aria-label': 'Page lines', onchange: e => commit(withPage(p => ({ ...p, background: e.target.value }))) },
+    ...[['ruled', 'Ruled'], ['grid', 'Grid'], ['dots', 'Dots'], ['blank', 'None']].map(([value, label]) => el('option', { value }, label)));
+  const paperSelect = el('select', { 'aria-label': 'Paper background', onchange: e => commit(withPage(p => ({ ...p, paper: e.target.value }))) },
+    ...[['paper', 'Paper'], ['white', 'White'], ['blue', 'Blue']].map(([value, label]) => el('option', { value }, label)));
   const pdfInput = el('input', { type: 'file', accept: 'application/pdf', onchange: e => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -98,7 +99,8 @@ export function createNotebook(container, { onChange, onRecognized, readOnly = f
   const ocrBtn = el('button', { type: 'button', class: 'btn', onclick: () => void runOcr() });
   const bottom = el('div', { class: 'ink-toolbar bottom' },
     prevBtn, pageLabel, nextBtn, addPageBtn,
-    el('div', { class: 'segmented', role: 'group', 'aria-label': 'Page background' }, bgButtons),
+    el('label', { class: 'ink-setting' }, 'Background', paperSelect),
+    el('label', { class: 'ink-setting' }, 'Lines', lineSelect),
     el('div', { class: 'spacer' }),
     pdfLabel, ocrBtn);
 
@@ -134,10 +136,12 @@ export function createNotebook(container, { onChange, onRecognized, readOnly = f
     nextBtn.disabled = book.current >= book.pages.length - 1;
     pageLabel.textContent = `Page ${book.current + 1} of ${book.pages.length}`;
     addPageBtn.disabled = readOnly;
-    for (const b of bgButtons) {
-      b.setAttribute('aria-pressed', String(page().background === b.textContent));
-      b.disabled = readOnly;
-    }
+    const isPdf = !!page().backgroundImage;
+    paperSelect.value = page().paper || 'white';
+    lineSelect.value = isPdf ? 'blank' : (page().background || 'ruled');
+    paperSelect.disabled = readOnly || isPdf;
+    lineSelect.disabled = readOnly || isPdf;
+    paperSelect.title = lineSelect.title = isPdf ? 'Imported PDF pages keep their original background' : '';
     pdfLabel.hidden = readOnly;
     pdfInput.disabled = busy;
     pdfLabel.setAttribute('aria-disabled', String(busy));
@@ -167,7 +171,7 @@ export function createNotebook(container, { onChange, onRecognized, readOnly = f
   function paint(draft = null) {
     const ctx = canvas.getContext('2d'), pg = page();
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = ({ paper: '#faf8f2', white: '#ffffff', blue: '#f1f7fa' })[pg.paper || 'white'] || '#ffffff';
     ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = '#e5edf1';
     ctx.lineWidth = 1;
@@ -182,9 +186,20 @@ export function createNotebook(container, { onChange, onRecognized, readOnly = f
       if (image.complete && image.naturalWidth) ctx.drawImage(image, 0, 0, W, H);
     }
     if (!pg.backgroundImage && pg.background !== 'blank') {
-      for (let y = 40; y < H; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-      if (pg.background === 'grid')
+      if (pg.background === 'ruled') {
+        for (let i = 0; i < 27; i++) {
+          const y = 70 + i * 48;
+          ctx.beginPath(); ctx.moveTo(50, y); ctx.lineTo(W - 50, y); ctx.stroke();
+        }
+      } else if (pg.background === 'grid') {
+        for (let y = 40; y < H; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
         for (let x = 40; x < W; x += 32) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      } else if (pg.background === 'dots') {
+        ctx.fillStyle = '#d3dfe3';
+        for (let y = 40; y < H; y += 32) for (let x = 40; x < W; x += 32) {
+          ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+      }
     }
     for (const s of [...pg.strokes, ...(draft ? [draft] : [])]) {
       ctx.strokeStyle = s.color;

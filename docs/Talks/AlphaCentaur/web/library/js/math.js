@@ -7,6 +7,8 @@ let macros = {};
 export function setMacros(source = '') {
   try { macros = projectMacros(source, katex).macros; } catch { macros = {}; }
 }
+// The project's macros, for rendering a converted paper (paper-view.js).
+export const mathMacros = () => macros;
 
 const escape = s => s.replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 

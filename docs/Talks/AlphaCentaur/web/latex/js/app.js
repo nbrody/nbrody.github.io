@@ -7,7 +7,8 @@ import {makeState, jumpTo, outsideEdit, scanSource, scanBib, emptyIndex, EditorV
 import {formattingToolbar, symbolPalette} from './toolbar.js';
 import {outlinePanel, searchPanel} from './panels.js';
 import {diffLines, hunks} from './diff.js';
-import {outlineOf, blankComments} from './latex.js';
+import {outlineOf, blankComments, paragraphAround} from './latex.js';
+import {readDocument, setClass, setClassOption, setCommand, setFont, setMargin, setSpacing, ensureEnvironment, insertBlock, BLOCKS, CLASSES, SIZES, PAPERS, FONTS, MARGINS, SPACINGS} from './preamble.js';
 import {PdfView} from './pdf.js';
 import {parseLog, matchFile} from './log.js';
 import {renderTree, fileRow} from './tree.js';
@@ -35,7 +36,7 @@ export async function start(root, backend) {
   const S = {
     files: [], byId: new Map(), buffers: new Map(), texts: new Map(), current: null, preview: null,
     main: null, build: {latest: null, pdf: null}, shownPdf: null, compiling: false, problems: [],
-    layout: pref('layout', 'split'), showFiles: pref('files', true), split: pref('split', 0.5), syncClicks: pref('sync', true),
+    layout: pref('view', 'pdf'), docPanel: pref('docPanel', true), pdfSymbols: false, showFiles: pref('files', true), split: pref('split', 0.5), syncClicks: pref('sync', true),
     drawer: pref('drawer', false), drawerTab: 'problems', folds: new Set(pref('folds', [])), indexStale: true, index: emptyIndex(),
     sideMode: 'files', outlineOpen: pref('outline', true), symbols: false, pdfSearch: false,
   };
@@ -64,7 +65,7 @@ export async function start(root, backend) {
     els.files,
     // alphaTeX's name: the full brand on its own, a name tag inside
     // alphaCentaur (whose sidebar calls the section Manuscript).
-    embedded ? h('span', {class: 'applet-name', title: 'alphaTeX, alphaCentaur\'s LaTeX editor. It also runs on its own: node latex/server.mjs <folder> --open'}, 'alphaTeX')
+    embedded ? h('span', {class: 'applet-name', title: 'alphaTeX, AlphaCentaur\'s LaTeX editor. It also runs on its own: node latex/server.mjs <folder> --open'}, 'alphaTeX')
       : h('div', {class: 'brand', title: info.root}, h('span', {class: 'brand-mark'}, 'TeX'), h('div', {}, h('strong', {}, 'alphaTeX'), h('small', {}, info.name))),
     els.docSelect ? h('label', {class: 'main-picker doc-picker'}, h('span', {}, 'Document'), els.docSelect) : null,
     h('label', {class: 'main-picker'}, h('span', {}, 'Main document'), els.mainSelect),
@@ -115,7 +116,12 @@ export async function start(root, backend) {
   els.drawer = h('div', {class: 'drawer'});
   els.pdfFind = h('div', {class: 'pdf-find', hidden: true});
   els.pdfWrap = h('div', {class: 'pdf-wrap'}, els.pdfBody, els.pdfMessage);
-  const pdfPane = h('section', {class: 'pane pdf-pane', 'aria-label': 'PDF'}, els.pdfHead, els.pdfFind, els.pdfWrap, els.drawer);
+  // In the PDF view the PDF is the editor: a tools row (Insert, formatting)
+  // above it and the Document panel beside it.
+  els.pdfTools = h('div', {class: 'pdf-tools', role: 'toolbar', 'aria-label': 'Edit the document'});
+  els.docPanel = h('aside', {class: 'doc-panel', 'aria-label': 'Document settings'});
+  els.pdfRow = h('div', {class: 'pdf-row'}, els.pdfWrap, els.docPanel);
+  const pdfPane = h('section', {class: 'pane pdf-pane', 'aria-label': 'PDF'}, els.pdfHead, els.pdfTools, els.pdfFind, els.pdfRow, els.drawer);
   els.body = h('div', {class: 'workspace'}, sidebar, sourcePane, els.splitter, pdfPane);
   replace(root, top, els.body);
   root.classList.add('app');
@@ -156,6 +162,25 @@ export async function start(root, backend) {
   palette.el.hidden = true;
   sourcePane.insertBefore(toolbar.el, els.cm);
   sourcePane.insertBefore(palette.el, els.status);
+  // The same tools for the paragraph open on the PDF.
+  let pdfEdit = null;
+  const pdfToolbar = formattingToolbar({getView: () => pdfEdit?.ed || null, onSymbols: () => togglePdfSymbols(),
+    onNoEditor: () => toast('Click text in the PDF to edit it, then format it here.')});
+  const pdfPalette = symbolPalette({getView: () => pdfEdit?.ed || null, onClose: () => togglePdfSymbols(false)});
+  pdfPalette.el.hidden = true;
+  pdfPane.insertBefore(pdfPalette.el, els.pdfFind);
+  function togglePdfSymbols(on = !S.pdfSymbols) {
+    S.pdfSymbols = on; pdfPalette.el.hidden = !on;
+    pdfToolbar.update(!pdfEdit, S.pdfSymbols);
+    if (on) pdfPalette.focus(); else pdfEdit?.ed.focus();
+  }
+  els.pdfHint = h('span', {class: 'pdf-hint'});
+  replace(els.pdfTools,
+    h('button', {type: 'button', class: 'btn sm insert-btn', title: 'Add a section, theorem, equation, list or figure', 'aria-haspopup': 'menu',
+      onclick: e => insertMenu(e.currentTarget)}, icon('plus', 14), h('span', {}, 'Insert')),
+    h('span', {class: 'tool-sep'}), pdfToolbar.el, els.pdfHint, h('span', {class: 'spacer'}),
+    button({iconName: 'gear', label: 'Document', title: 'Title, author, class, font, paper and margins', cls: 'ghost sm doc-btn',
+      onClick: () => { S.docPanel = !S.docPanel; setPref('docPanel', S.docPanel); renderDocPanel(); renderPdfTools(); }}));
   function toggleSymbols(on = !S.symbols) {
     S.symbols = on; palette.el.hidden = !on;
     toolbar.update(cur()?.readOnly, S.symbols);
@@ -204,7 +229,7 @@ export async function start(root, backend) {
   }
 
   let openToken = 0;
-  async function open(id, {line, focus = true, select} = {}) {
+  async function open(id, {line, focus = true, select, reveal = true} = {}) {
     const f = fileOf(id);
     if (!f) return;
     if (!editable(f.kind) || f.binary) {
@@ -233,7 +258,7 @@ export async function start(root, backend) {
     // Opening a document that can be compiled makes it the main document.
     if (f.main && f.kind === 'tex' && S.main !== id) setMain(id);
     backend.notify('opened', {id});
-    if (S.layout === 'pdf') setLayout('split');
+    if (S.layout === 'pdf' && reveal) setLayout('split');
     renderAll();
     outline.update(view.state.doc.toString(), view.state.doc.lineAt(view.state.selection.main.head).number);
     toolbar.update(buf.readOnly, S.symbols);
@@ -775,6 +800,7 @@ export async function start(root, backend) {
     onState: () => renderPdfControls(),
     onPoint: async point => {
       const p = S.build.pdf;
+      if (S.layout === 'pdf') { if (S.syncClicks || pdfEdit) void editInPdf(point); return; }
       if (!S.syncClicks || !p?.sync?.toSource) return;
       try {
         const r = await backend.toSource(p.id, point);
@@ -796,8 +822,239 @@ export async function start(root, backend) {
     } catch (e) { toast(e.message, {kind: 'error'}); }
   }
 
+  // ------------------------------------------------- editing in the PDF --
+  // In the PDF view the PDF is the editor, as a slide is in alphaPresent. A
+  // click on its text opens that paragraph's LaTeX over the page (SyncTeX
+  // finds the line, paragraphAround the paragraph); ⌘↩, Done or clicking
+  // away saves it and typesets again, and the new PDF replaces the page in
+  // place. Insert adds blocks, and the Document panel edits the preamble.
+  // The LaTeX stays the document: every change is an edit to it.
+
+  // The PDF view should show the current text, so it compiles when it opens
+  // on a missing or out-of-date PDF.
+  function freshen() {
+    if (S.layout === 'pdf' && S.main && caps.compile && !S.compiling && S.build.latest?.status !== 'running' && (!S.build.pdf || stale())) void compile({auto: true});
+  }
+  async function loadBuffer(id) {
+    let buf = S.buffers.get(id);
+    if (buf) { if (id === S.current) stash(); return buf; }
+    const f = fileOf(id);
+    if (!f) return null;
+    try {
+      const data = await backend.read(id);
+      buf = S.buffers.get(id) || makeBuffer(f, data);
+      S.buffers.set(id, buf);
+      return buf;
+    } catch (e) { toast(e.message, {kind: 'error'}); return null; }
+  }
+  // Applies fn(text) to a file as one undoable change.
+  async function editFile(id, fn) {
+    const buf = await loadBuffer(id);
+    if (!buf) return false;
+    if (buf.readOnly) { toast(`${buf.path} is read-only.`); return false; }
+    const state = buf.id === S.current ? view.state : buf.state, before = state.doc.toString(), after = fn(before);
+    if (after === before) return false;
+    let a = 0, b = before.length, c = after.length;
+    while (a < b && a < c && before.charCodeAt(a) === after.charCodeAt(a)) a++;
+    while (b > a && c > a && before.charCodeAt(b - 1) === after.charCodeAt(c - 1)) { b--; c--; }
+    const changes = {from: a, to: b, insert: after.slice(a, c)};
+    if (buf.id === S.current) view.dispatch({changes}); else buf.state = buf.state.update({changes}).state;
+    S.indexStale = true;
+    return true;
+  }
+  // Saves and compiles; resolves once the new PDF has replaced the page `el` is on.
+  async function typeset(el) {
+    while (S.compiling) await sleep(150);
+    await compile();
+    for (let i = 0; el?.isConnected && i < 40 && S.build.latest?.status === 'succeeded'; i++) await sleep(100);
+  }
+  // Waits until the PDF on screen is the latest build and its pages are laid out.
+  async function pdfReady() {
+    for (let i = 0; i < 80; i++) {
+      if (S.build.pdf?.pdfUrl && pdf.shownUrl === S.build.pdf.pdfUrl && pdf.place({page: 1, x: 0, y: 0})) return true;
+      await sleep(100);
+    }
+    return false;
+  }
+  const union = boxes => {
+    const x = Math.min(...boxes.map(b => b.x)), y = Math.min(...boxes.map(b => b.y));
+    return {page: boxes[0].page, x, y, width: Math.max(...boxes.map(b => b.x + b.width)) - x, height: Math.max(...boxes.map(b => b.y + b.height)) - y};
+  };
+  let lastBlock = null; // {fileId, to}: the paragraph last edited, where Insert adds after
+
+  async function editInPdf(point) {
+    if (pdfEdit) { await finishPdfEdit(); return; }
+    const p = S.build.pdf;
+    if (!caps.toSource || !p?.sync?.toSource) { toast(p ? 'Recompile to edit this PDF in place.' : 'Compile first, then click the text to edit it.'); return; }
+    let r;
+    try { r = await backend.toSource(p.id, point); } catch (e) { toast(e.message, {kind: 'error'}); return; }
+    await openPdfEditor(r.id, r.line, {point, old: r.stale || stale()});
+  }
+
+  async function openPdfEditor(fileId, line, {point = null, old = false, select = null} = {}) {
+    const f = fileOf(fileId), p = S.build.pdf;
+    if (!f || f.kind !== 'tex' || f.binary) { toast('That part of the PDF has no LaTeX source here.'); return; }
+    const buf = await loadBuffer(fileId);
+    if (!buf) return;
+    if (buf.readOnly) { toast(`${f.label || f.path} is read-only.`); return; }
+    const doc = (buf.id === S.current ? view.state : buf.state).doc;
+    const range = paragraphAround(doc.toString(), line);
+    if (!range) { toast('There is no text on that line to edit.'); return; }
+    const from = doc.line(range.from).from, to = doc.line(range.to).to, original = doc.sliceString(from, to);
+    // Where the paragraph is on the page: its lines' boxes, else around the click.
+    const lines = [...new Set([range.from, line, range.to])];
+    const boxes = caps.toPdf && p?.sync?.toPdf ? (await Promise.all(lines.map(l => backend.toPdf(p.id, fileId, l, 0).catch(() => null)))).filter(b => b?.page) : [];
+    const pageNo = point?.page || boxes[0]?.page;
+    const onPage = boxes.filter(b => b.page === pageNo && b.width > 0);
+    let at = onPage.length ? pdf.place(union(onPage)) : null;
+    if (!at && point) {
+      const a = pdf.place({page: point.page, x: 0, y: point.y});
+      if (a) at = {...a, left: a.pageWidth * 0.12, width: a.pageWidth * 0.76, top: a.top - 12, height: 24};
+    }
+    if (!at) { toast('That part of the PDF is not laid out yet. Try again in a moment.'); return; }
+    const width = Math.min(at.pageWidth - 16, Math.max(380, at.width + 28));
+    const left = Math.max(8, Math.min(at.left - 14, at.pageWidth - width - 8));
+    const status = h('span', {class: 'pdf-edit-status'}, old ? 'The PDF is out of date here' : '');
+    const host = h('div', {class: 'pdf-edit-cm'});
+    const lineLabel = range.from === range.to ? `line ${range.from}` : `lines ${range.from}–${range.to}`;
+    const el = h('div', {class: 'pdf-edit', role: 'dialog', 'aria-label': `Edit ${f.label || f.path}, ${lineLabel}`,
+      style: {left: `${left}px`, top: `${Math.max(4, at.top - 10)}px`, width: `${width}px`},
+      onpointerdown: e => e.stopPropagation(), onclick: e => e.stopPropagation()},
+      h('div', {class: 'pdf-edit-head'}, h('span', {class: 'path', title: f.path}, `${f.label || f.path} · ${lineLabel}`), status, h('span', {class: 'spacer'}),
+        h('button', {type: 'button', class: 'btn ghost sm', title: 'Discard this edit (Esc)', onclick: () => closePdfEdit()}, 'Cancel'),
+        h('button', {type: 'button', class: 'btn primary sm', title: `Save and typeset (${mod}↩)`, onclick: () => void finishPdfEdit()}, 'Done')),
+      host);
+    at.div.append(el);
+    const commit = () => (void finishPdfEdit(), true);
+    const cancel = () => { if (document.querySelector('.cm-tooltip-autocomplete')) return false; closePdfEdit(); return true; };
+    const ed = new EditorView({parent: host, state: makeState(original, {kind: 'tex', getIndex, settings,
+      onUpdate: u => { if (u.selectionSet || u.docChanged) pdfToolbar.update(false, S.pdfSymbols); },
+      commands: [{key: 'Mod-Enter', run: commit}, {key: 'Mod-s', run: commit}, {key: 'Escape', run: cancel},
+        {key: 'Mod-b', run: v => (toggleWrap(v, '\\textbf{', '}'), true)}, {key: 'Mod-i', run: v => (toggleWrap(v, '\\textit{', '}'), true)}]})});
+    pdfEdit = {buf, fileId, from, to, original, ed, el, range};
+    const i = select ? original.indexOf(select) : -1;
+    if (i >= 0) ed.dispatch({selection: {anchor: i, head: i + select.length}});
+    else ed.dispatch({selection: {anchor: ed.state.doc.line(Math.max(1, Math.min(ed.state.doc.lines, line - range.from + 1))).from}});
+    ed.focus();
+    // Clicking away saves; moving to the tools, the palette or the panel does not.
+    el.addEventListener('focusout', () => setTimeout(() => {
+      if (pdfEdit?.el !== el || pdfEdit.busy || !document.hasFocus() || el.contains(document.activeElement)) return;
+      if (document.activeElement?.closest?.('.pdf-tools, .symbol-palette, .doc-panel, .menu')) return;
+      void finishPdfEdit();
+    }, 0));
+    renderPdfTools();
+    el.scrollIntoView({block: select ? 'center' : 'nearest'});
+  }
+
+  async function finishPdfEdit() {
+    const e = pdfEdit;
+    if (!e || e.busy) return;
+    const next = e.ed.state.doc.toString();
+    lastBlock = {fileId: e.fileId, to: e.range.from + next.split('\n').length - 1};
+    if (next === e.original) { closePdfEdit(); return; }
+    const live = e.buf.id === S.current ? view.state : e.buf.state;
+    if (live.doc.sliceString(e.from, e.to) !== e.original) {
+      toast('This paragraph changed elsewhere while you were editing it. Click it again to edit the new version.', {kind: 'error'});
+      return;
+    }
+    e.busy = true;
+    e.el.classList.add('saving');
+    e.el.querySelector('.pdf-edit-status').textContent = 'Typesetting…';
+    const changes = {from: e.from, to: e.to, insert: next};
+    if (e.buf.id === S.current) view.dispatch({changes}); else e.buf.state = e.buf.state.update({changes}).state;
+    S.indexStale = true;
+    await typeset(e.el);
+    if (pdfEdit === e) closePdfEdit();
+  }
+  function closePdfEdit() {
+    const e = pdfEdit;
+    if (!e) return;
+    pdfEdit = null;
+    e.ed.destroy();
+    e.el.remove();
+    renderPdfTools();
+  }
+
+  function insertMenu(anchor) {
+    const groups = [['paragraph', 'section', 'subsection'],
+      ['theorem', 'lemma', 'proposition', 'corollary', 'definition', 'remark', 'example', 'conjecture', 'proof'],
+      ['equation', 'display', 'itemize', 'enumerate', 'figure', 'table']];
+    menu(anchor, groups.flatMap((g, i) => [...(i ? [{separator: true}] : []), ...g.map(k => ({label: BLOCKS[k].label, onClick: () => void insertInPdf(k)}))]));
+  }
+  // Adds a block after the paragraph last edited (else at the end of the
+  // document), typesets, and opens it for editing with its text selected.
+  async function insertInPdf(kind) {
+    const block = BLOCKS[kind];
+    if (!S.main) { toast('Choose a main document first.'); return; }
+    if (pdfEdit) await finishPdfEdit();
+    const target = lastBlock && fileOf(lastBlock.fileId) ? lastBlock : null;
+    const fileId = target?.fileId || S.main;
+    let shift = 0;
+    if (block.env) {
+      const before = textOf(S.main)?.split('\n').length || 0;
+      await editFile(S.main, t => ensureEnvironment(t, block.env, [...getIndex().environments]));
+      if (fileId === S.main) shift = (textOf(S.main)?.split('\n').length || 0) - before;
+    }
+    let line = 0;
+    const ok = await editFile(fileId, t => { const r = insertBlock(t, block.text, target ? target.to + shift : 0); line = r.line; return r.text; });
+    if (!ok || !line) return;
+    lastBlock = {fileId, to: line + block.text.split('\n').length - 1};
+    await typeset(null);
+    if (S.build.latest?.status !== 'succeeded' || !(await pdfReady())) return;
+    await openPdfEditor(fileId, line, {select: block.select});
+  }
+
+  function renderPdfTools() {
+    const sync = caps.toSource && S.build.pdf?.sync?.toSource;
+    pdfToolbar.update(!pdfEdit, S.pdfSymbols);
+    els.pdfHint.textContent = pdfEdit ? '' : !S.build.pdf ? '' : !sync ? 'Recompile to edit in place' : S.syncClicks ? 'Click any text to edit it' : 'Turn on click to edit (pointer button)';
+    els.pdfWrap.classList.toggle('pdf-editable', S.layout === 'pdf' && !!sync && S.syncClicks);
+    els.pdfTools.querySelector('.doc-btn')?.setAttribute('aria-pressed', String(!!S.docPanel));
+  }
+
+  // The Document panel: the preamble of the main file as settings.
+  function renderDocPanel() {
+    if (S.layout !== 'pdf' || !S.docPanel) { els.docPanel.hidden = true; return; }
+    els.docPanel.hidden = false;
+    if (els.docPanel.contains(document.activeElement) && document.activeElement.matches('input')) return; // don't disturb typing
+    const text = S.main ? textOf(S.main) : null;
+    const head = h('div', {class: 'doc-panel-head'}, h('strong', {}, 'Document'),
+      button({iconName: 'x', title: 'Hide the Document panel', cls: 'ghost icon-only sm', onClick: () => { S.docPanel = false; setPref('docPanel', false); renderDocPanel(); renderPdfTools(); }}));
+    if (typeof text !== 'string') {
+      replace(els.docPanel, head, h('p', {class: 'doc-panel-note'}, S.main ? 'Loading…' : 'Choose a main document to set up its title, page and type.'));
+      if (S.main) void loadBuffer(S.main).then(b => { if (b) renderDocPanel(); });
+      return;
+    }
+    const d = readDocument(text), main = fileOf(S.main);
+    const change = fn => void (async () => { if (await editFile(S.main, fn)) { renderDocPanel(); await typeset(null); } })();
+    const field = (label, control, hint) => h('label', {class: 'doc-field'}, h('span', {}, label), control, hint ? h('small', {}, hint) : null);
+    const input = (value, placeholder, apply) => h('input', {type: 'text', value: value ?? '', placeholder, spellcheck: false,
+      onchange: e => change(t => apply(t, e.target.value)), onkeydown: e => { if (e.key === 'Enter') e.target.blur(); }});
+    const select = (options, value, apply) => h('select', {onchange: e => change(t => apply(t, e.target.value))},
+      options.map(([v, label]) => h('option', {value: v, selected: v === value}, label)));
+    const classes = CLASSES.includes(d.cls) || !d.cls ? CLASSES : [...CLASSES, d.cls];
+    replace(els.docPanel, head,
+      h('h4', {}, 'Title'),
+      field('Title', input(d.title, 'Untitled', (t, v) => setCommand(t, 'title', v))),
+      field('Author', input(d.author, 'Your name', (t, v) => setCommand(t, 'author', v))),
+      field('Date', input(d.date, "Today's date", (t, v) => setCommand(t, 'date', v)), 'Leave as is for today, or write \\today or a date.'),
+      h('h4', {}, 'Page'),
+      field('Document class', select(classes.map(c => [c, c]), d.cls, (t, v) => setClass(t, v))),
+      field('Type size', select(SIZES.map(s => [s, s]), d.size, (t, v) => setClassOption(t, SIZES, v === '10pt' ? '' : v))),
+      field('Paper', select([['', 'Class default'], ...PAPERS], d.paper, (t, v) => setClassOption(t, PAPERS.map(([p]) => p), v))),
+      field('Margins', select(MARGINS, d.margin, (t, v) => setMargin(t, v))),
+      field('Line spacing', select(SPACINGS, d.spacing, (t, v) => setSpacing(t, v))),
+      h('h4', {}, 'Type'),
+      field('Font', select(FONTS.map(f => [f.id, f.label]), d.font, (t, v) => setFont(t, v))),
+      h('p', {class: 'doc-panel-note'}, `Each setting is a line in the preamble of ${main?.label || main?.path || 'the main file'}, and typesets again when you change it.`));
+  }
+
   // ------------------------------------------------------------ render --
-  function setLayout(l) { S.layout = l; setPref('layout', l); renderFrame(); }
+  function setLayout(l) {
+    if (pdfEdit && l !== 'pdf') void finishPdfEdit();
+    S.layout = l; setPref('view', l); renderFrame(); renderPdf(); renderDocPanel();
+    if (l === 'pdf') freshen();
+  }
   function renderFrame() {
     root.dataset.layout = S.layout;
     root.dataset.files = S.showFiles ? 'on' : 'off';
@@ -946,12 +1203,13 @@ export async function start(root, backend) {
   function renderPdf() {
     renderPdfStatus();
     renderPdfControls();
+    renderPdfTools();
     const p = S.build.pdf;
     const sync = caps.toSource && p?.sync?.toSource;
     replace(els.pdfHead, icon('book', 15), h('strong', {class: 'path'}, S.main ? fileOf(S.main)?.label || '' : 'PDF'), els.chip,
       h('div', {class: 'spacer'}), els.pdfControls,
       p?.pdfUrl ? button({iconName: 'search', title: 'Search the PDF', cls: 'ghost icon-only sm', pressed: S.pdfSearch, onClick: () => togglePdfSearch()}) : null,
-      sync ? button({iconName: 'pointer', title: S.syncClicks ? 'Clicking the PDF opens the source (on)' : 'Clicking the PDF opens the source (off)', cls: 'ghost icon-only sm', pressed: S.syncClicks,
+      sync ? button({iconName: 'pointer', title: S.layout === 'pdf' ? `Clicking the PDF edits its LaTeX (${S.syncClicks ? 'on' : 'off'})` : `Clicking the PDF opens the source (${S.syncClicks ? 'on' : 'off'})`, cls: 'ghost icon-only sm', pressed: S.syncClicks,
         onClick: () => { S.syncClicks = !S.syncClicks; setPref('sync', S.syncClicks); renderPdf(); }}) : null,
       p?.pdfUrl ? h('a', {class: 'btn ghost icon-only sm', href: p.pdfUrl, download: `${(fileOf(S.main)?.path || 'document').split('/').pop().replace(/\.tex$/i, '')}.pdf`, title: 'Download PDF', 'aria-label': 'Download PDF'}, icon('download', 15)) : null,
       p?.pdfUrl ? h('button', {type: 'button', class: 'btn ghost icon-only sm', title: 'More PDF options', 'aria-label': 'More PDF options', 'aria-haspopup': 'menu', onclick: e => menu(e.currentTarget, [
@@ -1064,8 +1322,9 @@ export async function start(root, backend) {
   renderDocuments();
   await refreshFiles();
   const first = [info.initialFile, pref('open', null), S.main].find(id => id && fileOf(id) && editable(fileOf(id).kind));
-  if (first) await open(first, {focus: false});
+  if (first) await open(first, {focus: false, reveal: false});
   renderAll();
-  void loadBuilds({quiet: true});
+  renderDocPanel();
+  void loadBuilds({quiet: true}).then(() => freshen());
   backend.notify('ready');
 }

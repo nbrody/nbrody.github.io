@@ -8,6 +8,9 @@ export const COLOR_LABELS = {
 };
 
 export const PALETTES = [
+  { id: 'beamer-blue', name: 'Beamer Blue', colors: { bg: '#ffffff', surface: '#e8edf7', text: '#14265a', muted: '#4e5e7a', accent: '#253f82', accent2: '#879bd0' } },
+  { id: 'beamer-indigo', name: 'Beamer Indigo', colors: { bg: '#ffffff', surface: '#e8eaf4', text: '#202347', muted: '#565a79', accent: '#303a78', accent2: '#8d96c3' } },
+  { id: 'beamer-plum', name: 'Beamer Plum', colors: { bg: '#ffffff', surface: '#f1eaf1', text: '#38233c', muted: '#715e73', accent: '#704976', accent2: '#b79bb9' } },
   { id: 'midnight', name: 'Midnight', colors: { bg: '#0b1020', surface: '#18203a', text: '#e9edf8', muted: '#97a3c4', accent: '#7c9cff', accent2: '#f6a85b' } },
   { id: 'paper', name: 'Paper', colors: { bg: '#faf7f0', surface: '#efe8d9', text: '#211e1a', muted: '#736d62', accent: '#b0452a', accent2: '#2f6c8f' } },
   { id: 'ocean', name: 'Harbor', colors: { bg: '#f4f8f9', surface: '#e2eef0', text: '#152c3e', muted: '#5f7987', accent: '#087e6c', accent2: '#d9822b' } },
@@ -60,10 +63,27 @@ export const FONT_PAIRS = [
   { id: 'system', name: 'System', heading: 'Helvetica', body: 'System UI', mono: 'Menlo' },
 ];
 
+// Complete presets: colors, typography and recurring slide decoration. Selecting
+// one does not rewrite or move the user's slide elements or backgrounds.
+export const THEMES = [
+  { id: 'beamer-madrid', name: 'Madrid', family: 'Beamer inspired', palette: 'beamer-blue', fontPair: 'system', chrome: 'beamer-bars', description: 'Blue header and footer bands' },
+  { id: 'beamer-berlin', name: 'Berlin', family: 'Beamer inspired', palette: 'beamer-indigo', fontPair: 'system', chrome: 'beamer-rail', description: 'Indigo navigation bands' },
+  { id: 'beamer-darmstadt', name: 'Darmstadt', family: 'Beamer inspired', palette: 'beamer-plum', fontPair: 'system', chrome: 'beamer-rule', description: 'Plum rules and a quiet footer' },
+  { id: 'modern-canvas', name: 'Canvas', family: 'Modern', palette: 'swiss', fontPair: 'modern', chrome: 'none', description: 'Bright and minimal' },
+  { id: 'modern-stage', name: 'Stage', family: 'Modern', palette: 'midnight', fontPair: 'modern', chrome: 'modern-line', description: 'Dark canvas with a fine accent' },
+  { id: 'modern-editorial', name: 'Editorial', family: 'Modern', palette: 'paper', fontPair: 'editorial', chrome: 'modern-corner', description: 'Warm paper and expressive type' },
+];
+
+export function themeFromPreset(preset) {
+  const p = PALETTES.find(x => x.id === preset.palette), f = FONT_PAIRS.find(x => x.id === preset.fontPair);
+  if (!p || !f) throw new Error('Invalid presentation theme');
+  return { preset: preset.id, chrome: preset.chrome, palette: p.id, colors: { ...p.colors }, fontPair: f.id, fonts: { heading: f.heading, body: f.body, mono: f.mono } };
+}
+
 export const FONT_ROLES = ['heading', 'body', 'mono'];
 
 export function defaultTheme() {
-  const p = PALETTES[0], f = FONT_PAIRS[0];
+  const p = PALETTES.find(x => x.id === 'midnight'), f = FONT_PAIRS[0];
   return { palette: p.id, colors: { ...p.colors }, fontPair: f.id, fonts: { heading: f.heading, body: f.body, mono: f.mono } };
 }
 

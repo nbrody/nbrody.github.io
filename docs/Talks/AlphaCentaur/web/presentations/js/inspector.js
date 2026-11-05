@@ -2,9 +2,10 @@
 // when nothing is selected); "Design" holds the deck theme and settings.
 
 import { app, currentSlide, selectedEls } from './state.js';
-import { PALETTES, FONT_PAIRS, FONTS, SYSTEM_FONTS, COLOR_TOKENS, COLOR_LABELS, fontStack } from './themes.js';
+import { THEMES, themeFromPreset, PALETTES, FONT_PAIRS, FONTS, SYSTEM_FONTS, COLOR_TOKENS, COLOR_LABELS, fontStack } from './themes.js';
 import { TEXT_STYLES, TYPE_LABELS, SHAPES, applyTextStyle } from './model.js';
 import { SHADOW_NAMES, ANIMS, buildSteps, embedURL } from './render.js';
+import { revealOrder } from './reveals.js';
 import { APPLETS } from './applets.js';
 import { remoteDesignSection, remoteSlideSection } from './remote-inspector.js';
 import {
@@ -86,14 +87,15 @@ function header(title, ic, actions = []) {
 }
 
 // ------------------------------------------------------------- element --
-const TYPE_ICON = { text: 'text', math: 'sigma', image: 'image', shape: 'shapes', embed: 'globe', applet: 'code' };
+const TYPE_ICON = { text: 'text', math: 'sigma', image: 'image', shape: 'shapes', embed: 'globe', applet: 'code', console: 'terminal' };
 
 function elementPanel(el) {
-  const out = [header(el.type === 'applet' ? el.name || 'Applet' : el.type === 'shape' ? SHAPES[el.shape] : TYPE_LABELS[el.type], TYPE_ICON[el.type], [
+  const out = [header(el.type === 'applet' ? el.name || 'Applet' : el.type === 'console' ? TYPE_LABELS.console : el.type === 'shape' ? SHAPES[el.shape] : TYPE_LABELS[el.type], TYPE_ICON[el.type], [
     button('Duplicate', 'copy', () => app.action('duplicate'), { cls: 'ghost sm', title: 'Duplicate (⌘D)' }),
     button('Delete', 'trash', () => app.action('delete'), { cls: 'ghost sm', title: 'Delete' }),
   ])];
   const els = [el];
+  out.push(buildSection(els));
   switch (el.type) {
     case 'text': out.push(...textSections(els)); break;
     case 'math': out.push(...mathSections(el)); break;
@@ -101,8 +103,9 @@ function elementPanel(el) {
     case 'shape': out.push(...shapeSections(el)); break;
     case 'embed': out.push(...embedSections(el)); break;
     case 'applet': out.push(...appletSections(el)); break;
+    case 'console': out.push(...consoleSections(el)); break;
   }
-  out.push(arrangeSection(el), effectsSection(els), buildSection(els));
+  out.push(arrangeSection(el), effectsSection(els));
   return out;
 }
 
@@ -260,6 +263,31 @@ function appletSections(el) {
   )];
 }
 
+function consoleSections(el) {
+  const code = h('textarea.code.console-code', { spellcheck: false, rows: 9, 'aria-label': 'Python code', 'data-focus': 'code' });
+  code.value = el.code || '';
+  code.addEventListener('keydown', e => {
+    if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); document.execCommand('insertText', false, '    '); }
+    e.stopPropagation();   // typing here is not a slide shortcut
+  });
+  code.addEventListener('input', () => { el.code = code.value; });
+  code.addEventListener('change', () => app.mutate(() => { el.code = code.value; }, { parts: ['canvas', 'thumb'] }));
+  const flag = (label, prop) => toggle(label, el[prop], v => app.mutate(() => { el[prop] = v; }, { parts: ['canvas', 'thumb', 'inspector'] }));
+  return [section('Python console',
+    field('Code', code, { cls: 'block' }),
+    h('div.btn-row', null,
+      button('Use the console', 'hand', () => app.action('interact'), { showLabel: true, cls: 'primary' }),
+      button('Reload', 'reload', () => app.action('reload'), { cls: 'ghost', title: 'Reload the console (clears its output)' })),
+    field('Title', inputText(el, 'name', 'Python')),
+    row(numRow('Text size', [el], 'size', { min: 10, max: 80, suffix: 'px' }),
+      field('Look', segmented([['terminal', 'Terminal'], ['deck', 'Deck colors']], el.look, v => app.mutate(() => { el.look = v; }, { parts: ['canvas', 'thumb'] })))),
+    field('Presenting', flag('Run the code when the slide opens', 'autorun'), { cls: 'block' }),
+    field('Prompt', flag('Show a >>> line for more Python', 'prompt'), { cls: 'block' }),
+    h('p.hint', null, 'Inside AlphaCentaur the code runs in its sandboxed Python, with numpy, sympy, matplotlib and flint. In an exported deck it runs in the browser with Pyodide, downloaded the first time (a network connection is needed). Names carry over between consoles. Shift+Enter runs; Esc leaves the code so arrow keys move the slides again.'),
+    row(numRow('Radius', [el], 'radius', { min: 0, max: 200, suffix: 'px' }), field('Border', colorControlMini([el], 'stroke'))),
+  )];
+}
+
 function arrangeSection(el) {
   const s = k => setter([el], k);
   geo.x = numberInput(el.x, { step: 1, ...s('x') });
@@ -291,16 +319,20 @@ function effectsSection(els) {
 
 function buildSection(els) {
   const el = els[0], slide = currentSlide();
-  const others = slide.elements.filter(e => !els.includes(e) && e.build > 0);
-  const maxStep = Math.max(0, ...others.map(e => e.build + buildSteps(e) - 1));
-  const opts = [['0', 'With the slide']];
-  for (let k = 1; k <= maxStep + 1; k++) opts.push([String(k), k === maxStep + 1 ? `On click ${k} (new)` : `On click ${k}`]);
-  if (el.build > maxStep + 1) opts.push([String(el.build), `On click ${el.build}`]);
-  return section('Build',
-    row(field('Appears', select(opts, String(el.build || 0), v => { app.mutate(() => els.forEach(e => { e.build = +v; }), { parts: ['canvas', 'overlay', 'thumb', 'inspector'] }); })),
-      el.build ? field('Animation', select(Object.entries(ANIMS), el.anim || 'fade', setter(els, 'anim').onChange)) : null),
-    el.build && el.type === 'text' ? field('Reveal', segmented([['element', 'Whole box'], ['paragraph', 'By paragraph']], el.buildBy || 'element', v => { app.mutate(() => els.forEach(e => { e.buildBy = v; }), { parts: ['overlay', 'thumb', 'inspector'] }); })) : null,
-    h('p.hint', null, 'Builds play in Present and in the exported file: each click reveals the next step.'),
+  const order = revealOrder(slide.elements, buildSteps);
+  const last = order.at(-1) || 0;
+  const next = Math.min(999, last + 1);
+  const setBuild = value => app.mutate(() => els.forEach(e => { e.build = value; }), { parts: ['canvas', 'overlay', 'thumb', 'inspector'] });
+  const opts = order.map((step, i) => [String(step), `Click ${i + 1}`]);
+  if (next > last) opts.push([String(next), `Click ${order.length + 1} (after all others)`]);
+  const mixed = els.some(e => !!e.build !== !!el.build || e.build !== el.build);
+  return section('Step-through reveal',
+    h('p.hint', null, mixed ? 'Selected objects have different reveal settings. Choose one setting to apply it to all.' : 'Choose when this appears while presenting.'),
+    field('Show', segmented([['start', 'With slide'], ['click', 'On a click']], el.build ? 'click' : 'start', v => setBuild(v === 'start' ? 0 : (el.build || next)))),
+    el.build ? field('Reveal on', select(opts, String(el.build), v => setBuild(+v))) : null,
+    el.build ? field('Animation', select(Object.entries(ANIMS), el.anim || 'fade', setter(els, 'anim').onChange)) : null,
+    el.build && els.every(e => e.type === 'text') ? field('Reveal', segmented([['element', 'Whole box'], ['paragraph', 'One paragraph at a time']], el.buildBy || 'element', v => { app.mutate(() => els.forEach(e => { e.buildBy = v; }), { parts: ['overlay', 'thumb', 'inspector'] }); })) : null,
+    h('p.hint', null, el.build ? 'Hidden at first. Each advance reveals the next step; objects assigned to the same click appear together. Purple numbers show click order in the editor.' : 'To hide this until a later click, choose “On a click”. Objects stay visible while editing.'),
   );
 }
 
@@ -311,6 +343,7 @@ function multiPanel(sel) {
     button('Duplicate', 'copy', () => app.action('duplicate'), { cls: 'ghost sm' }),
     button('Delete', 'trash', () => app.action('delete'), { cls: 'ghost sm' }),
   ])];
+  out.push(buildSection(sel));
   out.push(section('Align',
     field('To each other', h('div.icon-row', null,
       ...[['alignL', 'left'], ['alignC', 'center'], ['alignR', 'right'], ['alignT', 'top'], ['alignM', 'middle'], ['alignB', 'bottom']]
@@ -332,7 +365,7 @@ function multiPanel(sel) {
       colorRow('Color', sel, 'color'),
     ));
   }
-  out.push(effectsSection(sel), buildSection(sel));
+  out.push(effectsSection(sel));
   return out;
 }
 
@@ -385,6 +418,20 @@ function slidePanel() {
 function designPanel() {
   const deck = app.deck, theme = deck.theme;
   const setTheme = (fn, rebuild = true) => app.mutate(() => fn(theme), { parts: ['canvas', 'slides', ...(rebuild ? ['inspector'] : [])] });
+  const presets = h('div.theme-presets');
+  for (const family of ['Beamer inspired', 'Modern']) {
+    const cards = h('div.palette-grid');
+    for (const preset of THEMES.filter(t => t.family === family)) {
+      const preview = themeFromPreset(preset);
+      ensureFontHook.fn(preview.fonts.heading); ensureFontHook.fn(preview.fonts.body);
+      const on = theme.preset === preset.id && theme.chrome === preset.chrome && COLOR_TOKENS.every(k => theme.colors[k].toLowerCase() === preview.colors[k].toLowerCase()) && ['heading', 'body', 'mono'].every(k => theme.fonts[k] === preview.fonts[k]);
+      cards.append(h('button.palette-card.theme-card' + (on ? '.on' : ''), {
+        type: 'button', title: preset.description, 'aria-pressed': String(on), style: { background: preview.colors.bg, color: preview.colors.text, borderTop: `5px solid ${preview.colors.accent}` },
+        onclick: () => { ensureFontHook.fn(preview.fonts.heading); ensureFontHook.fn(preview.fonts.body); ensureFontHook.fn(preview.fonts.mono); setTheme(t => Object.assign(t, themeFromPreset(preset))); },
+      }, h('span.pc-aa', { style: { fontFamily: fontStack(preview.fonts.heading) } }, 'Aa'), h('span.pc-name', { style: { color: preview.colors.text } }, preset.name)));
+    }
+    presets.append(h('p.hint', null, family), cards);
+  }
   const pal = h('div.palette-grid');
   for (const p of PALETTES) {
     const on = theme.palette === p.id && COLOR_TOKENS.every(t => theme.colors[t].toLowerCase() === p.colors[t].toLowerCase());
@@ -423,6 +470,7 @@ function designPanel() {
   macros.value = s.macros || '';
   macros.addEventListener('change', () => app.mutate(() => { s.macros = macros.value; }, { parts: ['canvas', 'slides'] }));
   return [
+    section('Themes', presets, h('p.hint', null, 'Applies colors, fonts and slide accents. Existing elements and backgrounds stay in place.')),
     section('Color palette', pal, h('details.more', null, h('summary', null, 'Customize colors'), colors)),
     section('Fonts', pairs, h('details.more', null, h('summary', null, 'Choose fonts individually'),
       field('Headings', fontSel('heading')), field('Body', fontSel('body')), field('Code', fontSel('mono')))),

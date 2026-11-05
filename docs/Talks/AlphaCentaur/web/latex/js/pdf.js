@@ -1,5 +1,6 @@
 // PDF view on pdf.js: text selection, links, zoom, page navigation, a click
-// on the page reported as a SyncTeX point, and highlighted SyncTeX targets.
+// on the page reported as a SyncTeX point, highlighted SyncTeX targets, and
+// places on a page for overlays (editing a paragraph in place).
 //
 // Each document loads into its own layer. A new build renders behind the
 // current one at the same zoom and scroll position and replaces it once its
@@ -66,6 +67,7 @@ export class PdfView {
         shown = true;
         layer.scroller.classList.remove('behind');
         this.layer = layer;
+        this.shownUrl = url; // the document on screen now (app.js waits for it)
         if (previous) { previous.scroller.remove(); void previous.doc?.destroy(); }
         this.emit({loading: false, pages: doc.numPages, page: layer.viewer.currentPageNumber, zoom: Math.round(layer.viewer.currentScale * 100)});
         if (this.query) this.find(this.query, {quiet: true});
@@ -161,21 +163,29 @@ export class PdfView {
     addEventListener('keydown', key, true);
     document.addEventListener('fullscreenchange', exit);
   }
-  // Scrolls to and briefly highlights a box given in big points from the
-  // page's top left (SyncTeX's units).
-  highlight({page, x, y, width, height}) {
+  // A box given in big points from a page's top left (SyncTeX's units), in
+  // pixels of that page's element, where an overlay can be placed.
+  place({page, x, y, width = 0, height = 0}) {
     const view = this.viewer?.getPageView(page - 1);
-    if (!view?.viewport) return false;
+    if (!view?.viewport) return null;
     const vp = view.viewport, [left, , , top] = vp.viewBox, unit = vp.userUnit || 1;
     const [x1, y1] = vp.convertToViewportPoint(left + x / unit, top - y / unit);
     const [x2, y2] = vp.convertToViewportPoint(left + (x + width) / unit, top - (y + height) / unit);
-    const box = {left: Math.min(x1, x2) - 3, top: Math.min(y1, y2) - 2, width: Math.abs(x2 - x1) + 6, height: Math.abs(y2 - y1) + 4};
+    return {div: view.div, left: Math.min(x1, x2), top: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1),
+      pageWidth: vp.width, pageHeight: vp.height};
+  }
+  // Scrolls to and briefly highlights a box given in big points from the
+  // page's top left (SyncTeX's units).
+  highlight(target) {
+    const at = this.place(target);
+    if (!at) return false;
+    const box = {left: at.left - 3, top: at.top - 2, width: at.width + 6, height: at.height + 4};
     const mark = h('div', {class: 'sync-mark', style: {left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`}});
-    view.div.append(mark);
+    at.div.append(mark);
     setTimeout(() => mark.remove(), 2200);
     const scroller = this.layer.scroller;
-    scroller.scrollTo({top: Math.max(0, view.div.offsetTop + box.top - scroller.clientHeight / 3),
-      left: Math.max(0, view.div.offsetLeft + box.left - 40)});
+    scroller.scrollTo({top: Math.max(0, at.div.offsetTop + box.top - scroller.clientHeight / 3),
+      left: Math.max(0, at.div.offsetLeft + box.left - 40)});
     return true;
   }
 }

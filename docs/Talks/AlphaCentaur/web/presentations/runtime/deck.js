@@ -109,7 +109,15 @@
       notesEl.appendChild(document.createTextNode(n ? n.textContent : '—'));
     }
     try { if (parent !== window) parent.postMessage({ type: 'pz-state', index: current, count: order.length }, '*'); } catch (e) {}
+    visible(order[current]);
     emitState();
+  }
+  // Python consoles on the slide being shown may run their code (autorun).
+  function visible(o) {
+    if (!o || thumb) return;
+    Array.prototype.forEach.call(o.el.querySelectorAll('.pz-console iframe'), function (f) {
+      try { f.contentWindow.postMessage({ type: 'pz-visible' }, '*'); } catch (e) {}
+    });
   }
 
   // Scrolling or swiping forward first reveals pending builds.
@@ -142,6 +150,8 @@
     lockAnchors: false,
     fitToSection: true,
     scrollOverflow: false,
+    // Over an embedded page or applet the wheel and touch scroll that page, never the slides.
+    normalScrollElements: '.pz-embed,.pz-applet,.pz-console',
     touchSensitivity: 12,
     loopHorizontal: false,
     onLeave: function (origin, destination, direction) {
@@ -223,6 +233,11 @@
 
   addEventListener('message', function (e) {
     var d = e.data || {};
+    // A console that has just loaded on the slide being shown.
+    if (d.type === 'pz-py' && d.op === 'hello') {
+      var o = order[current];
+      if (o) Array.prototype.forEach.call(o.el.querySelectorAll('.pz-console iframe'), function (f) { if (f.contentWindow === e.source) visible({ el: f.parentNode }); });
+    }
     if (d.type === 'iframeNav') { if (d.direction === 'next') next(); else if (d.direction === 'prev') prev(); else if (d.direction === 'exit' && parent !== window) parent.postMessage({ type: 'pz-exit' }, '*'); }
     if (d.type === 'pz-control' && e.source === parent) {
       if (thumb) { if (typeof d.index === 'number') jump(d.index, +d.step || 0); return; }

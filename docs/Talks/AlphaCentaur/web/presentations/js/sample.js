@@ -13,7 +13,7 @@ export function sampleDeck() {
 
   const title = makeSlide([
     makeShape('rect', { x: 166, y: 318, w: 120, h: 12, extra: { radius: 6, fill: 'accent' } }),
-    makeText({ role: 'eyebrow', x: 160, y: 250, w: 1200, h: 40, html: '<p>alphaPresent · alphaCentaur</p>' }),
+    makeText({ role: 'eyebrow', x: 160, y: 250, w: 1200, h: 40, html: '<p>alphaPresent · AlphaCentaur</p>' }),
     makeText({ role: 'title', x: 160, y: 360, w: 1500, h: 120, html: '<p>Slides that are web pages</p>' }),
     makeText({ role: 'subtitle', x: 160, y: 520, w: 1300, h: 70, html: '<p>Text, LaTeX, images, shapes and live applets — saved as one fullPage.js HTML file.</p>' }),
   ], { bg: { kind: 'gradient', color: 'bg', color2: 'surface', angle: 160 }, notes: 'Welcome! Press N while presenting to show these notes; F for fullscreen.' });

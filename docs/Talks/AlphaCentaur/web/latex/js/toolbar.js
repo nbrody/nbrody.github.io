@@ -7,11 +7,14 @@ import {SYMBOLS, SYMBOL_GROUPS} from './symbols.js';
 const HEADINGS = [['', 'Normal text'], ['part', 'Part'], ['chapter', 'Chapter'], ['section', 'Section'], ['subsection', 'Subsection'],
   ['subsubsection', 'Subsubsection'], ['paragraph', 'Paragraph'], ['subparagraph', 'Subparagraph']];
 
-export function formattingToolbar({view, onSymbols}) {
+// `getView` gives the editor the tools act on: the source editor, or the
+// paragraph being edited on the PDF (null when none is open).
+export function formattingToolbar({view, getView = () => view, onSymbols, onNoEditor}) {
+  const act = run => { const v = getView(); if (v) run(v); else onNoEditor?.(); };
   const tool = (name, title, run, cls = '') => h('button', {type: 'button', class: `tool ${cls}`, title, 'aria-label': title,
-    onmousedown: e => e.preventDefault(), onclick: () => run(view)}, icon(name, 15));
+    onmousedown: e => e.preventDefault(), onclick: () => act(run)}, icon(name, 15));
   const heading = h('select', {class: 'tool-select', 'aria-label': 'Paragraph style', title: 'Section heading',
-    onchange: e => setHeading(view, e.target.value)}, HEADINGS.map(([v, label]) => h('option', {value: v}, label)));
+    onchange: e => act(v => setHeading(v, e.target.value))}, HEADINGS.map(([v, label]) => h('option', {value: v}, label)));
   const symbols = tool('omega', 'Symbol palette', () => onSymbols());
   const el = h('div', {class: 'format-bar', role: 'toolbar', 'aria-label': 'Formatting'},
     tool('undo', `Undo (${mod}Z)`, v => undo(v)), tool('redo', `Redo (${mod}⇧Z)`, v => redo(v)), h('span', {class: 'tool-sep'}),
@@ -29,20 +32,23 @@ export function formattingToolbar({view, onSymbols}) {
   return {
     el,
     update(readOnly, symbolsOpen) {
-      heading.value = headingAt(view.state);
+      const v = getView();
+      heading.value = v ? headingAt(v.state) : '';
       for (const b of el.querySelectorAll('button, select')) b.disabled = readOnly;
       symbols.classList.toggle('on', !!symbolsOpen);
     },
   };
 }
 
-export function symbolPalette({view, onClose}) {
+export function symbolPalette({view, getView = () => view, onClose}) {
   let group = SYMBOL_GROUPS[0], query = '';
   const grid = h('div', {class: 'symbol-grid', role: 'listbox', 'aria-label': 'Symbols'});
   const tabs = h('div', {class: 'symbol-tabs', role: 'tablist'});
   const search = h('input', {class: 'symbol-search', type: 'search', placeholder: 'Search symbols', 'aria-label': 'Search symbols',
     oninput: e => { query = e.target.value.trim().toLowerCase(); render(); }});
   const insert = s => {
+    const view = getView();
+    if (!view) return;
     const {from, to} = view.state.selection.main;
     const braces = s.command.indexOf('{}');
     let text = s.command;

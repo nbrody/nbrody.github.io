@@ -27,7 +27,7 @@ function titled(title, extra, ...children) {
 function eyeButton() {
   const on = app.remotePreview;
   return h('button.btn.ghost.sm.eye-btn' + (on ? '.on' : ''), {
-    type: 'button', title: on ? 'Hide the phone preview' : 'Show this slide’s remote beside the canvas',
+    type: 'button', title: on ? 'Hide the phone preview' : 'Show this slide’s floating phone preview',
     'aria-pressed': String(on), onclick: () => setRemotePreview(!on),
   }, icon(on ? 'eye' : 'eyeOff', 16), h('span', null, on ? 'Shown' : 'Show'));
 }
@@ -54,7 +54,7 @@ export function remoteDesignSection() {
     initial: eff.firebase ? { firebase: eff.firebase, page: eff.page } : saved,
     onDone: s => {
       setDeckRemote(WORKSPACE ? { enabled: true, firebase: null, page: '' } : { enabled: true, firebase: s.firebase, page: s.page || r.page }, ['inspector']);
-      toast(WORKSPACE ? 'Phone remote set up for every deck in alphaCentaur' : 'Phone remote connected');
+      toast(WORKSPACE ? 'Phone remote set up for every deck in AlphaCentaur' : 'Phone remote connected');
     },
   });
   const onOff = toggle('Phone remote while presenting', r.enabled, v => setDeckRemote(v ? enablePatch(r) : { enabled: false }));
@@ -66,7 +66,7 @@ export function remoteDesignSection() {
   // Connection
   const status = h('div.remote-status');
   if (eff.firebase) {
-    const where = eff.source === 'workspace' ? 'Set up for every deck in alphaCentaur. ' : WORKSPACE ? 'This deck brought its own setup. ' : '';
+    const where = eff.source === 'workspace' ? 'Set up for every deck in AlphaCentaur. ' : WORKSPACE ? 'This deck brought its own setup. ' : '';
     const msg = h('span.rs-sub', null, where + (eff.page ? 'Phones scan a QR code (press R while presenting).' : 'Add the phone page below to get a QR code.'));
     const test = button('Test', 'reload', async () => {
       test.disabled = true; msg.textContent = 'Testing…';
@@ -77,7 +77,7 @@ export function remoteDesignSection() {
     const differs = !saved || saved.firebase.projectId !== r.firebase?.projectId || saved.firebase.databaseURL !== r.firebase?.databaseURL;
     const items = WORKSPACE ? [
       { label: 'Change setup…', icon: 'sliders', action: wizard },
-      eff.source === 'deck' ? { label: 'Use it for every deck in alphaCentaur', icon: 'save', action: () => { saveSetup({ firebase: r.firebase, page: r.page }); setDeckRemote({ firebase: null, page: '' }); toast('Saved in Workspace settings'); } } : null,
+      eff.source === 'deck' ? { label: 'Use it for every deck in AlphaCentaur', icon: 'save', action: () => { saveSetup({ firebase: r.firebase, page: r.page }); setDeckRemote({ firebase: null, page: '' }); toast('Saved in Workspace settings'); } } : null,
       { label: 'Workspace settings…', icon: 'window', action: () => toHost('pz-open-settings') },
     ] : [
       { label: 'Change setup…', icon: 'sliders', action: wizard },
@@ -90,7 +90,7 @@ export function remoteDesignSection() {
   } else {
     status.classList.add('off');
     status.append(h('i.rs-dot'), h('div.rs-text', null, h('b', null, 'Not connected'),
-      h('span.rs-sub', null, (WORKSPACE ? 'alphaCentaur has no Firebase setup yet, so phones can’t reach your decks. ' : 'Phones can’t reach this deck yet. ')
+      h('span.rs-sub', null, (WORKSPACE ? 'AlphaCentaur has no Firebase setup yet, so phones can’t reach your decks. ' : 'Phones can’t reach this deck yet. ')
         + 'While presenting you can still open the remote in a window on this computer.')));
   }
   const connect = eff.firebase ? null : h('div.btn-row', null,
@@ -107,7 +107,7 @@ export function remoteDesignSection() {
     else { setDeckRemote({ page: v }); if (r.firebase && !WORKSPACE) saveSetup({ firebase: r.firebase, page: v }); }
   });
   const pageField = field('Phone page', h('div.stack-sm', null, page,
-    h('p.hint', null, WORKSPACE ? 'Where phones open the remote — one page for every deck in alphaCentaur. ' : 'Where phones open the remote — one page for all decks. ',
+    h('p.hint', null, WORKSPACE ? 'Where phones open the remote — one page for every deck in AlphaCentaur. ' : 'Where phones open the remote — one page for all decks. ',
       h('button.linkish', { type: 'button', onclick: downloadPhonePage }, 'Download remote.html'), ' and put it on any web host.')), { cls: 'block' });
 
   // Default remote
@@ -158,6 +158,9 @@ export function remoteSlideSection() {
     out.push(h('p.hint', null, 'An applet can expose parameters to the phone: ', h('code', null, "pz.slider('speed', { min: 0, max: 5 }, v => …)"),
       ', ', h('code', null, 'pz.toggle'), ', ', h('code', null, 'pz.button'), ', ', h('code', null, 'pz.joystick'), '.'));
   }
+  if (slide.elements.some(e => e.type === 'console'))
+    out.push(h('p.hint', null, 'The phone shows a ', h('b', null, 'Run the code'), ' button for this slide’s Python console. In a custom list, a button named ',
+      h('code', null, 'console-run'), ' runs it and one named ', h('code', null, 'console-stop'), ' stops it.'));
   return titled('Phone remote', eyeButton(), ...out);
 }
 

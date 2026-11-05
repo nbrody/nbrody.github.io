@@ -9,10 +9,16 @@ import { themeVars, googleFontURL } from './themes.js';
 import { parseMacros, hasMath, escapeHTML as esc } from './math.js';
 import { sectionsOf, normalizeDeck, clone, slideTitle } from './model.js';
 import { normalizeRemoteDeck, resolveRemote } from './remote-model.js';
+import { KATEX_LOCAL as CONSOLE_KATEX_LOCAL, KATEX_CDN as CONSOLE_KATEX_CDN } from './console.js';
 
 const KATEX_CDN = 'https://cdn.jsdelivr.net/npm/katex@0.18.5/dist/katex.min.css';
 const FP_CSS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.css';
 const FP_JS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.js';
+// Pyodide 0.29.5 is the release with python-flint. Consoles in an exported deck load it from here.
+export const PYODIDE_CDN = 'https://cdn.jsdelivr.net/pyodide/v0.29.5/full/';
+// Where an exported deck looks for alphaCentaur's Python on the presenter's
+// computer (its apps port; server/console-access.mjs), if that browser chose it.
+export const LOCAL_PYTHON = 'http://127.0.0.1:4311';
 const here = p => new URL(p, import.meta.url).href;
 
 const textCache = new Map();
@@ -76,8 +82,11 @@ async function inlineGoogleFont(family) {
 // Present, so presenting works without a network connection).
 // `remote`: the phone remote's { firebase, page } when they come from outside
 // the deck (alphaCentaur's workspace setting); otherwise the deck's own are used.
-export async function exportHTML(deck, { selfContained = false, localLibs = false, remote = null, base = '', resolveURLs = false } = {}) {
-  const ctx = { mode: 'export', deck, offline: selfContained, resolve: resolveURLs, ...mathContext(deck) };
+// python: 'relay' (presenting from the editor: consoles use the editor's
+// Python) or 'pyodide' (an exported deck: Python in the browser, or on the
+// presenter's computer at localPython when they chose it there).
+export async function exportHTML(deck, { selfContained = false, localLibs = false, remote = null, base = '', resolveURLs = false, python = 'pyodide', localPython = LOCAL_PYTHON } = {}) {
+  const ctx = { mode: 'export', deck, offline: selfContained, resolve: resolveURLs, katex: localLibs ? CONSOLE_KATEX_LOCAL : CONSOLE_KATEX_CDN, ...mathContext(deck) };
   const sections = sectionsOf(deck);
   const chapters = deck.settings.nav === 'chapters';
   let index = 0;
@@ -100,6 +109,7 @@ export async function exportHTML(deck, { selfContained = false, localLibs = fals
     fetchText(here('../runtime/stage.css')), fetchText(here('../runtime/deck.css')), fetchText(here('../runtime/deck.js')),
   ]);
   const remoteJS = await remoteScripts(deck, { local: localLibs, remote });
+  const pythonJS = await pythonScripts(deck, python);
   const math = deckUsesMath(deck);
   const fonts = usedFonts(deck);
 
@@ -125,6 +135,7 @@ export async function exportHTML(deck, { selfContained = false, localLibs = fals
   const config = {
     width: deck.size.w, height: deck.size.h, nav: deck.settings.nav, dots: deck.settings.dots, arrows: deck.settings.arrows,
     speed: deck.settings.speed, tooltips: sections.map(s => s.title),
+    ...(pythonJS ? { python: python === 'relay' ? { relay: true } : { pyodide: PYODIDE_CDN, warm: true, local: localPython } } : {}),
   };
 
   // Source block: image bytes are omitted (they live in the <img> tags).
@@ -137,7 +148,7 @@ export async function exportHTML(deck, { selfContained = false, localLibs = fals
 <head>
 <meta charset="utf-8">${base ? `\n<base href="${esc(base)}">` : ''}
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="generator" content="alphaPresent (alphaCentaur)">
+<meta name="generator" content="alphaPresent (AlphaCentaur)">
 <meta name="pz-source" content="${hashString(json)}">
 <title>${esc(deck.title || 'Presentation')}</title>
 ${headLibs}
@@ -148,7 +159,7 @@ ${deckCSS}
 </style>
 </head>
 <body>
-<!-- Made with alphaPresent (alphaCentaur). The JSON block at the end of this
+<!-- Made with alphaPresent (AlphaCentaur). The JSON block at the end of this
      file is the editable source: open this file in the editor to change it. -->
 <div id="fullpage">
 ${body}
@@ -162,7 +173,7 @@ ${fpScript}
 <script>
 ${runtimeJS}
 </script>
-${remoteJS}<script type="application/json" id="pz-deck">${json}</script>
+${remoteJS}${pythonJS}<script type="application/json" id="pz-deck">${json}</script>
 </body>
 </html>
 `;
@@ -195,6 +206,15 @@ async function remoteScripts(deck, { local = false, remote = null } = {}) {
   return `<script>window.PZ_REMOTE=${payload};</script>\n<script>\n${qr}\n</script>\n<script>\n${link}\n</script>\n<script>\n${runtime}\n</script>\n`;
 }
 
+// Decks with a Python console carry the Python service (runtime/python.js) and,
+// unless the editor runs Python for them, alphaPy's runtime for Pyodide.
+export const deckHasConsole = deck => deck.slides.some(s => s.elements.some(e => e.type === 'console'));
+async function pythonScripts(deck, python) {
+  if (!deckHasConsole(deck)) return '';
+  const [service, sources] = await Promise.all([fetchText(here('../runtime/python.js')), python === 'relay' ? '' : fetchText(here('../runtime/console-python.js'))]);
+  return (sources ? `<script>\n${sources}\n</script>\n` : '') + `<script>\n${service}\n</script>\n`;
+}
+
 function sourceJSON(deck) {
   return JSON.stringify(deck).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
@@ -205,7 +225,7 @@ export function stubHTML(deck) {
   const source = clone(deck);
   for (const id of Object.keys(source.assets)) source.assets[id] = assetRef(source.assets[id]);
   const imgs = Object.entries(deck.assets).filter(([, a]) => a.data).map(([id, a]) => `<img hidden alt="" data-asset="${esc(id)}" src="${esc(a.data)}">`).join('\n');
-  return `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="generator" content="alphaPresent (alphaCentaur)">\n<title>${esc(deck.title || 'Presentation')}</title>\n</head>\n<body>\n<p>Open this presentation in alphaPresent, alphaCentaur's slide editor, to render it.</p>\n${imgs}\n<script type="application/json" id="pz-deck">${sourceJSON(source)}</script>\n</body>\n</html>\n`;
+  return `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="generator" content="alphaPresent (AlphaCentaur)">\n<title>${esc(deck.title || 'Presentation')}</title>\n</head>\n<body>\n<p>Open this presentation in alphaPresent, AlphaCentaur's slide editor, to render it.</p>\n${imgs}\n<script type="application/json" id="pz-deck">${sourceJSON(source)}</script>\n</body>\n</html>\n`;
 }
 
 // ------------------------------------------------------------------ import --

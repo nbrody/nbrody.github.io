@@ -34,10 +34,10 @@ export function toHost(type, data = {}) {
 let seq = 0;
 const waiting = new Map();
 export function hostRequest(type, data = {}, ms = 120000) {
-  if (!HOST) return Promise.reject(new Error('This needs alphaCentaur.'));
+  if (!HOST) return Promise.reject(new Error('This needs AlphaCentaur.'));
   const rid = ++seq;
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { waiting.delete(rid); reject(new Error('alphaCentaur did not answer.')); }, ms);
+    const timer = setTimeout(() => { waiting.delete(rid); reject(new Error('AlphaCentaur did not answer.')); }, ms);
     waiting.set(rid, { resolve, reject, timer });
     toHost(type, { ...data, rid });
   });

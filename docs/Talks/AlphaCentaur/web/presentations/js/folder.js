@@ -43,6 +43,9 @@ export function installHostFolder(onChange) {
   if (!HOST) return;
   onHost('pz-context', d => {
     Object.assign(ctx, { path: String(d.path || ''), folder: String(d.folder || ''), folderDeck: !!d.folderDeck, files: String(d.files || ''), apps: d.apps || null });
+    // Python consoles run in alphaCentaur's sandboxed kernel ({start, base, headers, body}; python/js/kernel.js).
+    if (d.python && typeof d.python.start === 'string' && typeof d.python.base === 'string')
+      window.pzPython?.configure({ kernel: { start: d.python.start, base: d.python.base, headers: d.python.headers || {}, body: d.python.body || {} } });
     setURLResolver((url, kind) => {
       const p = projectPath(ctx.folder, url);
       if (!p) return '';

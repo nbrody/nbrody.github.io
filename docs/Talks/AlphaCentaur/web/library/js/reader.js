@@ -2,16 +2,22 @@
 // is alphaTeX's (latex/js/pdf.js: pdf.js with text selection, links, search
 // and zoom); the reader adds Back after a link inside the paper, the page
 // you left each paper on, and quoting a selection into the notes or the chat.
+// A paper converted to Markdown can be read that way too (paper-view.js):
+// read-only, with highlights and annotations kept in the reference.
 import {PdfView} from '../../latex/js/pdf.js';
 import {h, icon, button, toast, store, debounce} from './ui.js';
 import {cleanQuote, quoteForNotes, shortTitle, roleOf} from './references.js';
 import {mathHTML} from './math.js';
 import {recordOf, attachPdf, editReference} from './dialogs.js';
+import {paperView} from './paper-view.js';
 
-export function openReader(lib, container, ref) {
+// mode: 'pdf' or 'markdown'; left out, the one this paper was last read in.
+export function openReader(lib, container, ref, {mode: wanted} = {}) {
   let current = ref, record = recordOf(ref);
-  const pageKey = `alphaLibrary.page.${lib.info.key}.${ref.id}`;
+  const pageKey = `alphaLibrary.page.${lib.info.key}.${ref.id}`, modeKey = `alphaLibrary.mode.${lib.info.key}.${ref.id}`;
   const hasFile = () => !!record.pdf && lib.pdfs.some(p => p.path === record.pdf);
+  const converted = () => hasFile() && !!lib.converted?.[current.id];
+  let mode = wanted || store.get(modeKey, 'pdf');
 
   // ---------------------------------------------------------------- header
   const title = h('strong', {class: 'reader-title-text'}), byline = h('small', {});
@@ -23,9 +29,14 @@ export function openReader(lib, container, ref) {
   };
   let notesOpen = store.get('alphaLibrary.notes', innerWidth >= 900);
   const notesToggle = button({title: 'Reading notes', iconName: notesOpen ? 'panelClose' : 'panelOpen', cls: 'ghost icon-only', pressed: notesOpen, onClick: () => toggleNotes()});
+  // PDF | Markdown, for a paper converted to Markdown.
+  const modeButtons = [['pdf', 'PDF', 'Read the PDF'], ['markdown', 'Markdown', 'Read the paper as Markdown (read-only): highlight and annotate it']]
+    .map(([value, label, tip]) => h('button', {type: 'button', role: 'tab', title: tip, 'data-mode': value, onclick: () => showMode(value)}, label));
+  const modeSwitch = h('div', {class: 'segmented reader-mode', role: 'tablist', 'aria-label': 'Read as', hidden: true}, modeButtons);
   const head = h('header', {class: 'reader-head'},
     button({label: lib.embedded ? 'Bibliography' : 'Library', iconName: 'arrowLeft', cls: 'ghost reader-back', onClick: () => lib.closeReader()}),
     h('div', {class: 'reader-title'}, title, byline),
+    modeSwitch,
     h('div', {class: 'reader-actions'},
       lib.info.capabilities?.ask ? button({label: 'Discuss', iconName: 'sparkles', cls: 'ghost', title: 'Ask the collaborator about this paper', onClick: () => lib.backend.action('ask', {id: current.id})}) : null,
       button({title: 'Replace or unlink this PDF', iconName: 'fileUp', cls: 'ghost icon-only', onClick: () => attachPdf(lib, current)}),
@@ -129,6 +140,48 @@ export function openReader(lib, container, ref) {
     backBtn.hidden = true;
     void view.open(lib.backend.pdfUrl(record.pdf));
   };
+  // The PDF loads when it is first shown (a paper may open as Markdown).
+  let pdfOpened = false;
+  const ensurePdf = () => { if (!pdfOpened) { pdfOpened = true; showPdf(); } };
+  const pdfPane = h('div', {class: 'reader-pane'}, toolbar, findBar, pdfArea, missing);
+
+  // ------------------------------------ the paper as Markdown (read-only)
+  const paper = paperView(lib, {
+    pageKey: `${pageKey}.md`,
+    onSave: change => saveHighlights(change),
+    onQuote: (text, page) => quoteIntoNotes(text, page),
+    onAsk: lib.info.capabilities?.ask ? (text, page) => askAbout(text, page) : null,
+    fileName: () => record.key || String(record.pdf || 'paper').split('/').pop().replace(/\.pdf$/i, ''),
+  });
+  // Highlights are saved one change at a time, each on the latest record, so
+  // quick changes (and the notes, saved the same way) never undo each other.
+  let highlightSaves = Promise.resolve(), pendingHighlights = 0;
+  const saveHighlights = change => {
+    pendingHighlights++;
+    highlightSaves = highlightSaves.then(async () => {
+      const put = base => { const r = recordOf(base); return lib.backend.save(base.id, {...r, highlights: change(Array.isArray(r.highlights) ? r.highlights : [])}, base.revision); };
+      try {
+        let next;
+        try { next = await put(current); }
+        catch (e) { if (e.code !== 'conflict' || !e.current) throw e; next = await put(e.current); }
+        current = next; record = recordOf(next);
+        lib.replace(next);
+      } catch (e) { toast(`Not saved: ${e.message}`, {kind: 'error'}); }
+      if (--pendingHighlights === 0) paper.setHighlights(record.highlights);
+    });
+  };
+  function showMode(value) {
+    mode = value === 'markdown' && converted() ? 'markdown' : 'pdf';
+    store.set(modeKey, mode);
+    modeSwitch.hidden = !converted();
+    for (const b of modeButtons) b.setAttribute('aria-selected', String(b.dataset.mode === mode));
+    // The PDF keeps its size while away, so pdf.js keeps its place and zoom.
+    pdfPane.classList.toggle('away', mode !== 'pdf');
+    paper.el.hidden = mode !== 'markdown';
+    pick.hidden = true;
+    if (mode === 'pdf') ensurePdf();
+    else { findBar.hidden = true; void paper.open(current, record); }
+  }
 
   // ------------------------------------------------------ reading notes
   const notes = h('textarea', {spellcheck: 'true', 'aria-label': 'Reading notes',
@@ -214,28 +267,29 @@ export function openReader(lib, container, ref) {
   const collapse = () => { if (getSelection()?.isCollapsed) { pick.hidden = true; picked = null; } };
   document.addEventListener('selectionchange', collapse);
   const clear = () => { getSelection()?.removeAllRanges(); pick.hidden = true; picked = null; };
+  // A passage into the reading notes, or to the collaborator (from the PDF
+  // or the Markdown).
+  function quoteIntoNotes(text, page) {
+    notes.value = quoteForNotes(notes.value, text, page);
+    dirty = true; setStatus('Unsaved'); saveSoon();
+    if (!notesOpen) toggleNotes(true);
+    requestAnimationFrame(() => { notes.scrollTop = notes.scrollHeight; });
+  }
+  function askAbout(text, page) {
+    const quoted = text.split('\n').map(line => `> ${line}`).join('\n');
+    void lib.backend.action('ask', {id: current.id, text: `From “${shortTitle(record.title || current.title)}”${page ? `, p. ${page}` : ''}:\n${quoted}\n\n`});
+  }
   pick.append(
-    h('button', {type: 'button', onclick: () => {
-      if (!picked) return;
-      notes.value = quoteForNotes(notes.value, picked.text, picked.page);
-      dirty = true; setStatus('Unsaved'); saveSoon();
-      clear();
-      if (!notesOpen) toggleNotes(true);
-      requestAnimationFrame(() => { notes.scrollTop = notes.scrollHeight; });
-    }}, icon('quote', 13), 'Quote in notes'),
-    lib.info.capabilities?.ask ? h('button', {type: 'button', onclick: () => {
-      if (!picked) return;
-      const text = `From “${shortTitle(record.title || current.title)}”${picked.page ? `, p. ${picked.page}` : ''}:\n> ${picked.text}\n\n`;
-      void lib.backend.action('ask', {id: current.id, text});
-      clear();
-    }}, icon('sparkles', 13), 'Ask collaborator') : null);
+    h('button', {type: 'button', onclick: () => { if (picked) { quoteIntoNotes(picked.text, picked.page); clear(); } }}, icon('quote', 13), 'Quote in notes'),
+    lib.info.capabilities?.ask ? h('button', {type: 'button', onclick: () => { if (picked) { askAbout(picked.text, picked.page); clear(); } }}, icon('sparkles', 13), 'Ask collaborator') : null);
   pdfArea.append(pick);
 
   // ----------------------------------------------------------- layout
-  const body = h('div', {class: 'reader-body'}, h('div', {class: 'reader-pdf'}, toolbar, findBar, pdfArea, missing), aside);
+  const body = h('div', {class: 'reader-body'}, h('div', {class: 'reader-pdf'}, pdfPane, paper.el), aside);
   const root = h('div', {class: 'paper-reader'}, head, body);
   root.addEventListener('keydown', e => {
     const mod = e.metaKey || e.ctrlKey;
+    if (mode !== 'pdf') return; // the Markdown is a page: the browser's own find works there
     if (mod && !e.altKey && e.key.toLowerCase() === 'f' && hasFile()) { e.preventDefault(); openFind(); }
     else if (mod && e.key.toLowerCase() === 'g' && findInput.value) { e.preventDefault(); view.find(findInput.value.trim(), {again: true, previous: e.shiftKey}); }
     else if (!backBtn.hidden && ((e.altKey && e.key === 'ArrowLeft') || (e.metaKey && e.key === '['))) { e.preventDefault(); goBack(); }
@@ -244,24 +298,39 @@ export function openReader(lib, container, ref) {
   toggleNotes(notesOpen);
   showHeader();
   showFoot();
-  showPdf();
+  showMode(mode);
   lib.backend.notify('reading', {id: ref.id});
 
   return {
     id: ref.id,
-    // The library reloaded (an edit elsewhere, a linked PDF): show what changed.
+    show: showMode,
+    // The library reloaded (an edit elsewhere, a linked PDF, a finished
+    // conversion): show what changed.
     update(next) {
       const shown = missing.hidden; // the PDF is on screen
-      if (!next || next.revision === current.revision) { if (shown !== hasFile()) showPdf(); return; }
+      if (!next || next.revision === current.revision) {
+        if (pdfOpened && shown !== hasFile()) showPdf();
+        if (modeSwitch.hidden === converted()) showMode(mode);
+        return;
+      }
       const before = record.pdf;
       current = next; record = recordOf(next);
       if (!dirty) notes.value = record.annotation || '';
       showHeader(); showFoot();
-      if (record.pdf !== before || shown !== hasFile()) showPdf();
+      if (record.pdf !== before || shown !== hasFile()) {
+        pdfOpened = false;
+        paper.forget();
+        showMode(mode);
+      } else {
+        modeSwitch.hidden = !converted();
+        if (!pendingHighlights) paper.setHighlights(record.highlights);
+      }
     },
     async close() {
       await save();
+      await highlightSaves;
       document.removeEventListener('selectionchange', collapse);
+      paper.close();
       view.close();
       lib.backend.notify('reading', {id: null});
     },

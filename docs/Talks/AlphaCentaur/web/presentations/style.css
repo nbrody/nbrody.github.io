@@ -184,7 +184,9 @@ body.gesturing { user-select: none; -webkit-user-select: none; }
 .guide { position: absolute; pointer-events: none; }
 .guide.v { width: 0; border-left: 1px solid var(--guide); }
 .guide.h { height: 0; border-top: 1px solid var(--guide); }
-.build-badge { position: absolute; margin: -9px 0 0 -9px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #7c3aed; color: #fff; font-size: 10.5px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 1px 3px color-mix(in srgb, var(--skin-shadow) 30%, transparent); }
+.build-badge { position: absolute; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border-radius: 9px; background: #7c3aed; color: #fff; font-size: 10.5px; font-weight: 700; line-height: 20px; text-align: center; box-shadow: 0 1px 3px color-mix(in srgb, var(--skin-shadow) 30%, transparent); }
+
+.build-leader { position: absolute; height: 1px; background: #7c3aed; transform-origin: 0 50%; opacity: .7; }
 
 /* text toolbar */
 #text-bar { position: fixed; z-index: 60; display: none; align-items: center; gap: 1px; padding: 4px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
@@ -367,11 +369,17 @@ kbd { font: 12px var(--font); padding: 1px 6px; border: 1px solid var(--line-str
 .present-close:hover { opacity: 1 !important; }
 
 /* --------------------------------------------------------- phone remote */
-.work-main { flex: 1; min-height: 0; display: flex; }
+.work-main { flex: 1; min-height: 0; display: flex; position: relative; }
 .work-main > .viewport { min-width: 0; }
-.phone-pane { width: 330px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 14px 12px; border-left: 1px solid var(--line); background: var(--panel-2); min-height: 0; }
+.phone-pane { position: absolute; z-index: 35; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0 10px 10px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--panel-2); box-shadow: var(--shadow); min-width: 0; min-height: 0; overflow: hidden; }
 .phone-pane[hidden] { display: none; }
-.phone-head { align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+.phone-head { width: calc(100% + 20px); flex: none; height: 41px; padding: 0 8px 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-2); cursor: move; touch-action: none; user-select: none; border-bottom: 1px solid var(--line); }
+.phone-actions { display: flex; align-items: center; flex: none; }
+.phone-minimize { width: 28px; height: 28px; border: 0; border-radius: 6px; color: var(--text-2); background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
+.phone-minimize:hover { background: var(--panel); }
+.phone-resize { position: absolute; right: 0; bottom: 0; width: 20px; height: 20px; padding: 0; border: 0; background: linear-gradient(135deg, transparent 55%, var(--muted) 56%, var(--muted) 62%, transparent 63%, transparent 73%, var(--muted) 74%, var(--muted) 80%, transparent 81%); cursor: nwse-resize; touch-action: none; }
+.phone-pane.minimized .phone-stage, .phone-pane.minimized .phone-hint, .phone-pane.minimized .phone-resize { display: none; }
+.phone-pane.adjusting .phone-frame { pointer-events: none; }
 .phone-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .phone-stage { flex: 1; min-height: 0; align-self: stretch; display: grid; place-items: center; }
 .phone { --s: .75; padding: 8px; border-radius: calc(54px * var(--s) + 8px); background: #0d0f12; box-shadow: var(--shadow), inset 0 0 0 1.5px color-mix(in srgb, var(--skin-shadow) 100%, transparent); }
@@ -461,7 +469,6 @@ p.setup-good { color: var(--primary); display: flex; align-items: center; gap: 6
   .btn.tool { height: 36px; min-width: 34px; padding: 2px 5px; }
   .sb-hint { display: none; }
   .tb-group.insert { padding-left: 6px; }
-  .phone-pane { width: 276px; padding: 8px 10px 10px; }
   .phone-btn span { display: none; }
 }
 @media (max-width: 980px) {
@@ -482,7 +489,6 @@ p.setup-good { color: var(--primary); display: flex; align-items: center; gap: 6
   .palette-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
   .present-btn span { display: none; }
   .present-btn { padding: 0 10px; }
-  .phone-pane { width: 240px; }
   .phone-hint { display: none; }
   .setup-dot:not(.on) span { display: none; }
 }

@@ -126,6 +126,41 @@ export function citationKey(r, taken = []) {
   return `${base}-${Date.now()}`;
 }
 
+// The pages of a paper converted to Markdown (server/paper-markdown.mjs):
+// page n at index n − 1. The first line, a comment saying where the paper
+// came from, is left out; a file without page markers is one page.
+export function markdownPages(text) {
+  const parts = String(text ?? '').split(/^<!-- page (\d+) -->[ \t]*$/m);
+  if (parts.length < 3) return [String(text ?? '').replace(/^<!--[^\n]*-->\n*/, '').trim()];
+  const pages = [];
+  for (let i = 1; i < parts.length; i += 2) pages[Number(parts[i]) - 1] = parts[i + 1].trim();
+  return Array.from(pages, (p) => p ?? '');
+}
+
+// Highlights in a converted paper (the reference's `highlights`) are anchored
+// by their text, as W3C web annotations are: the quote, some text on each
+// side, and where it was. `text` is the paper as the reader lays it out, with
+// each formula as $…$ (reader.js). The paper is read-only, so they stay put.
+const CONTEXT = 32;
+export function quoteAnchor(text, start, end) {
+  return { quote: text.slice(start, end), prefix: text.slice(Math.max(0, start - CONTEXT), start), suffix: text.slice(end, end + CONTEXT), at: start };
+}
+// Where an anchor falls in `text`: [start, end] of the occurrence whose
+// surroundings match best (then the nearest to where it was), or null.
+export function findAnchor(text, { quote, prefix = '', suffix = '', at = 0 } = {}) {
+  if (!quote) return null;
+  let best = null, bestScore = -Infinity;
+  for (let i = text.indexOf(quote); i >= 0; i = text.indexOf(quote, i + 1)) {
+    let score = 0;
+    for (let k = 1; k <= prefix.length && text[i - k] === prefix[prefix.length - k]; k++) score++;
+    for (let k = 0; k < suffix.length && text[i + quote.length + k] === suffix[k]; k++) score++;
+    score -= Math.abs(i - at) / (text.length + 1);
+    if (score > bestScore) { bestScore = score; best = i; }
+  }
+  return best === null ? null : [best, best + quote.length];
+}
+export const HIGHLIGHT_COLORS = ['yellow', 'green', 'blue', 'pink'];
+
 // A fresh record for a reference typed in by hand.
 export const blankRecord = () => ({
   title: '', authors: '', year: '', doi: '', url: '', role: 'secondary',

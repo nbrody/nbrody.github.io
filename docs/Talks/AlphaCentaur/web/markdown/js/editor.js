@@ -89,7 +89,7 @@ export function createNoteEditor(container, { icon, onChange, onLink, macrosHint
 
   const modeButtons = MODES.map(([key, label]) => h('button', { type: 'button', role: 'tab', 'data-mode': key, onclick: () => setMode(key) }, label));
   const toolbar = h('div', { class: 'note-toolbar' },
-    h('span', { class: 'applet-name', title: "alphaMarkdown, alphaCentaur's Markdown notes editor. It also runs on its own: node markdown/server.mjs <folder> --open" }, 'alphaMarkdown'),
+    h('span', { class: 'applet-name', title: "alphaMarkdown, AlphaCentaur's Markdown notes editor. It also runs on its own: node markdown/server.mjs <folder> --open" }, 'alphaMarkdown'),
     h('div', { class: 'segmented', role: 'tablist', 'aria-label': 'Mode' }, ...modeButtons),
     h('div', { class: 'spacer' }),
     h('button', { type: 'button', class: 'ghost-btn', onclick: () => openGuide({ macros: macrosHint, icon }) }, icon('circle-question-mark', 16), 'Editor guide'));

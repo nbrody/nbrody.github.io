@@ -11,7 +11,10 @@
 // Methods (all plain JSON):
 //   hello()  → {name, key, macrosSource, manuscripts: [{id, title}], capabilities: {ask, manuscript},
 //               filesBase (URL prefix of the project's raw files), open? (a reference id to show)}
-//   list()   → {references: [Ref], pdfs: [{path, size}]}
+//   list()   → {references: [Ref], pdfs: [{path, size}],
+//               converted: {[id]: {created, pages?}} (papers whose PDF is converted to Markdown),
+//               conversions: {[id]: {state: 'queued' | 'running' | 'failed', queued, started?, pages?, estimate?, error?}},
+//               converter (Marker is installed)}
 //   save({id, record, baseRevision, rename?}) → Ref; a stale base revision rejects with
 //               {code: 'conflict', current: Ref}. rename: the record's title is also the file name.
 //   create({record}) → Ref
@@ -19,6 +22,11 @@
 //   resolve({doi})   → Ref       (a DOI or an arXiv number)
 //   attach({id, path | url | base64}) → Ref   (path: null unlinks)
 //   bibtex({manuscript, primary}) → {content, warnings}
+//   convert({id})    → the conversion's state: the PDF becomes read-only Markdown in the
+//                      background (server/paper-markdown.mjs); {state: 'done'} if it already is
+//   cancelConvert({id})          (stops a conversion, or forgets a failed one)
+//   markdown({id})   → {text, pages, created, base} (the converted paper; its pictures' links
+//                      are relative to the URL `base`)
 //   action({action: 'ask', id, text?} | {action: 'manuscript'})
 //
 //   Ref = {id, title, owner, revision, updated, content}   (content: the record as JSON)
@@ -35,7 +43,7 @@ export function hostBackend(name) {
     if (d.type === 'reply' && pending.has(d.id)) {
       const {resolve, reject} = pending.get(d.id);
       pending.delete(d.id);
-      if (d.error) reject(Object.assign(new Error(d.error.message || 'alphaCentaur could not complete this request.'), d.error));
+      if (d.error) reject(Object.assign(new Error(d.error.message || 'AlphaCentaur could not complete this request.'), d.error));
       else resolve(d.result);
     } else if (d.type === 'event') for (const fn of listeners) fn(d.name, d.data || {});
   });
@@ -55,6 +63,9 @@ export function hostBackend(name) {
     resolve: doi => call('resolve', {doi}),
     attach: (id, source) => call('attach', {id, ...source}),
     bibtex: (manuscript, primary) => call('bibtex', {manuscript, primary}),
+    convert: id => call('convert', {id}),
+    cancelConvert: id => call('cancelConvert', {id}),
+    markdown: id => call('markdown', {id}),
     action: (action, data = {}) => call('action', {action, ...data}),
     pdfUrl: (path, download = false) => `${filesBase}${String(path).split('/').map(encodeURIComponent).join('/')}${download ? '?download=1' : ''}`,
     notify: (n, data) => post({type: 'notify', name: n, data}),

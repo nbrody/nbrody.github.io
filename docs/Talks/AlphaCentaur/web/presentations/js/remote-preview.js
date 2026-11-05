@@ -1,4 +1,4 @@
-// Phone remote — the preview beside the canvas. It is the phone page itself
+// Phone remote — the floating preview over the canvas. It is the phone page itself
 // (remote.html?preview) in a phone-sized frame, so the editor shows exactly
 // what the phone will; its controls drive the editor the way a phone drives
 // the presentation: Next/Back change slide, sliders and joysticks reach the
@@ -9,10 +9,12 @@ import { resolveRemote, normalizeRemoteDeck, slidePreset, presetById } from './r
 import { slideTitle } from './model.js';
 import { googleFontURL } from './themes.js';
 import { h, button } from './ui.js';
+import { fitPanel, defaultPanel } from './floating-panel.js';
 
 const KEY = 'pz-remote-preview';
 const PHONE = { w: 375, h: 760 };
 let pane, frame, label, ui = null, viewport, queued = false, startedAt = Date.now();
+let panelRect = null, minimized = false, minimizeButton;
 const values = {};          // parameter values set from the preview, as a phone would
 
 try { app.remotePreview = localStorage.getItem(KEY) === '1'; } catch { app.remotePreview = false; }
@@ -36,11 +38,62 @@ export function initRemotePreview(vp) {
     phone.style.setProperty('--s', s.toFixed(4));
     screen.style.width = PHONE.w * s + 'px'; screen.style.height = PHONE.h * s + 'px';
   }).observe(stage);
-  pane = h('aside.phone-pane', { 'aria-label': 'Phone remote preview', hidden: true },
-    h('div.phone-head', null, label, button('Hide the phone', 'x', () => setRemotePreview(false), { cls: 'ghost sm' })),
-    stage,
-    h('p.hint.phone-hint', null, 'Try it: the controls work on this slide too.'));
+  minimizeButton = h('button.phone-minimize', { type: 'button', title: 'Minimize phone preview', 'aria-label': 'Minimize phone preview', onclick: () => setMinimized(!minimized) }, '−');
+  const head = h('div.phone-head', { tabindex: '0', title: 'Drag to move; use arrow keys to move with the keyboard', 'aria-label': 'Move phone preview with arrow keys' },
+    label, h('div.phone-actions', null, minimizeButton, button('Hide the phone', 'x', () => setRemotePreview(false), { cls: 'ghost sm' })));
+  const grip = h('button.phone-resize', { type: 'button', title: 'Drag or use arrow keys to resize', 'aria-label': 'Resize phone preview with arrow keys' });
+  pane = h('aside.phone-pane', { 'aria-label': 'Phone remote preview', hidden: true }, head, stage,
+    h('p.hint.phone-hint', null, 'Try it: the controls work on this slide too.'), grip);
+  setupFloatingPanel(head, grip);
   return pane;
+}
+
+// Coordinates are relative to the canvas area, so the panel never steals
+// layout space and remains reachable when the window is resized.
+function bounds() { const box = pane.parentElement; return { w: box.clientWidth, h: box.clientHeight }; }
+function layoutPanel() {
+  if (!pane?.parentElement || pane.hidden) return;
+  const b = bounds();
+  if (!b.w || !b.h) return;
+  panelRect = fitPanel(panelRect || defaultPanel(b), b, minimized);
+  Object.assign(pane.style, { left: panelRect.x + 'px', top: panelRect.y + 'px', width: panelRect.width + 'px', height: (minimized ? Math.min(42, b.h - 20) : panelRect.height) + 'px' });
+}
+function setMinimized(value) {
+  minimized = value;
+  pane.classList.toggle('minimized', value);
+  minimizeButton.textContent = value ? '+' : '−';
+  minimizeButton.title = value ? 'Restore phone preview' : 'Minimize phone preview';
+  minimizeButton.setAttribute('aria-label', minimizeButton.title);
+  minimizeButton.setAttribute('aria-expanded', String(!value));
+  layoutPanel();
+}
+function setupFloatingPanel(head, grip) {
+  const start = (event, resize) => {
+    if (event.button !== 0 || (!resize && event.target.closest('button'))) return;
+    event.preventDefault();
+    const target = event.currentTarget, startX = event.clientX, startY = event.clientY, initial = { ...panelRect };
+    target.setPointerCapture(event.pointerId); pane.classList.add('adjusting');
+    const move = e => {
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      panelRect = resize ? { ...initial, width: initial.width + dx, height: initial.height + dy } : { ...initial, x: initial.x + dx, y: initial.y + dy };
+      layoutPanel();
+    };
+    const end = () => { pane.classList.remove('adjusting'); target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', end); target.removeEventListener('pointercancel', end); };
+    target.addEventListener('pointermove', move); target.addEventListener('pointerup', end); target.addEventListener('pointercancel', end);
+  };
+  head.addEventListener('pointerdown', e => start(e, false));
+  grip.addEventListener('pointerdown', e => start(e, true));
+  const keys = (event, resize) => {
+    const delta = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[event.key];
+    if (!delta || (!resize && event.target !== head)) return;
+    event.preventDefault();
+    if (resize) { panelRect.width += delta[0]; panelRect.height += delta[1]; }
+    else { panelRect.x += delta[0]; panelRect.y += delta[1]; }
+    layoutPanel();
+  };
+  head.addEventListener('keydown', e => keys(e, false)); grip.addEventListener('keydown', e => keys(e, true));
+  // Wait until the caller has inserted the pane into the workspace.
+  requestAnimationFrame(() => { if (pane.parentElement) new ResizeObserver(layoutPanel).observe(pane.parentElement); });
 }
 
 export function setRemotePreview(on) {
@@ -61,6 +114,7 @@ function draw() {
   const deck = app.deck;
   const on = !!(deck && app.remotePreview && normalizeRemoteDeck(deck.remote).enabled);
   pane.hidden = !on;
+  if (on) layoutPanel();
   if (!on || !ui) return;
   const slide = currentSlide(), i = app.slideIndex, controls = resolveRemote(deck, slide);
   const own = slide.remote?.preset && slide.remote.preset !== 'deck';

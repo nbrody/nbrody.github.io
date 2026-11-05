@@ -3,12 +3,12 @@
 
 import { app, currentSlide, findEl, selectedEls, setSelection, editCtx } from './state.js';
 import {
-  newDeck, normalizeDeck, normalizeElements, normalizeAssets, makeText, makeMath, makeImage, makeShape, makeEmbed, makeApplet, makeSlide, LAYOUTS,
+  newDeck, normalizeDeck, normalizeElements, normalizeAssets, makeText, makeMath, makeImage, makeShape, makeEmbed, makeApplet, makeConsole, makeSlide, LAYOUTS,
   SHAPES, W, H, uid, clone, aabb, unionBox, textToHTML, slideTitle,
 } from './model.js';
 import { renderSlide, appletDoc, viewURL } from './render.js';
 import { themeVars, googleFontURL } from './themes.js';
-import { exportHTML, parseDeckHTML, inspectDeckHTML, stubHTML, fileNameFor, download, deckAsFolder } from './exporter.js';
+import { exportHTML, parseDeckHTML, inspectDeckHTML, stubHTML, fileNameFor, download, deckAsFolder, PYODIDE_CDN, LOCAL_PYTHON } from './exporter.js';
 import { HOST, onHost, toHost, writeHostDraft, hostRequest } from './host.js';
 import { ctx as folderCtx, installHostFolder, folderMode, uploadAsset, pickFromProject, downloadFolderZip, saveToFolder, canPickFolders, deckFromFolder } from './folder.js';
 import { listDecks, getDeck, putDeck, deleteDeck, canUseFiles, pickOpenFile, pickSaveFile, writeHandle } from './storage.js';
@@ -68,7 +68,7 @@ async function showHome() {
   root.className = 'home-mode';
   root.replaceChildren(h('div.home', null,
     h('header.home-head', null,
-      h('div.brand', null, h('img.brand-mark', { src: 'icon.png', alt: '' }), h('span', null, 'alphaPresent'), h('span.brand-sub', null, 'alphaCentaur'))),
+      h('div.brand', null, h('img.brand-mark', { src: 'icon.png', alt: '' }), h('span', null, 'alphaPresent'), h('span.brand-sub', null, 'AlphaCentaur'))),
     h('section.home-hero', null,
       h('h1', null, 'Presentations'),
       h('p', null, 'Arrange text, LaTeX, images, shapes and live JavaScript applets on slides, then export one HTML file that runs as a fullPage.js deck.'),
@@ -205,6 +205,7 @@ function buildShell() {
     menuButton('Shape', 'shapes', () => Object.entries(SHAPES).map(([k, v]) => ({ label: v, icon: 'shapes', action: () => insertShape(k) })), { cls: 'tool' }),
     tool('Embed', 'globe', () => insertEmbed()),
     HOST ? tool('Project', 'file', () => insertFromProject()) : null,
+    tool('Python', 'terminal', () => insertConsole()),
     menuButton('Applet', 'code', () => [
       ...APPLETS.map(a => ({ label: a.name, icon: 'code', action: () => insertApplet(a) })),
       '-',
@@ -221,7 +222,7 @@ function buildShell() {
     h('div.tb-left', null,
       HOST ? null : h('button.btn.ghost.home-btn', { type: 'button', title: 'All presentations', 'aria-label': 'All presentations', onclick: () => { go(null); showHome(); } }, h('img.brand-mark', { src: 'icon.png', alt: '' })),
       // The editor's name, inside alphaCentaur too (the sidebar says Presentation).
-      h('span.applet-name', { title: HOST ? 'alphaPresent, alphaCentaur\'s slide editor. It also runs on its own: python3 presentations/serve.py' : 'alphaPresent, alphaCentaur\'s slide editor' }, 'alphaPresent'),
+      h('span.applet-name', { title: HOST ? 'alphaPresent, AlphaCentaur\'s slide editor. It also runs on its own: python3 presentations/serve.py' : 'alphaPresent, AlphaCentaur\'s slide editor' }, 'alphaPresent'),
       h('div.title-wrap', null, title, status),
       fileMenu),
     h('div.tb-center', null, h('div.tb-group', null, undo, redo), insert),
@@ -253,7 +254,9 @@ function buildShell() {
 }
 // Exports carry the phone remote's setup (alphaCentaur's workspace setting
 // inside alphaCentaur; the deck's own copy standalone).
-const exportDeck = (deck, opts = {}) => exportHTML(deck, { ...opts, remote: effectiveSetup(deck) });
+// Inside alphaCentaur the deck learns the real apps port (its consoles' local Python on the web).
+const localPython = () => { try { return folderCtx.apps ? 'http://127.0.0.1:' + new URL(folderCtx.apps).port : LOCAL_PYTHON; } catch { return LOCAL_PYTHON; } };
+const exportDeck = (deck, opts = {}) => exportHTML(deck, { ...opts, remote: effectiveSetup(deck), localPython: localPython() });
 
 // The phone preview needs the remote on; offer that instead when it is off.
 function togglePhone() {
@@ -365,7 +368,7 @@ async function sendHostChange() {
   if (changeTimer) return;                // superseded while rendering
   if (html.length > HOST_LIMIT) {
     setStatus('Too large to save', 'error');
-    toast(`This presentation is ${(html.length / 1e6).toFixed(1)} MB; alphaCentaur keeps up to 16 MB per document. Remove or shrink some images.`, 'error');
+    toast(`This presentation is ${(html.length / 1e6).toFixed(1)} MB; AlphaCentaur keeps up to 16 MB per document. Remove or shrink some images.`, 'error');
     return;
   }
   pendingChange = false;
@@ -570,6 +573,7 @@ function insertEmbed() {
     h('div.chips', null, examples.map(([l, u]) => h('button.chip', { type: 'button', onclick: () => { inp.value = u; inp.focus(); } }, l)))),
   { actions: [{ label: 'Cancel' }, { label: 'Embed', primary: true, action: go }] });
 }
+function insertConsole() { addElements([place(makeConsole())]); }
 function insertApplet(a, newSlide = false) {
   const el = place(makeApplet(a.code, a.name, { w: 1400, h: 788 }));
   if (newSlide) {
@@ -795,7 +799,7 @@ app.onContextMenu = (e, el, at) => {
     if (el.type === 'math') items.push({ label: 'Edit LaTeX', icon: 'sigma', kbd: '⏎', action: () => canvas.openMathEditor(el) });
     if (el.type === 'image') items.push({ label: 'Replace image…', icon: 'image', action: () => app.onReplaceImage(el) });
     if (el.type === 'applet') items.push({ label: 'Edit code…', icon: 'code', action: () => app.onEditApplet(el) });
-    if (el.type === 'embed' || el.type === 'applet') items.push({ label: 'Interact', icon: 'hand', kbd: '⏎', action: () => canvas.startInteract(el.id) });
+    if (el.type === 'embed' || el.type === 'applet' || el.type === 'console') items.push({ label: el.type === 'console' ? 'Use the console' : 'Interact', icon: 'hand', kbd: '⏎', action: () => canvas.startInteract(el.id) });
     if (items.length) items.push('-');
     items.push(
       { label: 'Cut', kbd: kbd('Mod+X'), action: () => { copySelection(); app.action('delete'); } },
@@ -962,7 +966,8 @@ async function present(i = app.slideIndex) {
   canvas.finishEditing(); canvas.endInteract(); closePopover();
   await flushSave();
   // Presented from a blob: relative URLs become the project's absolute ones.
-  const html = await exportDeck(app.deck, { localLibs: true, resolveURLs: HOST });
+  // Python consoles in it use this page's Python (python: 'relay').
+  const html = await exportDeck(app.deck, { localLibs: true, resolveURLs: HOST, python: 'relay' });
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
   const frame = h('iframe.present-frame', { src: `${url}#pz-${i}`, allow: 'fullscreen; autoplay', title: 'Presentation' });
   const ov = h('div.present-overlay', null, frame,
@@ -973,6 +978,7 @@ async function present(i = app.slideIndex) {
   if (HOST) toHost('pz-presenting', { on: true });
   const close = () => {
     if (HOST) toHost('pz-presenting', { on: false });
+    window.pzPython?.forget(frame.contentWindow);
     removeEventListener('message', onMsg);
     document.removeEventListener('fullscreenchange', onFs);
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -996,17 +1002,22 @@ async function present(i = app.slideIndex) {
   addEventListener('message', onMsg);
   document.addEventListener('fullscreenchange', onFs);
   document.body.append(ov);
+  window.pzPython?.allow(frame.contentWindow);
   ov.requestFullscreen?.().catch(() => {});
   frame.addEventListener('load', () => frame.contentWindow.focus());
 }
 async function presentInWindow() {
   canvas.finishEditing();
   // Presented from a blob: relative URLs become the project's absolute ones.
-  const html = await exportDeck(app.deck, { localLibs: true, resolveURLs: HOST });
+  const html = await exportDeck(app.deck, { localLibs: true, resolveURLs: HOST, python: 'relay' });
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
   const w = window.open(`${url}#pz-${app.slideIndex}`, '_blank');
   if (!w) toast('The browser blocked the new window — allow pop-ups for this page.', 'error');
+  else window.pzPython?.allow(w);
 }
 
 // ---------------------------------------------------------------- start --
+// Python for the consoles on slides (runtime/python.js): in the browser with
+// Pyodide, unless alphaCentaur passes its kernel (pz-context, js/folder.js).
+window.pzPython?.configure({ pyodide: PYODIDE_CDN, sourcesURL: new URL('runtime/console-python.js', location.href).href, local: LOCAL_PYTHON });
 if (HOST) startHost(); else route();

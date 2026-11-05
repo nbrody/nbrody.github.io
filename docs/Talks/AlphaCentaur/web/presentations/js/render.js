@@ -6,6 +6,7 @@
 import { cssColor, cssFont, themeVars, googleFontURL, FONT_ROLES } from './themes.js';
 import { renderMathInHTML, renderTeX, escapeHTML } from './math.js';
 import { htmlIsEmpty, inert, sanitizeHTML, safeURL } from './model.js';
+import { consoleDoc, consoleThumb, KATEX_LOCAL } from './console.js';
 
 const esc = escapeHTML;
 const SHADOWS = {
@@ -72,6 +73,10 @@ export function elementStyle(el) {
     case 'shape':
       if (shadow) s += `filter:drop-shadow(${shadowForFilter(el.shadow)});`;
       break;
+    case 'console':
+      s += boxDecor(el) + (el.look === 'deck' ? 'background:var(--pz-surface);' : 'background:#0e1320;');
+      if (shadow) s += `box-shadow:${shadow};`;
+      break;
     default:
       s += boxDecor(el);
       if (shadow) s += `box-shadow:${shadow};`;
@@ -91,6 +96,7 @@ export function innerKey(el, ctx) {
     case 'shape': return ['s', el.shape, el.w, el.h, el.fill, el.stroke, el.strokeW, el.radius, el.dash, el.head].join('|');
     case 'embed': return 'e' + el.src;
     case 'applet': return 'a' + el.code + themeKey(ctx.deck);
+    case 'console': return ['c', el.code, el.name, el.size, el.look, el.autorun, el.prompt, ctx.mode, themeKey(ctx.deck)].join('|');
     default: return '';
   }
 }
@@ -121,7 +127,7 @@ export function elementInner(el, ctx) {
       const label = isRelativeURL(src) ? src.replace(/^(?:\.\.?\/)+/, '').replace(/\/index\.html?$/i, '') : hostOf(src);
       if (ctx.mode === 'thumb') return placeholderCard('embed', label);
       const url = viewURL(ctx, src, 'frame');
-      if (!url) return ctx.mode === 'edit' ? placeholderCard('embed', `${label} · shows on the computer running alphaCentaur`) : '';
+      if (!url) return ctx.mode === 'edit' ? placeholderCard('embed', `${label} · shows on the computer running AlphaCentaur`) : '';
       const attr = ctx.mode === 'export' ? 'data-pz-src' : 'src';
       return `<iframe ${attr}="${esc(url)}" allow="fullscreen; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen loading="eager" title="${esc(label)}"></iframe>` + (ctx.mode === 'edit' ? '<div class="pz-shield"></div>' : '');
     }
@@ -130,6 +136,13 @@ export function elementInner(el, ctx) {
       const doc = appletDoc(el.code || '', ctx.deck, { fonts: !ctx.offline });
       const attr = ctx.mode === 'export' ? 'data-pz-srcdoc' : 'srcdoc';
       return `<iframe ${attr}="${esc(doc)}" sandbox="allow-scripts allow-popups allow-modals allow-pointer-lock allow-downloads" title="${esc(el.name || 'Applet')}"></iframe>` + (ctx.mode === 'edit' ? '<div class="pz-shield"></div>' : '');
+    }
+    case 'console': {
+      // A Python console: a sandboxed frame that asks this page to run its code (runtime/python.js).
+      if (ctx.mode === 'thumb') return consoleThumb(el);
+      const doc = consoleDoc(el, ctx.deck, { fonts: ctx.offline ? '' : fontLinks([...new Set([ctx.deck.theme.fonts.mono, ctx.deck.theme.fonts.body])]), katex: ctx.katex || KATEX_LOCAL });
+      const attr = ctx.mode === 'export' ? 'data-pz-srcdoc' : 'srcdoc';
+      return `<iframe ${attr}="${esc(doc)}" sandbox="allow-scripts allow-downloads" title="${esc(el.name || 'Python')}"></iframe>` + (ctx.mode === 'edit' ? '<div class="pz-shield"></div>' : '');
     }
   }
   return '';
@@ -240,8 +253,20 @@ export function renderBackground(slide, ctx) {
   return `<div class="pz-bg" style="background:${esc(backgroundCSS(slide))}">${inner}</div>`;
 }
 
+// Decoration lives behind slide elements and is shared by editor and export.
+export function renderThemeChrome(theme) {
+  const kind = theme?.chrome;
+  const bar = (style) => `<div aria-hidden="true" style="position:absolute;pointer-events:none;${style}"></div>`;
+  if (kind === 'beamer-bars') return bar('top:0;left:0;width:100%;height:24px;background:var(--pz-accent)') + bar('bottom:0;left:0;width:100%;height:25px;background:var(--pz-accent)');
+  if (kind === 'beamer-rail') return bar('top:0;left:0;width:100%;height:18px;background:var(--pz-accent)') + bar('top:18px;left:0;width:100%;height:10px;background:var(--pz-accent2)') + bar('bottom:0;left:0;width:100%;height:22px;background:var(--pz-accent)');
+  if (kind === 'beamer-rule') return bar('top:0;left:0;width:100%;height:10px;background:var(--pz-accent)') + bar('bottom:0;left:0;width:100%;height:14px;background:var(--pz-accent2)');
+  if (kind === 'modern-line') return bar('top:0;left:0;width:100%;height:8px;background:var(--pz-accent)');
+  if (kind === 'modern-corner') return bar('top:0;left:0;width:12px;height:150px;background:var(--pz-accent)');
+  return '';
+}
+
 export function renderSlide(slide, ctx) {
-  return renderBackground(slide, ctx) + slide.elements.map(e => renderElement(e, ctx)).join('');
+  return renderBackground(slide, ctx) + renderThemeChrome(ctx.deck?.theme) + slide.elements.map(e => renderElement(e, ctx)).join('');
 }
 
 // Fonts the deck actually needs.

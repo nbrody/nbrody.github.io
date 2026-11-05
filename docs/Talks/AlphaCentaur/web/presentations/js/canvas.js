@@ -4,6 +4,7 @@
 
 import { app, currentSlide, findEl, selectedEls, editCtx, setSelection } from './state.js';
 import { renderBackground, elementStyle, elementInner, innerKey, buildSteps } from './render.js';
+import { revealOrder, placeRevealBadges } from './reveals.js';
 import { themeVars, COLOR_TOKENS, COLOR_LABELS } from './themes.js';
 import { aabb, unionBox, W, H, sanitizeHTML, htmlIsEmpty, clone, uid } from './model.js';
 import { renderTeX } from './math.js';
@@ -166,12 +167,19 @@ export function drawOverlay() {
   const box = (b, cls, rot = 0) => h('div.' + cls, {
     style: { left: b.x * s + 'px', top: b.y * s + 'px', width: b.w * s + 'px', height: b.h * s + 'px', transform: rot ? `rotate(${rot}deg)` : '' },
   });
-  // Build badges
+  // Number badges show actual click order, with collision-free positions.
   const builds = slide.elements.filter(e => e.build > 0);
-  for (const el of builds) {
-    const steps = buildSteps(el), b = aabb(el);
-    overlay.append(h('div.build-badge', { style: { left: b.x * s + 'px', top: b.y * s + 'px' }, title: 'Appears on click' },
-      steps > 1 ? `${el.build}–${el.build + steps - 1}` : String(el.build)));
+  const order = revealOrder(slide.elements, buildSteps);
+  const items = builds.map(el => {
+    const count = buildSteps(el), b = aabb(el);
+    const first = order.indexOf(el.build) + 1, last = order.indexOf(el.build + count - 1) + 1;
+    return { x: b.x * s, y: b.y * s, label: count > 1 ? `${first}–${last}` : String(first) };
+  });
+  for (const badge of placeRevealBadges(items, W * s, H * s)) {
+    const cx = badge.x + badge.w / 2, cy = badge.y + badge.h / 2;
+    const length = Math.hypot(cx - badge.anchorX, cy - badge.anchorY);
+    if (length > 18) overlay.append(h('div.build-leader', { style: { left: badge.anchorX + 'px', top: badge.anchorY + 'px', width: length + 'px', transform: `rotate(${Math.atan2(cy - badge.anchorY, cx - badge.anchorX)}rad)` } }));
+    overlay.append(h('div.build-badge', { style: { left: badge.x + 'px', top: badge.y + 'px', width: badge.w + 'px' }, title: `Reveal on click ${badge.label}` }, badge.label));
   }
   if (hoverId && !app.sel.has(hoverId) && !gesture) {
     const el = findEl(hoverId);
@@ -453,7 +461,7 @@ export function openElement(el, e) {
   if (el.type === 'text') startEditing(el.id, e ? { x: e.clientX, y: e.clientY } : null);
   else if (el.type === 'math') openMathEditor(el);
   else if (el.type === 'image') app.onReplaceImage?.(el);
-  else if (el.type === 'embed' || el.type === 'applet') {
+  else if (el.type === 'embed' || el.type === 'applet' || el.type === 'console') {
     if (el.type === 'embed' && !el.src) { app.tab = 'format'; app.refresh(['inspector']); app.focusInspector?.('src'); return; }
     startInteract(el.id);
   }

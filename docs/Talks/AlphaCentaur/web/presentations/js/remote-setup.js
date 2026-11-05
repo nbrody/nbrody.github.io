@@ -156,7 +156,7 @@ export function openSetupWizard({ initial, onDone } = {}) {
           ['Open the ', ext(CONSOLE, 'Firebase console'), ' and sign in with a Google account.'],
           ['Click ', h('b', null, 'Create a project'), ' (or ', h('b', null, 'Add project'), '). Any name works — say “slides-remote”.'],
           ['Google Analytics isn’t needed; you can switch it off. Click ', h('b', null, 'Create project'), ' and wait for it to finish.']),
-        h('p.hint', null, WORKSPACE ? 'One Firebase project serves every deck in alphaCentaur.' : 'One project serves all your decks.'),
+        h('p.hint', null, WORKSPACE ? 'One Firebase project serves every deck in AlphaCentaur.' : 'One project serves all your decks.'),
       ];
       case 2: return [
         steps(
@@ -208,7 +208,7 @@ export function openSetupWizard({ initial, onDone } = {}) {
             ['Put it on any static web host — a GitHub Pages site, Netlify, or Firebase Hosting in the same project.'],
             ['Paste its address here:']),
           url, bad,
-          h('p.hint', null, 'You can leave this empty for now and add it later in Design → Phone remote', WORKSPACE ? ' or alphaCentaur’s Workspace settings' : '', '. Until then the presentation shows a link for a remote on this computer instead of a QR code.'),
+          h('p.hint', null, 'You can leave this empty for now and add it later in Design → Phone remote', WORKSPACE ? ' or AlphaCentaur’s Workspace settings' : '', '. Until then the presentation shows a link for a remote on this computer instead of a QR code.'),
         ];
       }
       case 5: {
@@ -232,7 +232,7 @@ export function openSetupWizard({ initial, onDone } = {}) {
           h('p', null, 'The editor writes a value to ', h('code', null, 'pz-remote/<random>'), ', reads it back and deletes it.'),
           out,
           h('p.hint', null, WORKSPACE
-            ? 'Finishing turns the remote on for this deck and saves the setup in alphaCentaur’s workspace settings, for every deck in every project.'
+            ? 'Finishing turns the remote on for this deck and saves the setup in AlphaCentaur’s workspace settings, for every deck in every project.'
             : 'Finishing turns the remote on for this deck and remembers the setup in this browser for your other decks.'),
         ];
       }

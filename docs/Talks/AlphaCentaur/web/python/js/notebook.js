@@ -94,7 +94,7 @@ export function createNotebook(container, { icon, onChange }) {
   const addMd = button('type', 'Markdown', () => addCell(cells.length, 'markdown'), 'py-btn ghost');
   for (const [b, name] of [[addPy, 'Add a Python cell'], [addMd, 'Add a Markdown cell']]) { b.title = name; b.setAttribute('aria-label', name); }
   const toolbar = h('div', { class: 'py-toolbar' },
-    h('span', { class: 'applet-name', title: "alphaPy, alphaCentaur's Python notebooks (marimo-compatible). It also runs on its own: node python/server.mjs <folder> --open" }, 'alphaPy'),
+    h('span', { class: 'applet-name', title: "alphaPy, AlphaCentaur's Python notebooks (marimo-compatible). It also runs on its own: node python/server.mjs <folder> --open" }, 'alphaPy'),
     runAll, runStale, interrupt, restart, h('div', { class: 'spacer' }), status, logToggle, addPy, addMd);
   const column = h('div', { class: 'py-cells' });
   const endBar = h('div', { class: 'py-end' },

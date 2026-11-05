@@ -5,6 +5,7 @@
 
 import { defaultTheme, DEFAULT_MACROS, COLOR_TOKENS, FONT_ROLES, FONTS, SYSTEM_FONTS } from './themes.js';
 import { normalizeRemoteDeck, normalizeRemoteSlide } from './remote-model.js';
+import { CONSOLE_STARTER } from './console.js';
 
 export const W = 1920, H = 1080;
 
@@ -12,7 +13,7 @@ export const uid = (p = '') => p + Math.random().toString(36).slice(2, 8) + Date
 export const clone = o => JSON.parse(JSON.stringify(o));
 
 export const TYPE_LABELS = {
-  text: 'Text box', math: 'Equation', image: 'Image', shape: 'Shape', embed: 'Web embed', applet: 'Applet',
+  text: 'Text box', math: 'Equation', image: 'Image', shape: 'Shape', embed: 'Web embed', applet: 'Applet', console: 'Python console',
 };
 
 export const TEXT_STYLES = {
@@ -79,6 +80,16 @@ export function makeEmbed(src = '', opts = {}) {
 
 export function makeApplet(code, name = 'Applet', opts = {}) {
   return base('applet', opts.x ?? 260, opts.y ?? 160, opts.w ?? 1400, opts.h ?? 788, { code, name, radius: 12, stroke: 'none', strokeW: 0 });
+}
+
+// A Python console (js/console.js): code to run, a >>> line and the output.
+// size is the text size on the 1920×1080 stage; look is terminal (always dark)
+// or deck (the theme's surface and colors); autorun runs the code when its
+// slide is shown while presenting.
+export function makeConsole(code = CONSOLE_STARTER, opts = {}) {
+  return base('console', opts.x ?? 260, opts.y ?? 170, opts.w ?? 1400, opts.h ?? 740, {
+    code, name: opts.name ?? 'Python', size: 26, look: 'terminal', autorun: false, prompt: true, radius: 18, stroke: 'none', strokeW: 0,
+  });
 }
 
 export function makeSlide(elements = [], extra = {}) {
@@ -181,6 +192,7 @@ function defaultsFor(e) {
     case 'shape': return makeShape(SHAPES[e.shape] ? e.shape : 'rect');
     case 'embed': return makeEmbed();
     case 'applet': return makeApplet('', 'Applet');
+    case 'console': return makeConsole('');
     default: return null;
   }
 }
@@ -228,6 +240,10 @@ function normalizeElement(raw, seen) {
       break;
     case 'embed': e.src = safeURL(e.src); break;
     case 'applet': e.code = str(e.code, '', 4e6); e.name = str(e.name, 'Applet', 200); break;
+    case 'console':
+      e.code = str(e.code, '', 2e5); e.name = str(e.name, 'Python', 80) || 'Python'; e.size = num(e.size, d.size, 8, 120);
+      e.look = pick(e.look, ['terminal', 'deck'], 'terminal'); e.autorun = !!e.autorun; e.prompt = e.prompt !== false;
+      break;
   }
   return e;
 }
@@ -275,6 +291,7 @@ export function normalizeDeck(input) {
     size: { w: W, h: H },
     theme: {
       palette: str(t.palette, 'custom', 40), fontPair: str(t.fontPair, 'custom', 40),
+      preset: str(t.preset, '', 40), chrome: pick(t.chrome, ['none', 'beamer-bars', 'beamer-rail', 'beamer-rule', 'modern-line', 'modern-corner'], 'none'),
       colors: Object.fromEntries(COLOR_TOKENS.map(k => [k, COLOR.test(String(t.colors?.[k] || '').trim()) ? t.colors[k].trim() : fresh.theme.colors[k]])),
       fonts: Object.fromEntries(FONT_ROLES.map(k => [k, font(t.fonts?.[k], fresh.theme.fonts[k])])),
     },

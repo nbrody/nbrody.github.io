@@ -29,7 +29,7 @@
 html, body { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); -webkit-font-smoothing: antialiased; }
 #app { height: 100%; }
-button, input, textarea { font: inherit; color: inherit; }
+button, input, textarea, select { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
 
 /* Buttons */
@@ -95,3 +95,7 @@ button, input, textarea { font: inherit; color: inherit; }
   .ink-stage { padding: 14px; }
   .ink-stage canvas { margin: 0; }
 }
+
+.ink-setting { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; color: var(--muted-fg); flex: none; }
+.ink-setting select { height: 30px; border: 1px solid var(--border); border-radius: 7px; background: var(--skin-bg); padding: 0 6px; font-size: 12px; }
+.ink-setting select:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }

@@ -131,6 +131,18 @@ export function slideParams(slide) {
   return out;
 }
 
+// Python consoles (js/console.js) answer two button names: on a slide with a
+// console every preset gets a Run button (before Back/Next), and a custom
+// list can use either name.
+export const CONSOLE_BUTTONS = { run: 'console-run', stop: 'console-stop' };
+export const slideHasConsole = slide => (slide?.elements || []).some(e => e.type === 'console');
+function withConsoleRun(slide, controls) {
+  if (!slideHasConsole(slide)) return controls;
+  const run = { type: 'button', name: CONSOLE_BUTTONS.run, label: 'Run the code' };
+  const at = controls.findIndex(c => c.type === 'nav' || c.type === 'next' || c.type === 'prev');
+  return at < 0 ? [...controls, run] : [...controls.slice(0, at), run, ...controls.slice(at)];
+}
+
 // What the phone shows for a slide.
 export function slidePreset(deck, slide) {
   const own = slide?.remote?.preset;
@@ -141,9 +153,10 @@ export function resolveRemote(deck, slide) {
   if (id === 'custom') return normalizeControls(slide?.remote?.controls);
   if (p.controls === 'auto') {
     const params = slideParams(slide);
-    return params.length ? [{ type: 'progress' }, ...params, { type: 'nav' }] : [{ type: 'text', text: 'No applet on this slide exposes parameters.' }, { type: 'nav' }];
+    if (!params.length && slideHasConsole(slide)) return withConsoleRun(slide, [{ type: 'progress' }, { type: 'nav' }]);
+    return params.length ? withConsoleRun(slide, [{ type: 'progress' }, ...params, { type: 'nav' }]) : [{ type: 'text', text: 'No applet on this slide exposes parameters.' }, { type: 'nav' }];
   }
-  return p.controls.map(c => ({ ...c }));
+  return withConsoleRun(slide, p.controls.map(c => ({ ...c })));
 }
 
 // Recommended Realtime Database rules: any client may use a session it knows

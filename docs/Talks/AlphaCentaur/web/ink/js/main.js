@@ -6,7 +6,7 @@ import { createNotebook } from './notebook.js';
 import { icon } from '../vendor/icons.js';
 
 const SUFFIX = /\.ink\.json$/i;
-const blank = () => JSON.stringify({ version: 1, pages: [{ id: crypto.randomUUID(), background: 'grid', strokes: [] }], current: 0 });
+const blank = () => JSON.stringify({ version: 1, pages: [{ id: crypto.randomUUID(), background: 'ruled', paper: 'paper', strokes: [] }], current: 0 });
 const app = document.getElementById('app');
 
 if (HOST) {
