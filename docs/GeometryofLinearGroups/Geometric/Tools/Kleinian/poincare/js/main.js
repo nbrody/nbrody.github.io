@@ -5,10 +5,13 @@
  * never block. See app.js for the frame conventions.
  */
 import * as THREE from 'three';
-import { Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD, lorentzMatrix, pslKey } from './math.js';
+import { Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD, pslKey } from './math.js';
 import { serializeTowerContext } from './tower.js';
 import { exportDomainAs3MF } from './export3mf.js';
 import { createInsideView } from './insideView.js';
+import { createInsideHoneycomb } from './insideHoneycomb.js';
+import { createQuestTiling } from './questTiling.js';
+import { createHoneycombView } from './honeycombView.js';
 import { createLimitSet } from './limitSet.js';
 import { mirrorFragmentShader } from './mirror.js';
 import { vertexShader } from './shaders.js';
@@ -23,7 +26,7 @@ import { kleinToBall } from './polyhedron.js';
 import {
     installResult, retargetScene, displayedDomain, standardGenerators, faceColors, invalidateFaceColors, pairColors
 } from './domain.js';
-import { computeDelaunayDomain, planarHome, delaunayEdgesNear } from './delaunay.js';
+import { computeDelaunayDomain, planarHome } from './delaunay.js';
 import { createDelaunayView } from './delaunayView.js';
 import {
     scene, camera, renderer, controls, material, mesh, ballBox, uhsBox, view, theme,
@@ -50,8 +53,7 @@ import {
 import { renderInvariants, clearGeodesicSelection } from './invariantsPanel.js';
 import { horo, updateHoroballs } from './horoballs.js';
 import {
-    manifoldFragmentShader, honeycombFragmentShader, makeTessellationUniforms, loadTessellationUniforms,
-    loadEdges, loadFaceRadii, loadDelaunayEdges
+    manifoldFragmentShader, makeTessellationUniforms, loadTessellationUniforms
 } from './tessellation.js';
 import { readStateFromURL, writeStateToURL } from './permalink.js';
 import { createPlanarView, isRealGroup, framePlanarCamera, planarPick, planarRayPoint, PLANAR_MAX_WALLS } from './planar.js';
@@ -79,8 +81,12 @@ function makeTessMaterial(fragmentShader) {
         transparent: true, depthWrite: true, depthTest: true, side: THREE.BackSide
     });
 }
-const honeycombMaterial = makeTessMaterial(honeycombFragmentShader);
+const honeycombView = createHoneycombView(scene);
 const manifoldMaterial = makeTessMaterial(manifoldFragmentShader);
+const insideHoneycomb = createInsideHoneycomb(scene);
+let insideHoneycombOn = false;
+const questTiling = createQuestTiling(scene);
+let questTilingOn = false;
 const render = { honeycomb: false, manifold: false, tieDye: false, unwrapped: false };
 
 // Every frame is smoothed by FXAA (postfx.js), which is nearly free. "Smooth"
@@ -92,8 +98,7 @@ let quality = 'fast';
 try { if (localStorage.getItem(QUALITY_KEY) === 'smooth') quality = 'smooth'; } catch (e) { /* storage blocked */ }
 
 function applyPixelRatio() {
-    // The honeycomb marches through every tile per pixel: keep it affordable.
-    const base = render.honeycomb ? 1 : Math.min(window.devicePixelRatio, 2);
+    const base = Math.min(window.devicePixelRatio, 2);
     renderer.setPixelRatio(base * (quality === 'smooth' ? 1.5 : 1));
 }
 
@@ -167,6 +172,7 @@ function rebuildDelaunay() {
             vertexColor: (k) => { const c = {}; VERTEX_HUES(k).getRGB(c, THREE.SRGBColorSpace); return [c.r, c.g, c.b]; },
         });
     }
+    if (render.honeycomb) rebuildHoneycomb();
     syncDomainVisibility();
 }
 
@@ -174,6 +180,7 @@ function rebuildDelaunay() {
 function setDelaunay(on, { quiet = false } = {}) {
     on = !!on;
     if (on) {
+        if (questTilingOn) setQuestTiling(false);
         if (app.fordOn) setCuspView(false);
         if (insideView.isActive()) setInsideView(false);
         if (mirrorMode) setMirrorMode(false);
@@ -275,82 +282,25 @@ function syncDomainVisibility() {
     const o = material.uniforms.u_opacity.value;
     const dlOn = delaunayShowing();
     // While unwrapped (unwrap.js) the domain is drawn among its neighbours as a mesh.
-    // The honeycomb draws the whole tessellation (by either domain) in place of the polyhedron.
+    // The honeycomb draws nearby tiles in place of the polyhedron.
     const honey = render.honeycomb && view.model === 'ball' && !insideView.isActive();
-    mesh.visible = !planar.on && o > 0 && !render.unwrapped && !(dlOn && dl.result.dim === 3 && !honey);
+    mesh.visible = !honey && !questTilingOn && !insideHoneycombOn && !planar.on && o > 0 && !render.unwrapped && !(dlOn && dl.result.dim === 3 && !honey);
     planarView.setVisible(planar.on && o > 0);
     planarView.setOpacity(o);
     delaunayView.setVisible(dlOn && (dl.result.dim === 2) === planar.on && !(honey && !planar.on));
-    const dlHoney = honey && dlOn && dl.result.dim === 3;
     for (const id of ['honeycomb-walls-row', 'honeycomb-faces-row']) {
-        document.getElementById(id)?.classList.toggle('disabled', !render.honeycomb || dlHoney);
+        document.getElementById(id)?.classList.toggle('disabled', !render.honeycomb);
     }
     delaunayView.setOpacity(o);
 }
 
 function activeMaterial() {
     if (render.manifold && insideView.isActive()) return manifoldMaterial;
-    if (render.honeycomb && view.model === 'ball' && !insideView.isActive()) return honeycombMaterial;
     return material;
 }
 
-// The Delaunay tiling's edges near the Dirichlet domain, for the honeycomb (per result).
-let dlHoney = { result: null, segs: null };
-let dlHoneyWarned = false;
-function delaunayHoneycombEdges() {
-    const R = dl.result;
-    if (dlHoney.result === R) return dlHoney.segs;
-    const of = new Map();
-    R.cycles.forEach((c, k) => (c.chains || []).forEach(ch => of.set(ch, k)));
-    const colorOf = (l) => {
-        if (l.kind !== 'edge' || !of.has(l.chain)) return [0.82, 0.85, 0.92];       // a fold: neutral
-        const c = {};
-        CYCLE_HUES(of.get(l.chain)).getRGB(c, THREE.SRGBColorSpace);
-        return [c.r, c.g, c.b];
-    };
-    dlHoney = { result: R, segs: delaunayEdgesNear(R, dl.home, colorOf) };
-    dlHoneyWarned = false;
-    return dlHoney.segs;
-}
-
-/** The honeycomb sees each wall from both sides, so a face and its partner
-    get one colour, and its edges take the Edge Cycles colours. */
-let classColors = { from: null, colors: null };
 function loadTessUniforms(m) {
-    const D = app.scene;
-    let colors = faceColors(D);
-    if (m === honeycombMaterial && D) {
-        if (classColors.from !== colors) {
-            const from = colors;
-            classColors = { from, colors: D.walls.map((w, i) => {
-                const j = w.pairing ? w.pairing.partner : -1;
-                return j >= 0 && j < i ? from[j] : from[i];
-            }) };
-        }
-        colors = classColors.colors;
-        const cycles = (!app.fordOn && app.report && app.report.edgeCycles) || null;
-        loadEdges(m.uniforms, app.home, cycles, k => {
-            const c = {};
-            CYCLE_HUES(k).getRGB(c, THREE.SRGBColorSpace);
-            return [c.r, c.g, c.b];
-        }, colors, lorentzMatrix(sceneMatrix()));
-        if (m.uniforms.u_faceFill.value > 0) loadFaceRadii(m.uniforms, app.home);
-        // On the Delaunay tiles: their edges near D, by Delaunay edge cycle.
-        const segs = delaunayShowing() && dl.result.dim === 3 ? delaunayHoneycombEdges() : null;
-        if (!loadDelaunayEdges(m.uniforms, segs, lorentzMatrix(sceneMatrix())) && delaunayShowing() && dl.result.dim === 3 && !dlHoneyWarned) {
-            dlHoneyWarned = true;
-            setBanner('warning', 'Too many Delaunay edges come near the domain for the honeycomb: it shows the Dirichlet tiling.');
-        }
-        // Faces go on the domain and the cells across its faces: tiles whose
-        // centre is within twice the farthest wall's distance of D's centre.
-        const c = D.conePoint, r2 = c.lengthSq();
-        const C = new THREE.Vector4(2 * c.x / (1 - r2), 2 * c.y / (1 - r2), 2 * c.z / (1 - r2), (1 + r2) / (1 - r2));
-        m.uniforms.u_center.value.copy(C);
-        let far = 0;
-        for (const w of D.walls) far = Math.max(far, Math.asinh(Math.abs(w.cov.x * C.x + w.cov.y * C.y + w.cov.z * C.z - w.cov.w * C.w)));
-        m.uniforms.u_faceReach.value = Math.cosh(2 * far + 0.05);
-    }
-    return loadTessellationUniforms(m.uniforms, D, colors);
+    return loadTessellationUniforms(m.uniforms, app.scene, faceColors(app.scene));
 }
 
 function syncMaterial() {
@@ -367,8 +317,8 @@ function syncMaterial() {
             const why = !app.scene ? 'no domain yet'
                 : app.scene.walls.length > 64 ? `the domain has ${app.scene.walls.length} faces (the view holds 64)`
                     : 'some face has no pairing (the certificate failed)';
-            setBanner('warning', `${m === honeycombMaterial ? 'Honeycomb' : 'Manifold'} view unavailable: ${why}.`);
-            if (m === honeycombMaterial) setHoneycomb(false); else setManifold(false);
+            setBanner('warning', `Manifold view unavailable: ${why}.`);
+            setManifold(false);
             return;
         }
         if (m === manifoldMaterial && app.scene) {
@@ -380,6 +330,8 @@ function syncMaterial() {
 }
 
 function setMirrorMode(on) {
+    if (on && render.honeycomb) setHoneycomb(false);
+    if (on && questTilingOn) setQuestTiling(false);
     if (on && planar.on) setPlanar(false);
     if (on && dl.on) setDelaunay(false);
     if (on && render.tieDye) setTieDye(false);
@@ -391,6 +343,7 @@ function setMirrorMode(on) {
 /** Tie-Dye is a uniform of the domain shader; Mirror and Honeycomb replace
     that shader, so they exclude it. */
 function setTieDye(on) {
+    if (on && questTilingOn) setQuestTiling(false);
     if (on && planar.on) setPlanar(false);
     if (on && dl.on) setDelaunay(false);
     if (on && mirrorMode) setMirrorMode(false);
@@ -400,10 +353,22 @@ function setTieDye(on) {
     updateToggleBtn(document.getElementById('toggle-tiedye'), on);
 }
 
+function rebuildHoneycomb() {
+    honeycombView.rebuild(app.home, app.report, faceColors(app.home),
+        delaunayShowing() ? dl.result : null, dl.colors, view.theme);
+}
+
 function setHoneycomb(on) {
+    if (on && insideView.isActive()) setInsideView(false);
+    if (on && mirrorMode) setMirrorMode(false);
+    if (on && questTilingOn) setQuestTiling(false);
     if (on && planar.on) setPlanar(false);
+    if (on && app.fordOn) setCuspView(false);
     if (on && render.tieDye) setTieDye(false);
     render.honeycomb = on;
+    if (on && app.home) rebuildHoneycomb();
+    honeycombView.setVisible(on && !!app.home);
+    if (on) honeycombView.setFrame(sceneMatrix());
     updateToggleBtn(document.getElementById('toggle-honeycomb'), on);
     if (on && view.model !== 'ball') setViewModel('ball');
     applyPixelRatio();
@@ -411,9 +376,46 @@ function setHoneycomb(on) {
 }
 
 function setManifold(on) {
+    if (on && questTilingOn) setQuestTiling(false);
+    if (on && insideHoneycombOn) setInsideHoneycomb(false);
     render.manifold = on;
     updateToggleBtn(document.getElementById('toggle-manifold'), on);
     if (on && !insideView.isActive()) setInsideView(true);
+    syncMaterial();
+}
+
+function setInsideHoneycomb(on) {
+    if (on && questTilingOn) setQuestTiling(false);
+    if (on && render.manifold) setManifold(false);
+    if (on && !insideView.isActive()) setInsideView(true);
+    insideHoneycombOn = on;
+    updateToggleBtn(document.getElementById('toggle-inside-honeycomb'), on);
+    if (on && app.home) insideHoneycomb.rebuild(app.home, app.report, faceColors(app.home));
+    insideHoneycomb.setVisible(on && !!app.home);
+    if (on) insideHoneycomb.setFrame(sceneMatrix());
+    syncMaterial();
+}
+
+function rebuildQuestTiling() {
+    questTiling.rebuild(app.home, app.report, faceColors(app.home), view.theme);
+}
+
+function setQuestTiling(on) {
+    if (on) {
+        if (insideView.isActive()) setInsideView(false);
+        if (planar.on) setPlanar(false);
+        if (dl.on) setDelaunay(false);
+        if (app.fordOn) setCuspView(false);
+        if (mirrorMode) setMirrorMode(false);
+        if (render.tieDye) setTieDye(false);
+        if (render.honeycomb) setHoneycomb(false);
+        if (view.model !== 'ball') setViewModel('ball');
+    }
+    questTilingOn = on;
+    updateToggleBtn(document.getElementById('toggle-tiling'), on);
+    if (on && app.home) rebuildQuestTiling();
+    questTiling.setVisible(on && !!app.home);
+    if (on) questTiling.setFrame(sceneMatrix());
     syncMaterial();
 }
 
@@ -422,6 +424,9 @@ function setManifold(on) {
 /** Everything that rides the scene isometry. `fast` while moving. */
 function onSceneMoved({ fast = false } = {}) {
     retargetScene();
+    if (insideHoneycombOn) insideHoneycomb.setFrame(sceneMatrix());
+    if (questTilingOn) questTiling.setFrame(sceneMatrix());
+    if (render.honeycomb) honeycombView.setFrame(sceneMatrix());
     const D = displayedDomain();
     loadDomainUniforms(D, faceColors(D));
     delaunayView.setFrame(sceneMatrix(), view.model === 'uhs');
@@ -537,6 +542,12 @@ async function requestCompute({ quiet = false, force = false } = {}) {
 
 function afterInstall(result, ms) {
     invalidateFaceColors();
+    if (questTilingOn) { rebuildQuestTiling(); questTiling.setVisible(!!app.home); }
+    if (render.honeycomb) { rebuildHoneycomb(); honeycombView.setVisible(!!app.home); }
+    if (insideHoneycombOn) {
+        insideHoneycomb.rebuild(app.home, app.report, faceColors(app.home));
+        insideHoneycomb.setVisible(!!app.home);
+    }
     invalidateSkeleton();
     clearFaceSelection();
     clearGeodesicSelection();
@@ -696,6 +707,7 @@ const FLY_HORIZON = 1 - 1e-9;
 const insideView = createInsideView({
     camera, controls, renderer,
     onExit: () => {
+        if (insideHoneycombOn) setInsideHoneycomb(false);
         app.flying = false;
         app.flyMatrix = Matrix2x2.identity();
         document.documentElement.classList.remove('inside-mode');
@@ -719,6 +731,7 @@ function entryFlyMatrix() {
 
 function setInsideView(on) {
     if (on === insideView.isActive()) return;
+    if (on && questTilingOn) setQuestTiling(false);
     if (!on) { insideView.exit(); return; }
     if (planar.on) setPlanar(false);
     if (dl.on) setDelaunay(false);
@@ -796,6 +809,7 @@ function setViewModel(model) {
     planarView.setModel(model);
     limitSet.setViewModel(model);
     if (uhs) {
+        if (questTilingOn) setQuestTiling(false);
         if (mirrorMode) setMirrorMode(false);
         if (render.honeycomb) setHoneycomb(false);
     }
@@ -818,6 +832,8 @@ function setViewModel(model) {
 function setTheme(mode) {
     if (mode !== 'light' && mode !== 'dark') return;
     view.theme = mode;
+    if (questTilingOn) rebuildQuestTiling();
+    if (render.honeycomb) rebuildHoneycomb();
     applyThemeUniforms();
     limitSet.setLightMode(mode === 'light');
     if (layers.showDust) updateDust();
@@ -860,6 +876,7 @@ function setPlanar(on) {
     if (on === planar.on) { syncPlanarControls(); return; }
     planar.on = on;
     if (on) {
+        if (questTilingOn) setQuestTiling(false);
         if (insideView.isActive()) setInsideView(false);
         if (app.fordOn) setCuspView(false);
         if (render.honeycomb) setHoneycomb(false);
@@ -1083,8 +1100,10 @@ function initUI() {
         onWordLengthChange: (depth) => { app.depth = depth; requestCompute(); },
         onPaletteChange: () => {
             invalidateFaceColors();
+            if (questTilingOn) rebuildQuestTiling();
             if (dl.result && dl.result.ok) { dl.home = null; delaunayResult(); }
             if (dl.on) rebuildDelaunay();
+            else if (render.honeycomb) rebuildHoneycomb();
             onSceneMoved();
             rebuildFaceLabels();
         },
@@ -1097,6 +1116,7 @@ function initUI() {
     bindToggle('toggle-tiedye', () => setTieDye(!render.tieDye));
     bindToggle('toggle-honeycomb', () => setHoneycomb(!render.honeycomb));
     bindToggle('toggle-manifold', () => setManifold(!render.manifold));
+    bindToggle('toggle-inside-honeycomb', () => setInsideHoneycomb(!insideHoneycombOn));
     bindToggle('view-uhs', () => setViewModel(view.model === 'uhs' ? 'ball' : 'uhs'));
     bindToggle('view-inside', () => setInsideView(!insideView.isActive()));
     bindToggle('toggle-full-domain', (btn) => {
@@ -1104,11 +1124,7 @@ function initUI() {
         updateToggleBtn(btn, app.fullDirichlet);
         requestCompute();
     });
-    bindToggle('toggle-tiling', (btn) => {
-        layers.showTiling = !layers.showTiling;
-        updateToggleBtn(btn, layers.showTiling);
-        updateTiling();
-    });
+    bindToggle('toggle-tiling', () => setQuestTiling(!questTilingOn));
     bindToggle('toggle-cycles', (btn) => {
         inspect.showCycles = !inspect.showCycles;
         updateToggleBtn(btn, inspect.showCycles);
@@ -1142,15 +1158,11 @@ function initUI() {
     setQuality(quality, false);
 
     const hcWalls = document.getElementById('honeycomb-walls');
-    const setHoneycombWalls = () => { honeycombMaterial.uniforms.u_wallAlpha.value = 0.3 * parseFloat(hcWalls.value); };
+    const setHoneycombWalls = () => { honeycombView.setWalls(parseFloat(hcWalls.value)); };
     hcWalls?.addEventListener('input', setHoneycombWalls);
     if (hcWalls) setHoneycombWalls();
     const hcFaces = document.getElementById('honeycomb-faces');
-    const setHoneycombFaces = () => {
-        const v = parseFloat(hcFaces.value);
-        honeycombMaterial.uniforms.u_faceFill.value = v;
-        if (v > 0) loadFaceRadii(honeycombMaterial.uniforms, app.home);
-    };
+    const setHoneycombFaces = () => { honeycombView.setFaces(parseFloat(hcFaces.value)); };
     hcFaces?.addEventListener('input', setHoneycombFaces);
     if (hcFaces) setHoneycombFaces();
 
@@ -1367,7 +1379,7 @@ window.PoincareAPI = {
     setDomainVisible(v) { material.uniforms.u_faceCount.value = (v && displayedDomain()) ? displayedDomain().count : 0; },
     setWallsOpacity,
     setCayleyMode(mode) { layers.cayleyMode = mode; updateCayley(); },
-    setTiling(on) { layers.showTiling = on; updateTiling(); },
+    setTiling(on) { setQuestTiling(!!on); },
     setLimitSet(on) {
         limitSet.setEnabled(on);
         updateToggleBtn(document.getElementById('toggle-limitset'), on);
