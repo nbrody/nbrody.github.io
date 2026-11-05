@@ -9,6 +9,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Josefin+Sans:wght@300;400&display=swap"
     rel="stylesheet">
+  <link rel="stylesheet" href="assets/alphacentaur-demo.css">
   <style>
     :root {
       --ink: #1a1810;
@@ -851,19 +852,13 @@
   <section id="software">
     <div class="section-inner">
       <div class="section-header reveal">
-        <span class="section-label">For Mathematicians</span>
         <h2>AlphaCentaur</h2>
       </div>
 
       <div class="app-intro reveal">
         <div>
-          <p class="app-lede">A Mac workspace for mathematical research, where you and an AI collaborator work on the same project.</p>
-          <p class="app-body">
-            Each project holds notes in Markdown with live LaTeX, a manuscript you can build to PDF, Python
-            notebooks, Lean files, slides, handwritten notes, and a library of papers to read and annotate.
-            Bring an API key from Anthropic, OpenAI or Google, or run a model on your own computer. What the AI
-            writes is labeled as its own, and the documents you mark as yours stay yours.
-          </p>
+          <p class="app-lede">A workspace for mathematical research.</p>
+          <p class="app-body">Each AlphaCentaur project integrates tools for all aspects of mathematical workflow. You can read, write, compute, draw, think, and create all in one interface that is easy for both human and AI collaboration. AlphaCentaur can work with a built-in chat feature, or you can use an MCP through Claude Code or Codex.</p>
         </div>
         <div class="app-download">
           <!-- Always the newest release: github.com/nbrody/alphaCentaur-releases -->
@@ -879,14 +874,99 @@
         </div>
       </div>
 
-      <figure class="app-shot reveal">
+      <div class="app-shot reveal ac-preview" data-ac-preview aria-label="Interactive read-only AlphaCentaur preview">
         <div class="app-shot-bar" aria-hidden="true"><span></span><span></span><span></span></div>
-        <img src="assets/img/alphacentaur/alphacentaur-home.webp"
-          srcset="assets/img/alphacentaur/alphacentaur-home-1000.webp 1000w, assets/img/alphacentaur/alphacentaur-home.webp 2000w"
-          sizes="(max-width: 900px) calc(100vw - 3rem), 764px" width="2000" height="1250" loading="lazy"
-          decoding="async"
-          alt="AlphaCentaur's Projects page, with cards for eight projects such as Free subgroups of SL₂(ℤ) and Bruhat–Tits trees">
-      </figure>
+        <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
+          <symbol id="ac-i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+          <symbol id="ac-i-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></symbol>
+          <symbol id="ac-i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></symbol>
+          <symbol id="ac-i-book" viewBox="0 0 24 24"><path d="M4 5c3-1 6 0 8 2v13c-2-2-5-3-8-2zM20 5c-3-1-6 0-8 2v13c2-2 5-3 8-2z"/></symbol>
+          <symbol id="ac-i-pen" viewBox="0 0 24 24"><path d="m4 20 4-1 12-12-3-3L5 16zM14 7l3 3"/></symbol>
+          <symbol id="ac-i-chat" viewBox="0 0 24 24"><path d="M4 5h16v12H9l-5 3zM8 9h8M8 13h5"/></symbol>
+          <symbol id="ac-i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+        </svg>
+        <div class="ac-preview-window">
+          <div class="ac-preview-nav" role="group" aria-label="Explore AlphaCentaur features">
+            <div class="ac-preview-brand"><img src="assets/alphacentaur-demo-icon.png" width="27" height="27" alt=""><span>AlphaCentaur</span></div>
+            <div class="ac-preview-nav-label">Project workspace</div>
+            <button type="button" data-ac-view="overview" aria-pressed="true" aria-controls="ac-demo-overview"><svg aria-hidden="true"><use href="#ac-i-grid"/></svg>Overview</button>
+            <button type="button" data-ac-view="notes" aria-pressed="false" aria-controls="ac-demo-notes"><svg aria-hidden="true"><use href="#ac-i-doc"/></svg>Notes</button>
+            <button type="button" data-ac-view="notebook" aria-pressed="false" aria-controls="ac-demo-notebook"><svg aria-hidden="true"><use href="#ac-i-code"/></svg>Computations</button>
+            <button type="button" data-ac-view="lean" aria-pressed="false" aria-controls="ac-demo-lean"><svg aria-hidden="true"><use href="#ac-i-code"/></svg>Formalization</button>
+            <button type="button" data-ac-view="manuscript" aria-pressed="false" aria-controls="ac-demo-manuscript"><svg aria-hidden="true"><use href="#ac-i-book"/></svg>Manuscript</button>
+            <button type="button" data-ac-view="slides" aria-pressed="false" aria-controls="ac-demo-slides"><svg aria-hidden="true"><use href="#ac-i-grid"/></svg>Slides</button>
+            <button type="button" data-ac-view="library" aria-pressed="false" aria-controls="ac-demo-library"><svg aria-hidden="true"><use href="#ac-i-book"/></svg>Bibliography</button>
+            <button type="button" data-ac-view="ink" aria-pressed="false" aria-controls="ac-demo-ink"><svg aria-hidden="true"><use href="#ac-i-pen"/></svg>Handwriting</button>
+            <div class="ac-preview-spacer"></div>
+            <button type="button" data-ac-view="chat" data-ac-label="Collaborator" aria-pressed="false" aria-controls="ac-demo-chat"><svg aria-hidden="true"><use href="#ac-i-chat"/></svg>Collaborator</button>
+            <button type="button" data-ac-view="activity" aria-pressed="false" aria-controls="ac-demo-activity"><svg aria-hidden="true"><use href="#ac-i-clock"/></svg>Activity</button>
+          </div>
+          <div class="ac-preview-body">
+            <div class="ac-preview-top"><div>Free subgroups <span aria-hidden="true">›</span> <strong data-ac-current>Overview</strong></div><span class="ac-preview-badge">Read-only preview</span></div>
+            <div class="ac-preview-layout">
+              <div class="ac-preview-main">
+                <div class="ac-preview-panel" data-ac-panel="overview" id="ac-demo-overview">
+                  <div class="ac-preview-kicker">Research project</div><h3>Free subgroups of SL₂(ℤ)</h3>
+                  <p class="ac-preview-intro">A place to collect the ideas, calculations, and sources behind a mathematical question.</p>
+                  <div class="ac-preview-rule"></div><h4>Project scope and plan</h4>
+                  <p>Explore how two matrices generate a free subgroup, using dynamics on the projective line.</p>
+                  <div class="ac-preview-math">A = ( 1  2 ; 0  1 ) &nbsp;&nbsp; B = ( 1  0 ; 2  1 )</div>
+                  <div class="ac-preview-grid"><div class="ac-preview-card"><strong>Notes &amp; ideas</strong><span>Arguments and questions</span></div><div class="ac-preview-card"><strong>Computations</strong><span>Examples to explore</span></div><div class="ac-preview-card"><strong>Manuscript</strong><span>A paper in progress</span></div><div class="ac-preview-card"><strong>Bibliography</strong><span>Sources and reading</span></div></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="notes" id="ac-demo-notes" hidden>
+                  <div class="ac-preview-kicker">Notes · Markdown + LaTeX</div><h3>The ping-pong argument</h3>
+                  <p>To show that a group is free, look for disjoint subsets of a space that are moved into one another by its generators.</p>
+                  <div class="ac-preview-math">Aⁿ(Y) ⊂ X &nbsp; and &nbsp; Bⁿ(X) ⊂ Y, &nbsp; for n ≠ 0.</div>
+                  <h4>Working idea</h4><p>Use the action on the projective line. Track a point through a reduced word and observe which region contains the result.</p>
+                  <div class="ac-preview-card"><strong>Question</strong><span>Which regions make the dynamics easiest to see?</span></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="notebook" id="ac-demo-notebook" hidden>
+                  <div class="ac-preview-kicker">Computations · Python</div><h3>Exploring examples</h3>
+                  <p>Keep executable notebooks alongside the questions that led to them.</p>
+                  <div class="ac-preview-notebook"><div class="ac-preview-cell"><small>Code cell</small><pre class="ac-preview-code"><span class="kw">from</span> fractions <span class="kw">import</span> Fraction
+
+<span class="kw">def</span> A(x):
+    <span class="kw">return</span> x + 2
+
+[A(Fraction(n, 2)) <span class="kw">for</span> n <span class="kw">in</span> range(-2, 3)]</pre></div><div class="ac-preview-cell"><small>Example output</small><pre class="ac-preview-code">[1, 3/2, 2, 5/2, 3]</pre></div></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="lean" id="ac-demo-lean" hidden>
+                  <div class="ac-preview-kicker">Formalization · Lean</div><h3>Check an argument</h3><p>Keep formal proofs beside the notes and calculations that inspired them.</p>
+                  <div class="ac-preview-notebook"><div class="ac-preview-cell"><small>Lean source</small><pre class="ac-preview-code"><span class="kw">variable</span> {G : Type*} [Group G]
+
+<span class="kw">theorem</span> identity_mul (g : G) :
+    1 * g = g := <span class="kw">by</span>
+  simp</pre></div><div class="ac-preview-cell"><small>Example result</small><p style="margin:5px 0 0;color:#087e6c">Proof checked</p></div></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="manuscript" id="ac-demo-manuscript" hidden>
+                  <div class="ac-preview-kicker">Manuscript · LaTeX</div><h3>A paper in progress</h3><p>Write a manuscript and build a PDF in the same project.</p>
+                  <div class="ac-preview-paper"><h4>Free subgroups and the<br>ping-pong lemma</h4><p style="text-align:center;color:#9aa7a2">Research notes</p><p><strong>1. Introduction.</strong> We study a pair of matrices through their action on the projective line. This perspective turns a question about words in a group into one about dynamics.</p><p><strong>2. The construction.</strong> Let X and Y be disjoint subsets. The ping-pong lemma gives a criterion for freeness.</p></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="slides" id="ac-demo-slides" hidden>
+                  <div class="ac-preview-kicker">Presentation · Slides</div><h3>Share the idea</h3><p>Build a presentation alongside your research.</p>
+                  <div class="ac-preview-paper" style="min-height:175px;display:flex;flex-direction:column;justify-content:center;background:#f3f8f5"><div class="ac-preview-kicker">A mathematical story</div><h4 style="text-align:left;font-size:21px;color:#173f37">A ping-pong argument</h4><p>Two generators. Two regions.<br>One way to see a free group.</p></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="library" id="ac-demo-library" hidden>
+                  <div class="ac-preview-kicker">Bibliography · Reading</div><h3>Project library</h3><p>Bring papers and references together with the work they inform.</p>
+                  <div class="ac-preview-card"><strong>Trees</strong><span>Jean-Pierre Serre · Group actions on trees</span></div><div class="ac-preview-card" style="margin-top:9px"><strong>Free groups and projective dynamics</strong><span>Reading notes · Ping-pong methods</span></div><div class="ac-preview-card" style="margin-top:9px"><strong>Notes on SL₂(ℤ)</strong><span>Reference · Matrices and Möbius transformations</span></div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="ink" id="ac-demo-ink" hidden>
+                  <div class="ac-preview-kicker">Handwriting · Sketchbook</div><h3>Think by hand</h3><p>Sketch a picture or work through an argument beside your other project files.</p>
+                  <svg class="ac-preview-drawing" viewBox="0 0 390 180" role="img" aria-label="A hand-drawn diagram of two regions and arrows between them"><path d="M32 91 C42 40 125 35 143 72 C160 108 121 143 77 133 C45 126 25 114 32 91 M248 74 C264 39 342 43 355 79 C370 117 329 141 286 132 C250 127 235 104 248 74" fill="none" stroke="#578379" stroke-width="2"/><path d="M156 72 C185 49 213 49 239 66 M228 55 l12 11 -15 1 M236 111 C211 131 184 131 155 112 M166 125 l-12 -13 16 1" fill="none" stroke="#99aaa0" stroke-width="2" stroke-linecap="round"/><text x="81" y="96" fill="#315e55" font-family="Georgia" font-style="italic" font-size="24">X</text><text x="294" y="96" fill="#315e55" font-family="Georgia" font-style="italic" font-size="24">Y</text><text x="189" y="52" fill="#829d93" font-family="Georgia" font-style="italic" font-size="16">Aⁿ</text><text x="189" y="149" fill="#829d93" font-family="Georgia" font-style="italic" font-size="16">Bⁿ</text></svg>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="chat" id="ac-demo-chat" hidden>
+                  <div class="ac-preview-kicker">AI collaboration</div><h3>A second perspective</h3><p>Discuss your project in the built-in chat, or connect Claude Code or Codex through MCP.</p><div class="ac-preview-card"><strong>Example prompt</strong><span>Help me find a proof strategy for the ping-pong lemma.</span></div><div class="ac-preview-card" style="margin-top:9px"><strong>Project context</strong><span>Choose the notes and files to bring into the conversation.</span></div><div class="ac-preview-math">Your research, with the tools and context in one place.</div>
+                </div>
+                <div class="ac-preview-panel" data-ac-panel="activity" id="ac-demo-activity" hidden>
+                  <div class="ac-preview-kicker">Project record</div><h3>Activity &amp; provenance</h3><p>Follow saved changes and see where shared versions came from.</p><div class="ac-preview-activity"><div class="ac-preview-activity-item"><b>•</b><div>You edited ping-pong.md<small>Today · Saved revision</small></div></div><div class="ac-preview-activity-item"><b>•</b><div>Received a shared version from Alex<small>Yesterday · Collaborator-supplied name</small></div></div><div class="ac-preview-activity-item"><b>•</b><div>Run of examples.py succeeded<small>Yesterday · Computations</small></div></div></div>
+                </div>
+              </div>
+              <aside class="ac-preview-aside" aria-label="Example collaborator panel"><div class="ac-preview-aside-title"><span class="ac-preview-star">✧</span> Project collaborator</div><small>Free subgroups</small><h4>A second perspective.</h4><p>Bring your notes, questions, and ideas into the conversation.</p><div class="ac-preview-prompt">Help me develop a proof strategy</div><div class="ac-preview-prompt">Suggest an example to explore</div></aside>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ac-preview-caption reveal"><span>Explore the workspace by selecting a section.</span><span>Illustrative preview · read-only</span></div>
 
       <p class="app-note reveal">
         The installer is signed and notarized by Apple: open it and follow the steps. After that,
@@ -944,6 +1024,8 @@
 
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
   </script>
+
+  <script src="assets/alphacentaur-demo.js" defer></script>
 
   <!-- Visitor counts (no cookies): nbrody.goatcounter.com. It also counts clicks on
        anything with data-goatcounter-click, such as the AlphaCentaur download button. -->

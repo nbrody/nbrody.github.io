@@ -1,0 +1,57 @@
+/* A read-only, self-contained preview of AlphaCentaur's workspace. */
+.ac-preview { --ac-ink:#152c3e; --ac-muted:#71818a; --ac-line:#e7ebec; --ac-accent:#087e6c; color:var(--ac-ink); background:#fff; font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+.ac-preview *, .ac-preview *::before, .ac-preview *::after { box-sizing:border-box; }
+.ac-preview button { font:inherit; cursor:pointer; }
+.ac-preview button:focus-visible { outline:2px solid #2eac98; outline-offset:-2px; }
+.ac-preview-window { display:grid; grid-template-columns:150px minmax(0,1fr); min-height:470px; }
+.ac-preview-nav { display:flex; flex-direction:column; gap:2px; padding:17px 9px; background:#132c3d; color:#c9d9de; }
+.ac-preview-brand { display:flex; align-items:center; gap:9px; padding:0 7px 22px; color:#fff; font-weight:650; font-size:12px; letter-spacing:-.02em; }
+.app-shot .ac-preview-brand img { display:block; width:27px; height:27px; border-radius:7px; }
+.ac-preview-nav-label { padding:0 9px 8px; font-size:9px; color:#8aa7b7; letter-spacing:.11em; text-transform:uppercase; }
+.ac-preview-nav button { display:flex; align-items:center; gap:9px; border:0; width:100%; min-height:33px; padding:7px 9px; text-align:left; color:inherit; background:transparent; border-radius:6px; white-space:nowrap; }
+.ac-preview-nav button:hover { background:#244659; color:white; }
+.ac-preview-nav button[aria-pressed='true'] { background:#295148; color:#baf5e3; }
+.ac-preview-nav svg { width:15px; height:15px; flex:none; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.ac-preview-nav .ac-preview-spacer { flex:1; }
+.ac-preview-body { min-width:0; display:flex; flex-direction:column; background:#fff; }
+.ac-preview-top { display:flex; justify-content:space-between; align-items:center; gap:12px; height:48px; flex:none; padding:0 21px; border-bottom:1px solid var(--ac-line); color:#8b999d; font-size:11px; }
+.ac-preview-top strong { color:#344c58; font-weight:600; }
+.ac-preview-badge { color:#63877d; background:#eef7f4; border-radius:4px; padding:4px 7px; font-size:10px; white-space:nowrap; }
+.ac-preview-layout { display:grid; grid-template-columns:minmax(0,1fr) 190px; flex:1; min-height:0; }
+.ac-preview-main { min-width:0; padding:27px 30px 32px; overflow:auto; }
+.ac-preview-panel[hidden] { display:none; }
+.ac-preview-kicker { color:#81918f; font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; margin-bottom:9px; }
+.ac-preview h3 { font:600 25px/1.15 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; letter-spacing:-.035em; margin:0 0 14px; color:var(--ac-ink); }
+.ac-preview h4 { font:600 14px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; margin:0 0 8px; color:var(--ac-ink); }
+.ac-preview p { font:inherit; line-height:1.55; color:#556b74; margin:0 0 12px; }
+.ac-preview-intro { font-size:12px !important; max-width:390px; }
+.ac-preview-rule { height:1px; background:var(--ac-line); margin:18px 0; }
+.ac-preview-math { padding:15px; margin:15px 0; border-left:3px solid #3aa38d; background:#f2f8f6; color:#193f39; font:italic 16px/1.5 Georgia,serif; }
+.ac-preview-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.ac-preview-card { border:1px solid var(--ac-line); border-radius:7px; padding:11px 12px; min-width:0; background:#fff; }
+.ac-preview-card strong { display:block; color:#29424b; font-size:11px; }
+.ac-preview-card span { display:block; color:#8b999d; font-size:10px; margin-top:3px; }
+.ac-preview-aside { border-left:1px solid var(--ac-line); padding:19px 15px; background:#fbfcfb; }
+.ac-preview-aside-title { display:flex; align-items:center; gap:7px; color:#334d54; font-size:11px; font-weight:650; }
+.ac-preview-star { display:grid; place-items:center; width:25px; height:25px; border-radius:7px; background:#e6f3ef; color:#087e6c; font-size:16px; }
+.ac-preview-aside small { display:block; margin:3px 0 22px 32px; color:#9ca9a6; font-size:10px; }
+.ac-preview-aside h4 { font:500 17px/1.2 Georgia,serif; letter-spacing:-.02em; margin-bottom:8px; }
+.ac-preview-aside p { font-size:11px; line-height:1.6; }
+.ac-preview-prompt { border:1px solid #e5ece9; border-radius:6px; padding:9px; margin-top:8px; color:#668178; font-size:10px; }
+.ac-preview-notebook { border:1px solid var(--ac-line); border-radius:7px; overflow:hidden; margin-top:14px; }
+.ac-preview-cell { padding:12px 14px; border-bottom:1px solid var(--ac-line); }
+.ac-preview-cell:last-child { border-bottom:0; }
+.ac-preview-cell small { color:#93a29f; font-size:9px; text-transform:uppercase; letter-spacing:.08em; }
+.ac-preview-code { margin:6px 0 0; overflow:auto; color:#375d61; font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre; }
+.ac-preview-code .kw { color:#865eb5; }
+.ac-preview-paper { background:#faf9f6; border:1px solid #eeeae2; border-radius:3px; padding:20px; box-shadow:0 4px 10px #1e30230a; font-family:Georgia,serif; }
+.ac-preview-paper h4 { font:600 16px/1.3 Georgia,serif; text-align:center; }
+.ac-preview-paper p { font:11px/1.6 Georgia,serif; color:#485955; }
+.ac-preview-drawing { width:100%; height:180px; border:1px solid var(--ac-line); border-radius:7px; background:#fafcfb; }
+.ac-preview-activity { display:grid; gap:12px; margin-top:14px; }
+.ac-preview-activity-item { display:flex; gap:10px; border-bottom:1px solid var(--ac-line); padding-bottom:10px; color:#536970; }
+.ac-preview-activity-item b { color:#284c48; }
+.ac-preview-activity-item small { display:block; color:#98a6a4; font-size:10px; }
+.ac-preview-caption { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; margin-top:11px; color:var(--muted); font:italic 14px/1.4 'Crimson Pro',Georgia,serif; }
+@media (max-width:720px) { .ac-preview-window { grid-template-columns:1fr; min-height:0; } .ac-preview-nav { flex-direction:row; overflow-x:auto; align-items:center; padding:8px; gap:3px; } .ac-preview-brand { padding:0 8px 0 2px; } .ac-preview-brand span,.ac-preview-nav-label,.ac-preview-spacer { display:none; } .ac-preview-nav button { width:auto; flex:none; padding:7px 9px; } .ac-preview-layout { grid-template-columns:1fr; } .ac-preview-aside { display:none; } .ac-preview-main { min-height:330px; padding:23px; } .ac-preview-top { padding:0 16px; } }
+@media (max-width:400px) { .ac-preview h3 { font-size:21px; } .ac-preview-grid { grid-template-columns:1fr 1fr; } .ac-preview-main { padding:19px; } }
