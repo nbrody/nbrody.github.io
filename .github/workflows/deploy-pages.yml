@@ -47,15 +47,15 @@ jobs:
           <script>location.replace('/GOLGFall26/' + location.search + location.hash);</script>
           </head><body><p>The seminar page is at <a href="/GOLGFall26/">/GOLGFall26/</a>.</p></body></html>
           HTML
+      # Remove training-only checkpoints from the checkout before the Jekyll build.
+      # They remain in the repository; the browser uses the separate data/ weights.
+      - name: Exclude training checkpoints from site
+        run: rm -rf ./docs/forFun/miscGames/khet/training/checkpoints
       - name: Build website
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./docs
           destination: ./_site
-      # Training checkpoints are repository assets, not required by the browser game.
-      # Keep them in source control, but leave them out of the published site.
-      - name: Exclude training checkpoints from site
-        run: rm -rf ./_site/forFun/miscGames/khet/training/checkpoints
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./_site
