@@ -15,6 +15,11 @@ export const DIR_NAMES = ['N', 'E', 'S', 'W'];
 export const DX = [0, 1, 0, -1];  // col delta per direction
 export const DY = [1, 0, -1, 0];  // row delta per direction (N increases row index)
 
+/** Normalize a continuous facing angle (radians) to discrete 0..3. */
+export function pyramidFacingIndex(angle) {
+    return ((Math.round(angle / (Math.PI / 2)) % 4) + 4) % 4;
+}
+
 export const PLAYER = { SILVER: 0, RED: 1 };
 export const PIECE_TYPE = {
     PHARAOH: 'pharaoh',
@@ -178,16 +183,17 @@ export class KhetGame {
 
                 // Rotations
                 if (piece.type === PIECE_TYPE.SPHINX) {
-                    // Sphinx can only face into the board
+                    // Sphinx can only face into the board.
+                    // DY[N]=+1 / DY[S]=-1, so from Silver's back rank (row 0)
+                    // N fires inward; from Red's (row 7) S fires inward.
+                    // Silver sits on col 9 → W is inward; Red on col 0 → E is inward.
                     if (cp === PLAYER.SILVER) {
-                        // Silver sphinx is at (0,0), can face N(0) or E(1)
-                        const others = piece.facing === DIR.N ? [DIR.E] : [DIR.N];
+                        const others = piece.facing === DIR.N ? [DIR.W] : [DIR.N];
                         for (const f of others) {
                             moves.push({ type: 'rotate', col: c, row: r, toFacing: f });
                         }
                     } else {
-                        // Red sphinx is at (9,7), can face S(2) or W(3)
-                        const others = piece.facing === DIR.S ? [DIR.W] : [DIR.S];
+                        const others = piece.facing === DIR.S ? [DIR.E] : [DIR.S];
                         for (const f of others) {
                             moves.push({ type: 'rotate', col: c, row: r, toFacing: f });
                         }
