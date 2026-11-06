@@ -156,8 +156,11 @@ const ringElt = (d, x) => String(x).replace(/−/g, '-').replace(/(\d)w/g, `$1${
 
 /**
  * When Γ = Λ (index 1): Λ's generators in terms of Γ's, from coset enumeration with labels (the
- * modified Todd–Coxeter of felsch.js). kind 'Q': letters a, b, c, w_q with integer matrices; 'O': the
+ * modified Todd–Coxeter of felsch.js). kind 'Q': letters T, w, J, D_p with integer matrices; 'O': the
  * generators p_i of the Voronoi presentation of PGL₂(O_k), matrices in TeX.
+ *
+ * The stored matrix is x itself. The word was checked against C x C⁻¹ (sarithIndex.js expressLambda,
+ * numberRingIndex.js expressPGL2O): it equals x only when no conjugator was needed.
  */
 const msText = (ms) => (ms == null ? '?' : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
 function expressHtml(X, kind) {
@@ -168,13 +171,19 @@ function expressHtml(X, kind) {
     const name = (L, k) => (kind === 'Q' ? L.name : `p_{${k + 1}}`);
     const mat = (L) => (kind === 'Q' ? `\\begin{pmatrix} ${L.matrix[0]} & ${L.matrix[1]} \\\\ ${L.matrix[2]} & ${L.matrix[3]} \\end{pmatrix}` : L.matrix);
     const items = X.letters.map((L, k) => {
+        const raw = mat(L);
+        // the word multiplies out to C x C⁻¹, not to x, once Γ has been conjugated into Λ
+        const shown = C ? `C\\,${raw}\\,C^{-1}` : raw;
         const lhs = C ? `C\\,${name(L, k)}\\,C^{-1}` : name(L, k);
-        return `<li>${mix(`$${lhs} = ${mat(L)} = ${L.word ? wordTexG(L.word, 60) : '\\text{(too long to write out)}'}$`)}</li>`;
+        const rhs = L.word ? wordTexG(L.word, 60) : '\\text{(too long to write out)}';
+        return `<li>${mix(`$${lhs} = ${shown} = ${rhs}$`)}</li>`;
     }).join('');
     return `<h3>${mix('The generators of $\\Lambda$ in terms of $\\Gamma$')}</h3>`
         + para([
             'Coset enumeration with labels (the modified Todd–Coxeter algorithm) keeps, next to each entry $c \\cdot x = d$ of the table, a word $L$ in the generators of $\\Gamma$ with $t_c x = L\\, t_d$.',
-            `With one coset, every generator $x$ of $\\Lambda$ satisfies $x = L(0, x)$${C ? `; here $\\Gamma$ was first conjugated by $C = ${Ctex}$` : ''}.`,
+            C
+                ? `With one coset, every generator $x$ of $\\Lambda$ satisfies $C x C^{-1} = L(0, x)$: $\\Gamma$ was first conjugated by $C = ${Ctex}$ so that it lies in $\\Lambda$, and the word is that conjugate.`
+                : 'With one coset, every generator $x$ of $\\Lambda$ satisfies $x = L(0, x)$.',
             'Each word was then shortened inside $\\Gamma$ and checked by multiplying it out.',
         ])
         + `<ul class="express-list">${items}</ul>`;
