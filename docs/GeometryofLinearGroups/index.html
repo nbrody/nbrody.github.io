@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Geometry of Linear Groups</title>
     <link rel="stylesheet" href="assets/css/main.css">
+    <style>
+        @media (min-width: 1000px) {
+            .presentation-card { grid-column: 2; }
+        }
+        @media (min-width: 769px) and (max-width: 999px) {
+            .presentation-card {
+                grid-column: 1 / -1;
+                justify-self: center;
+                width: calc((100% - 30px) / 2);
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -43,28 +55,10 @@
                     <p>Arithmetic lattices, adeles, and number-theoretic properties</p>
                 </a>
 
-                <a href="GroupLibrary/index.html" class="nav-card">
-                    <div class="card-icon">Γ</div>
-                    <h2>Group Library</h2>
-                    <p>Browse a curated collection of interesting groups</p>
-                </a>
-
-                <a href="PresentationCalc/index.html" class="nav-card" data-preview="PresentationCalc/index.html">
+                <a href="PresentationCalc/index.html" class="nav-card presentation-card">
                     <div class="card-icon"><span class="bracket">⟨</span><span class="inner">X</span><span class="bracket">∣</span><span class="inner">R</span><span class="bracket">⟩</span></div>
                     <h2>Calculate a presentation</h2>
                     <p>Zariski closure, discreteness at every place, and an S-arithmetic certificate by FlashBeam, for 2-by-2 matrix groups</p>
-                </a>
-
-                <a href="misc/index.html" class="nav-card">
-                    <div class="card-icon">✺</div>
-                    <h2>Misc</h2>
-                    <p>Side projects: braids, Penrose tilings, IFS, attractors, and more</p>
-                </a>
-
-                <a href="blog/index.html" class="nav-card">
-                    <div class="card-icon">✎</div>
-                    <h2>Blog</h2>
-                    <p>Notes, experiments, and works in progress</p>
                 </a>
             </div>
 
