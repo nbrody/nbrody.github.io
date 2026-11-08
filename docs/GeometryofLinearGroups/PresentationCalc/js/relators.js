@@ -69,42 +69,44 @@ export class RelatorSet {
 
     /**
      * The pieces of the kept relators: p ↦ q⁻¹ for R = p q, |p| > |R|/2, each with the index of
-     * its relator. table and half map a key to its candidates, shortest replacement first (in list
-     * order among equal lengths), so the first one not skipped is what a table built without the
-     * skipped relators would hold.
+     * its relator, in a trie on the letters of p. A node's `cands` (pieces) and `half` (|p| = |R|/2)
+     * list the candidates, shortest replacement first (in list order among equal lengths), so the
+     * first one not skipped is what a table built without the skipped relators would hold.
      */
     _pieces() {
-        const table = new Map(), lengths = new Set(), half = new Map(), halfLengths = new Set();
+        const root = { next: new Map(), cands: null, half: null };
+        const halfLengths = new Set();
         this.list.forEach((R, owner) => {
             const power = isPower(R);
             for (const u of [R, inverse(R)]) {
                 const n = u.length;
                 for (let r = 0; r < n; r++) {
                     const rot = u.slice(r).concat(u.slice(0, r));
-                    let k = '';
+                    let node = root;
                     for (let L = 1; L <= n; L++) {
-                        k = L === 1 ? String(rot[0]) : k + ',' + rot[L - 1];
+                        const x = rot[L - 1];
+                        let nx = node.next.get(x);
+                        if (!nx) { nx = { next: new Map(), cands: null, half: null }; node.next.set(x, nx); }
+                        node = nx;
                         if (L === n / 2 && !power) {
-                            if (!half.has(k)) half.set(k, []);
-                            half.get(k).push({ repl: inverse(rot.slice(L)), owner });
+                            (node.half || (node.half = [])).push({ repl: inverse(rot.slice(L)), owner });
                             halfLengths.add(L);
                         }
                         if (2 * L <= n) continue;
                         const repl = inverse(rot.slice(L));
-                        const list = table.get(k);
-                        if (!list) table.set(k, [{ repl, owner }]);
+                        const list = node.cands;
+                        if (!list) node.cands = [{ repl, owner }];
                         else {
                             // keep the candidates sorted by length, stable among equal lengths
                             let at = list.length;
                             while (at > 0 && list[at - 1].repl.length > repl.length) at--;
                             list.splice(at, 0, { repl, owner });
                         }
-                        lengths.add(L);
                     }
                 }
             }
         });
-        return { table, lengths: [...lengths].sort((a, b) => b - a), half, halfLengths: [...halfLengths], orders: ordersOf(this.list) };
+        return { root, halfLengths: [...halfLengths], orders: ordersOf(this.list) };
     }
     _tableAll() { if (!this._table) this._table = this._pieces(); return this._table; }
 
@@ -125,23 +127,26 @@ export class RelatorSet {
      * skip: indices of kept relators to leave out (the pruning pass).
      */
     reduce(word, pieces = this._tableAll(), skip = null) {
-        const { table: all, lengths, half: allHalf, halfLengths } = pieces;
+        const { root, halfLengths } = pieces;
+        const halfAt = (rot, L) => {
+            let node = root;
+            for (let t = 0; t < L && node; t++) node = node.next.get(rot[t]);
+            return node && node.half ? node.half.filter((x) => !skip || !skip.has(x.owner)).map((x) => x.repl) : null;
+        };
         const orders = skip && skip.size ? ordersOf(this.list.filter((_, i) => !skip.has(i))) : pieces.orders;
         const first = (cands) => { if (!cands) return null; for (const c of cands) if (!skip || !skip.has(c.owner)) return c.repl; return null; };
-        const table = { get: (k) => first(all.get(k)) };
-        const half = { get: (k) => { const c = allHalf.get(k); return c ? c.filter((x) => !skip || !skip.has(x.owner)).map((x) => x.repl) : null; } };
         let w = powerReduce(reduceCyclic(word), orders, true);
-        const maxL = lengths.length ? lengths[0] : 0, isLen = new Set(lengths);
         for (let guard = 0; w.length && guard < 10000; guard++) {
-            // the longest piece starting at some position (keys grown letter by letter)
+            // the longest piece starting at some position (the trie walked letter by letter, cyclically)
             let hit = null;
             const n = w.length;
             for (let i = 0; i < n; i++) {
-                let k = '';
-                for (let L = 1; L <= Math.min(maxL, n); L++) {
-                    k = L === 1 ? String(w[i]) : k + ',' + w[(i + L - 1) % n];
-                    if (!isLen.has(L)) continue;
-                    const repl = table.get(k);
+                let node = root;
+                for (let L = 1; L <= n; L++) {
+                    node = node.next.get(w[(i + L - 1) % n]);
+                    if (!node) break;
+                    if (!node.cands) continue;
+                    const repl = first(node.cands);
                     if (repl && (!hit || L > hit.L)) hit = { i, L, repl };
                 }
             }
@@ -156,7 +161,7 @@ export class RelatorSet {
                 if (L > n) continue;
                 for (let i = 0; i < n; i++) {
                     const rot = w.slice(i).concat(w.slice(0, i));
-                    for (const repl of half.get(keyOf(rot.slice(0, L))) || []) {
+                    for (const repl of halfAt(rot, L) || []) {
                         const cand = powerReduce(reduceCyclic(repl.concat(rot.slice(L))), orders, true);
                         const c = this.canonical(cand, orders);
                         if (c.length < best.length || (c.length === best.length && keyLess(c, best))) { best = c; w = cand; moved = true; }
