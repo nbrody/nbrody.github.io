@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Cayley Graph 3D Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: monospace;
+            pointer-events: none;
+        }
+    </style>
+    <!-- Import Three.js from CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div id="info">
+        Cayley Graph Visualization<br>
+        Generating... <span id="status">0 nodes</span>
+    </div>
+
+    <!-- Load shared matrix logic -->
+    <script src="math.js"></script>
+
+    <!-- Main visualization script -->
+    <script type="module" src="cayley_viz.js"></script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+
+</html>
