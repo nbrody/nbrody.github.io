@@ -70,3 +70,35 @@ export async function searchName(query, limit = 40) {
   });
   return exact.concat(near).slice(0, limit);
 }
+
+// Short names for whole censuses, for notebooks: censusList('cusped', 20).
+export const CENSUS_KEYS = {
+  'closed': 'closed-or-census-11',
+  'closed-nonorientable': 'closed-nor-census-11',
+  'closed-hyperbolic': 'closed-hyp-census-full',
+  'cusped': 'cusped-hyp-or-census-9',
+  'cusped-nonorientable': 'cusped-hyp-nor-census-9',
+  'knots': 'christy-knots-links',
+};
+
+// Distinct manifolds of one census, in file order, as {sig, name}. Some
+// censuses list several triangulations of one manifold ("m016 : #1",
+// "m016 : #2"); only the first is kept.
+export async function entries(key, from = 0, count = Infinity) {
+  const file = CENSUS_KEYS[key] || key;
+  const c = CENSUSES.find((x) => x.file === file);
+  if (!c) throw new Error(`Unknown census “${key}”. Try one of: ${Object.keys(CENSUS_KEYS).join(', ')}`);
+  const rows = await load(c);
+  const seen = new Set();
+  const out = [];
+  let skipped = 0;
+  for (const [sig, raw] of rows) {
+    const name = raw.replace(/\s*:\s*#\d+$/, '');
+    if (seen.has(name)) continue;
+    seen.add(name);
+    if (skipped++ < from) continue;
+    out.push({ sig, name, census: c });
+    if (out.length >= count) break;
+  }
+  return out;
+}

@@ -143,7 +143,7 @@ export function recognizedTeX(s) {
 
 // Name a compact connected surface from χ, orientability and boundary count.
 export function surfaceTeX(s) {
-  if (!s.compact) return '\\text{spun-normal (non-compact)}';
+  if (!s.compact) return '\\text{spun-normal}';
   if (s.euler === undefined) return '?';
   const chi = Number(s.euler);
   const b = s.boundaries ?? 0;

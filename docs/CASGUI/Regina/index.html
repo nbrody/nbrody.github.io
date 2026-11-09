@@ -72,6 +72,7 @@
           <option value="gauss">Gauss code</option>
           <option value="ogauss">Oriented Gauss code</option>
           <option value="sig">Knot or link signature</option>
+          <option value="braid">Braid word (closure)</option>
           <option value="example">Built-in example</option>
         </select>
         <div id="link-text-wrap">
@@ -91,6 +92,15 @@
         <input type="file" id="file" accept=".rga" hidden>
       </label>
       <p class="hint">No file handy? <a href="#" id="sample">Open Regina's sample file</a>.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Notebooks</h2>
+      <ul class="objs nbs" id="nb-list"></ul>
+      <div class="nb-actions">
+        <button class="btn small" id="nb-new">New notebook</button>
+        <label class="btn small" for="nb-file">Open file…<input type="file" id="nb-file" accept=".json,application/json" hidden></label>
+      </div>
     </section>
 
     <section class="panel">

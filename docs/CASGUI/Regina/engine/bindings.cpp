@@ -7,7 +7,9 @@
 
 #include <emscripten/bind.h>
 
+#include <algorithm>
 #include <complex>
+#include <memory>
 #include <functional>
 #include <sstream>
 #include <string>
@@ -363,12 +365,30 @@ Flags<NormalList> listOf(const std::string& w) {
                                 : (NormalList::Vertex | NormalList::EmbeddedOnly);
 }
 
+// Spun-normal boundary slopes need the surfaces to live on a SnapPea
+// triangulation (oriented, every vertex link a torus). Both surfaces() and
+// surfaceOp() enumerate on the same base so that indices agree.
+std::unique_ptr<SnapPeaTriangulation> slopeBase(Triangulation<3>& t, const std::string& coords) {
+    bool want = coords != "standard" && t.isValid() && t.isIdeal() && t.isOrientable()
+        && std::all_of(t.vertices().begin(), t.vertices().end(),
+            [](Vertex<3>* v) { return v->linkType() == Vertex<3>::Link::Torus; });
+    if (!want) return nullptr;
+    try {
+        t.orient();
+        auto snap = std::make_unique<SnapPeaTriangulation>(t);
+        if (snap->isNull() || snap->size() != t.size()) return nullptr;
+        return snap;
+    } catch (...) { return nullptr; }
+}
+
 std::string surfaces(std::string sig, std::string coords, std::string which, int limit) {
     return guard([&] {
         Triangulation<3> t = T(sig);
-        NormalSurfaces list(t, coordsOf(coords), listOf(which));
+        std::unique_ptr<SnapPeaTriangulation> snap = slopeBase(t, coords);
+        const Triangulation<3>& base = snap ? static_cast<const Triangulation<3>&>(*snap) : t;
+        NormalSurfaces list(base, coordsOf(coords), listOf(which));
         Obj o;
-        o.num("count", list.size());
+        o.num("count", list.size()).b("slopes", static_cast<bool>(snap));
         std::vector<std::string> out;
         size_t n = std::min<size_t>(list.size(), limit > 0 ? limit : 5000);
         for (size_t i = 0; i < n; ++i) {
@@ -387,6 +407,15 @@ std::string surfaces(std::string sig, std::string coords, std::string which, int
             try { so.b("vertexLink", s.isVertexLinking()); } catch (...) {}
             try { so.b("splitting", s.isSplitting()); } catch (...) {}
             try { so.num("central", s.isCentral()); } catch (...) {}
+            if (snap) {
+                try {
+                    MatrixInt bi = s.boundaryIntersections();
+                    std::vector<std::string> rows;
+                    for (size_t r = 0; r < bi.rows(); ++r)
+                        rows.push_back("[" + bi.entry(r, 0).str() + "," + bi.entry(r, 1).str() + "]");
+                    so.raw("slopes", arr(rows, [](const std::string& x) { return x; }));
+                } catch (...) {}
+            }
             // Coordinates in the chosen system (standard: 7 per tet, quad: 3 per tet).
             std::vector<std::string> v;
             bool quad = (coords != "standard");
@@ -408,7 +437,9 @@ std::string surfaces(std::string sig, std::string coords, std::string which, int
 std::string surfaceOp(std::string sig, std::string coords, std::string which, int index, std::string op) {
     return guard([&] {
         Triangulation<3> t = T(sig);
-        NormalSurfaces list(t, coordsOf(coords), listOf(which));
+        std::unique_ptr<SnapPeaTriangulation> snap = slopeBase(t, coords);
+        const Triangulation<3>& base = snap ? static_cast<const Triangulation<3>&>(*snap) : t;
+        NormalSurfaces list(base, coordsOf(coords), listOf(which));
         if (index < 0 || static_cast<size_t>(index) >= list.size())
             throw InvalidArgument("Surface index out of range");
         const NormalSurface& s = list[index];
@@ -562,6 +593,93 @@ std::string linkOp(std::string sig, std::string op, int param) {
     });
 }
 
+
+// ---------- covers, canonical triangulations, batch fillings ----------
+
+template <int k>
+size_t coversOf(const GroupPresentation& g, std::vector<std::string>& out, size_t limit) {
+    return g.enumerateCovers<k>([&](GroupPresentation&& sub) {
+        if (out.size() < limit) out.push_back(abelian(sub.abelianisation()));
+    });
+}
+
+// Index-k subgroups of the fundamental group (connected k-sheeted covers),
+// each with its abelianization. kind is "tri" or "link".
+std::string groupCovers(std::string kind, std::string sig, int k) {
+    return guard([&] {
+        GroupPresentation g = (kind == "link") ? L(sig).group(true) : T(sig).group();
+        g.simplify();
+        std::vector<std::string> out;
+        size_t limit = 20000, n = 0;
+        switch (k) {
+            case 2: n = coversOf<2>(g, out, limit); break;
+            case 3: n = coversOf<3>(g, out, limit); break;
+            case 4: n = coversOf<4>(g, out, limit); break;
+            case 5: n = coversOf<5>(g, out, limit); break;
+            case 6: n = coversOf<6>(g, out, limit); break;
+            case 7: n = coversOf<7>(g, out, limit); break;
+            default: throw InvalidArgument("The cover index must be between 2 and 7.");
+        }
+        return Obj().num("index", k).num("count", n).num("generators", g.countGenerators())
+            .raw("list", arr(out, [](const std::string& x) { return x; })).done();
+    });
+}
+
+// SnapPea's canonical retriangulation of the canonical (Epstein–Penner) cell
+// decomposition, plus its combinatorial automorphisms. For a cusped hyperbolic
+// manifold these are exactly the isometries.
+std::string triCanon(std::string sig) {
+    return guard([&] {
+        Triangulation<3> t = T(sig);
+        SnapPeaTriangulation s(t);
+        if (s.isNull()) throw InvalidArgument("SnapPea could not use this triangulation.");
+        Triangulation<3> c = s.canonise();
+        Obj o;
+        o.str("sig", c.isoSig()).num("size", c.size());
+        bool orbl = c.isOrientable();
+        if (orbl) c.orient();
+        size_t pres = 0, rev = 0;
+        c.findAllIsomorphisms(c, [&](const Isomorphism<3>& iso) {
+            if (!orbl || iso.facetPerm(0).sign() > 0) ++pres; else ++rev;
+            return false;
+        });
+        o.num("symmetries", pres + rev).b("orientable", orbl);
+        if (orbl) o.num("preserving", pres).num("reversing", rev);
+        return o.done();
+    });
+}
+
+// Many Dehn fillings at once: slopes is "m,l;m,l;...". Returns the solution
+// type, volume and homology of each filled manifold (no triangulations).
+std::string triFillMany(std::string sig, std::string slopes, int cusp) {
+    return guard([&] {
+        Triangulation<3> t = T(sig);
+        SnapPeaTriangulation s(t);
+        if (s.isNull()) throw InvalidArgument("SnapPea could not use this triangulation.");
+        std::vector<long> v = ints(slopes);
+        std::vector<std::string> out;
+        for (size_t i = 0; i + 1 < v.size(); i += 2) {
+            Obj o;
+            o.num("m", v[i]).num("l", v[i + 1]);
+            if (v[i] == 0 && v[i + 1] == 0) { o.b("ok", false); out.push_back(o.done()); continue; }
+            SnapPeaTriangulation f(s);
+            if (!f.fill(v[i], v[i + 1], cusp)) { o.b("ok", false); out.push_back(o.done()); continue; }
+            o.b("ok", true).num("solution", static_cast<int>(f.solutionType())).dbl("volume", f.volume());
+            try { o.raw("h1", abelian(f.homologyFilled())); } catch (...) {}
+            out.push_back(o.done());
+        }
+        return Obj().raw("list", arr(out, [](const std::string& x) { return x; })).done();
+    });
+}
+
+std::string linkCompose(std::string a, std::string b) {
+    return guard([&] {
+        Link l = L(a);
+        l.composeWith(L(b));
+        return linkSig(l);
+    });
+}
+
 // ---------- Regina data files ----------
 
 // Reads a .rga file (bytes from JS) and lists its 3-manifold triangulations
@@ -614,4 +732,8 @@ EMSCRIPTEN_BINDINGS(regina_gui) {
     emscripten::function("linkGroup", &linkGroup);
     emscripten::function("linkOp", &linkOp);
     emscripten::function("openRga", &openRga);
+    emscripten::function("groupCovers", &groupCovers);
+    emscripten::function("triCanon", &triCanon);
+    emscripten::function("triFillMany", &triFillMany);
+    emscripten::function("linkCompose", &linkCompose);
 }

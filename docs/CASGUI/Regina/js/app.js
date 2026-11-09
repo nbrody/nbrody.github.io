@@ -1,81 +1,15 @@
 import * as E from './engine.js';
 import * as Census from './census.js';
 import {
-  render, mathEl, abelianTeX, laurentTeX, polyTeX, textPolyTeX, cyclotomicTeX, piTeX,
+  abelianTeX, laurentTeX, polyTeX, textPolyTeX, cyclotomicTeX, piTeX,
   presentationTeX, recognizedTeX, surfaceTeX, complexTeX,
 } from './tex.js';
 import { diagramSVG } from './diagram.js';
 import { dualGraphSVG } from './dualgraph.js';
-
-// ---------------------------------------------------------------- helpers
-
-const $ = (s, r = document) => r.querySelector(s);
-
-function h(tag, attrs = {}, ...kids) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs || {})) {
-    if (k.startsWith('aria-') && v !== undefined && v !== null) { el.setAttribute(k, String(v)); continue; }
-    if (v === undefined || v === null || v === false) continue;
-    if (k === 'class') el.className = v;
-    else if (k === 'text') el.textContent = v;
-    else if (k === 'html') el.innerHTML = v;
-    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else el.setAttribute(k, v === true ? '' : v);
-  }
-  for (const kid of kids.flat()) {
-    if (kid === null || kid === undefined || kid === false) continue;
-    el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
-  }
-  return el;
-}
-
-// Text with $...$ math segments.
-function mixed(s, tag = 'span', cls) {
-  const el = h(tag, { class: cls });
-  String(s).split(/\$([^$]+)\$/).forEach((part, i) => {
-    if (!part) return;
-    el.append(i % 2 ? mathEl(part) : document.createTextNode(part));
-  });
-  return el;
-}
-const M = (tex, display = false) => mathEl(tex, display);
-
-let toastTimer;
-function toast(msg) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
-}
-
-function copy(text, what = 'Copied') {
-  navigator.clipboard?.writeText(text).then(() => toast(what), () => toast('Could not copy'));
-}
-
-function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-
-function busyEl(msg = 'Computing') {
-  return h('div', { class: 'busy' }, h('span', { class: 'spinner' }), msg + '…');
-}
-function errEl(e, retry) {
-  const msg = e?.message || String(e);
-  return h('div', { class: 'err' }, msg === 'Stopped' ? 'Stopped. ' : msg + ' ',
-    retry ? h('button', { class: 'btn small', onclick: retry }, 'Try again') : null);
-}
-function flag(label, on, texLabel) {
-  const el = h('span', { class: 'flag ' + (on ? 'yes' : 'no') });
-  el.append(texLabel ? M(texLabel) : label);
-  return el;
-}
-function card(k, v, cls = '') {
-  const vEl = h('div', { class: 'v' + (typeof v === 'string' ? ' text' : '') });
-  vEl.append(v instanceof Node ? v : String(v));
-  return h('div', { class: 'card ' + cls }, h('div', { class: 'k' }, k), vEl);
-}
-function section(title, note, ...kids) {
-  return h('div', { class: 'section' }, h('h3', {}, title, note ? h('small', {}, note) : null), ...kids);
-}
+import * as NB from './notebook.js';
+import { host as nbHost, Covers, Plot, Table, Abelian, tex as texVal } from './nbapi.js';
+import { braidToPD } from './braid.js';
+import { $, h, mixed, M, toast, copy, cssVar, busyEl, errEl, flag, card, section, plural } from './dom.js';
 
 // ---------------------------------------------------------------- examples
 
@@ -133,11 +67,12 @@ const LINK_PLACEHOLDERS = {
   gauss: '1 -2 3 -1 2 -3',
   ogauss: '+>1 -<2 +>3 -<1 +>2 -<3',
   sig: 'dabcabcv-',
+  braid: '1 1 1   or   s1 s2^-1 s1 s2^-1',
 };
 
 // ---------------------------------------------------------------- state
 
-const state = { objs: [], cur: null, nextId: 1, mode: 'tri' };
+const state = { objs: [], cur: null, nextId: 1, mode: 'tri', nb: null };
 const STORE = 'regina-gui-ws-v1';
 
 function save() {
@@ -168,8 +103,10 @@ function addObj(kind, sig, name, size, select = true) {
 
 function selectObj(obj) {
   state.cur = obj;
+  state.nb = null;
   try { history.replaceState(null, '', obj ? `#${obj.kind}=${encodeURIComponent(obj.sig)}` : location.pathname); } catch {}
   renderList();
+  renderNbList();
   renderView();
   save();
 }
@@ -197,7 +134,7 @@ function renderList() {
   const ul = $('#objs');
   ul.replaceChildren();
   for (const o of state.objs) {
-    const li = h('li', { class: o === state.cur ? 'on' : '', onclick: () => selectObj(o), title: o.sig },
+    const li = h('li', { class: o === state.cur && !state.nb ? 'on' : '', onclick: () => selectObj(o), title: o.sig },
       h('span', { class: 'kind ' + o.kind }, o.kind === 'tri' ? 'T' : 'L'),
       h('div', {}, mixed(o.name, 'div', 'name'),
         h('div', { class: 'meta' }, o.kind === 'tri' ? `${o.size} tetrahedr${o.size === 1 ? 'on' : 'a'}` : `${o.size} crossing${o.size === 1 ? '' : 's'}`)),
@@ -277,7 +214,13 @@ async function linkLoadClicked() {
   const k = $('#link-kind').value;
   const text = $('#link-text').value.trim();
   if (!text) return toast('Enter a code first');
-  try { await loadLink(k, text); } catch (e) { toast(e.message); }
+  try {
+    if (k === 'braid') {
+      const b = braidToPD(text);
+      if (b.freeStrands) throw new Error('Every strand must cross something: drop the unused strands');
+      await loadLink('pd', b.pd, '', `Closure of the braid ${text}`);
+    } else await loadLink(k, text);
+  } catch (e) { toast(e.message); }
 }
 
 async function openRga(buf, label) {
@@ -302,6 +245,10 @@ function renderView() {
   const obj = state.cur;
   renderToken++;
   view.replaceChildren();
+  if (state.nb) {
+    NB.renderNotebook(state.nb, view, { onDeleted: () => { state.nb = null; renderNbList(); renderView(); toast('Notebook deleted'); } });
+    return;
+  }
   if (!obj) return view.append(welcome());
   view.append(header(obj));
   const tabs = obj.kind === 'tri' ? TRI_TABS : LINK_TABS;
@@ -335,6 +282,11 @@ function welcome() {
   ];
   for (const [label, f] of quick) chips.append(h('button', { class: 'chip', onclick: () => f().catch((e) => toast(e.message)) }, label));
   w.append(chips);
+  w.append(h('h3', { class: 'gallery-h' }, 'Example notebooks'),
+    h('p', {}, 'Guided computations you can run, edit and extend. Each one is live code against the Regina engine.'));
+  w.append(h('div', { class: 'gallery' }, NB.builtins().map((n) => h('button', { class: 'nb-card', onclick: () => openNotebook(n.id) },
+    mixed(n.title, 'div', 'nb-card-title'), mixed(n.blurb, 'div', 'nb-card-blurb'),
+    h('div', { class: 'nb-card-tags' }, (n.tags || []).map((t) => h('span', {}, t)))))));
   return w;
 }
 
@@ -415,6 +367,7 @@ function header(obj) {
   for (const [op, label, suffix] of obj.kind === 'tri' ? TRI_OPS : LINK_OPS) {
     ops.append(h('button', { class: 'btn small', onclick: () => runOp(obj, op, label, suffix) }, label));
   }
+  ops.append(h('button', { class: 'btn small quiet', title: 'Start a notebook that loads this object', onclick: () => openNotebook(NB.create(obj.name.replace(/\$/g, '') + ' notebook', starterCells(obj))) }, 'Explore in a notebook'));
   return h('div', {},
     h('div', { class: 'obj-head' },
       h('div', { style: 'min-width:0;flex:1' }, title, h('div', { class: 'sub' }, sub)),
@@ -440,7 +393,29 @@ const TRI_TABS = [
   { id: 'angles', label: 'Angle structures', render: triAngles },
   { id: 'hyperbolic', label: 'Hyperbolic structure', render: triHyperbolic },
   { id: 'tv', label: 'Turaev–Viro', render: triTV },
+  { id: 'covers', label: 'Covers', render: (o, p, t) => coversTab('tri', o, p, t) },
 ];
+
+// Index-k subgroups of the fundamental group, i.e. connected k-sheeted covers.
+function coversTab(kind, obj, panel, tok) {
+  const ui = obj.ui.cov ??= { k: 3 };
+  const kSel = sel('ck', [2, 3, 4, 5, 6, 7].map((k) => [String(k), `Index ${k}`]), String(ui.k));
+  const out = h('div');
+  const show = async (compute) => {
+    ui.k = +kSel.value;
+    const key = 'cov' + ui.k;
+    if (!compute && obj.cache[key] === undefined) return;
+    out.replaceChildren(busyEl(`Enumerating subgroups of index ${ui.k}`));
+    try {
+      const r = await cached(obj, key, () => E.call('groupCovers', kind, obj.sig, ui.k));
+      if (live(tok, obj)) out.replaceChildren(new Covers(r).render());
+    } catch (e) { if (live(tok, obj)) out.replaceChildren(errEl(e, () => show(true))); }
+  };
+  panel.append(h('div', { class: 'row' }, h('div', { style: 'width:160px' }, kSel), h('button', { class: 'btn primary', onclick: () => show(true) }, 'Enumerate')));
+  panel.append(mixed('Each transitive action of $\\pi_1$ on $k$ points (up to relabeling) gives a subgroup of index $k$ and a connected $k$-sheeted cover. The list of their homology groups is an invariant of the group, good at telling manifolds and knots apart. The cost grows like $(k!)^g$ for $g$ generators, so start small.', 'p', 'note'));
+  panel.append(out);
+  show(false);
+}
 
 function summaryOf(obj) { return cached(obj, 'summary', () => E.call('triSummary', obj.sig)); }
 
@@ -649,11 +624,12 @@ async function triSurfaces(obj, panel, tok) {
         h('td', { class: 'num' }, s.euler ?? '—'),
         h('td', {}, yn(s.orientable)), h('td', {}, yn(s.twoSided)), h('td', {}, yn(s.boundary)),
         h('td', {}, s.vertexLink ? 'vertex link' : s.splitting ? 'splitting' : s.central ? 'central' : ''),
+        r.slopes ? h('td', {}, slopesEl(s.slopes)) : null,
         h('td', { class: 'mono', title: coordsTxt }, coordsTxt.length > 70 ? coordsTxt.slice(0, 70) + '…' : coordsTxt));
       return tr;
     });
     out.lastChild.append(h('div', { class: 'tablewrap' }, h('table', {},
-      h('thead', {}, h('tr', {}, ['#', 'Surface', M('\\chi'), 'Orientable', 'Two-sided', 'Boundary', 'Notes', quad ? 'Quad coordinates' : 'Coordinates (4 triangles, 3 quads per tetrahedron)'].map((x) => h('th', {}, x)))),
+      h('thead', {}, h('tr', {}, ['#', 'Surface', M('\\chi'), 'Orientable', 'Two-sided', 'Boundary', 'Notes', r.slopes ? 'Boundary slope' : null, quad ? 'Quad coordinates' : 'Coordinates (4 triangles, 3 quads per tetrahedron)'].filter(Boolean).map((x) => h('th', {}, x)))),
       h('tbody', {}, rows))));
     out.append(detail);
 
@@ -688,7 +664,22 @@ async function triSurfaces(obj, panel, tok) {
   show(false);
 }
 
-function plural(n, one, many = one + 's') { return `${n} ${n === 1 ? one : many}`; }
+// Boundary slopes of a spun-normal surface, one per cusp: -L/M from Regina's
+// (M, L) intersection numbers with SnapPea's meridian and longitude.
+function slopesEl(rows) {
+  if (!rows || !rows.length) return '';
+  const g = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a; };
+  const one = ([m, l]) => {
+    if (m === 0 && l === 0) return '—';
+    let p = -l, q = m;
+    if (q < 0) { p = -p; q = -q; }
+    if (q === 0) return M('\\infty');
+    const d = g(p, q); p /= d; q /= d;
+    return M(q === 1 ? String(p) : `${p < 0 ? '-' : ''}\\tfrac{${Math.abs(p)}}{${q}}`);
+  };
+  return h('span', {}, rows.map(one).reduce((a, el, i) => (i ? [...a, ', ', el] : [el]), []));
+}
+
 function chunks(a, k) { const o = []; for (let i = 0; i < a.length; i += k) o.push(a.slice(i, i + k)); return o; }
 function yn(v) { return v === undefined ? '—' : v ? 'yes' : 'no'; }
 
@@ -782,6 +773,67 @@ async function triHyperbolic(obj, panel, tok) {
         h('label', { class: 'row' }, M('\\ell ='), h('div', { style: 'width:90px' }, l)), go)));
   }
 
+  if (r.cusps > 0) {
+    // Symmetries from the canonical cell decomposition.
+    const symBox = h('div');
+    const showSym = (c) => {
+      const g = h('div', { class: 'grid' });
+      g.append(card('Isometries', String(c.symmetries)));
+      if (c.orientable) {
+        g.append(card('Orientation-preserving', String(c.preserving)));
+        g.append(card('Amphichiral', c.reversing > 0 ? 'yes' : 'no'));
+      }
+      g.append(card('Canonical triangulation', `${plural(c.size, 'tetrahedron', 'tetrahedra')}`));
+      symBox.replaceChildren(g, h('div', { class: 'ops', style: 'margin-top:10px' },
+        c.sig === obj.sig ? h('span', { class: 'note' }, 'This is already the canonical triangulation.')
+          : h('button', { class: 'btn small', onclick: () => addObj('tri', c.sig, `${obj.name} · canonical`, c.size) }, 'Open the canonical triangulation')));
+    };
+    const runSym = async () => {
+      symBox.replaceChildren(busyEl('Canonizing'));
+      try { const c = await cached(obj, 'canon', () => E.call('triCanon', obj.sig)); if (live(tok, obj)) showSym(c); }
+      catch (e) { if (live(tok, obj)) symBox.replaceChildren(errEl(e, runSym)); }
+    };
+    if (obj.cache.canon) showSym(obj.cache.canon);
+    else symBox.append(h('button', { class: 'btn small', onclick: runSym }, 'Compute symmetries'));
+    panel.append(section('Symmetries', 'from SnapPea’s canonical (Epstein–Penner) cell decomposition, whose automorphisms are the isometries; two cusped hyperbolic manifolds are homeomorphic exactly when their canonical triangulations match', symBox));
+
+    // A survey of many fillings at once.
+    const ui = obj.ui.survey ??= { p: 8, q: 3, cusp: 0 };
+    const pIn = h('input', { type: 'number', value: ui.p, min: 1, 'aria-label': 'largest |m|' });
+    const qIn = h('input', { type: 'number', value: ui.q, min: 1, max: 12, 'aria-label': 'largest l' });
+    const cuspSel = h('select', {}, [...Array(r.cusps).keys()].map((c) => h('option', { value: c, selected: c === ui.cusp }, `Cusp ${c}`)));
+    const out = h('div');
+    const survey = async () => {
+      ui.p = Math.max(1, Math.min(60, +pIn.value || 1)); ui.q = Math.max(1, Math.min(12, +qIn.value || 1)); ui.cusp = +cuspSel.value;
+      const slopes = [[1, 0]];
+      const g = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a; };
+      for (let q = 1; q <= ui.q; q++) for (let p = -ui.p; p <= ui.p; p++) if (g(p, q) === 1) slopes.push([p, q]);
+      out.replaceChildren(busyEl(`Filling ${slopes.length} slopes`));
+      let res;
+      try { res = await E.call('triFillMany', obj.sig, slopes.map((s) => s.join(',')).join(';'), ui.cusp); }
+      catch (e) { return live(tok, obj) && out.replaceChildren(errEl(e, survey)); }
+      if (!live(tok, obj)) return;
+      const rows = res.list.map((x) => ({
+        slope: texVal(`(${x.m}, ${x.l})`), type: x.ok ? SOLUTIONS[x.solution] : 'not allowed',
+        volume: x.ok && (x.solution === 1 || x.solution === 2) ? x.volume : null,
+        homology: x.h1 ? new Abelian(x.h1) : null, m: x.m, l: x.l,
+      }));
+      const exceptional = rows.filter((x) => x.type !== 'geometric' && x.type !== 'not allowed');
+      const byQ = {};
+      for (const x of rows) if (x.volume && x.l > 0 && x.l <= 4) (byQ['q = ' + x.l] ??= []).push([x.m / x.l, x.volume, `(${x.m}, ${x.l})`]);
+      out.replaceChildren(
+        h('p', { class: 'note' }, `${plural(exceptional.length, 'slope')} with no hyperbolic structure found: `,
+          exceptional.map((x) => M(`(${x.m}, ${x.l})`)).reduce((a, el, i) => (i ? [...a, ', ', el] : [el]), [])),
+        h('div', { style: 'margin-top:12px' }, new Plot(byQ, { x: 'slope $m/\\ell$', y: 'volume', hlines: r.volume ? [{ y: r.volume, label: 'unfilled volume' }] : [] }).render()),
+        h('div', { style: 'margin-top:12px' }, new Table(rows, { columns: ['slope', 'type', 'volume', 'homology'] }).render()));
+    };
+    panel.append(section('Filling survey', 'SnapPea’s structure on many Dehn fillings at once; exceptional slopes are those with no hyperbolic structure (SnapPea is numerical, so treat borderline cases with care)',
+      h('div', { class: 'row' }, r.cusps > 1 ? cuspSel : null,
+        h('label', { class: 'row' }, M('|m| \\le'), h('div', { style: 'width:80px' }, pIn)),
+        h('label', { class: 'row' }, M('1 \\le \\ell \\le'), h('div', { style: 'width:80px' }, qIn)),
+        h('button', { class: 'btn primary', onclick: survey }, 'Survey')), out));
+  }
+
   const rows = r.shapes.map((z, i) => h('tr', {}, h('td', { class: 'num' }, i), h('td', {}, M(`z_{${i}} = ${complexTeX(z.re, z.im)}`))));
   panel.append(section('Tetrahedron shapes', 'shape parameters for edges 01 and 23',
     h('div', { class: 'tablewrap' }, h('table', {}, h('thead', {}, h('tr', {}, h('th', {}, 'Tetrahedron'), h('th', {}, 'Shape'))), h('tbody', {}, rows)))));
@@ -835,6 +887,7 @@ const LINK_TABS = [
   { id: 'overview', label: 'Diagram', render: linkOverview },
   { id: 'polys', label: 'Polynomials', render: linkPolys },
   { id: 'group', label: 'Link group', render: linkGroupTab },
+  { id: 'covers', label: 'Covers', render: (o, p, t) => coversTab('link', o, p, t) },
 ];
 
 function linkSummaryOf(obj) { return cached(obj, 'lsum', () => E.call('linkSummary', obj.sig)); }
@@ -874,6 +927,20 @@ async function linkOverview(obj, panel, tok) {
   const rows = codes.map(([k, v]) => h('tr', {}, h('td', {}, k), h('td', { class: 'mono', style: 'white-space:normal;word-break:break-all' }, v),
     h('td', {}, h('button', { class: 'btn small quiet', onclick: () => copy(v, k + ' copied') }, 'Copy'))));
   panel.append(section('Codes', null, h('div', { class: 'tablewrap' }, h('table', {}, h('tbody', {}, rows)))));
+
+  const others = state.objs.filter((o) => o.kind === 'link');
+  if (s.components === 1 && others.length) {
+    const pick = h('select', { 'aria-label': 'Second knot' }, others.map((o) => h('option', { value: o.id }, o.name.replace(/\$/g, ''))));
+    panel.append(section('Connected sum', 'with a knot from your workspace (both must be knots)',
+      h('div', { class: 'row' }, h('div', { class: 'grow', style: 'max-width:360px' }, pick),
+        h('button', { class: 'btn primary', onclick: async () => {
+          const other = others.find((o) => String(o.id) === pick.value);
+          try {
+            const r = await E.call('linkCompose', obj.sig, other.sig);
+            addObj('link', r.sig, `${obj.name} # ${other.name}`, r.crossings);
+          } catch (e) { toast(e.message); }
+        } }, 'Connected sum'))));
+  }
 }
 
 async function linkPolys(obj, panel, tok) {
@@ -914,6 +981,46 @@ async function linkGroupTab(obj, panel, tok) {
     if (!live(tok, obj)) return;
     panel.replaceChildren(groupView(g, null));
   } catch (e) { if (live(tok, obj)) panel.replaceChildren(errEl(e, renderView)); }
+}
+
+// ---------------------------------------------------------------- notebooks
+
+function starterCells(obj) {
+  const name = JSON.stringify(obj.name);
+  if (obj.kind === 'tri') {
+    return [
+      { type: 'md', src: `Notes on ${obj.name}. Press **Run all**, then add cells below. **What can I call?** above lists the functions.` },
+      { type: 'code', src: `const M = (await tri('${obj.sig}')).as(${name})\nM` },
+      { type: 'code', src: 'show(M.homology(), M.group())' },
+      { type: 'code', src: '// Census names and hyperbolic volume (null if SnapPea finds no structure)\n({ census: M.census(), volume: M.volume() })' },
+    ];
+  }
+  return [
+    { type: 'md', src: `Notes on ${obj.name}. Press **Run all**, then add cells below. **What can I call?** above lists the functions.` },
+    { type: 'code', src: `const K = (await link('${obj.sig}')).as(${name})\nK.diagram()` },
+    { type: 'code', src: 'show(K.jones(), K.alexander())' },
+    { type: 'code', src: 'const C = await K.complement()\n({ census: C.census(), volume: C.volume() })' },
+  ];
+}
+
+function openNotebook(id) {
+  state.nb = id;
+  try { history.replaceState(null, '', '#nb=' + encodeURIComponent(id)); } catch {}
+  renderList();
+  renderNbList();
+  renderView();
+  $('#view').scrollTop = 0;
+  window.scrollTo(0, 0);
+}
+
+function renderNbList() {
+  const ul = $('#nb-list');
+  ul.replaceChildren();
+  const item = (n, mine) => h('li', { class: state.nb === n.id ? 'on' : '', onclick: () => openNotebook(n.id), title: n.title },
+    h('span', { class: 'kind nb' }, h('svg', { viewBox: '0 0 16 16', width: 12, height: 12, html: '<path d="M3 2h8l2 2v10H3z M5 6h6 M5 9h6 M5 12h4" fill="none" stroke="currentColor" stroke-width="1.4"/>' })),
+    h('div', {}, mixed(n.title, 'div', 'name'), h('div', { class: 'meta' }, mine ? 'yours' : NB.isEdited(n.id) ? 'example · edited' : 'example')));
+  for (const n of NB.builtins()) ul.append(item(n, false));
+  for (const n of NB.userNotebooks()) ul.append(item(n, true));
 }
 
 // ---------------------------------------------------------------- startup
@@ -975,9 +1082,28 @@ function initSidebar() {
     if (st === 'error') toast('The Regina engine failed to load: ' + info);
   });
   $('#stop').onclick = () => { E.stop(); toast('Stopped and restarted the engine'); };
+
+  // Notebooks
+  nbHost.open = (kind, sig, name, size) => {
+    const existing = state.objs.find((o) => o.kind === kind && o.sig === sig);
+    if (existing) { toast('Already in your workspace'); return; }
+    addObj(kind, sig, name, size, false);
+    toast('Added to your workspace');
+  };
+  NB.setOnChange((openId) => { renderNbList(); if (openId) openNotebook(openId); });
+  $('#nb-new').onclick = () => openNotebook(NB.create());
+  $('#nb-file').onchange = async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try { openNotebook(NB.importJSON(await f.text())); toast('Opened ' + f.name); }
+    catch (err) { toast('Could not open that notebook: ' + err.message); }
+  };
 }
 
 function fromHash() {
+  const nbm = /^#nb=(.+)$/.exec(location.hash);
+  if (nbm) { const id = decodeURIComponent(nbm[1]); if (NB.find(id) && state.nb !== id) openNotebook(id); return; }
   const m = /^#(tri|link)=(.+)$/.exec(location.hash);
   if (!m) return;
   const sig = decodeURIComponent(m[2]);
@@ -1001,6 +1127,8 @@ function waitForKatex() {
   await waitForKatex();
   restore();
   renderList();
+  renderNbList();
   renderView();
   fromHash();
+  window.addEventListener('hashchange', fromHash);
 })();

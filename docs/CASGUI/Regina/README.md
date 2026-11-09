@@ -19,9 +19,22 @@ GitHub Pages.
   checking that it stays planar and each crossing stays a proper X. If that
   check fails, the page says the drawing may be inaccurate.
 - `js/dualgraph.js`: the face pairing graph.
+- `js/braid.js`: braid words to PD codes (closure), so braids can be loaded.
+- Notebooks: `js/notebooks.js` holds the example notebooks (Markdown text
+  cells and JavaScript code cells), `js/notebook.js` runs and edits them, and
+  `js/nbapi.js` is the scripting API the code cells see (`tri`, `census`,
+  `link`, `braid`, `table`, `plot`, …, with Regina calls returning chainable
+  promises). Edits to example notebooks and your own notebooks are kept in
+  localStorage; Download / Open file move them around as JSON.
 - `engine/bindings.cpp`: the JS API. Each function is stateless: it takes an
   isomorphism signature (or `Link::sig(false, false)`, which keeps chirality
   and orientation) and returns JSON.
+  Besides the usual properties it exposes covers (`groupCovers`, index-k
+  subgroups with their abelianizations), SnapPea's canonical triangulation and
+  its automorphisms (`triCanon`: an exact homeomorphism test and the isometry
+  group for cusped hyperbolic manifolds), batch Dehn fillings
+  (`triFillMany`), spun-normal boundary slopes (in `surfaces`), and connected
+  sums (`linkCompose`).
 - `wasm/`: build output. `data/sample.rga` is Regina's own sample file.
 
 ## Rebuilding the engine

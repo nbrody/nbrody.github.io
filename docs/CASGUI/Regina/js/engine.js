@@ -27,7 +27,13 @@ function start() {
       const p = pending.get(m.id);
       if (!p) return;
       pending.delete(m.id);
-      if ('error' in m) p.reject(new Error(m.error)); else p.resolve(m.result);
+      if ('error' in m) {
+        // After running out of memory (or a wasm abort) the engine's state is
+        // unreliable, so start a fresh one.
+        const fatal = /bad_alloc|memory|abort|RuntimeError|unreachable/i.test(m.error);
+        p.reject(new Error(fatal ? 'Regina ran out of memory on this computation (the engine has been restarted).' : m.error));
+        if (fatal) restart();
+      } else p.resolve(m.result);
     };
     worker.onerror = (e) => { emit('error', e.message); reject(new Error(e.message || 'Worker failed')); };
   });
@@ -58,7 +64,7 @@ export function call(fn, ...args) {
   return p;
 }
 
-export function stop() {
+function restart() {
   if (worker) worker.terminate();
   for (const p of pending.values()) p.reject(new Error('Stopped'));
   pending.clear();
@@ -67,3 +73,5 @@ export function stop() {
   queue = Promise.resolve();
   start();
 }
+
+export function stop() { restart(); }
