@@ -6,6 +6,8 @@
 // with determinant ≠ 1 is certainly knotted, and Conway–Gordon says the linking
 // numbers of the ten pairs of disjoint triangles in K₆ add up to an odd number.
 
+import { Poly, findCrossings, alexander, jones, yamada, nameKnot } from './polynomials.js';
+
 const DIR = normalize([0.2113, 0.3271, 0.9211]);   // a generic direction of projection
 
 function normalize(v) { const l = Math.hypot(...v); return v.map(c => c / l); }
@@ -158,15 +160,89 @@ function cycleVertices(g, cyc) {
     return s;
 }
 
+/** Projection along `dir` to [u, w, depth] (smaller depth is nearer the viewer at +dir). */
+export function projector(dir) {
+    const D = normalize(dir);
+    const ref = Math.abs(D[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+    const U0 = normalize([ref[1] * D[2] - ref[2] * D[1], ref[2] * D[0] - ref[0] * D[2], ref[0] * D[1] - ref[1] * D[0]]);
+    const W0 = [D[1] * U0[2] - D[2] * U0[1], D[2] * U0[0] - D[0] * U0[2], D[0] * U0[1] - D[1] * U0[0]];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    return p => [dot(p, U0), dot(p, W0), -dot(p, D)];
+}
+
+const projDefault = projector(DIR);
+
+/** The whole graph as a planar diagram seen along `dir`. */
+export function graphDiagram(g, dir = DIR) {
+    const P = projector(dir);
+    const at = n => P([g.x[3 * n], g.x[3 * n + 1], g.x[3 * n + 2]]);
+    const verts = g.vertexNodes.map(n => at(n).slice(0, 2));
+    const edges = g.edges.map(e => (e.circle
+        ? { circle: true, pts: e.nodes.slice(0, -1).map(at) }
+        : { a: e.a, b: e.b, pts: e.nodes.map(at) }));
+    return { verts, edges };
+}
+
+// a spread of directions: the Fibonacci sphere, upper half
+const DIRS = Array.from({ length: 24 }, (_, i) => {
+    const z = 1 - (i + 0.5) / 24, r = Math.sqrt(1 - z * z), a = i * 2.399963229728653 + 0.37;
+    return [r * Math.cos(a), r * Math.sin(a), z];
+});
+
+/** The direction (of a few) whose diagram has the fewest crossings. */
+export function fewestCrossings(g) {
+    let best = null;
+    for (const d of DIRS) {
+        const D = graphDiagram(g, d);
+        const n = findCrossings(D.edges.map(e => ({ pts: e.pts, closed: !!e.circle }))).length;
+        if (!best || n < best.n) best = { dir: d, D, n };
+        if (n === 0) break;
+    }
+    return best;
+}
+
+const MAX_ALEX = 60, MAX_JONES = 36, MAX_YAMADA = 16, MAX_LINK = 30;
+
+/** Alexander, Jones and a name for one closed polyline. */
+export function knotPolys(poly, proj = projDefault) {
+    const path = { pts: poly.map(proj), closed: true };
+    const X = findCrossings([path]);
+    const n = X.length;
+    if (n < 3) return { n, alex: Poly.mono(0), jones: Poly.mono(0), name: 'unknot', chiral: false };
+    const alex = n <= MAX_ALEX ? alexander(path, X) : null;
+    const V = n <= MAX_JONES ? jones([path], X, { maxStates: 60000 }) : null;
+    return { n, alex, jones: V, ...nameKnot(alex, V) };
+}
+
 /**
- * { cycles: [{ edges, det }], links: [{ i, j, lk }], capped } for cycles that are
- * pairwise vertex-disjoint (only pairs with nonzero linking are listed).
+ * { cycles: [{ edges, det, alex, jones, name, chiral }], links: [{ i, j, lk }],
+ * capped, graph: { yamada, yamadaCrossings, linkJones } } — linking numbers only
+ * for pairs of vertex-disjoint cycles with nonzero linking. Polynomials past the
+ * time budget are left null.
  */
-export function graphInvariants(g, cap = 200) {
+export function graphInvariants(g, cap = 200, { budgetMs = 700, polys = true, dir = null } = {}) {
+    const t0 = performance.now();
     const cyc = cycles(g, cap + 1);
     const capped = cyc.length > cap;
     const list = cyc.slice(0, cap).map(c => ({ edges: c, poly: cyclePoly(g, c), verts: cycleVertices(g, c), len: c.length }));
-    for (const c of list) c.det = knotDeterminant(c.poly);
+    for (const c of list) {
+        c.det = knotDeterminant(c.poly);
+        c.alex = c.jones = c.name = null;
+    }
+    // polynomials: knotted-looking cycles first, then the rest, while time allows
+    let skipped = 0;
+    const best = !polys ? null : dir ? (() => {
+        const D = graphDiagram(g, dir);
+        return { dir, D, n: findCrossings(D.edges.map(e => ({ pts: e.pts, closed: !!e.circle }))).length };
+    })() : fewestCrossings(g);
+    if (polys) {
+        const P = projector(best.dir);
+        const order = list.map((c, i) => i).sort((a, b) => (list[a].det === 1) - (list[b].det === 1) || list[a].len - list[b].len);
+        for (const i of order) {
+            if (performance.now() - t0 > budgetMs) { skipped++; continue; }
+            Object.assign(list[i], knotPolys(list[i].poly, P));
+        }
+    }
     const links = [];
     let pairs = 0;
     for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
@@ -177,5 +253,24 @@ export function graphInvariants(g, cap = 200) {
         const lk = linkingNumber(A.poly, B.poly);
         if (lk) links.push({ i, j, lk });
     }
-    return { cycles: list.map(({ poly, verts, ...c }) => c), links, pairs, capped };
+    const t1 = performance.now();
+    const graph = polys ? graphPolys(g, best) : {};
+    graph.ms = performance.now() - t1;
+    return { cycles: list.map(({ poly, verts, ...c }) => c), links, pairs, capped, skipped, graph, ms: performance.now() - t0 };
+}
+
+/** Yamada polynomial of the graph; the Jones polynomial too when it is a link. */
+export function graphPolys(g, best = fewestCrossings(g)) {
+    const out = { yamada: null, yamadaCrossings: null, linkJones: null };
+    out.yamadaCrossings = best.n;
+    const k = g.counts();
+    out.maxDegree = Math.max(0, ...k.degrees);
+    if (best.n <= MAX_YAMADA) {
+        const r = yamada(best.D, { maxStates: 120000 });
+        if (r) out.yamada = r.R;
+    }
+    if (k.arcs === 0 && k.circles > 1 && best.n <= MAX_LINK) {
+        out.linkJones = jones(best.D.edges.map(e => ({ pts: e.pts, closed: true })), undefined, { maxStates: 60000 });
+    }
+    return out;
 }

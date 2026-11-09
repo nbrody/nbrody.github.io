@@ -228,6 +228,8 @@ export class DiagramEditor {
             if (this.down && Math.hypot(px - this.down.px, py - this.down.py) > 4) this.down.moved = true;
             if (this.stroke) {
                 const p = this.toL(px, py);
+                if (ev.shiftKey) { this.stroke.pts = [this.stroke.pts[0], p]; this.stroke.straight = true; this.draw(); return; }
+                if (this.stroke.straight) { this.stroke.pts = [this.stroke.pts[0]]; this.stroke.straight = false; }
                 const last = this.stroke.pts[this.stroke.pts.length - 1];
                 if (dist(p, last) * this.pxPerUnit() > 3) this.stroke.pts.push(p);
                 this.draw();
@@ -302,8 +304,8 @@ export class DiagramEditor {
         if (!A) A = this.addVertex(pts[0]);
         let B = closesUp ? A : resolve(endPx, pts[pts.length - 1]);
         if (!B) B = this.addVertex(pts[pts.length - 1]);
-        // smooth the hand-drawn stroke, then pin its ends to the vertices
-        pts = resamplePoly(chaikin(chaikin(resamplePoly(pts, 0.022))), 0.016);
+        // smooth the hand-drawn stroke (a straight one stays straight), then pin its ends to the vertices
+        pts = s.straight ? resamplePoly([[A.x, A.y], [B.x, B.y]], 0.016) : resamplePoly(chaikin(chaikin(resamplePoly(pts, 0.022))), 0.016);
         pts[0] = [A.x, A.y];
         pts[pts.length - 1] = [B.x, B.y];
         if (pts.length < 3) pts.splice(1, 0, lerp(pts[0], pts[pts.length - 1], 0.5));
@@ -342,6 +344,71 @@ export class DiagramEditor {
             const endFade = Math.min(1, c[i] / (0.15 * L), (L - c[i]) / (0.15 * L));
             return [p[0] + w * endFade * d[0], p[1] + w * endFade * d[1]];
         });
+    }
+
+    // ------------------------------------------------------------ whole-diagram moves
+
+    setOver(c, aOver) { c.aOver = aOver; c.overT = aOver ? c.ta : c.tb; }
+
+    /** Flip every crossing: the mirror image. */
+    mirror() {
+        if (!this.cross.length) return;
+        this.snapshot();
+        for (const c of this.cross) this.setOver(c, !c.aOver);
+        this.changed(false);
+    }
+
+    /**
+     * Make crossings alternate over, under, over… along every strand, passing
+     * straight through degree-2 vertices. Where that is impossible (an odd cycle
+     * of constraints, possible at vertices of degree ≥ 3) the first choice wins.
+     */
+    alternate() {
+        if (!this.cross.length) return;
+        // passage p = 2·crossing + side (0: strand e, 1: strand f)
+        const along = new Map(this.edges.map(e => [e.id, []]));
+        this.cross.forEach((c, k) => { along.get(c.e).push([c.se, 2 * k]); along.get(c.f).push([c.sf, 2 * k + 1]); });
+        for (const l of along.values()) l.sort((p, q) => p[0] - q[0]);
+        const adj = Array.from({ length: 2 * this.cross.length }, () => []);
+        const link = (p, q) => { if (p !== q) { adj[p].push(q); adj[q].push(p); } };
+        this.cross.forEach((c, k) => link(2 * k, 2 * k + 1));
+        const byId = new Map(this.edges.map(e => [e.id, e]));
+        // the nearest passage reached by leaving `edge` through its end `end` ('a' | 'b')
+        const walk = (edge, end) => {
+            let e = edge, at = end === 'a' ? e.a : e.b;
+            for (let guard = 0; guard < this.edges.length + 2; guard++) {
+                if (this.degree(at) !== 2) return null;
+                const others = this.edges.filter(f => (f.a === at || f.b === at) && f !== e);
+                let f, from;
+                if (others.length) { f = others[0]; from = f.a === at ? 'a' : 'b'; }
+                else { f = e; from = end === 'a' ? 'b' : 'a'; }      // a loop at a degree-2 vertex
+                const l = along.get(f.id);
+                if (l.length) return from === 'a' ? l[0][1] : l[l.length - 1][1];
+                e = f; end = from === 'a' ? 'b' : 'a'; at = end === 'a' ? f.a : f.b;
+            }
+            return null;
+        };
+        for (const e of this.edges) {
+            const l = along.get(e.id);
+            if (!l.length) continue;
+            for (let i = 0; i + 1 < l.length; i++) link(l[i][1], l[i + 1][1]);
+            const qa = walk(e, 'a'), qb = walk(e, 'b');
+            if (qa != null) link(l[0][1], qa);
+            if (qb != null) link(l[l.length - 1][1], qb);
+        }
+        const col = new Int8Array(adj.length).fill(-1);
+        for (let s0 = 0; s0 < adj.length; s0 += 2) {
+            if (col[s0] >= 0) continue;
+            col[s0] = this.cross[s0 / 2].aOver ? 0 : 1;     // keep this crossing as it is
+            const queue = [s0];
+            while (queue.length) {
+                const p = queue.shift();
+                for (const q of adj[p]) if (col[q] < 0) { col[q] = 1 - col[p]; queue.push(q); }
+            }
+        }
+        this.snapshot();
+        this.cross.forEach((c, k) => this.setOver(c, col[2 * k] === 0));
+        this.changed(false);
     }
 
     // ------------------------------------------------------------ drawing
@@ -405,6 +472,11 @@ export class DiagramEditor {
         }
         // the stroke in progress
         if (this.stroke) strokePoly(this.stroke.pts, light ? 'rgba(23,28,43,0.55)' : 'rgba(238,241,248,0.6)', W);
+        if (this.stroke && this.stroke.straight) {
+            const [x, y] = this.toPx(this.stroke.pts[0]);
+            ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = light ? 'rgba(23,28,43,0.55)' : 'rgba(238,241,248,0.6)'; ctx.fill();
+        }
         if (!this.edges.length && !this.stroke) {
             ctx.fillStyle = light ? '#8b93a8' : '#5e6880';
             ctx.font = '500 13px Inter, system-ui, sans-serif';

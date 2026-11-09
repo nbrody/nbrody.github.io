@@ -7,6 +7,7 @@ import { View, PALETTES } from './render.js';
 import { DiagramEditor } from './editor.js';
 import { EXAMPLES, findExample } from './examples.js';
 import { graphInvariants } from './invariants.js';
+import { Poly } from './polynomials.js';
 
 const $ = id => document.getElementById(id);
 const store = {
@@ -73,57 +74,142 @@ function loadSpec(spec, { name, desc = '', exampleId = null, keepView = false } 
 
 // ============================================================ invariants
 
-const invSig = inv => `${inv.cycles.map(c => c.det).join(',')}|${inv.links.map(l => `${l.i}-${l.j}:${Math.abs(l.lk)}`).join(',')}`;
+// ---- invariants readout
+
+const tex = (s, display = false) => (window.katex ? window.katex.renderToString(s, { throwOnError: false, displayMode: display }) : s);
+const knotTeX = n => (n === 'unknot' ? '0_1' : n.replace(/#/g, '\\mathbin{\\#}'));
+const knotHTML = n => (n === 'unknot' ? 'unknot' : n.replace(/(\d+)_(\d+)/g, '$1<sub>$2</sub>').replace(/#/g, ' # '));
+const polyTeX = (p, v, den = 1) => (p ? Poly.tex(p, v, den) : null);
+
+/** Equal wherever both were computed (a polynomial past the time budget is null). */
+function sameInv(a, b) {
+    if (a.cycles.length !== b.cycles.length || a.links.length !== b.links.length) return false;
+    const eqP = (p, q) => !p || !q || Poly.eq(p, q);
+    for (let i = 0; i < a.cycles.length; i++) {
+        const c = a.cycles[i], d = b.cycles[i];
+        if (c.det !== d.det || !eqP(c.alex, d.alex) || !eqP(c.jones, d.jones)) return false;
+    }
+    for (let i = 0; i < a.links.length; i++) {
+        const l = a.links[i], m = b.links[i];
+        if (l.i !== m.i || l.j !== m.j || Math.abs(l.lk) !== Math.abs(m.lk)) return false;
+    }
+    // Yamada's R is an isotopy invariant (up to (−A)^k) only for max degree ≤ 3
+    if (a.graph.maxDegree <= 3 && !eqP(a.graph.yamada, b.graph.yamada)) return false;
+    return eqP(a.graph.linkJones, b.graph.linkJones);
+}
 
 function updateInvariants(initial = false) {
     if (!S.g) return;
-    const t0 = performance.now();
     const inv = graphInvariants(S.g, 1200);
-    inv.ms = performance.now() - t0;
     S.inv = inv;
     if (initial || !S.inv0) S.inv0 = inv;
     renderInvariants();
 }
 
+/** Δ, V and a line about chirality for one cycle. */
+function knotDetail(c) {
+    const rows = [];
+    const alex = polyTeX(c.alex, 't'), V = polyTeX(c.jones, 't', 2);
+    rows.push(`<div class="inv-poly"><span class="inv-pk">${tex('\\Delta(t)')}</span><span class="inv-pv">${alex ? tex(alex) : `<span class="label-hint">too many crossings (${c.n})</span>`}</span></div>`);
+    rows.push(`<div class="inv-poly"><span class="inv-pk">${tex('V(t)')}</span><span class="inv-pv">${V ? tex(V) : `<span class="label-hint">${c.n != null ? `too many crossings (${c.n})` : 'not computed (time budget)'}</span>`}</span></div>`);
+    rows.push(`<div class="inv-poly"><span class="inv-pk">${tex('\\det')}</span><span class="inv-pv">${tex(String(c.det))}</span></div>`);
+    let note = '';
+    if (c.name && c.name !== 'unknot' && !c.name.startsWith('knotted')) {
+        note = `Its Alexander polynomial is that of ${tex(knotTeX(c.name))}, the only knot with at most 7 crossings that has it`;
+        if (c.name.includes('#')) note = `Its Alexander polynomial factors as that of ${tex(knotTeX(c.name))}`;
+        if (c.chiral === true) {
+            const hand = /^(3_1|5_1|7_1)$/.test(c.name) && c.jones ? (Poly.hi(c.jones) > 0 ? ', right-handed' : ', left-handed') : '';
+            note += `; ${tex('V(t) \\ne V(t^{-1})')}, so it is chiral${hand}.`;
+        } else if (c.chiral === false) note += `; ${tex('V(t) = V(t^{-1})')}.`;
+        else note += '.';
+    } else if (c.name === 'unknot') {
+        note = c.n != null && c.n < 3 ? 'Fewer than three crossings in this projection: unknotted.' : `${tex('\\Delta = V = 1')}, as for the unknot (no proof it is one).`;
+    } else if (c.trivialAlex) {
+        note = `${tex('\\Delta = 1')} but ${tex('V \\ne 1')}: certainly knotted.`;
+    } else if (c.alex && !Poly.eq(c.alex, Poly.mono(0))) {
+        note = 'Knotted, but not a knot with at most 7 crossings (or a sum of two).';
+    }
+    return rows.join('') + (note ? `<p class="inv-line inv-note">${note}</p>` : '');
+}
+
+function cycleLabel(c) {
+    if (c.name === 'unknot') return 'unknot';
+    if (c.name && !c.name.startsWith('knotted')) return c.name;
+    if (c.trivialAlex) return 'knotted, Δ = 1';
+    return c.det === 1 && !c.alex ? 'det 1' : (c.alex ? 'knotted' : `det ${c.det}`);
+}
+
 function renderInvariants() {
     const inv = S.inv, el = $('inv-readout'), st = $('inv-status');
     if (!inv) return;
-    const same = invSig(inv) === invSig(S.inv0);
+    const same = sameInv(inv, S.inv0);
     st.textContent = inv === S.inv0 ? '' : same ? 'unchanged since the start ✓' : 'changed!';
     st.className = `inv-status ${inv === S.inv0 ? '' : same ? 'ok' : 'bad'}`;
-    // cycles grouped by determinant
-    const byDet = new Map();
-    inv.cycles.forEach((c, k) => { if (!byDet.has(c.det)) byDet.set(c.det, []); byDet.get(c.det).push(k); });
-    const knotted = inv.cycles.filter(c => c.det !== 1).length;
-    const nC = inv.cycles.length;
     const k = S.g.counts();
     const isKnot = k.circles === 1 && k.arcs === 0;
+    const nC = inv.cycles.length;
     let html = '';
     if (isKnot) {
-        const d = inv.cycles[0].det;
-        html += `<p class="inv-line">Determinant |Δ(−1)| = <b>${d}</b>${d === 1 ? ' (as for the unknot; not a proof of unknottedness)' : ' — so it is knotted'}.</p>`;
+        const c = inv.cycles[0];
+        const nm = cycleLabel(c);
+        html += `<p class="inv-line">Knot type <b>${knotHTML(nm)}</b>${c.n != null ? ` · ${c.n} crossings seen` : ''}</p>`;
+        html += knotDetail(c);
     } else if (nC) {
-        html += `<p class="inv-line"><b>${nC}${inv.capped ? '+' : ''}</b> cycle${nC === 1 ? '' : 's'}; ${knotted ? `<b>${knotted}</b> certainly knotted (determinant ≠ 1)` : 'all with determinant 1'}. Click to highlight.</p>`;
-        html += `<div class="inv-chips">${[...byDet.entries()].sort((a, b) => b[0] - a[0]).map(([d, list]) =>
-            `<button class="sym-chip ${d !== 1 ? 'knotted' : ''}" data-cycles="${list.join(',')}" title="Cycles with knot determinant ${d}">det ${d} × ${list.length}</button>`).join('')}</div>`;
+        const groups = new Map();
+        inv.cycles.forEach((c, i) => { const key = cycleLabel(c); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(i); });
+        const knotted = inv.cycles.filter(c => c.det !== 1 || (c.name && c.name !== 'unknot') || c.trivialAlex).length;
+        html += `<p class="inv-line"><b>${nC}${inv.capped ? '+' : ''}</b> cycle${nC === 1 ? '' : 's'}; ${knotted ? `<b>${knotted}</b> knotted` : 'none knotted as far as Δ, V see'}. Click a type for its polynomials.</p>`;
+        const order = [...groups.entries()].sort((a, b) => (a[0] === 'unknot') - (b[0] === 'unknot') || b[1].length - a[1].length);
+        html += `<div class="inv-chips">${order.map(([key, list]) =>
+            `<button class="sym-chip ${key !== 'unknot' ? 'knotted' : ''}" data-cycles="${list.join(',')}" data-detail="${list[0]}" title="${list.length} cycle${list.length === 1 ? '' : 's'}: ${key}">${knotHTML(key)} × ${list.length}</button>`).join('')}</div>`;
+        html += '<div id="inv-detail"></div>';
     }
     if (inv.pairs) {
         const linked = inv.links.length;
         const sumAbs = inv.links.reduce((s, l) => s + Math.abs(l.lk), 0);
-        html += `<p class="inv-line"><b>${inv.pairs}</b> pair${inv.pairs === 1 ? '' : 's'} of disjoint cycles; ${linked ? `<b>${linked}</b> linked (Σ|lk| = ${sumAbs})` : 'none linked'}.</p>`;
+        html += `<p class="inv-line"><b>${inv.pairs}</b> pair${inv.pairs === 1 ? '' : 's'} of disjoint cycles; ${linked ? `<b>${linked}</b> linked (${tex('\\sum|\\mathrm{lk}|')} = ${sumAbs})` : 'none linked'}.</p>`;
         if (linked) html += `<div class="inv-chips">${inv.links.slice(0, 12).map(l => `<button class="sym-chip" data-cycles="${l.i},${l.j}" title="Highlight this pair">lk ${l.lk > 0 ? '+' : '−'}${Math.abs(l.lk)}</button>`).join('')}${linked > 12 ? `<span class="label-hint">…${linked - 12} more</span>` : ''}</div>`;
+    }
+    const G = inv.graph || {};
+    if (G.linkJones) {
+        html += `<div class="inv-poly"><span class="inv-pk">${tex('V_L(t)')}</span><span class="inv-pv">${tex(Poly.tex(G.linkJones, 't', 2))}</span></div>`;
+    }
+    if (!isKnot && G.yamadaCrossings != null) {
+        const R = G.yamada;
+        html += `<div class="inv-poly"><span class="inv-pk">${tex('R(A)')}</span><span class="inv-pv">${R
+            ? tex(Poly.tex(R, 'A'))
+            : `<span class="label-hint">${G.yamadaCrossings} crossings in the best view: too many</span>`}</span></div>`;
+        const notes = [`Yamada polynomial, up to ${tex('(-A)^k')}`];
+        if (R && !R.c.length) notes.push('it vanishes, as it does when a cut edge joins two pieces that can be pulled apart');
+        if (G.maxDegree > 3) notes.push('with a vertex of degree > 3 it is an invariant of rigid-vertex graphs only');
+        html += `<p class="inv-line inv-note">${notes.join('; ')}.</p>`;
     }
     if (!html) html = '<p class="label-hint">No cycles.</p>';
     el.innerHTML = html;
     el.querySelectorAll('[data-cycles]').forEach(b => b.addEventListener('click', () => {
         const key = b.dataset.cycles;
-        if (S.hl === key) { S.hl = null; S.view.highlight(null); b.classList.remove('on'); return; }
+        const det = $('inv-detail');
+        if (S.hl === key) {
+            S.hl = null; S.view.highlight(null); b.classList.remove('on');
+            if (det) det.innerHTML = '';
+            return;
+        }
         S.hl = key;
         el.querySelectorAll('[data-cycles]').forEach(c => c.classList.toggle('on', c === b));
         const set = new Set();
         for (const ci of key.split(',').map(Number)) for (const [e] of inv.cycles[ci].edges) set.add(e);
         S.view.highlight(set, S.g);
+        if (det && b.dataset.detail != null) det.innerHTML = knotDetail(inv.cycles[+b.dataset.detail]);
     }));
+    // keep the selection across re-renders
+    if (S.hl) {
+        const b = [...el.querySelectorAll('[data-cycles]')].find(c => c.dataset.cycles === S.hl);
+        if (b) {
+            b.classList.add('on');
+            const det = $('inv-detail');
+            if (det && b.dataset.detail != null) det.innerHTML = knotDetail(inv.cycles[+b.dataset.detail]);
+        } else { S.hl = null; S.view.highlight(null); }
+    }
 }
 
 function loadExample(id) {
@@ -727,6 +813,8 @@ function bindPanel() {
     $('diagram-close').addEventListener('click', closeEditor);
     $('diagram-undo').addEventListener('click', () => S.editor.undo());
     $('diagram-clear').addEventListener('click', () => S.editor.clear());
+    $('diagram-mirror').addEventListener('click', () => S.editor.mirror());
+    $('diagram-alt').addEventListener('click', () => S.editor.alternate());
     $('diagram-lift').addEventListener('click', () => {
         try {
             const spec = S.editor.toSpec();
@@ -745,6 +833,11 @@ function bindPanel() {
         if (e.target.closest('textarea, input, select')) return;
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !$('diagram-card').hidden) { e.preventDefault(); S.editor.undo(); return; }
         if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (!$('diagram-card').hidden && ['1', '2', '3'].includes(e.key)) {
+            const b = document.querySelectorAll('#tool-options .seg-opt')[+e.key - 1];
+            if (b) b.click();
+            return;
+        }
         if (e.key === ' ') { e.preventDefault(); toggle(); }
         else if (e.key === 's' || e.key === 'S') scramble();
         else if (e.key === 'y' || e.key === 'Y') symmetrize();
@@ -758,12 +851,70 @@ function bindPanel() {
     });
 }
 
+// ---- live invariants of the diagram being drawn
+
+let diagTimer = 0;
+function scheduleDiagramInvariants() {
+    clearTimeout(diagTimer);
+    diagTimer = setTimeout(diagramInvariants, 280);
+}
+
+function diagramInvariants() {
+    const el = $('diagram-inv');
+    if (!el || $('diagram-card').hidden) return;
+    if (!S.editor.edges.length) { el.innerHTML = ''; return; }
+    let g, inv;
+    try {
+        g = diagramGraph(S.editor.toSpec());
+        inv = graphInvariants(g, 200, { budgetMs: 250, dir: [0, 0, 1] });
+    } catch (e) { el.innerHTML = `<p class="label-hint">${e.message}</p>`; return; }
+    const k = g.counts();
+    const isLink = k.degrees.every(d => d === 2);
+    k.arcs = isLink ? 0 : k.arcs;
+    let html = '';
+    if (isLink && inv.cycles.length === 1) {
+        const c = inv.cycles[0];
+        html += `<p class="inv-line">Knot type <b>${knotHTML(cycleLabel(c))}</b></p>` + knotDetail(c);
+    } else {
+        const groups = new Map();
+        for (const c of inv.cycles) { const key = cycleLabel(c); groups.set(key, (groups.get(key) || 0) + 1); }
+        const list = [...groups.entries()].sort((a, b) => (a[0] === 'unknot') - (b[0] === 'unknot') || b[1] - a[1]);
+        html += `<p class="inv-line">${k.arcs === 0 ? 'Components' : 'Cycles'}: ${list.map(([n, m]) => `<b>${knotHTML(n)}</b>${m > 1 ? ` × ${m}` : ''}`).join(', ')}${inv.capped ? ', …' : ''}${inv.links.length ? ` · ${inv.links.length} linked pair${inv.links.length === 1 ? '' : 's'}` : ''}</p>`;
+        const G = inv.graph;
+        if (G.linkJones) html += `<div class="inv-poly"><span class="inv-pk">${tex('V_L(t)')}</span><span class="inv-pv">${tex(Poly.tex(G.linkJones, 't', 2))}</span></div>`;
+        if (k.arcs > 0) html += `<div class="inv-poly"><span class="inv-pk">${tex('R(A)')}</span><span class="inv-pv">${G.yamada ? tex(Poly.tex(G.yamada, 'A')) : `<span class="label-hint">${G.yamadaCrossings} crossings: too many</span>`}</span></div>`;
+    }
+    el.innerHTML = html;
+}
+
+/**
+ * The lifted diagram as a bare graph for the invariants: the drawn points as
+ * nodes, degree-2 vertices kept (no smoothing, no embedding checks).
+ */
+function diagramGraph(spec) {
+    const x = [], vertexNodes = [], vid = new Map();
+    spec.vertices.forEach(v => { vid.set(v.id, vertexNodes.length); vertexNodes.push(x.length / 3); x.push(...v.pos); });
+    const edges = spec.edges.map(e => {
+        const nodes = [vertexNodes[vid.get(e.a)]];
+        for (const p of e.way) { nodes.push(x.length / 3); x.push(...p); }
+        nodes.push(vertexNodes[vid.get(e.b)]);
+        return { a: vid.get(e.a), b: vid.get(e.b), nodes, circle: false };
+    });
+    const degrees = vertexNodes.map(() => 0);
+    for (const e of edges) { degrees[e.a]++; degrees[e.b]++; }
+    return {
+        x: Float64Array.from(x), vertexNodes, edges,
+        counts: () => ({ V: vertexNodes.length, arcs: edges.length, circles: 0, degrees }),
+    };
+}
+
 function openEditor() {
     $('diagram-card').hidden = false;
     document.documentElement.classList.add('editing');
     $('pill-draw').classList.add('on');
     S.editor.resize();
     $('diagram-stats').textContent = statsLine();
+    scheduleDiagramInvariants();
 }
 
 function closeEditor() {
@@ -824,7 +975,7 @@ async function start() {
     S.view = new View($('viz-container'));
     S.editor = new DiagramEditor($('diagram-canvas'), {
         color: i => S.view.color(Math.max(0, i)),
-        onChange: () => { $('diagram-stats').textContent = statsLine(); },
+        onChange: () => { $('diagram-stats').textContent = statsLine(); scheduleDiagramInvariants(); },
     });
     bindPanel();
     bindPointer();
