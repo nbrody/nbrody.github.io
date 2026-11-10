@@ -9,8 +9,11 @@
 // ramification).
 
 export function factorize(n) {
-    n = Math.abs(n);
     const f = new Map();
+    // Non-finite values (Infinity/NaN from bad URL params) make
+    // `p*p <= n` never terminate; reject them before the loop.
+    if (!Number.isFinite(n)) return f;
+    n = Math.abs(Math.trunc(n));
     if (n < 2) return f;
     for (let p = 2; p * p <= n; p += (p === 2 ? 1 : 2)) {
         while (n % p === 0) { f.set(p, (f.get(p) || 0) + 1); n /= p; }
