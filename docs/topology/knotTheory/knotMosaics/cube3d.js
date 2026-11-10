@@ -5,7 +5,7 @@
 (function () {
     let scene, camera, renderer, controls;
     let cubeGroup, pivots = {}, meshes = {}, strandGroups = {}, elbowGroup;
-    let animId = null, isFolded = false;
+    let animId = null, isFolded = false, foldTimer = null;
     let renderMode = 'tubes'; // 'tiles' or 'tubes'
 
     const FOLD_DURATION = 1500;
@@ -42,9 +42,24 @@
 
     function faceParent(n) { return n === 'front' ? cubeGroup : pivots[n]; }
 
+    // Free a removed model's GPU buffers and textures: WebGL resources
+    // outlive garbage collection, and every rebuild makes new textures.
+    function disposeObject3D(root) {
+        const seen = new Set();
+        root.traverse(obj => {
+            const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            for (const r of [obj.geometry, ...mats]) {
+                if (!r || seen.has(r)) continue;
+                seen.add(r);
+                if (r.map) r.map.dispose();
+                r.dispose();
+            }
+        });
+    }
+
     // ── Build Net ──
     function buildNet() {
-        if (cubeGroup) scene.remove(cubeGroup);
+        if (cubeGroup) { scene.remove(cubeGroup); disposeObject3D(cubeGroup); }
         cubeGroup = new THREE.Group(); scene.add(cubeGroup);
         pivots = {}; meshes = {}; strandGroups = {};
 
@@ -137,6 +152,7 @@
             case 'arc_sw': return [arc(BL, 0, Math.PI / 2, h, zB)];
             case 'cross_pos': return [ln(N, S, zB), ln(W, E, zO)];
             case 'cross_neg': return [ln(W, E, zB), ln(N, S, zO)];
+            case 'cross_virtual': return [ln(N, S, zB), ln(W, E, zB)];   // no over/under
             case 'double_arc_nesw': return [arc(TR, Math.PI, 1.5 * Math.PI, h, zB), arc(BL, 0, Math.PI / 2, h, zB)];
             case 'double_arc_nwse': return [arc(TL, 0, -Math.PI / 2, h, zB), arc(BR, Math.PI, Math.PI / 2, h, zB)];
             default: return [];
@@ -316,18 +332,27 @@
     window.openCubeFold = function () {
         document.getElementById('cube-overlay').style.display = 'block';
         document.getElementById('cube-hide-grid').checked = false;
+        // The Fold/Unfold button is shared with torus3d.js, which relabels it
+        // and sets its onclick: take it back.
+        const unfoldBtn = document.getElementById('cube-unfold-btn');
+        unfoldBtn.textContent = 'Unfold';
+        unfoldBtn.onclick = null;
         if (!renderer) init();
         onResize(); buildNet(); loop();
-        setTimeout(() => animateFold(true), 300);
+        clearTimeout(foldTimer);
+        foldTimer = setTimeout(() => animateFold(true), 300);
     };
 
     window.closeCubeFold = function () {
         document.getElementById('cube-overlay').style.display = 'none';
+        clearTimeout(foldTimer);   // closed within 300 ms: don't start folding
         if (animId) { cancelAnimationFrame(animId); animId = null; }
     };
 
     document.getElementById('cube-close-btn').addEventListener('click', window.closeCubeFold);
-    document.getElementById('cube-unfold-btn').addEventListener('click', () => animateFold(!isFolded));
+    document.getElementById('cube-unfold-btn').addEventListener('click', () => {
+        if (window.getAppState().surface === 'sphere') animateFold(!isFolded);
+    });
     document.getElementById('cube-hide-grid').addEventListener('change', e => setStrandsOnly(e.target.checked));
 
     // Render mode toggle (tiles/tubes) — wired up in cube3d since it loads first

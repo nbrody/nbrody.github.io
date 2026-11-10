@@ -4,7 +4,7 @@
 (function () {
     let scene, camera, renderer, controls;
     let mainGroup, baseGeoms = [];
-    let animId = null, isFolded = false;
+    let animId = null, isFolded = false, foldTimer = null;
     let renderMode = 'tubes'; // 'tiles' or 'tubes'
 
     const FOLD_DURATION = 2000;
@@ -35,8 +35,23 @@
         d2.position.set(-2, -1, 3); scene.add(d2);
     }
 
+    // Free a removed model's GPU buffers and textures: WebGL resources
+    // outlive garbage collection, and every rebuild makes new textures.
+    function disposeObject3D(root) {
+        const seen = new Set();
+        root.traverse(obj => {
+            const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            for (const r of [obj.geometry, ...mats]) {
+                if (!r || seen.has(r)) continue;
+                seen.add(r);
+                if (r.map) r.map.dispose();
+                r.dispose();
+            }
+        });
+    }
+
     function buildModel() {
-        if (mainGroup) scene.remove(mainGroup);
+        if (mainGroup) { scene.remove(mainGroup); disposeObject3D(mainGroup); }
         mainGroup = new THREE.Group(); scene.add(mainGroup);
         morphTargets = [];
         tubeMorphTargets = [];
@@ -46,8 +61,10 @@
         const st = window.getAppState();
         const gs = st.gridSize;
 
-        // 1. Surface Plane (highly subdivided for smooth bending)
-        const planeGeo = new THREE.PlaneGeometry(1, 1, gs * 8, gs * 8);
+        // 1. Surface Plane (highly subdivided for smooth bending; capped, as
+        // a 200-cell grid would otherwise bend 2.5 million vertices a frame)
+        const segs = Math.min(gs * 8, 256);
+        const planeGeo = new THREE.PlaneGeometry(1, 1, segs, segs);
         const tc = window.renderTorusTexture(showGrid, false);
         const tex = new THREE.CanvasTexture(tc);
         tex.minFilter = THREE.LinearFilter;
@@ -103,6 +120,7 @@
             case 'arc_sw': return [arc(BL, 0, Math.PI / 2, h, zB)];
             case 'cross_pos': return [ln(N, S, zB), ln(W, E, zO)];
             case 'cross_neg': return [ln(W, E, zB), ln(N, S, zO)];
+            case 'cross_virtual': return [ln(N, S, zB), ln(W, E, zB)];   // no over/under
             case 'double_arc_nesw': return [arc(TR, Math.PI, 1.5 * Math.PI, h, zB), arc(BL, 0, Math.PI / 2, h, zB)];
             case 'double_arc_nwse': return [arc(TL, 0, -Math.PI / 2, h, zB), arc(BR, Math.PI, Math.PI / 2, h, zB)];
             default: return [];
@@ -247,6 +265,7 @@
         const tex = new THREE.CanvasTexture(tc);
         tex.minFilter = THREE.LinearFilter;
 
+        if (planeMorphTarget.mesh.material.map) planeMorphTarget.mesh.material.map.dispose();
         planeMorphTarget.mesh.material.map = tex;
         planeMorphTarget.mesh.material.transparent = strandsOnly;
         if (renderMode === 'tubes') {
@@ -267,6 +286,7 @@
         const uiBtn = document.getElementById('cube-unfold-btn');
         uiBtn.textContent = 'Unfold';
         uiBtn.onclick = () => {
+            if (window.getAppState().surface !== 'torus') return;
             animateFold(!isFolded);
             uiBtn.textContent = isFolded ? 'Unfold' : 'Fold';
         };
@@ -278,7 +298,8 @@
         onResize();
         buildModel();
         loop();
-        setTimeout(() => {
+        clearTimeout(foldTimer);
+        foldTimer = setTimeout(() => {
             animateFold(true);
             uiBtn.textContent = 'Unfold';
         }, 300);
@@ -288,6 +309,7 @@
     const originalClose = window.closeCubeFold;
     window.closeCubeFold = function () {
         document.getElementById('cube-overlay').style.display = 'none';
+        clearTimeout(foldTimer);   // closed within 300 ms: don't start folding
         if (animId) { cancelAnimationFrame(animId); animId = null; }
         if (originalClose) originalClose();
     };
