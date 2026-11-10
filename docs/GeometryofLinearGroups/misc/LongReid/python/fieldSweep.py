@@ -25,7 +25,7 @@ import time
 from magnusCore import (
     NumberField, SYMS, INV, magnus_generators, mat_mul, mat_identity,
     matrix_is_integral, integral_entries, make_record,
-    load_db, save_db, field_entry, merge_records, parse_poly, poly_str,
+    update_db, field_entry, merge_records, parse_poly, poly_str,
 )
 
 # (minpoly low->high, label) — t and t-1 unit status noted in the DB.
@@ -92,21 +92,25 @@ def main():
     else:
         panel = DEFAULT_PANEL
 
-    db = load_db()
+    pending = []
     for coeffs, label in panel:
         K = NumberField(coeffs, label)
         print(f'== {poly_str(coeffs)}  ({K.label})')
         hits = exhaustive_search(K, args.length)
-        if not args.no_save:
-            entry = field_entry(db, K, label)
-            merge_records(entry, hits, cap=args.cap)
-            entry['search']['exhaustive_len'] = max(
-                args.length, entry['search'].get('exhaustive_len', 0))
-            if not hits and entry['status'] == 'unsearched':
-                entry['status'] = 'none_found'
+        pending.append((coeffs, label, hits))
 
     if not args.no_save:
-        path = save_db(db, time.strftime('%Y-%m-%d'))
+        def apply(db):
+            for coeffs, label, hits in pending:
+                K = NumberField(coeffs, label)
+                entry = field_entry(db, K, label)
+                merge_records(entry, hits, cap=args.cap)
+                entry['search']['exhaustive_len'] = max(
+                    args.length, entry['search'].get('exhaustive_len', 0))
+                if not hits and entry['status'] == 'unsearched':
+                    entry['status'] = 'none_found'
+
+        path = update_db(apply, time.strftime('%Y-%m-%d'))
         print('wrote', path)
 
 
