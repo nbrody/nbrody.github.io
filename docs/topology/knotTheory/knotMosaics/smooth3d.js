@@ -1324,27 +1324,30 @@ const CUBE_ADJ = {
              E: { face: 'right',  side: 'W', flip: false } },
 
     // Top face: meets front on its S; meets back on its N (back appears
-    // upside-down on top, so flip); meets left.N on top.W; meets right.N on top.E.
+    // upside-down on top, so flip); meets left.N on top.W; meets right.N on
+    // top.E. The flips follow cube3d.js's fold (test_sphere_fold.js checks
+    // them): top's W edge runs N→S along left's N edge W→E, top's E edge
+    // runs N→S along right's N edge E→W.
     top: {    N: { face: 'back',  side: 'N', flip: true  },
               S: { face: 'front', side: 'N', flip: false },
-              W: { face: 'left',  side: 'N', flip: true  },
-              E: { face: 'right', side: 'N', flip: false } },
+              W: { face: 'left',  side: 'N', flip: false },
+              E: { face: 'right', side: 'N', flip: true  } },
 
     // Bottom face: mirror of top across the cube.
     bottom: { N: { face: 'front', side: 'S', flip: false },
               S: { face: 'back',  side: 'S', flip: true  },
-              W: { face: 'left',  side: 'S', flip: false },
-              E: { face: 'right', side: 'S', flip: true  } },
+              W: { face: 'left',  side: 'S', flip: true  },
+              E: { face: 'right', side: 'S', flip: false } },
 
     // Left face: net-adjacent to front on its E; meets back on its W.
-    left: {   N: { face: 'top',    side: 'W', flip: true  },
-              S: { face: 'bottom', side: 'W', flip: false },
+    left: {   N: { face: 'top',    side: 'W', flip: false },
+              S: { face: 'bottom', side: 'W', flip: true  },
               W: { face: 'back',   side: 'E', flip: false },
               E: { face: 'front',  side: 'W', flip: false } },
 
     // Right face: net-adjacent to front (W) and back (E).
-    right: {  N: { face: 'top',    side: 'E', flip: false },
-              S: { face: 'bottom', side: 'E', flip: true  },
+    right: {  N: { face: 'top',    side: 'E', flip: true  },
+              S: { face: 'bottom', side: 'E', flip: false },
               W: { face: 'front',  side: 'E', flip: false },
               E: { face: 'back',   side: 'W', flip: false } },
 
