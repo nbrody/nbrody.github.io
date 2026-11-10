@@ -252,6 +252,9 @@ function testBlackjackHitStandRaceDoesNotSkipPlayer() {
         { rank: '8', suit: '♥' },
     ];
     game.shoe = [{ rank: '5', suit: '♦' }, { rank: '2', suit: '♣' }];
+    // The constructor deals a random opening hand (possibly a natural 21 that
+    // auto-stands); reset flags so the test is deterministic.
+    for (const h of Object.values(game.playerHands)) { h.standing = false; h.busted = false; }
     game.currentPlayerTurnIndex = 0;
     game.phase = 'playerTurn';
     game.actionPending = false;
@@ -295,6 +298,7 @@ function testBlackjackDoubleHitOnBustedHandIgnored() {
         { rank: '9', suit: '♥' },
     ];
     game.shoe = [{ rank: '5', suit: '♦' }, { rank: '3', suit: '♣' }];
+    for (const h of Object.values(game.playerHands)) { h.standing = false; h.busted = false; }
     game.currentPlayerTurnIndex = 0;
     game.phase = 'playerTurn';
     game.actionPending = false;
