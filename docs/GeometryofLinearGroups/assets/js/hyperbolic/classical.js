@@ -29,12 +29,10 @@ const mul = (A, B) => [A[0] * B[0] + A[1] * B[2], A[0] * B[1] + A[1] * B[3], A[2
 const adj = (A) => [A[3], -A[1], -A[2], A[0]];
 const det = (A) => A[0] * A[3] - A[1] * A[2];
 const tr = (A) => A[0] + A[3];
-function isqrt(n) {
+function isqrt(n) {   // floor(√n), Newton's method: a float seed is off by ~2^(bits/2 − 53) for large n
     if (n < 2n) return n;
-    let x = BigInt(Math.floor(Math.sqrt(Number(n))));
-    while (x * x > n) x--;
-    while ((x + 1n) * (x + 1n) <= n) x++;
-    return x;
+    let x = 1n << BigInt(Math.ceil(n.toString(2).length / 2));
+    for (;;) { const y = (x + n / x) >> 1n; if (y >= x) return x; x = y; }
 }
 const fracText = (p, q) => new Frac(p, q).toString();
 

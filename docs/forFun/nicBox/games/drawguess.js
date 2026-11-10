@@ -21,6 +21,8 @@ class DrawGuessGame {
         this.strokes = [];      // full drawing data from drawer
         this.pendingTimeouts = [];
         this.dead = false;
+        this.revealed = false;
+        this.advanceTimeout = null;
 
         this.wordBank = [
             // Easy
@@ -120,6 +122,11 @@ class DrawGuessGame {
 
         this.currentWord = this.nextWord();
         this.guessedPlayers = {};
+        this.revealed = false;
+        if (this.advanceTimeout) {
+            clearTimeout(this.advanceTimeout);
+            this.advanceTimeout = null;
+        }
         this.clearCanvas();
         this.timeLeft = 60;
 
@@ -175,6 +182,7 @@ class DrawGuessGame {
 
             if (this.timeLeft <= 0) {
                 clearInterval(this.timer);
+                this.timer = null;
                 this.revealWord();
             }
         }, 1000);
@@ -250,6 +258,7 @@ class DrawGuessGame {
     }
 
     handleGuess(playerId, guess) {
+        if (this.revealed) return; // ignore guesses after the word is revealed
         const drawerId = this.playerIds[this.currentDrawerIndex];
         if (playerId === drawerId) return; // drawer can't guess
         if (this.guessedPlayers[playerId]) return; // already guessed correctly
@@ -293,14 +302,23 @@ class DrawGuessGame {
             const nonDrawerIds = this.playerIds.filter(id => id !== drawerId);
             const allGuessed = nonDrawerIds.every(id => this.guessedPlayers[id]);
             if (allGuessed) {
-                clearInterval(this.timer);
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                }
                 this.revealWord();
             }
         }
     }
 
     revealWord() {
-        if (this.dead) return;
+        if (this.dead || this.revealed) return;
+        this.revealed = true;
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+
         const wordEl = document.getElementById('dg-word-display');
         if (wordEl) {
             wordEl.innerHTML = `
@@ -315,7 +333,9 @@ class DrawGuessGame {
         });
 
         // Next round after delay
-        this.schedule(() => {
+        if (this.advanceTimeout) clearTimeout(this.advanceTimeout);
+        this.advanceTimeout = setTimeout(() => {
+            this.advanceTimeout = null;
             getRoomRef(this.roomCode).child('gameState/actions').remove();
             this.startRound();
         }, 4000);
@@ -330,7 +350,14 @@ class DrawGuessGame {
 
     cleanup() {
         this.dead = true;
-        if (this.timer) clearInterval(this.timer);
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        if (this.advanceTimeout) {
+            clearTimeout(this.advanceTimeout);
+            this.advanceTimeout = null;
+        }
         this.pendingTimeouts.forEach(clearTimeout);
         this.pendingTimeouts = [];
         this.listeners.forEach(l => l.ref.off(l.event));
