@@ -1099,8 +1099,10 @@ function getTileAt(cell) {
 }
 
 function setTileAt(cell, tileIndex) {
-    if (!cell) return;
-    if (getTileAt(cell) === tileIndex) return;
+    // getTileAt is -1 for a cell that isn't on the current grid (a stale
+    // selection from another surface or size): never write there.
+    const cur = getTileAt(cell);
+    if (cur < 0 || cur === tileIndex) return;
     commitGesture();
     if (state.surface === 'sphere') {
         state.grid[cell.face][cell.row][cell.col] = tileIndex;
@@ -1656,6 +1658,9 @@ const FOLDABLE_SURFACES = ['sphere', 'torus'];
 function onSurfaceChange() {
     pushUndo();
     state.surface = surfaceSelect.value;
+    // Disk cells are {row, col}, sphere cells {face, row, col}: a selection
+    // kept across the switch made Delete throw (or write the wrong cell).
+    state.selectedCells = [];
     // "View in R³" is unified across all surfaces, so its visibility no
     // longer needs to be toggled here.
     syncSizeControls();
