@@ -258,7 +258,9 @@ function fordCoreFactory() {
      its words come out with c = 0 up to rounding -- a radius of 1e15 that is
      no Shimizu witness.  With stabTol set, candidates with |c| < stabTol are
      set aside as elements of Stab(infinity) (reported in `stab` as their
-     translation lengths) instead of being faces or witnesses.              */
+     translation lengths) instead of being faces or witnesses.  Without it,
+     c = 0 exactly (radius infinite, e.g. at rho = 2) is still set aside:
+     such an element fixes infinity, so it is never a Shimizu witness.      */
   const key = w => w.join(",");
   function fordDomain(rr, ri, opts = {}) {
     const group = opts.group || "ext";
@@ -282,7 +284,7 @@ function fordCoreFactory() {
     let faces = visibleItems(seed.map(w => wordItem(w, E)), false);
     let complete = false, capped = false, hidden = null, nondiscrete = null;
     const SHIMIZU = 1 + 1e-9;
-    for (const f of faces) if (f.r > SHIMIZU && (!nondiscrete || f.r > nondiscrete.r)) nondiscrete = { word: wordOf(f), r: f.r };
+    for (const f of faces) if (f.r > SHIMIZU && f.r < RSTAB && (!nondiscrete || f.r > nondiscrete.r)) nondiscrete = { word: wordOf(f), r: f.r };
     for (let round = 0; round < 40 && !nondiscrete; round++) {
       const have = new Set();
       for (const f of faces) have.add(f.key);
@@ -297,7 +299,7 @@ function fordCoreFactory() {
         if (have.has(kk)) continue;
         have.add(kk);
         const it = productItem(f, k, g);
-        if (opts.stabTol && !(it.r < RSTAB)) { setAside(it); continue; }
+        if (!(it.r < RSTAB)) { setAside(it); continue; }
         if (it.r > SHIMIZU && (!big || it.r > big.r)) big = it;
         cand.push(it);
       }

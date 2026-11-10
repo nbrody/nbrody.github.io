@@ -376,7 +376,8 @@ function showFord(rho) {
     readout.innerHTML = `<div class="big">${rhoStr}</div><div class="hint">Inside the lens: Γ<sub>ρ</sub> is not free and discrete here, so there is no Ford domain to draw.</div>`;
     return;
   }
-  const fd = F.fordDomain(x, y, { polys: true, group });
+  // stabTol, as on the main page: a word with c = 0 up to rounding fixes infinity, no Shimizu witness
+  const fd = F.fordDomain(x, y, { polys: true, group, stabTol: 1e-7 });
   if (fd.nondiscrete) {
     const w = fd.nondiscrete.word;
     let name = F.gammaName(w);
