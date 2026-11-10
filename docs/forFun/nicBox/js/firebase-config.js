@@ -62,11 +62,20 @@ async function joinRoom(roomCode, playerName, avatar) {
         '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'
     ];
 
+    // Prefetch so the transaction's first local value is the real room, not a
+    // cached null. Returning undefined on that initial null aborts immediately
+    // and never retries against the server, so fresh phones would always fail.
+    const existing = await roomRef.once('value');
+    if (!existing.exists()) throw new Error('Room not found');
+    if (existing.val().closedAt) throw new Error('Room is closed');
+
     // Atomic: commit host assignment + new player in one transaction, so two
     // simultaneous joiners can't both claim host.
     let abortReason = null;
     const result = await roomRef.transaction((room) => {
-        if (room === null) { abortReason = 'notfound'; return; }
+        // Still null (cache miss or room deleted): pass it through so Firebase
+        // re-runs us against the server value; a deleted room fails below.
+        if (room === null) { abortReason = 'notfound'; return room; }
         if (room.closedAt) { abortReason = 'closed'; return; }
         if (!room.players) room.players = {};
 
