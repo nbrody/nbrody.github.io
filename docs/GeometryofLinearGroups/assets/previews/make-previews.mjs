@@ -40,16 +40,13 @@ const OVERRIDES = {
     // (the presentation section lifted to the top, everything else hidden)
     'Arithmetic/Tools/numberRingGroups/index.html': { mode: 'page', wait: 6000, js: "const p = document.getElementById('sec-pres'), w = document.querySelector('.wrap'); w.prepend(p); [...w.children].forEach((c) => { if (c !== p) c.style.display = 'none'; }); scrollTo(0, 0)", after: 800 },
     // nothing to show: broken, empty, blank until drawn on, or never finishing a picture headless
-    'Arithmetic/Tools/convexCocompactPSL2Z/compact_surface.html': { skip: 'fails to load: bare "react" import' },
     'Arithmetic/Tools/orthogonal.html': { skip: 'fails to load: mathjs@14.0.1 ESM build 404s on jsDelivr' },
     'misc/projectorFeedback/index.html': { skip: 'a redirect to mathArt/projectorFeedback' },
     'Geometric/Tools/Kleinian/coxeter.html': { skip: 'a blank graph to draw on' },
     'Geometric/Tools/Kleinian/4dExplorer/index.html': { skip: 'renders black headless' },
     'misc/rileySlice3D/index.html': { skip: 'renders only its axes headless' },
     // the controls are as telling as the picture
-    'Arithmetic/Tools/convexCocompactPSL2Z/index.html': { mode: 'page' },
     'Arithmetic/Tools/cocompactSurface/index.html': { mode: 'page', wait: 6000 },
-    'Arithmetic/Tools/convexCocompact/index.html': { mode: 'page' },
     'misc/vinberg.html': { mode: 'page' },
     'misc/coxeter/index.html': { mode: 'page' },
 };
