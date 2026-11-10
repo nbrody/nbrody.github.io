@@ -291,6 +291,8 @@ class RoadblocksGame {
         this.renderer = new BoardRenderer(containerEl, { cellSize: this.cellSize, gap: this.gap });
         this.moveQueue = [];
         this.isProcessingQueue = false;
+        this._advanceTimeout = null;
+        this._levelEpoch = 0; // bumped on every level load; invalidates in-flight moves
         this._setupInput();
     }
 
@@ -307,11 +309,22 @@ class RoadblocksGame {
         }
     }
 
+    _clearAdvanceTimeout() {
+        if (this._advanceTimeout != null) {
+            clearTimeout(this._advanceTimeout);
+            this._advanceTimeout = null;
+        }
+    }
+
     _loadLevel(idx) {
+        if (idx < 0 || idx >= this.levels.length) return;
+        this._clearAdvanceTimeout();
+        this._levelEpoch++;
         this.currentLevel = idx;
         this.grid = JSON.parse(JSON.stringify(this.levels[idx]));
         this.active = true;
         this.isMoving = false;
+        this.isProcessingQueue = false;
         this.moveCount = 0;
         this.moveQueue = [];
 
@@ -393,6 +406,7 @@ class RoadblocksGame {
     async _processQueue() {
         if (this.isProcessingQueue || this.moveQueue.length === 0) return;
         this.isProcessingQueue = true;
+        const epoch = this._levelEpoch;
 
         while (this.moveQueue.length > 0 && this.active) {
             const dir = this.moveQueue.shift();
@@ -406,6 +420,9 @@ class RoadblocksGame {
                 if (this.onMove) this.onMove(dir, this.moveCount);
                 this.isMoving = true;
                 const status = await this.renderer.tweenPath(path);
+                // A level load interrupted this move: its state now belongs to
+                // the new level, so don't touch it.
+                if (epoch !== this._levelEpoch) return;
                 this.isMoving = false;
                 const last = path[path.length - 1];
                 this.player = { r: last.target.r, c: last.target.c };
@@ -413,6 +430,7 @@ class RoadblocksGame {
             }
             if (this.moveQueue.length > 0) {
                 await new Promise(r => setTimeout(r, 40));
+                if (epoch !== this._levelEpoch) return;
             }
         }
         this.isProcessingQueue = false;
@@ -433,7 +451,11 @@ class RoadblocksGame {
             this.container.closest('.glass-panel')?.classList.add('shake');
             setTimeout(() => this.container.closest('.glass-panel')?.classList.remove('shake'), 500);
 
-            setTimeout(() => this._loadLevel(this.currentLevel), 900);
+            this._clearAdvanceTimeout();
+            this._advanceTimeout = setTimeout(() => {
+                this._advanceTimeout = null;
+                this._loadLevel(this.currentLevel);
+            }, 900);
 
         } else if (status === 'win') {
             this.active = false;
@@ -441,9 +463,11 @@ class RoadblocksGame {
             this.renderer.playWin();
             if (this.currentLevel < this.levels.length - 1) {
                 if (this.onLevelComplete) this.onLevelComplete(this.currentLevel, this.moveCount);
-                setTimeout(() => {
-                    this.currentLevel++;
-                    this._loadLevel(this.currentLevel);
+                const next = this.currentLevel + 1;
+                this._clearAdvanceTimeout();
+                this._advanceTimeout = setTimeout(() => {
+                    this._advanceTimeout = null;
+                    this._loadLevel(next);
                 }, 1000);
             } else {
                 if (this.onWin) this.onWin(this.moveCount);
