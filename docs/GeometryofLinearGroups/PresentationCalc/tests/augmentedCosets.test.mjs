@@ -87,12 +87,54 @@ function randomWordIn(nGens, len) { return Array.from({ length: len }, () => Mat
 
 test('over ℚ: T, w, J, D₂ (and a, b, c, w₂) of PGL₂(ℤ[1/2]) in terms of a generating set (exactIndexCheck express)', async () => {
     const { exactIndexCheck } = await import('../js/sarithIndex.js');
+    const { sarithCard } = await import('../js/sarithView.js');
     const r = exactIndexCheck([['1', '2', '0', '1'], ['0', '-1', '1', '1'], ['0', '1', '2', '0'], ['-1', '0', '0', '1']], [2], { express: true, seconds: 5 });
     assert.equal(r.index, 1);
     assert.ok(r.express && !r.express.error, r.express && r.express.error);
+    assert.equal(r.express.conjugator, null);
     assert.deepEqual(r.express.letters.map((L) => L.name), ['T', 'w', 'J', 'D_{2}']);
     assert.deepEqual(r.express.coxeter.map((L) => L.name), ['a', 'b', 'c', 'w_{2}']);
     for (const L of r.express.letters) assert.ok(L.word && L.word.length <= 20);   // each checked inside by multiplying out
+    const html = sarithCard({ exact: r, status: 'yes', head: ['$\\Gamma = \\Lambda$.'] }, null, 4);
+    assert.match(html, /T = \\begin\{pmatrix\} 1 & 1/);
+    assert.match(html, /satisfies \\\(x = L\(0, x\)/);
+    assert.doesNotMatch(html, /C\\,T\\,C\^\{-1\}/);
+});
+
+test('over ℚ: a w₃-conjugate of PGL₂(ℤ[1/2]) expresses C x C⁻¹, and the card does not equate the word to x', async () => {
+    const { exactIndexCheck } = await import('../js/sarithIndex.js');
+    const { sarithCard } = await import('../js/sarithView.js');
+    const mul = (A, B) => [A[0] * B[0] + A[1] * B[2], A[0] * B[1] + A[1] * B[3], A[2] * B[0] + A[3] * B[2], A[2] * B[1] + A[3] * B[3]];
+    const adj = (A) => [A[3], -A[1], -A[2], A[0]];
+    const bgcd = (a, b) => { a = a < 0n ? -a : a; b = b < 0n ? -b : b; while (b) [a, b] = [b, a % b]; return a; };
+    const prim = (A) => { const g = A.reduce((s, x) => bgcd(s, x), 0n); return g > 1n ? A.map((x) => x / g) : A; };
+    const projEq = (A, B) => { for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) if (A[i] * B[j] !== A[j] * B[i]) return false; return true; };
+    const base = [[1n, 2n, 0n, 1n], [0n, -1n, 1n, 1n], [0n, 1n, 2n, 0n], [-1n, 0n, 0n, 1n]];
+    const g = [0n, 1n, 3n, 0n];
+    const rows = base.map((M) => prim(mul(mul(g, M), adj(g))).map(String));
+    const r = exactIndexCheck(rows, [2], { express: true, seconds: 8 });
+    assert.equal(r.index, 1);
+    assert.equal(r.kernelIndex, 1);
+    assert.deepEqual(r.conjugatedAt, ['3']);
+    assert.ok(r.express && !r.express.error, r.express && r.express.error);
+    assert.deepEqual(r.express.conjugator, ['0', '1', '3', '0']);
+    const C = r.express.conjugator.map(BigInt), Ci = adj(C);
+    const gens = rows.map((row) => prim(row.map(BigInt)));
+    const inv = (A) => prim(adj(A));
+    const evalWord = (w) => w.reduce((X, x) => prim(mul(X, x > 0 ? gens[x - 1] : inv(gens[-x - 1]))), [1n, 0n, 0n, 1n]);
+    for (const L of r.express.letters) {
+        assert.ok(L.word && L.word.length);
+        const M = evalWord(L.word), mat = L.matrix.map(BigInt);
+        const target = prim(mul(mul(C, mat), Ci));
+        assert.ok(projEq(M, target), `${L.name} should be C x C⁻¹`);
+        if (L.name !== 'J') assert.ok(!projEq(M, mat), `${L.name} is not x itself`);
+    }
+    const html = sarithCard({ exact: r, status: 'yes', head: ['$\\Gamma = C\\Lambda C^{-1}$.'] }, null, 4);
+    // the word is the conjugate: C T C⁻¹ = C (1 1; 0 1) C⁻¹, not the bare matrix of T
+    assert.match(html, /C\\,T\\,C\^\{-1\} = C\\,\\begin\{pmatrix\} 1 & 1/);
+    assert.doesNotMatch(html, /C\\,T\\,C\^\{-1\} = \\begin\{pmatrix\}/);
+    assert.match(html, /C x C\^\{-1\} = L\(0, x\)/);
+    assert.doesNotMatch(html, /satisfies \\\(x = L\(0, x\)/);
 });
 
 test('PGL₂(O_k) over ℚ(√2): its generators in terms of T, U, S and two diagonal units (indexInPGL2O express)', () => {
