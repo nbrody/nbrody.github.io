@@ -240,6 +240,20 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def _from_this_page(self):
+        """Whether a request may come from another site's page in the browser.
+
+        The server listens on 127.0.0.1, but any page the browser opens can still
+        POST to it (a text/plain body needs no CORS preflight), and a rebound DNS
+        name reaches it with a foreign Host. Runs pass t_param on to sympy, so
+        only this page (or a client sending no Origin, like curl) may use the API.
+        """
+        local = ("localhost", "127.0.0.1")
+        if urlparse("//" + (self.headers.get("Host") or "")).hostname not in local:
+            return False
+        origin = self.headers.get("Origin")
+        return origin is None or urlparse(origin).hostname in local
+
     def _json(self, obj, code=200):
         body = json.dumps(obj).encode()
         self.send_response(code)
@@ -249,6 +263,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if not self._from_this_page():
+            self._json({"error": "forbidden"}, 403)
+            return
         url = urlparse(self.path)
         parts = [p for p in url.path.split("/") if p]
 
@@ -295,6 +312,9 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"error": "not found"}, 404)
 
     def do_POST(self):
+        if not self._from_this_page():
+            self._json({"error": "forbidden"}, 403)
+            return
         url = urlparse(self.path)
         parts = [p for p in url.path.split("/") if p]
         length = int(self.headers.get("Content-Length") or 0)

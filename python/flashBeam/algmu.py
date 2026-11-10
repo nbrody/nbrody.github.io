@@ -19,9 +19,15 @@ has |sigma(mu)| >= 2, the group there is free (Sanov) and no relation can
 exist -- such specs are negative controls (`sanov_blocked`).
 """
 import math
+import re
 from fractions import Fraction
 
 from flint import fmpz, fmpz_mat
+
+# sympy's parse_expr evaluates its input as Python, and the spec can come from the
+# flashBeam web UI's t_param. Only the documented shapes get that far: digits, x,
+# sqrt, + - * / ^ ( ) and decimal points, so no other name, quote or underscore.
+_SAFE_ALG_SPEC = re.compile(r'(?:sqrt|[0-9x]|[-+*/^().\s])+')
 
 
 class Mu:
@@ -52,6 +58,10 @@ class Mu:
         return True
 
     def _parse_algebraic(self, spec):
+        if not _SAFE_ALG_SPEC.fullmatch(spec):
+            raise ValueError(
+                f"unsupported mu spec (a rational, sqrt(...), + - * / ^ and "
+                f"polynomials in x): {spec!r}")
         import sympy
         from sympy.parsing.sympy_parser import (
             parse_expr, standard_transformations,
@@ -59,8 +69,16 @@ class Mu:
         transforms = standard_transformations + (
             implicit_multiplication_application, convert_xor)
         x = sympy.symbols("x")
-        parsed = parse_expr(spec, transformations=transforms,
-                            local_dict={"x": x})
+        # no builtins, and only the names the transformations emit
+        names = {"__builtins__": {}, "Integer": sympy.Integer,
+                 "Float": sympy.Float, "Rational": sympy.Rational,
+                 "Symbol": sympy.Symbol, "Function": sympy.Function,
+                 "sqrt": sympy.sqrt}
+        try:
+            parsed = parse_expr(spec, transformations=transforms,
+                                local_dict={"x": x}, global_dict=names)
+        except Exception as e:
+            raise ValueError(f"cannot parse mu spec {spec!r}: {e}") from None
         if parsed.has(x):
             poly = sympy.Poly(parsed, x)
             self.pretty = f"root({sympy.sstr(poly.as_expr())})"
