@@ -7,6 +7,7 @@
  * (export-web.mjs).
  */
 import { FIELDS } from '../batch/enumerateNF.mjs';
+import { exhaustiveBound } from './exhaustive.js';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const tex = (t) => (window.katex ? window.katex.renderToString(t, { throwOnError: false }) : esc(t));
@@ -171,14 +172,14 @@ async function load() {
             if (state.byGroup) all = groupRows;
         }
     } catch (e) { /* no grouping */ }
-    // the exhaustive runs' records carry no data-set name
-    exBound = 0;
-    for (const r of recs) if (!r.set) exBound = Math.max(exBound, ...r.s1);
     try {
         const res = await fetch('samples.json', { cache: 'no-store' });
         if (res.ok) samples = await res.json();
     } catch (e) { samples = []; }
     sampleKeys = new Map(samples.map((x) => [x.name, new Set(x.keys)]));
+    // the exhaustive runs' records carry no data-set name; a random draw that lost
+    // its name (export-web.mjs) is still listed in samples.json and must not raise the bound
+    exBound = exhaustiveBound(recs, new Set(samples.flatMap((x) => x.keys)));
     const want = new URLSearchParams(location.search).get('set');
     if (want && (want === 'all' || want === 'exhaustive' || sampleKeys.has(want))) state.set = want;
     else if (!exBound && samples.length) state.set = samples[samples.length - 1].name;
