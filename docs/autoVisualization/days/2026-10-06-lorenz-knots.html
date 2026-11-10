@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Knots in the Lorenz Attractor · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/space3d.js"></script>
+<script>
+'use strict';
+
+/* ---------- mathematics: the Lorenz flow and its periodic orbits ----------
+   σ = 10, β = 8/3, ρ = 28. Section Σ = {z = ρ − 1, ż < 0}; each downward crossing lies in the
+   left (x < 0) or right (x > 0) wing, which gives the symbol L or R. A periodic orbit with cyclic
+   word w is a fixed point of the return map P^|w| on Σ: seeded from a long trajectory whose
+   itinerary follows w, then polished by Newton's method in the two section coordinates. */
+
+const SIG = 10, BETA = 8 / 3, RHO = 28, ZS = RHO - 1, H = 0.004;
+const field = p => [SIG * (p[1] - p[0]), p[0] * (RHO - p[2]) - p[1], p[0] * p[1] - BETA * p[2]];
+function rk4(p, h) {
+  const k1 = field(p), a = [p[0] + h / 2 * k1[0], p[1] + h / 2 * k1[1], p[2] + h / 2 * k1[2]];
+  const k2 = field(a), b = [p[0] + h / 2 * k2[0], p[1] + h / 2 * k2[1], p[2] + h / 2 * k2[2]];
+  const k3 = field(b), c = [p[0] + h * k3[0], p[1] + h * k3[1], p[2] + h * k3[2]];
+  const k4 = field(c);
+  return [0, 1, 2].map(i => p[i] + h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+}
+// Flow a point to its next downward crossing of Σ (crossing time refined by bisection).
+function nextCrossing(p, path, refine = 55) {
+  let q = p, t = 0;
+  for (let i = 0; i < 20000; i++) {
+    const r = rk4(q, H);
+    if (q[2] > ZS && r[2] <= ZS && t > 0.05) {
+      let lo = 0, hi = H;
+      for (let k = 0; k < refine; k++) { const m = (lo + hi) / 2; if (rk4(q, m)[2] > ZS) lo = m; else hi = m; }
+      const s = rk4(q, (lo + hi) / 2); s[2] = ZS;
+      if (path) path.push(s);
+      return s;
+    }
+    if (path) path.push(r);
+    q = r; t += H;
+  }
+  return null;
+}
+const symOf = q => (q[0] < 0 ? 'L' : 'R');
+function returnMap(u, n, path) {
+  let q = [u[0], u[1], ZS], s = '';
+  for (let k = 0; k < n; k++) { q = nextCrossing(q, path ? (path[k] = [q]) : null); if (!q) return null; s += symOf(q); }
+  return { q, s };
+}
+
+// A long trajectory: section points with their symbols (seeds), and a stretch of path (the picture).
+const SEED_N = 9000, SX = [], SY = [];
+let SEEDSTR = '';
+const attractor = [];
+{
+  let p = [1, 1, 20];
+  for (let i = 0; i < 4000; i++) p = rk4(p, 0.005);
+  p = nextCrossing(p, null, 30);
+  for (let i = 0; i < SEED_N; i++) {
+    SX.push(p[0]); SY.push(p[1]); SEEDSTR += symOf(p);
+    const path = i < 160 ? [] : null;
+    p = nextCrossing(p, path, 30);
+    if (path) path.forEach((q, k) => { if (k % 3 === 0) attractor.push(q); });
+  }
+}
+
+const primitiveRoot = w => { for (let d = 1; d <= w.length; d++) if (w.length % d === 0 && w.slice(0, d).repeat(w.length / d) === w) return w.slice(0, d); return w; };
+const sameCycle = (a, b) => a.length === b.length && (a + a).includes(b);
+
+// Find the periodic orbit with cyclic word w: { u, word (as read from u), err } or null.
+function periodicOrbit(w) {
+  const p = w.length, target = w.repeat(Math.ceil(80 / p) + 2), seeds = [];
+  for (let r = 0; r < p; r++) {
+    const tg = target.slice(r);
+    for (let i = 0; i < SEED_N - 60; i++) {
+      let l = 0;
+      while (l < 60 && SEEDSTR[i + l] === tg[l]) l++;
+      if (l >= p) seeds.push([l, i]);
+    }
+  }
+  seeds.sort((a, b) => b[0] - a[0]);
+  for (const [, i] of seeds.slice(0, 6)) {
+    let u = [SX[i], SY[i]], r = returnMap(u, p);
+    for (let it = 0; it < 25 && r; it++) {
+      const g = [r.q[0] - u[0], r.q[1] - u[1]], err = Math.hypot(g[0], g[1]);
+      if (err < 1e-10) return sameCycle(r.s, w) ? { u, word: r.s.slice(-1) + r.s.slice(0, -1), err } : null;
+      const e = 1e-7, rx = returnMap([u[0] + e, u[1]], p), ry = returnMap([u[0], u[1] + e], p);
+      if (!rx || !ry) break;
+      const a = (rx.q[0] - r.q[0]) / e - 1, b = (ry.q[0] - r.q[0]) / e, c = (rx.q[1] - r.q[1]) / e, d = (ry.q[1] - r.q[1]) / e - 1;
+      const det = a * d - b * c, dx = (d * g[0] - b * g[1]) / det, dy = (-c * g[0] + a * g[1]) / det;
+      // damped step: never leave the itinerary we are solving for
+      let lam = 1, nr = null;
+      for (; lam > 1e-4; lam /= 2) {
+        nr = returnMap([u[0] - lam * dx, u[1] - lam * dy], p);
+        if (nr && sameCycle(nr.s, w) && Math.hypot(nr.q[0] - u[0] + lam * dx, nr.q[1] - u[1] + lam * dy) < err * 1.5 + 1e-12) break;
+      }
+      if (lam <= 1e-4) break;
+      u = [u[0] - lam * dx, u[1] - lam * dy]; r = nr;
+    }
+  }
+  return null;
+}
+
+/* ---------- the Lorenz braid and its knot invariants (exact) ---------- */
+
+// Sort the p shifts of the cyclic word; the strand at the position of shift k goes to the position of shift k+1.
+function lorenzBraid(w) {
+  const p = w.length, rots = [...Array(p).keys()].map(k => w.slice(k) + w.slice(0, k));
+  const order = [...Array(p).keys()].sort((a, b) => (rots[a] < rots[b] ? -1 : 1));
+  const pos = Array(p); order.forEach((k, i) => { pos[k] = i; });
+  const perm = Array(p); for (let k = 0; k < p; k++) perm[pos[k]] = pos[(k + 1) % p];
+  return { pos, perm };
+}
+const crossings = s => { let c = 0; for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) if (s[i] > s[j]) c++; return c; };
+// The positive permutation braid of `perm`, as generator indices (bubble sort).
+function braidWord(perm) {
+  const a = perm.slice(), word = [];
+  for (let sw = true; sw;) { sw = false; for (let i = 0; i + 1 < a.length; i++) if (a[i] > a[i + 1]) { [a[i], a[i + 1]] = [a[i + 1], a[i]]; word.push(i); sw = true; } }
+  return word;
+}
+// Integer polynomials: arrays of BigInt, index = degree.
+const trimP = a => { while (a.length && a[a.length - 1] === 0n) a.pop(); return a; };
+const addP = (a, b) => { const r = Array(Math.max(a.length, b.length)).fill(0n); a.forEach((v, i) => { r[i] += v; }); b.forEach((v, i) => { r[i] += v; }); return trimP(r); };
+const negP = a => a.map(v => -v);
+const mulP = (a, b) => { if (!a.length || !b.length) return []; const r = Array(a.length + b.length - 1).fill(0n); a.forEach((x, i) => b.forEach((y, j) => { r[i + j] += x * y; })); return trimP(r); };
+function divP(a, b) {  // exact division in ℤ[t]
+  a = a.slice(); const lb = b[b.length - 1], q = Array(Math.max(1, a.length - b.length + 1)).fill(0n);
+  for (let i = a.length - b.length; i >= 0; i--) {
+    const c = a[i + b.length - 1] / lb;
+    if (c * lb !== a[i + b.length - 1]) throw new Error('inexact division');
+    q[i] = c; for (let j = 0; j < b.length; j++) a[i + j] -= c * b[j];
+  }
+  if (trimP(a).length) throw new Error('remainder');
+  return trimP(q);
+}
+function detP(M) {  // Bareiss fraction-free determinant over ℤ[t]
+  const n = M.length; M = M.map(r => r.slice()); let prev = [1n], sign = 1n;
+  for (let k = 0; k < n - 1; k++) {
+    if (!M[k][k].length) { let s = k + 1; while (s < n && !M[s][k].length) s++; if (s === n) return []; [M[k], M[s]] = [M[s], M[k]]; sign = -sign; }
+    for (let i = k + 1; i < n; i++) for (let j = k + 1; j < n; j++) M[i][j] = divP(addP(mulP(M[i][j], M[k][k]), negP(mulP(M[i][k], M[k][j]))), prev);
+    prev = M[k][k];
+  }
+  return sign < 0n ? negP(M[n - 1][n - 1]) : M[n - 1][n - 1];
+}
+// Alexander polynomial of the closure of a braid on n strands: det(I − Burau_red(β)) / (1 + t + … + t^{n−1}).
+function alexander(n, word) {
+  const m = n - 1; if (m === 0) return [1n];
+  const eye = () => [...Array(m)].map((_, i) => [...Array(m)].map((_, j) => (i === j ? [1n] : [])));
+  let B = eye();
+  for (const i of word) {
+    const S = eye(); S[i][i] = [0n, -1n]; if (i > 0) S[i][i - 1] = [0n, 1n]; if (i + 1 < m) S[i][i + 1] = [1n];
+    B = B.map(row => [...Array(m)].map((_, c) => { let s = []; for (let k = 0; k < m; k++) s = addP(s, mulP(row[k], S[k][c])); return s; }));
+  }
+  let d = detP(B.map((row, i) => row.map((v, j) => addP(i === j ? [1n] : [], negP(v)))));
+  d = divP(d, Array(n).fill(1n));
+  while (d.length && d[0] === 0n) d.shift();
+  return d.length && d[d.length - 1] < 0n ? negP(d) : d;
+}
+const torusAlexander = (p, q) => {
+  const xm1 = k => Array(k).fill(0n).concat([1n]).map((v, i) => (i === 0 ? -1n : v));
+  return divP(mulP(xm1(p * q), xm1(1)), mulP(xm1(p), xm1(q)));
+};
+function knotOf(w) {
+  const { perm } = lorenzBraid(w), n = w.length, c = crossings(perm), word = braidWord(perm);
+  const D = alexander(n, word);
+  return { n, c, g: (c - n + 1) / 2, D, perm };
+}
+const polyHTML = D => {
+  const terms = [];
+  for (let k = D.length - 1; k >= 0; k--) {
+    const a = D[k]; if (a === 0n) continue;
+    const mag = a < 0n ? -a : a, mono = k === 0 ? '' : k === 1 ? '<i>t</i>' : '<i>t</i>' + AV.sup(k);
+    const body = (mag === 1n && k > 0 ? '' : String(mag)) + mono;
+    terms.push(terms.length ? (a < 0n ? ' − ' : ' + ') + body : (a < 0n ? '−' : '') + body);
+  }
+  return terms.join('') || '0';
+};
+const TORUS = [[2, 3], [2, 5], [3, 4], [2, 7], [3, 5], [2, 9], [3, 7], [4, 5]].map(([p, q]) => ({ p, q, D: torusAlexander(p, q).join(',') }));
+
+/* ---------- state ---------- */
+
+const cam = AV.orbit3d({ yaw: 0.35, pitch: 0.18, dist: 6 });
+const toView = q => [q[0] / 21, (q[2] - 25) / 21, -q[1] / 21];
+const ATT = attractor.map(toView);
+const M = 96;                       // samples per strand
+let word = 'LLRLR', orbit = null;   // orbit: { root, read, err, knot, pts, braidPts, segSym }
+let reveal = 1, braid = 0, failed = false;
+
+function resample(path, m) {
+  const out = [];
+  for (let i = 0; i < m; i++) { const x = (i / m) * (path.length - 1), j = Math.floor(x), f = x - j, a = path[j], b = path[Math.min(j + 1, path.length - 1)]; out.push([0, 1, 2].map(k => a[k] + f * (b[k] - a[k]))); }
+  return out;
+}
+function braidLayout(knot, read) {
+  const p = read.length, { pos } = lorenzBraid(read), dx = Math.min(0.3, 1.7 / Math.max(1, p - 1)), X0 = -(p - 1) / 2 * dx, pts = [];
+  const sm = s => s * s * (3 - 2 * s);
+  for (let k = 0; k < p; k++) {
+    const a = pos[(k + 1) % p], b = pos[(k + 2) % p], xa = X0 + a * dx, xb = X0 + b * dx, dir = Math.sign(b - a);
+    for (let i = 0; i < M; i++) {
+      const s = i / M;
+      if (s < 0.6) { const u = s / 0.6; pts.push([xa + (xb - xa) * sm(u), 0.62 - 1.24 * u, 0.22 * dir * Math.sin(Math.PI * u)]); }
+      else { const ph = Math.PI * (s - 0.6) / 0.4; pts.push([xb, -0.62 * Math.cos(ph), -0.9 * Math.sin(ph)]); }
+    }
+  }
+  return pts;
+}
+function setWord(w, { animate = true } = {}) {
+  word = w;
+  const root = primitiveRoot(w);
+  orbit = null; failed = false;
+  if (!w.includes('L') || !w.includes('R')) { app.redraw(); return; }
+  const sol = periodicOrbit(root);
+  if (!sol) { failed = true; app.redraw(); return; }
+  const paths = []; returnMap(sol.u, root.length, paths);
+  const pts = [], segSym = [], wing = [];
+  // segment k (crossing k → k+1) loops around the wing of crossing k+1
+  paths.forEach((path, k) => { resample(path, M).forEach(q => { pts.push(toView(q)); wing.push(symOf(q)); }); segSym.push(sol.word[(k + 1) % root.length]); });
+  const knot = knotOf(sol.word);
+  orbit = { root, read: sol.word, err: sol.err, knot, pts, braidPts: braidLayout(knot, sol.word), segSym, wing };
+  if (animate) app.tween(1300, u => { reveal = u; }, { key: 'reveal', ease: 'inOut' }); else reveal = 1;
+}
+
+/* ---------- drawing ---------- */
+
+const COL = { L: AV.C.sky, R: AV.C.amber };
+function draw(app) {
+  const ctx = app.ctx;
+  AV.clear(app);
+  const fit = app.fitCircle(8);
+  cam.fit({ x: fit.x - fit.r, y: fit.y - fit.r, w: 2 * fit.r, h: 2 * fit.r }, 1.25);
+
+  // the attractor: one long trajectory, faint, depth-cued in chunks
+  const fade = 1 - 0.85 * braid;
+  if (fade > 0.02) {
+    const P = ATT.map(cam.project);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineWidth = 0.6;
+    for (let s = 0; s + 1 < P.length; s += 40) {
+      const e = Math.min(P.length - 1, s + 40), z = (P[s][2] + P[e][2]) / 2;
+      ctx.strokeStyle = AV.rgba(AV.C.ink2, fade * (0.07 + 0.09 * (z + 1.2) / 2.4));
+      ctx.beginPath(); ctx.moveTo(P[s][0], P[s][1]);
+      for (let i = s + 1; i <= e; i++) ctx.lineTo(P[i][0], P[i][1]);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if (orbit) {
+    const pts = orbit.pts.map((q, i) => { const b = orbit.braidPts[i]; return [q[0] + braid * (b[0] - q[0]), q[1] + braid * (b[1] - q[1]), q[2] + braid * (b[2] - q[2])]; });
+    const n = Math.max(2, Math.floor(pts.length * reveal));
+    AV.curves3d(ctx, cam, [pts.slice(0, n)], {
+      closed: reveal >= 1, width: 2.6, depthCue: 0.6,
+      // in space: the wing each point is in; as a braid: the wing each strand loops around
+      colorAt: (_, t) => {
+        const i = Math.min(n - 1, Math.round(t * (n - 1))), here = COL[orbit.wing[i]], strand = COL[orbit.segSym[Math.floor(i / M)]];
+        return braid < 0.01 ? here : AV.mix(here, strand, braid);
+      },
+    });
+    if (reveal < 1) { const q = cam.project(pts[n - 1]); AV.dot(ctx, q[0], q[1], 3.5, AV.C.ink, { glow: 6 }); }
+  }
+  readout(app);
+}
+
+const wordHTML = w => w ? [...w].map(c => '<span style="color:' + COL[c] + '">' + c + '</span>').join('') : '—';
+function readout(app) {
+  const head = '<span class="big">' + wordHTML(word) + '</span>';
+  if (!word.includes('L') || !word.includes('R')) {
+    app.readout(head + '<br><small>a word needs both L and R</small>');
+    return;
+  }
+  if (failed || !orbit) { app.readout(head + '<br>no periodic orbit found ' + AV.ok(false)); return; }
+  const { knot, root, err } = orbit, name = knot.g === 0 ? 'unknot' : knot.g === 1 ? 'trefoil' : null;
+  const tor = TORUS.find(T => T.D === knot.D.join(','));
+  const fibred = knot.D[0] === 1n && knot.D[knot.D.length - 1] === 1n && knot.D.length - 1 === 2 * knot.g;
+  app.readout(head + (root !== word ? ' <small>= (' + root + ')' + AV.sup(word.length / root.length) + '</small>' : '') +
+    '<br><span class="k">closes</span> ' + err.toExponential(0).replace('-', '−') + ' ' + AV.ok(err < 1e-8) +
+    '<br><span class="k">braid</span> ' + knot.n + ' strands, ' + knot.c + (knot.c === 1 ? ' crossing' : ' crossings') +
+    '<br><span class="k">genus</span> ' + knot.g + (name ? ' · ' + name : tor ? ' · Δ of T(' + tor.p + ', ' + tor.q + ')' : '') +
+    '<br><span class="k">Δ</span> ' + polyHTML(knot.D) + ' ' + AV.ok(fibred) + '<small>monic of degree 2<i>g</i>: fibred</small>');
+}
+
+/* ---------- the page ---------- */
+
+const app = AV.page({
+  title: 'Knots in the Lorenz Attractor',
+  hook: 'Every periodic orbit of the Lorenz flow is a knot, and a positive braid.',
+  date: '2026-10-06',
+  credit: 'generated by Claude (Opus 5.5)',
+  hint: 'drag to orbit · L and R spell an orbit',
+  controls: [
+    { type: 'play' },
+    { type: 'button', id: 'L', label: '+L', key: 'l', title: 'Append L (left wing)', onClick: () => { if (word.length < 10) setWord(word + 'L'); } },
+    { type: 'button', id: 'R', label: '+R', key: 'r', title: 'Append R (right wing)', onClick: () => { if (word.length < 10) setWord(word + 'R'); } },
+    { type: 'button', id: 'back', label: '⌫', key: 'Backspace', title: 'Delete the last letter', onClick: () => setWord(word.slice(0, -1)) },
+    { type: 'toggle', id: 'braid', label: 'braid', value: false,
+      onChange: v => app.tween(1400, u => { braid = v ? u : 1 - u; }, { key: 'braid', ease: 'inOut' }) },
+  ],
+  tour: [
+    { text: 'A trajectory of the Lorenz equations loops chaotically around two wings. Bright: a closed orbit, <b>LR</b>, once around each.',
+      enter: a => { a.set('braid', false, { silent: true }); braid = 0; setWord('LR'); a.play(); } },
+    { text: 'Every cyclic word in L and R spells exactly one periodic orbit. Add letters and watch it change.',
+      enter: a => { a.set('braid', false, { silent: true }); braid = 0; setWord('LLR'); a.pulse('L'); a.pulse('R'); a.play(); } },
+    { text: 'Spell <b>LLRLR</b>: this closed orbit is knotted — a trefoil, with genus 1.',
+      enter: a => { a.set('braid', false, { silent: true }); braid = 0; setWord('LLRLR'); a.play(); } },
+    { text: 'Collapse the flow onto its template: the orbit becomes a braid whose crossings are all positive.',
+      enter: a => { if (word !== 'LLRLR') setWord('LLRLR', { animate: false }); a.set('braid', true); a.pulse('braid'); a.pause(); cam.set(0.22, 0.12); } },
+    { text: '<b>LLRLRLR</b> has genus 3 and the Alexander polynomial of T(3, 4): every torus knot hides here.',
+      enter: a => { a.set('braid', false); setWord('LLRLRLR'); a.play(); } },
+  ],
+  math: `<p>For σ = 10, β = 8/3, ρ = 28 the Lorenz equations <i>x</i>′ = σ(<i>y</i> − <i>x</i>), <i>y</i>′ = <i>x</i>(ρ − <i>z</i>) − <i>y</i>,
+    <i>z</i>′ = <i>xy</i> − β<i>z</i> have a strange attractor (Tucker 2002). Its periodic orbits are coded by cyclic words in <b>L</b>, <b>R</b>.
+    Birman and Williams (1983) collapsed the flow onto a branched surface, the Lorenz template: each periodic orbit is the closure of a
+    positive permutation braid, so Lorenz knots are fibred of genus (<i>c</i> − <i>n</i> + 1)/2 and include every torus knot.
+    Ghys (2007): they are exactly the modular knots.</p>
+    <p class="ref">Orbits: RK4 and Newton on the section <i>z</i> = 27; Δ from the Burau representation, exactly.</p>`,
+  posterStep: 2,
+  posterDelay: 2000,
+  step: dt => cam.spin(dt, 0.18),
+  draw,
+});
+app.pointer({ drag: (p, d) => cam.drag(d.dx, d.dy) });
+app.cursor('grab');
+app.legend([{ color: COL.L, label: 'left wing', line: true }, { color: COL.R, label: 'right wing', line: true }]);
+
+/* ---------- self-checks ---------- */
+
+const same = (a, b) => a.join(',') === b.join(',');
+AV.test('LLRLR is a trefoil: genus 1, Δ = t² − t + 1', () => { const k = knotOf('LLRLR'); return (k.g === 1 && same(k.D, [1n, -1n, 1n])) || 'g = ' + k.g; });
+AV.test('LLRLRLR has the Alexander polynomial of T(3, 4)', () => same(knotOf('LLRLRLR').D, torusAlexander(3, 4)));
+AV.test('Lorenz braids: L strands never cross each other, nor R strands', () => {
+  for (const w of ['LLRLR', 'LLLRLLR', 'LRLRRLRR', 'LLRRLRLRLR']) {
+    const { perm } = lorenzBraid(w), nL = [...w].filter(c => c === 'L').length;
+    for (let i = 0; i + 1 < perm.length; i++) if (i + 1 !== nL && perm[i] > perm[i + 1]) return w + ' fails';
+  }
+  return true;
+});
+AV.test('every primitive word of length ≤ 8 gives a fibred knot (Δ monic of degree 2g)', () => {
+  for (let n = 2; n <= 8; n++) for (let m = 1; m < (1 << n) - 1; m++) {
+    let w = ''; for (let i = 0; i < n; i++) w += (m >> i) & 1 ? 'R' : 'L';
+    if (primitiveRoot(w) !== w) continue;
+    const k = knotOf(w);
+    if (!(k.g >= 0 && k.D.length - 1 === 2 * k.g && k.D[0] === 1n && k.D[k.D.length - 1] === 1n)) return w + ' fails';
+  }
+  return true;
+});
+AV.test('the LR and LLRLR orbits close up with their own words', () => {
+  for (const w of ['LR', 'LLRLR']) {
+    const s = periodicOrbit(w);
+    if (!s || s.err > 1e-9) return w + ': no orbit';
+    const r = returnMap(s.u, w.length);
+    if (!sameCycle(r.s, w)) return w + ' reads ' + r.s;
+  }
+  return true;
+});
+
+setWord('LLRLR', { animate: false });
+</script>
+</body>
+</html>

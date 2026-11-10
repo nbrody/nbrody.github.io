@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Growth Series and Salem Numbers · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+<link rel="stylesheet" href="../kit/vendor/katex/katex.min.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/plot.js"></script>
+<script src="../kit/vendor/katex/katex.min.js"></script>
+<script src="../kit/tex.js"></script>
+<script>
+'use strict';
+
+/*MATH-BEGIN*/
+/* ---------- mathematics: the triangle Coxeter group W = <s0, s1, s2 | si^2, (si sj)^m_ij> ----------
+   A triple is m = [m12, m02, m01]: m[k] is the label of the diagram edge opposite node k, and the
+   chamber (a triangle) has angle pi/m[k] at its vertex k, where the mirrors of the other two meet.
+   INF stands for the label infinity. */
+
+const INF = 0, LABELS = [2, 3, 4, 5, 6, 7, INF];
+const cosLabel = m => (m === INF ? 1 : m === 2 ? 0 : m === 3 ? 0.5 : Math.cos(Math.PI / m));
+// +1 spherical, 0 Euclidean, -1 hyperbolic: the sign of 1/p + 1/q + 1/r - 1, in exact integers.
+function typeOf(m) {
+  const f = m.filter(x => x !== INF);
+  if (f.length < 2) return -1;
+  if (f.length === 2) return Math.sign(f[0] + f[1] - f[0] * f[1]);
+  return Math.sign(f[1] * f[2] + f[0] * f[2] + f[0] * f[1] - f[0] * f[1] * f[2]);
+}
+
+/* ----- exact polynomials: BigInt coefficient arrays, constant term first ----- */
+
+const poly = {
+  trim(a) { a = a.slice(); while (a.length > 1 && a[a.length - 1] === 0n) a.pop(); return a; },
+  add(a, b) { const o = []; for (let i = 0; i < Math.max(a.length, b.length); i++) o.push((a[i] || 0n) + (b[i] || 0n)); return poly.trim(o); },
+  scale(a, k) { return poly.trim(a.map(x => x * k)); },
+  mul(a, b) { const o = new Array(a.length + b.length - 1).fill(0n); a.forEach((x, i) => b.forEach((y, j) => { o[i + j] += x * y; })); return poly.trim(o); },
+  // the exact quotient a / b for a monic (or -monic) b, or null if b does not divide a
+  div(a, b) {
+    a = a.slice();
+    const db = b.length - 1, lead = b[db], q = new Array(Math.max(1, a.length - db)).fill(0n);
+    for (let i = a.length - 1; i >= db; i--) { const c = a[i] * lead; q[i - db] = c; if (c) for (let j = 0; j <= db; j++) a[i - db + j] -= c * b[j]; }
+    return a.some(x => x !== 0n) ? null : poly.trim(q);
+  },
+  eq(a, b) { return a.length === b.length && a.every((x, i) => x === b[i]); },
+  geo(m) { return new Array(m).fill(1n); },                       // [m] = 1 + t + ... + t^(m-1)
+};
+const cycloCache = [null];
+function cyclotomic(k) {                                           // Phi_k, exactly
+  if (cycloCache[k]) return cycloCache[k];
+  let f = [-1n].concat(new Array(k - 1).fill(0n), [1n]);          // t^k - 1
+  for (let d = 1; d < k; d++) if (k % d === 0) f = poly.div(f, cyclotomic(d));
+  return (cycloCache[k] = f);
+}
+// How many times Phi_k divides f.
+function cycloOrder(f, k) {
+  const phi = cyclotomic(k);
+  let e = 0;
+  for (let q; phi.length <= f.length && (q = poly.div(f, phi)); f = q) e++;
+  return e;
+}
+const LEHMER = [1n, 1n, 0n, -1n, -1n, -1n, -1n, -1n, 0n, 1n, 1n]; // x^10 + x^9 - x^7 - x^6 - x^5 - x^4 - x^3 + x + 1
+const PLASTIC = [-1n, -1n, 0n, 1n];                               // x^3 - x - 1
+const GOLDEN = [-1n, -1n, 1n];                                    // x^2 - x - 1
+
+/* ----- Steinberg's formula: 1/W(1/t) = sum over T with W_T finite of (-1)^|T| / W_T(t) -----
+   W_empty = 1, W_{i} = 1 + t, W_{i,j} = (1 + t)[m_ij]. For infinite W this is the whole sum:
+     1/W(1/t) = 1 - 3/(1+t) + sum_{m_ij finite} 1/((1+t)[m_ij]) = F(t)/Q(t),   Q = (1+t) prod [m_ij],
+   so W(t) = Q(t) / rev F(t) (Q is palindromic, F is monic of the same degree). The sphere sizes then
+   satisfy the linear recurrence with characteristic polynomial F, and the growth rate is its largest
+   real root. For finite W the sum has the extra term -1/W(t), and W(t) is the product of [d] over
+   the degrees d of W (Chevalley, Solomon); a self-test checks Steinberg's identity for those too. */
+
+const DEGREES = { '2,3,3': [2, 3, 4], '2,3,4': [2, 4, 6], '2,3,5': [2, 6, 10] };
+function steinbergSum(m) {                                         // { F, Q } for the subsets T other than S itself
+  const fin = m.filter(x => x !== INF).map(poly.geo), prod = fin.reduce(poly.mul, [1n]), Q = poly.mul([1n, 1n], prod);
+  let F = poly.add(Q, poly.scale(prod, -3n));
+  fin.forEach((_, e) => { F = poly.add(F, fin.filter((__, k) => k !== e).reduce(poly.mul, [1n])); });
+  return { F, Q };
+}
+function growthSeries(m) {
+  const type = typeOf(m);
+  if (type > 0) {
+    const s = m.slice().sort((a, b) => a - b), deg = s[1] === 2 ? [2, 2, s[2]] : DEGREES[s.join(',')];
+    return { type, num: deg.map(poly.geo).reduce(poly.mul), den: [1n], F: [1n], order: deg.reduce((a, b) => a * b, 1), longest: deg.reduce((a, b) => a + b - 1, 0) };
+  }
+  const { F, Q } = steinbergSum(m), rev = F.slice();
+  while (rev.length < Q.length) rev.push(0n);
+  return { type, num: Q, den: poly.trim(rev.reverse()), F };
+}
+// The first n + 1 coefficients of num/den (den(0) = 1): exact integers.
+function seriesCoefficients(g, n) {
+  const a = [];
+  for (let k = 0; k <= n; k++) {
+    let c = g.num[k] || 0n;
+    for (let j = 1; j < g.den.length && j <= k; j++) c -= g.den[j] * a[k - j];
+    a.push(c);
+  }
+  return a;
+}
+// All complex roots of a real polynomial with simple roots (Durand-Kerner), as [re, im].
+function polyRoots(c) {
+  const n = c.length - 1, lead = c[n];
+  if (n < 1) return [];
+  let z = Array.from({ length: n }, (_, k) => [0.97 * Math.cos(0.7 + 2 * Math.PI * k / n), 0.97 * Math.sin(0.7 + 2 * Math.PI * k / n)]);
+  for (let it = 0; it < 800; it++) {
+    let move = 0;
+    z = z.map(([x, y], i) => {
+      let pr = 0, pi = 0;
+      for (let k = n; k >= 0; k--) { const t = pr * x - pi * y + c[k] / lead; pi = pr * y + pi * x; pr = t; }
+      let dr = 1, di = 0;
+      for (let j = 0; j < n; j++) if (j !== i) { const a = x - z[j][0], b = y - z[j][1], t = dr * a - di * b; di = dr * b + di * a; dr = t; }
+      const d = dr * dr + di * di, qr = (pr * dr + pi * di) / d, qi = (pi * dr - pr * di) / d;
+      move = Math.max(move, Math.abs(qr) + Math.abs(qi));
+      return [x - qr, y - qi];
+    });
+    if (move < 1e-15) break;
+  }
+  return z;
+}
+// The largest real root of c (it lies in [1, 2] here), by Newton from the right.
+function largestRealRoot(c) {
+  let x = 4;
+  for (let it = 0; it < 200; it++) {
+    let f = 0, df = 0;
+    for (let k = c.length - 1; k >= 0; k--) { df = df * x + f; f = f * x + c[k]; }
+    x -= f / df;
+    if (Math.abs(f / df) < 1e-16) break;
+  }
+  return x;
+}
+/* The growth rate and what kind of number it is. F = t^z * (cyclotomic factors) * S, exactly; the
+   roots of unity that survive cancellation against Q, and the roots of S, are the roots of the
+   recurrence (the reciprocals of the poles of W). */
+function analyze(m) {
+  const g = growthSeries(m);
+  let S = g.F.slice();
+  while (S.length > 1 && S[0] === 0n) S.shift();
+  const cyc = [], roots = [];                                        // roots: { z: [re, im], kind: 'unit' | 'tau' | 'inverse' | 'other' }
+  for (let k = 1; k <= 60 && S.length > 1; k++) {
+    const e = cycloOrder(S, k);
+    for (let i = 0; i < e; i++) S = poly.div(S, cyclotomic(k));
+    const left = e - cycloOrder(g.num, k);
+    if (left > 0) cyc.push([k, left]);
+  }
+  for (const [k] of cyc) for (let j = 0; j < k; j++) {
+    let a = j, b = k;
+    while (b) [a, b] = [b, a % b];
+    if (a === 1 || k === 1) roots.push({ z: [Math.cos(2 * Math.PI * j / k), Math.sin(2 * Math.PI * j / k)], kind: 'unit' });
+  }
+  let tau = g.type > 0 ? 0 : 1, kind = g.type > 0 ? 'finite' : 'polynomial', outside = 0, onCircle = 0, inside = 0;
+  const Sn = S.map(Number);
+  if (Sn.length > 1) {
+    tau = largestRealRoot(Sn);
+    for (const z of polyRoots(Sn)) {
+      const r = Math.hypot(z[0], z[1]);
+      if (Math.abs(z[0] - tau) + Math.abs(z[1]) < 1e-7) { roots.push({ z: [tau, 0], kind: 'tau' }); continue; }
+      if (r > 1 + 1e-7) outside++; else if (r < 1 - 1e-7) inside++; else onCircle++;
+      roots.push({ z, kind: Math.abs(z[0] - 1 / tau) + Math.abs(z[1]) < 1e-7 ? 'inverse' : 'other' });
+    }
+    const palindromic = Sn.every((x, i) => x === Sn[Sn.length - 1 - i]);
+    // Salem: reciprocal, degree >= 4, conjugates = 1/tau and points of the unit circle. Pisot: all conjugates inside.
+    kind = outside ? 'other' : palindromic && Sn.length >= 5 && inside === 1 && onCircle === Sn.length - 3 ? 'salem' : onCircle === 0 ? 'pisot' : 'other';
+  }
+  const pole = (cyc.find(c => c[0] === 1) || [1, 0])[1];             // order of the pole at 1: spheres ~ n^(pole - 1)
+  return { g, type: g.type, cyc, S, roots, tau, kind, pole };
+}
+
+/* ----- the group itself: breadth-first search in the geometric representation -----
+   W acts on V = span(a0, a1, a2) with B(ai, aj) = -cos(pi/m_ij) by si(v) = v - 2 B(ai, v) ai, so
+   si(aj) = aj + c_ij ai with c_ij = 2 cos(pi/m_ij) (2 for infinity). For w in W we keep
+     M = the matrix of w (column j = the root w(aj) in the basis a0, a1, a2), and
+     N = M^-1 times a change of coordinates (row i = vertex i of the triangle w.C; see geometry()).
+   The word problem is solved by signs of roots, never by comparing rounded matrices:
+     l(w si) < l(w)  <=>  w(ai) is a negative root  <=>  column i of M has entries <= 0.
+   This is safe in floating point: the coefficients of a root all have one sign, and every non-zero
+   coefficient has absolute value >= 1 (Brink 1998), so the sum of a column is >= 1 or <= -1, while
+   the matrix entries stay below 1e5 for the balls used here and the rounding error below 1e-9. A
+   self-test checks the gap, and another repeats the search in exact integer arithmetic.
+   Each element x of length n + 1 is reached from x si for every i in its descent set D(x); we keep
+   the one with i = min D(x), so every element is listed exactly once, layer by layer. */
+
+function search(m, opts = {}) {
+  const maxCount = opts.maxCount || 4000, maxLen = opts.maxLen == null ? 1e9 : opts.maxLen;
+  const c = [[0, 2 * cosLabel(m[2]), 2 * cosLabel(m[1])], [2 * cosLabel(m[2]), 0, 2 * cosLabel(m[0])], [2 * cosLabel(m[1]), 2 * cosLabel(m[0]), 0]];
+  let cap = 1024, M = new Float64Array(9 * cap), N = new Float64Array(9 * cap), len = new Int16Array(cap), count = 1, minCoef = Infinity;
+  M.set([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  N.set(opts.frame || [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  const start = [0, 1], spheres = [1], X = new Float64Array(9);     // start[k + 1] = number of elements of length <= k
+  for (let n = 0; n < maxLen && count < maxCount; n++) {
+    const a = start[n], b = start[n + 1];
+    for (let w = a; w < b; w++) {
+      const o = 9 * w;
+      for (let i = 0; i < 3; i++) {
+        if (M[o + i] + M[o + 3 + i] + M[o + 6 + i] < 0) continue;       // w(ai) < 0: w si is shorter
+        for (let k = 0; k < 3; k++) {                                   // X = M * Si
+          const mi = M[o + 3 * k + i];
+          for (let j = 0; j < 3; j++) X[3 * k + j] = j === i ? -mi : M[o + 3 * k + j] + c[i][j] * mi;
+        }
+        let first = -1;
+        for (let j = 0; j < 3; j++) {
+          if (first < 0 && X[j] + X[3 + j] + X[6 + j] < 0) first = j;
+          for (let k = 0; k < 3; k++) { const v = Math.abs(X[3 * k + j]); if (v > 1e-6 && v < minCoef) minCoef = v; }
+        }
+        if (first !== i) continue;                                      // another parent owns w si
+        if (count === cap) {
+          cap *= 2;
+          const M2 = new Float64Array(9 * cap), N2 = new Float64Array(9 * cap), l2 = new Int16Array(cap);
+          M2.set(M); N2.set(N); l2.set(len); M = M2; N = N2; len = l2;
+        }
+        const t = 9 * count, i1 = (i + 1) % 3, i2 = (i + 2) % 3;
+        M.set(X, t);
+        for (let r = 0; r < 3; r++) for (let j = 0; j < 3; j++)         // N' = Si * N: only row i changes
+          N[t + 3 * r + j] = r !== i ? N[o + 3 * r + j] : -N[o + 3 * i + j] + c[i][i1] * N[o + 3 * i1 + j] + c[i][i2] * N[o + 3 * i2 + j];
+        len[count++] = n + 1;
+      }
+    }
+    if (count === b) break;                                             // no new elements: W is finite
+    start.push(count); spheres.push(count - b);
+  }
+  return { count, spheres, start, N, len, minCoef };
+}
+
+/* The same search with exact integers, for the self-tests. Entries live in Z[x]/(x^3 - x^2 - 2x + 1),
+   x = 2 cos(pi/7), as integer triples: labels 2, 3, 7 need c = 0, 1, x, and labels 4, 6, infinity use
+   an integer (non-symmetric) Cartan matrix with c_ij c_ji = 2, 3, 4. Elements are compared by their
+   exact matrices, so this is a plain breadth-first search with a hash set. (No label 5 here.) */
+function exactSpheres(m, maxLen) {
+  const lab = [[0, m[2], m[1]], [m[2], 0, m[0]], [m[1], m[0], 0]];
+  const coef = (i, j) => { const l = lab[i][j]; return l === 2 ? [0, 0] : l === 3 ? [1, 0] : l === 7 ? [0, 1] : l === INF ? [2, 0] : l === 4 ? [i < j ? 2 : 1, 0] : [i < j ? 3 : 1, 0]; };
+  const mulc = (c, v) => {                                             // (c0 + c1 x)(v0 + v1 x + v2 x^2), x^3 = x^2 + 2x - 1
+    const [a, b, d] = v, o = [c[0] * a, c[0] * b, c[0] * d];
+    if (c[1]) { o[0] -= c[1] * d; o[1] += c[1] * (a + 2 * d); o[2] += c[1] * (b + d); }
+    return o;
+  };
+  const id = [];
+  for (let k = 0; k < 3; k++) for (let j = 0; j < 3; j++) id.push(k === j ? 1 : 0, 0, 0);
+  let layer = [id];
+  const seen = new Set([id.join()]), spheres = [1];
+  for (let n = 0; n < maxLen && layer.length; n++) {
+    const next = [];
+    for (const Mw of layer) for (let i = 0; i < 3; i++) {
+      const X = Mw.slice();
+      for (let k = 0; k < 3; k++) {
+        const mi = Mw.slice(3 * (3 * k + i), 3 * (3 * k + i) + 3);
+        for (let j = 0; j < 3; j++) {
+          const add = j === i ? mi.map(v => -2 * v) : mulc(coef(i, j), mi);
+          for (let e = 0; e < 3; e++) X[3 * (3 * k + j) + e] += add[e];
+        }
+      }
+      const key = X.join();
+      if (!seen.has(key)) { seen.add(key); next.push(X); }
+    }
+    if (next.length) spheres.push(next.length);
+    layer = next;
+  }
+  return spheres;
+}
+
+/* ----- geometry: where the triangles live -----
+   Chambers live in the dual space V*: f is the row (f(a0), f(a1), f(a2)), C = {f > 0}, and vertex i of
+   w.C is row i of M_w^-1. V* carries the invariant form G^-1 (G = the Gram matrix of B):
+     spherical   G^-1 positive definite: the unit sphere;
+     hyperbolic  G^-1 of signature (2, 1): the hyperboloid, drawn in the Poincare disk;
+     Euclidean   G singular with G a = 0: W preserves the plane f(a) = 1 and acts there by isometries.
+   frame = a 3x3 matrix (rows) taking V* to model coordinates, with the incenter f = (1, 1, 1) of C at
+   the center; norm[i] = the invariant that normalizes vertex i (its form value, or its weight). */
+function geometry(m) {
+  const type = typeOf(m), co = m.map(cosLabel);
+  if (type === 0) {
+    const k = m.indexOf(INF);
+    if (k >= 0) {                                                      // (2, 2, infinity): two parallel mirrors and one across
+      const i = (k + 1) % 3, j = (k + 2) % 3, F = new Array(9).fill(0);
+      F[3 * k + 1] = 1;                                                // x = f_i/(f_i + f_j) - 1/2,  y = f_k - 1/2
+      F[3 * i] = 0.5; F[3 * i + 1] = -0.5; F[3 * i + 2] = 1;
+      F[3 * j] = -0.5; F[3 * j + 1] = -0.5; F[3 * j + 2] = 1;
+      return { type, frame: F, norm: [0, 1, 2].map(v => (v === k ? 0 : 1)) };
+    }
+    const th = m.map(x => Math.PI / x), a = th.map(Math.sin);          // a_i = the length of side i
+    const pts = [[0, 0], [a[2], 0], [a[1] * Math.cos(th[0]), a[1] * Math.sin(th[0])]];
+    const s = a[0] + a[1] + a[2], cx = (a[0] * pts[0][0] + a[1] * pts[1][0] + a[2] * pts[2][0]) / s, cy = (a[0] * pts[0][1] + a[1] * pts[1][1] + a[2] * pts[2][1]) / s;
+    const F = [];
+    for (let i = 0; i < 3; i++) F.push(a[i] * (pts[i][0] - cx), a[i] * (pts[i][1] - cy), a[i]);
+    return { type, frame: F, norm: a };
+  }
+  const G = [[1, -co[2], -co[1]], [-co[2], 1, -co[0]], [-co[1], -co[0], 1]];
+  const det = G[0][0] * (G[1][1] * G[2][2] - G[1][2] * G[2][1]) - G[0][1] * (G[1][0] * G[2][2] - G[1][2] * G[2][0]) + G[0][2] * (G[1][0] * G[2][1] - G[1][1] * G[2][0]);
+  const Gi = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    const a = (i + 1) % 3, b = (i + 2) % 3, c = (j + 1) % 3, d = (j + 2) % 3;
+    Gi[j][i] = (G[a][c] * G[b][d] - G[a][d] * G[b][c]) / det;
+  }
+  const form = (f, g) => { let s = 0; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) s += f[i] * Gi[i][j] * g[j]; return s; };
+  const axpy = (f, k, g) => f.map((v, i) => v + k * g[i]), unit = f => { const q = Math.sqrt(Math.abs(form(f, f))); return f.map(v => v / q); };
+  const e3 = unit([1, 1, 1]);                                          // form(e3, e3) = type
+  const e1 = unit(axpy([1, 0, 0], -type * form([1, 0, 0], e3), e3));
+  let e2 = axpy([0, 1, 0], -type * form([0, 1, 0], e3), e3);
+  e2 = unit(axpy(e2, -form(e2, e1), e1));
+  const F = [];
+  for (let i = 0; i < 3; i++) { const f = [0, 0, 0]; f[i] = 1; F.push(form(f, e1), form(f, e2), type * form(f, e3)); }
+  return { type, frame: F, norm: [0, 1, 2].map(i => Math.max(0, type * Gi[i][i])) };   // |form(vertex i)|; 0 at an ideal vertex
+}
+// Vertex i of chamber w as a point of the model: the disk, the plane (null at infinity), or the sphere.
+function vertexAt(S, geo, w, i) {
+  const o = 9 * w + 3 * i, nm = geo.norm[i];
+  if (geo.type < 0) { const d = S.N[o + 2] + Math.sqrt(nm); return [S.N[o] / d, S.N[o + 1] / d]; }
+  if (geo.type === 0) return nm ? [S.N[o] / nm, S.N[o + 1] / nm] : null;
+  const s = Math.sqrt(nm);
+  return [S.N[o] / s, S.N[o + 1] / s, S.N[o + 2] / s];
+}
+/*MATH-END*/
+
+/* ---------- scenes: one triangle group, searched, counted and laid out ---------- */
+
+const T = AV.tex, tx = AV.texify;
+const PLOT_N = 120, Y_TOP = 12, EDGE = 'rgba(7,9,13,0.62)', FAR = 400;
+const log10Big = b => { const s = b.toString(); return s.length <= 15 ? Math.log10(Number(b)) : s.length - 15 + Math.log10(Number(s.slice(0, 15))); };
+const labelTex = x => (x === INF ? '\\infty' : String(x));
+const intTex = n => { const d = String(n); return d.length > 4 ? d.replace(/\B(?=(\d{3})+(?!\d))/g, '\\,') : d; };
+const sortedLabels = m => m.slice().sort((a, b) => (a || 99) - (b || 99));
+
+// Append the geodesic from p to q of the unit disk to a path whose current point is p.
+function geodesicTo(path, p, q) {
+  const cr = p[0] * q[1] - p[1] * q[0], dx = q[0] - p[0], dy = q[1] - p[1];
+  if (dx * dx + dy * dy < 1e-4 || Math.abs(cr) < 1e-7) { path.lineTo(q[0], q[1]); return; }
+  const A = p[0] * p[0] + p[1] * p[1] + 1, B = q[0] * q[0] + q[1] * q[1] + 1;
+  const cx = (A * q[1] - B * p[1]) / (2 * cr), cy = (B * p[0] - A * q[0]) / (2 * cr), r = Math.hypot(p[0] - cx, p[1] - cy);
+  if (r > 300) { path.lineTo(q[0], q[1]); return; }
+  const a0 = Math.atan2(p[1] - cy, p[0] - cx);
+  let d = Math.atan2(q[1] - cy, q[0] - cx) - a0;
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d < -Math.PI) d += 2 * Math.PI;
+  path.arc(cx, cy, r, a0, a0 + d, d < 0);
+}
+
+const sceneCache = new Map();
+let sceneCount = 0;
+function buildScene(m) {
+  const key = m.join();
+  if (sceneCache.has(key)) return sceneCache.get(key);
+  const A = analyze(m), geo = geometry(m), type = A.type;
+  const S = search(m, Object.assign({ frame: geo.frame }, type > 0 ? { maxCount: 1e9 } : type === 0 ? { maxCount: 1e9, maxLen: 30 } : { maxCount: 6000, maxLen: 40 }));
+  const nMax = S.spheres.length - 1;
+  // Steinberg's side: exact coefficients, their running sums, and the logarithms for the chart
+  const coef = seriesCoefficients(A.g, PLOT_N), balls = [], logs = [];
+  let sum = 0n;
+  for (const c of coef) { sum += c; balls.push(sum); logs.push(log10Big(sum)); }
+  let mismatch = -1;
+  for (let k = nMax; k >= 0; k--) if (BigInt(S.spheres[k]) !== coef[k]) mismatch = k;
+  // colors by word length; odd lengths (reflections) a shade darker
+  const colors = [], back = [], shade = 1 - 0.3 * AV.clamp((nMax - 4) / 10, 0, 1);
+  for (let k = 0; k <= nMax; k++) {
+    const c = k === 0 ? AV.hexRgb(AV.C.ink) : AV.ramp(Math.pow(k / nMax, 0.8)).map(v => v * (k % 2 ? shade : 0.97));
+    colors.push(AV.rgba(c)); back.push(AV.rgba(AV.mix(c, AV.C.bg, 0.74)));
+  }
+  const sc = { id: ++sceneCount, m: m.slice(), key, A, geo, S, type, nMax, coef, balls, logs, mismatch, colors, back, paths: [], rho: [], view: null };
+  if (type <= 0) {
+    let far = 0;
+    for (let k = 0; k <= nMax; k++) {
+      const path = new Path2D();
+      for (let w = S.start[k]; w < S.start[k + 1]; w++) {
+        const v = [0, 1, 2].map(i => vertexAt(S, geo, w, i));
+        if (type < 0) {
+          const size = Math.max(Math.abs(v[0][0] - v[1][0]), Math.abs(v[0][1] - v[1][1]), Math.abs(v[1][0] - v[2][0]), Math.abs(v[1][1] - v[2][1]), Math.abs(v[2][0] - v[0][0]), Math.abs(v[2][1] - v[0][1]));
+          if (size < 0.0012) continue;                                // below half a pixel: counted, not drawn
+          path.moveTo(v[0][0], v[0][1]);
+          geodesicTo(path, v[0], v[1]); geodesicTo(path, v[1], v[2]); geodesicTo(path, v[2], v[0]);
+        } else {
+          const inf = v.indexOf(null);
+          if (inf < 0) { path.moveTo(v[0][0], v[0][1]); path.lineTo(v[1][0], v[1][1]); path.lineTo(v[2][0], v[2][1]); }
+          else {                                                       // a half-strip: the vertex at infinity is a direction
+            const p = v[(inf + 1) % 3], q = v[(inf + 2) % 3], o = 9 * w + 3 * inf, dx = S.N[o], dy = S.N[o + 1], h = FAR / Math.hypot(dx, dy);
+            path.moveTo(p[0], p[1]); path.lineTo(q[0], q[1]); path.lineTo(q[0] + h * dx, q[1] + h * dy); path.lineTo(p[0] + h * dx, p[1] + h * dy);
+          }
+          for (const p of v) if (p) far = Math.max(far, Math.hypot(p[0], p[1]));
+        }
+        path.closePath();
+      }
+      sc.paths.push(path); sc.rho.push(far);
+    }
+  }
+  if (sceneCache.size > 16) sceneCache.delete(sceneCache.keys().next().value);
+  sceneCache.set(key, sc);
+  return sc;
+}
+const ballSize = (sc, n) => sc.S.start[Math.min(n, sc.nMax) + 1];
+
+/* ---------- state ---------- */
+
+let app = null, labels = null, L = null;
+let cur = null, nf = 0;                       // the group on stage and the (animated) radius of its ball
+let growToken = 0, growing = false, hold = 0;
+let ghost = null, ghostU = 1;                 // the previous group, fading out
+const morph = { u: 1, logs: null, dom: null, roots: [] };   // the chart and the roots, on their way to the new group
+const pulse = { k: -1, u: 1 };                // the diagram edge that was just tapped
+let hoverEdge = -1;
+
+function setRadius(x) {
+  nf = x;
+  const k = Math.floor(x + 1e-9);
+  if (app.get('n') !== k) app.set('n', k, { silent: true });
+}
+function grow(sc) {
+  const token = ++growToken;
+  growing = true;
+  return app.tween(AV.clamp(500 + 62 * sc.nMax, 900, 2300), u => { if (token === growToken) setRadius(u * sc.nMax); }, { key: 'grow', ease: 'linear' })
+    .then(done => { if (token === growToken) growing = false; return done; });
+}
+const shownLogs = () => (morph.u < 1 && morph.logs ? cur.logs.map((v, i) => AV.lerp(morph.logs[i], v, morph.u)) : cur.logs);
+const dominant = sc => (sc.type > 0 ? null : sc.type === 0 ? 1 : sc.A.tau);
+const shownDominant = () => { const d = dominant(cur); return d != null && morph.u < 1 && morph.dom != null ? AV.lerp(morph.dom, d, morph.u) : d; };
+
+// Put a group on stage: the old one fades, the chart and the roots glide over, the new ball grows.
+function showGroup(m, opt = {}) {
+  const sc = buildScene(m);
+  if (sc === cur && !opt.again) return Promise.resolve(true);
+  if (cur && sc !== cur) {
+    morph.logs = shownLogs(); morph.dom = shownDominant(); morph.roots = cur.A.roots; morph.u = 0;
+    app.tween(700, u => { morph.u = u; }, { key: 'morph' });
+    ghost = { sc: cur, nf }; ghostU = 0;
+    app.tween(360, u => { ghostU = u; }, { key: 'ghost', ease: 'linear' });
+  }
+  cur = sc;
+  const c = app.controls.n;                    // the slider runs over this group's layers
+  c.spec.max = sc.nMax;
+  c.node.querySelector('input').max = sc.nMax;
+  hold = 0;
+  if (opt.instant) { growToken++; growing = false; setRadius(sc.nMax); c.sync(sc.nMax); return Promise.resolve(true); }
+  if (app.playing) { growToken++; growing = false; setRadius(0); c.sync(0); return Promise.resolve(true); }
+  setRadius(0); c.sync(0);
+  return grow(sc);
+}
+function tapEdge(k, value) {
+  const m = cur.m.slice();
+  m[k] = value == null ? LABELS[(LABELS.indexOf(m[k]) + 1) % LABELS.length] : value;
+  pulse.k = k; pulse.u = 0;
+  app.tween(900, u => { pulse.u = u; }, { key: 'pulse', ease: 'out' });
+  return showGroup(m);
+}
+
+/* ---------- drawing: the ball of the group ---------- */
+
+function paintLayer(c, sc, k, alpha, scale) {
+  c.globalAlpha = alpha;
+  c.fillStyle = sc.colors[k];
+  c.fill(sc.paths[k]);
+  c.lineWidth = 0.75 / scale;
+  c.strokeStyle = EDGE;
+  c.stroke(sc.paths[k]);
+}
+const layerAlpha = (k, n) => (k === 0 ? 1 : AV.clamp(n - k + 1, 0, 1));
+
+// Settled layers of the hyperbolic picture are kept in an offscreen canvas; only the newest one is repainted.
+const cache = { cv: null, key: '', K: -1 };
+function cachedDisk(sc, K, R, dpr) {
+  const key = sc.id + '|' + R + '|' + dpr, px = Math.round((2 * R + 2) * dpr);
+  if (!cache.cv) cache.cv = document.createElement('canvas');
+  if (cache.key !== key || cache.K > K) { cache.cv.width = cache.cv.height = px; cache.key = key; cache.K = -1; }
+  if (cache.K < K) {
+    const c = cache.cv.getContext('2d');
+    c.setTransform(dpr * R, 0, 0, -dpr * R, px / 2, px / 2);
+    for (let k = cache.K + 1; k <= K; k++) paintLayer(c, sc, k, 1, R);
+    cache.K = K;
+  }
+  return px / dpr;
+}
+
+const TILT = 0.42;
+function drawSphere(ctx, sc, n, alpha, g, phi) {
+  const cp = Math.cos(phi), sp = Math.sin(phi), ct = Math.cos(TILT), st = Math.sin(TILT);
+  const rot = v => { const x = cp * v[0] + sp * v[2], z = -sp * v[0] + cp * v[2]; return [x, ct * v[1] - st * z, st * v[1] + ct * z]; };
+  const S = sc.S, kMax = Math.min(sc.nMax, Math.ceil(n)), polys = [];
+  for (let w = 0; w < S.start[kMax + 1]; w++) {
+    const v = [0, 1, 2].map(i => rot(vertexAt(S, sc.geo, w, i))), pts = [];
+    for (let e = 0; e < 3; e++) {                                      // sample the three great-circle arcs
+      const a = v[e], b = v[(e + 1) % 3], th = Math.acos(AV.clamp(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], -1, 1)), K = Math.max(2, Math.ceil(th / 0.12));
+      for (let j = 0; j < K; j++) { const t = j / K, s0 = Math.sin((1 - t) * th) / Math.sin(th), s1 = Math.sin(t * th) / Math.sin(th); pts.push([s0 * a[0] + s1 * b[0], s0 * a[1] + s1 * b[1], s0 * a[2] + s1 * b[2]]); }
+    }
+    polys.push({ k: S.len[w], pts });
+  }
+  sc.view = { rot };
+  for (const side of [-1, 1]) for (const { k, pts } of polys) {       // the far side first, then the near side
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {                             // clip to the half z * side >= 0; cuts lie on the limb
+      const p = pts[i], q = pts[(i + 1) % pts.length], inP = p[2] * side >= 0, inQ = q[2] * side >= 0;
+      if (inP) out.push([p[0], p[1], false]);
+      if (inP !== inQ) { const t = p[2] / (p[2] - q[2]), x = p[0] + t * (q[0] - p[0]), y = p[1] + t * (q[1] - p[1]), h = Math.hypot(x, y); out.push([x / h, y / h, true]); }
+    }
+    if (out.length < 3) continue;
+    ctx.beginPath();
+    out.forEach((p, i) => {
+      const prev = out[(i + out.length - 1) % out.length];
+      if (i === 0) ctx.moveTo(g.x + g.r * p[0], g.y - g.r * p[1]);
+      else if (prev[2] && p[2]) limbArc(ctx, g, prev, p);
+      else ctx.lineTo(g.x + g.r * p[0], g.y - g.r * p[1]);
+    });
+    if (out[out.length - 1][2] && out[0][2]) limbArc(ctx, g, out[out.length - 1], out[0]);
+    ctx.closePath();
+    ctx.globalAlpha = alpha * layerAlpha(k, n);
+    ctx.fillStyle = side > 0 ? sc.colors[k] : sc.back[k];
+    ctx.fill();
+    ctx.lineWidth = side > 0 ? 0.9 : 0.6;
+    ctx.strokeStyle = EDGE;
+    ctx.stroke();
+  }
+}
+function limbArc(ctx, g, p, q) {                                       // along the edge of the sphere, the short way
+  const a0 = Math.atan2(-p[1], p[0]);
+  let d = Math.atan2(-q[1], q[0]) - a0;
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d < -Math.PI) d += 2 * Math.PI;
+  ctx.arc(g.x, g.y, g.r, a0, a0 + d, d < 0);
+}
+
+function drawBall(ctx, sc, n, alpha, live) {
+  const g = L.disk, kMax = Math.min(sc.nMax, Math.ceil(n));
+  ctx.save();
+  ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, 2 * Math.PI); ctx.clip();
+  if (sc.type > 0) {
+    drawSphere(ctx, sc, n, alpha, g, AV.reduced ? 0.5 : 0.5 + 0.22 * app.time);
+    const sh = ctx.createRadialGradient(g.x - 0.3 * g.r, g.y - 0.36 * g.r, 0.1 * g.r, g.x, g.y, g.r);
+    sh.addColorStop(0, 'rgba(255,255,255,0.10)'); sh.addColorStop(0.5, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(7,9,13,0.55)');
+    ctx.globalAlpha = alpha; ctx.fillStyle = sh;
+    ctx.fillRect(g.x - g.r, g.y - g.r, 2 * g.r, 2 * g.r);
+  }
+  else if (sc.type < 0) {
+    let from = 0;
+    if (live && alpha === 1) {
+      const K = Math.min(sc.nMax, Math.floor(n + 1e-9)), size = cachedDisk(sc, K, g.r, app.dpr);
+      ctx.drawImage(cache.cv, g.x - size / 2, g.y - size / 2, size, size);
+      from = K + 1;
+    }
+    ctx.translate(g.x, g.y); ctx.scale(g.r, -g.r);
+    for (let k = from; k <= kMax; k++) paintLayer(ctx, sc, k, alpha * layerAlpha(k, n), g.r);
+    sc.view = { s: g.r };
+  } else {
+    const i = Math.min(sc.nMax, Math.floor(n)), f = Math.min(1, n - i);
+    const rho = AV.lerp(sc.rho[i], sc.rho[Math.min(sc.nMax, i + 1)], f), s = g.r / (1.05 * rho + 0.12);   // zoom out as the ball grows
+    ctx.translate(g.x, g.y); ctx.scale(s, -s);
+    for (let k = 0; k <= kMax; k++) paintLayer(ctx, sc, k, alpha * layerAlpha(k, n), s);
+    sc.view = { s };
+  }
+  ctx.restore();
+}
+// Where vertex k of the identity triangle is on screen right now (null if hidden or at infinity).
+function cornerOnScreen(sc, k) {
+  const p = vertexAt(sc.S, sc.geo, 0, k), g = L.disk;
+  if (!p || !sc.view) return null;
+  if (sc.type > 0) { const q = sc.view.rot(p); return q[2] < 0 ? null : [g.x + g.r * q[0], g.y - g.r * q[1]]; }
+  const q = [g.x + sc.view.s * p[0], g.y - sc.view.s * p[1]];
+  return Math.hypot(q[0] - g.x, q[1] - g.y) > g.r + 1 ? null : q;
+}
+
+/* ---------- drawing: the Coxeter diagram, the roots, the chart ---------- */
+
+function diagramPoints() {
+  const b = L.inset;
+  return [[b.x + b.w / 2, b.y + b.h * 0.25], [b.x + b.w * 0.2, b.y + b.h * 0.7], [b.x + b.w * 0.8, b.y + b.h * 0.7]];
+}
+function drawDiagram(ctx, lab) {
+  const b = L.inset, P = diagramPoints(), cx = (P[0][0] + P[1][0] + P[2][0]) / 3, cy = (P[0][1] + P[1][1] + P[2][1]) / 3;
+  ctx.save();
+  app.roundRect(ctx, b.x, b.y, b.w, b.h, 10);
+  ctx.fillStyle = 'rgba(7,9,13,0.55)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.09)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.restore();
+  for (let k = 0; k < 3; k++) {
+    const p = P[(k + 1) % 3], q = P[(k + 2) % 3], mk = cur.m[k], hot = pulse.k === k ? 1 - pulse.u : 0;
+    if (mk === 2) AV.line(ctx, p[0], p[1], q[0], q[1], AV.rgba(AV.C.ink2, 0.4), 1.1, [3, 5]);
+    else AV.line(ctx, p[0], p[1], q[0], q[1], AV.rgba(AV.C.ink2, 0.9), 1.5);
+    if (hoverEdge === k) AV.line(ctx, p[0], p[1], q[0], q[1], AV.rgba(AV.C.accent, 0.55), 2.4);
+    if (hot > 0) AV.line(ctx, p[0], p[1], q[0], q[1], AV.rgba(AV.C.accent, hot), 2 + 3 * hot);
+    const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2, d = Math.hypot(mx - cx, my - cy), off = b.h < 100 ? 11 : 13;
+    lab.push({ key: 'm' + k, x: mx + off * (mx - cx) / d, y: my + off * (my - cy) / d, tex: labelTex(mk), size: (b.h < 100 ? 13 : 15) * (mk === INF ? 1.15 : 1), color: mk === 2 ? AV.C.muted : AV.C.accent });
+  }
+  for (const p of P) { AV.dot(ctx, p[0], p[1], 4.6, AV.C.bg); AV.ring(ctx, p[0], p[1], 4.6, AV.C.ink, 1.5); }
+}
+
+function caption(ctx, text, x, y) {
+  ctx.save();
+  ctx.font = '600 10.5px ' + AV.FONT.sans;
+  ctx.fillStyle = AV.C.muted; ctx.textBaseline = 'top';
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '1.5px';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+const rootsCam = AV.camera();
+function drawRoots(ctx, lab) {
+  const r = L.roots, cam = rootsCam.fit(-1.28, 2.3, -1.2, 1.2, r), u = morph.u;
+  caption(ctx, 'RECURRENCE ROOTS', L.rootsCap[0], L.rootsCap[1]);
+  AV.line(ctx, cam.X(-1.28), cam.Y(0), cam.X(2.3), cam.Y(0), 'rgba(255,255,255,0.10)', 1);
+  for (const t of [1, 2]) {
+    AV.line(ctx, cam.X(t), cam.Y(0) - 3, cam.X(t), cam.Y(0) + 3, 'rgba(255,255,255,0.3)', 1);
+    AV.label(ctx, String(t), cam.X(t) - (t === 1 ? 8 : 0), cam.Y(0) + 13, { size: 10.5, color: AV.C.muted, halo: false });
+  }
+  AV.ring(ctx, cam.X(0), cam.Y(0), cam.s, 'rgba(236,235,230,0.4)', 1.1);
+  if (cur.type > 0) AV.label(ctx, 'no roots', cam.X(0), cam.Y(0) - 14, { size: 11.5, color: AV.rgba(AV.C.muted, u), halo: false });
+  const d = shownDominant();                                          // the root that decides the growth
+  const paired = cur.A.kind === 'salem' && morph.dom != null;         // tau and 1/tau travel together
+  const dots = (roots, a, old) => {
+    for (const q of roots) {
+      if (q.kind === 'tau' || (q.kind === 'inverse' && paired && old)) continue;
+      const c = q.kind === 'unit' ? AV.C.ink2 : AV.C.accent, slide = q.kind === 'inverse' && paired;
+      AV.dot(ctx, cam.X(slide ? 1 / d : q.z[0]), cam.Y(q.z[1]), q.kind === 'unit' ? 2.7 : 3.2, AV.rgba(c, slide ? 1 : a * (q.kind === 'unit' ? 0.75 : 1)));
+    }
+  };
+  if (u < 1) dots(morph.roots, 1 - u, true);
+  dots(cur.A.roots, u, false);
+  if (d != null) {
+    const a = morph.dom == null ? u : 1, x = cam.X(d), y = cam.Y(0);
+    ctx.globalAlpha = a;
+    AV.dot(ctx, x, y, 4.6, AV.C.accent, { glow: 4 });
+    ctx.globalAlpha = 1;
+    if (cur.type < 0) lab.push({ key: 'tau', x: x + 2, y: y - 15, tex: '\\tau', size: 16, color: AV.C.accent, opacity: u });
+  }
+}
+
+function drawPlot(ctx, lab) {
+  const logs = shownLogs(), pts = (upto) => {
+    const out = [], n0 = Math.min(PLOT_N, Math.floor(upto + 1e-9));
+    for (let k = 0; k <= n0; k++) {
+      if (logs[k] > Y_TOP + 2) { const a = logs[k - 1], t = (Y_TOP + 2 - a) / (logs[k] - a); out.push([k - 1 + t, Y_TOP + 2]); return out; }
+      out.push([k, logs[k]]);
+    }
+    if (upto > n0 && n0 < PLOT_N && logs[n0 + 1] <= Y_TOP + 2) out.push([upto, AV.lerp(logs[n0], logs[n0 + 1], upto - n0)]);
+    return out;
+  };
+  const r = L.plot;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(r.x + 36.5, r.y - 6, r.w, r.h + 12); ctx.clip();   // the kit's own y-tick numbers are replaced by typeset powers of ten
+  const pl = AV.plot(ctx, r, {
+    x: [0, PLOT_N], y: [0, Y_TOP], xlabel: L.small ? undefined : 'word length', ylabel: 'ball size', ticks: { x: 6, y: 6 },
+    series: [
+      { data: pts(PLOT_N), color: AV.mix(AV.C.ink2, AV.C.bg, 0.4), width: 1.3 },
+      { data: pts(nf), color: AV.C.accent, width: 2.4, dots: !L.small },
+    ],
+    refs: [{ x: nf }],
+  });
+  ctx.restore();
+  for (const e of L.small ? [4, 8] : [4, 8, 12]) lab.push({ key: 'y' + e, x: pl.box.x - 6, y: pl.Y(e), tex: '10^{' + e + '}', align: 'right', size: 11.5, color: AV.C.muted });
+}
+
+function readout(a) {
+  const sc = cur, A = sc.A, n = Math.min(sc.nMax, Math.floor(nf + 1e-9)), s = sortedLabels(sc.m);
+  const sumTex = s.map(x => (x === INF ? '\\tfrac{1}{\\infty}' : '\\tfrac1' + x)).join('+') + (sc.type > 0 ? '>' : sc.type < 0 ? '<' : '=') + '1';
+  let h = '<span class="big">' + T('(' + s.map(labelTex).join(',') + ')') + '</span>&ensp;' + T(sumTex) +
+    ' <span class="k">' + (sc.type > 0 ? 'sphere' : sc.type < 0 ? 'hyperbolic' : 'flat') + '</span>' +
+    '<br><span class="k">search</span> ' + T(intTex(ballSize(sc, n)) + '=' + intTex(sc.balls[n])) + ' <span class="k">series</span> ' +
+    AV.ok(BigInt(ballSize(sc, n)) === sc.balls[n] && (sc.mismatch < 0 || sc.mismatch > n)) + '<br>';
+  if (sc.type > 0) h += '<span class="k">growth stops at</span> ' + T('|W|=' + A.g.order) + '<br><span class="k">longest element</span> ' + T(String(A.g.longest));
+  else if (sc.type === 0) h += '<span class="k">rate</span> ' + T('\\tau=1') + '<br><span class="k">the ball grows like</span> ' + T(A.pole > 1 ? 'n^{' + A.pole + '}' : 'n');
+  else {
+    const tau = A.tau, whole = Math.abs(tau - Math.round(tau)) < 1e-12;
+    const name = poly.eq(A.S, LEHMER) ? "Lehmer's number: Salem" : poly.eq(A.S, PLASTIC) ? 'the plastic number: Pisot' : poly.eq(A.S, GOLDEN) ? 'the golden ratio: Pisot' : A.kind === 'salem' ? 'a Salem number' : 'a Pisot number';
+    h += '<span class="k">rate</span> ' + T('\\tau=' + (whole ? Math.round(tau) : (Math.floor(tau * 1e8) / 1e8).toFixed(8) + '\\ldots')) +
+      '<br><span class="k">' + name + '</span> ' + AV.ok(A.kind === 'salem' || A.kind === 'pisot');
+  }
+  a.readout(h);
+  if (h !== readoutHtml) {                                            // on a phone the readout sits above the panes
+    readoutHtml = h;
+    const box = a.el.readout.offsetHeight;
+    if (box !== readoutBox) { readoutBox = box; a.relayout(); }
+  }
+}
+let readoutHtml = '', readoutBox = 0;
+
+function draw(a) {
+  const ctx = a.ctx;
+  AV.clear(a);
+  if (!cur || !L) return;
+  const g = L.disk, lab = [];
+  // the porthole: a sphere, a window on the plane, or the Poincare disk
+  ctx.fillStyle = 'rgba(255,255,255,0.022)';
+  ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, 2 * Math.PI); ctx.fill();
+  if (ghost && ghostU < 1) drawBall(ctx, ghost.sc, ghost.nf, 1 - ghostU, false);
+  drawBall(ctx, cur, nf, ghost && ghostU < 1 ? ghostU : 1, true);
+  AV.ring(ctx, g.x, g.y, g.r, 'rgba(236,235,230,0.38)', 1.1);
+  if (pulse.k >= 0 && pulse.u < 1) {                                  // the corner whose angle just changed
+    const p = cornerOnScreen(cur, pulse.k);
+    if (p) AV.ring(ctx, p[0], p[1], 5 + 26 * pulse.u, AV.rgba(AV.C.ink, 0.9 * (1 - pulse.u)), 1.6);
+  }
+  drawDiagram(ctx, lab);
+  drawRoots(ctx, lab);
+  drawPlot(ctx, lab);
+  labels.set(lab);
+  readout(a);
+  if (cur.type > 0 && !AV.reduced) a.redraw();                        // the sphere keeps turning
+}
+
+/* ---------- the page ---------- */
+
+const same = m => cur && cur.key === m.join();
+const fixed = (em, html) => '<span style="display:inline-block;min-width:' + em + 'em">' + html + '</span>';
+
+app = AV.page({
+  title: 'Growth Series and Salem Numbers',
+  hook: "Count a reflection group's elements by word length: the growth rate is a very special number.",
+  date: '2026-11-09',
+  credit: 'generated by Claude (Fable 5)',
+  hint: 'tap an edge of the diagram',
+  panes: [{ id: 'group', weight: 3 }, { id: 'growth', weight: 2 }],
+  autoplay: false,
+  posterStep: 2,
+  posterDelay: 3000,
+  controls: [
+    { type: 'play' },
+    { type: 'slider', id: 'n', label: 'length', min: 0, max: 6, step: 1, value: 0, format: v => fixed(2.2, T('\\le ' + v)),
+      onChange: v => { growToken++; growing = false; hold = 0; nf = v; } },
+  ],
+  tour: [
+    { text: tx('Each triangle is one element of the reflection group $(2,3,3)$, colored by its distance in mirror crossings. All 24 appear within six.'),
+      enter: a => { a.pause(); showGroup([3, 3, 2], { again: true }); } },
+    { text: tx("Tap the diagram's bottom edge: 48 elements, then 120, and at $(2,3,6)$ the triangles tile a flat plane, growing like $n^2$."),
+      enter: a => {
+        a.pause();
+        if (!same([3, 3, 2])) showGroup([3, 3, 2], { instant: true });
+        [4, 5, 6].forEach((v, i) => a.after(250 + 800 * i, () => tapEdge(0, v)));
+      } },
+    { text: tx("One more tap. $(2,3,7)$ is hyperbolic: a root leaves the unit circle and the count turns exponential, at rate $1.17628\\ldots$, Lehmer's number."),
+      enter: a => {
+        a.pause();
+        (same([6, 3, 2]) ? tapEdge(0, 7) : showGroup([7, 3, 2], { again: true })).then(done => { if (done && a.mode === 'embed') a.play(); });
+      } },
+    { text: tx("Search (dots) always lands on Steinberg's rational function (curve). Compact hyperbolic triangles give Salem numbers: all roots but two stay on the circle."),
+      enter: a => { a.pause(); showGroup([5, 4, 2], { again: true }); } },
+    { text: tx('Put $\\infty$ on an edge: triangles reach the horizon and the rate becomes a Pisot number. $(2,3,\\infty)$ gives the smallest of all. Now explore.'),
+      enter: a => { a.pause(); showGroup([INF, 3, 2], { again: true }); a.after(3200, () => a.play()); } },
+  ],
+  math: tx(`<p>Count a Coxeter group $W$ by word length: $W(t)=\\sum_{w}t^{\\ell(w)}$. <b>Steinberg's formula</b></p>
+    <p style="text-align:center">` + T('\\frac{1}{W(1/t)}=\\sum_{W_T\\text{ finite}}\\frac{(-1)^{|T|}}{W_T(t)}', { display: true }) + `</p>
+    <p>makes it rational: the counts obey a linear recurrence. Its roots are drawn; the largest, $\\tau$, is the growth rate.</p>
+    <p>For a compact hyperbolic triangle $\\tau$ is a <b>Salem number</b>: its conjugates are $1/\\tau$ and points of the unit circle. $(2,3,7)$ gives Lehmer's number, the largest root of
+    $x^{10}+x^9-x^7-x^6-x^5-x^4-x^3+x+1$. With ideal vertices $\\tau$ is a Pisot number; $(2,3,\\infty)$ gives the smallest, the root of $x^3-x-1$.</p>
+    <p class="ref">Steinberg 1968; Cannon and Wagreich 1992; Floyd 1992; Parry 1993. Companion: <a style="color:inherit" href="2026-08-11-triangle-group-kaleidoscopes.html">Triangle-Group Kaleidoscopes</a>.</p>`),
+  setup: a => { app = a; labels = AV.texLabels(a); },
+  // play: the ball grows one layer at a time, rests, and starts again
+  step: (dt, a) => {
+    if (!cur || growing) return;
+    if (nf >= cur.nMax) {
+      hold += dt;
+      if (hold > 2.4) {                                               // the full ball fades while a new one starts
+        hold = 0; ghost = { sc: cur, nf }; ghostU = 0;
+        a.tween(360, u => { ghostU = u; }, { key: 'ghost', ease: 'linear' });
+        setRadius(0);
+      }
+      return;
+    }
+    setRadius(Math.min(cur.nMax, nf + dt * AV.clamp(cur.nMax / 3.2, 2.2, 12)));
+  },
+  draw,
+});
+
+app.onResize(a => {
+  const tp = a.pane('group'), gp = a.pane('growth');
+  const ih = AV.clamp(Math.min(tp.h * 0.42, tp.w * 0.3), 84, a.mode === 'full' ? 150 : 118), iw = ih * 1.1;
+  const inset = { x: tp.x + 10, y: tp.y + 10, w: iw, h: ih };
+  // the largest circle in the pane that stays clear of the diagram, as central as possible
+  let disk = null;
+  for (let r = Math.min(tp.w, tp.h) / 2 - 12; !disk && r > 30; r -= 2) {
+    let best = Infinity;
+    for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) {
+      const x = AV.lerp(tp.x + 12 + r, tp.x + tp.w - 12 - r, i / 12), y = AV.lerp(tp.y + 12 + r, tp.y + tp.h - 12 - r, j / 12);
+      const off = Math.hypot(x - tp.x - tp.w / 2, y - tp.y - tp.h / 2);
+      if (off < best && Math.hypot(inset.x + iw - x, inset.y + ih - y) >= r + 8) { best = off; disk = { x, y, r }; }
+    }
+  }
+  if (!disk) disk = { x: tp.x + tp.w / 2, y: tp.y + tp.h / 2, r: 30 };
+  const wide = gp.w > gp.h * 1.9, small = gp.h < 240;
+  const roots = wide ? { x: gp.x + 8, y: gp.y + 24, w: Math.min(gp.w * 0.42, (gp.h - 32) * 1.49), h: gp.h - 32 }
+    : { x: gp.x + 12, y: gp.y + 30, w: gp.w - 24, h: Math.min(gp.h * 0.4, (gp.w - 24) / 1.49, 230) };
+  const plot = wide ? { x: roots.x + roots.w, y: gp.y + 2, w: gp.x + gp.w - roots.x - roots.w - 4, h: gp.h - 6 }
+    : { x: gp.x + 4, y: roots.y + roots.h + 8, w: gp.w - 10, h: gp.y + gp.h - roots.y - roots.h - 14 };
+  L = { inset, disk, roots, rootsCap: [gp.x + 14, gp.y + 12], plot, small };
+});
+
+const inInset = p => L && p.x > L.inset.x - 6 && p.x < L.inset.x + L.inset.w + 6 && p.y > L.inset.y - 6 && p.y < L.inset.y + L.inset.h + 6;
+function nearestEdge(p) {
+  const P = diagramPoints();
+  let best = 0, bd = Infinity;
+  for (let k = 0; k < 3; k++) {
+    const a = P[(k + 1) % 3], b = P[(k + 2) % 3], t = AV.clamp(((p.x - a[0]) * (b[0] - a[0]) + (p.y - a[1]) * (b[1] - a[1])) / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2), 0, 1);
+    const d = Math.hypot(p.x - a[0] - t * (b[0] - a[0]), p.y - a[1] - t * (b[1] - a[1]));
+    if (d < bd) { bd = d; best = k; }
+  }
+  return best;
+}
+app.pointer({
+  tap: p => { if (cur && inInset(p)) tapEdge(nearestEdge(p)); },
+  hover: p => { hoverEdge = cur && inInset(p) ? nearestEdge(p) : -1; app.cursor(hoverEdge < 0 ? '' : 'pointer'); },
+  leave: () => { hoverEdge = -1; },
+});
+
+/* ---------- self-checks: known facts, run on every load ---------- */
+
+const ALL = [];
+for (let a = 0; a < 7; a++) for (let b = a; b < 7; b++) for (let c = b; c < 7; c++) ALL.push([LABELS[a], LABELS[b], LABELS[c]]);
+const nameOf = m => '(' + sortedLabels(m).map(x => x || '∞').join(',') + ')';
+
+AV.test('search finds |W| = 24, 48, 120 for (2,3,3), (2,3,4), (2,3,5), and 4n for (2,2,n)', () => {
+  const order = m => search(m, { maxCount: 1e9 }).count;
+  if (order([3, 3, 2]) !== 24 || order([4, 3, 2]) !== 48 || order([5, 3, 2]) !== 120) return 'wrong order';
+  for (let n = 2; n <= 7; n++) if (order([n, 2, 2]) !== 4 * n) return 'wrong order for (2,2,' + n + ')';
+  return true;
+});
+AV.test('search = coefficients of Steinberg\'s rational function, for all 84 triangles and every labeling', () => {
+  for (const m of ALL) for (const p of [m, [m[1], m[2], m[0]], [m[2], m[0], m[1]]]) {
+    const s = search(p, { maxCount: 1000 }), g = growthSeries(p), co = seriesCoefficients(g, s.spheres.length - 1);
+    if (!s.spheres.every((v, i) => BigInt(v) === co[i])) return 'mismatch for ' + nameOf(p);
+    if (g.type > 0 && (s.count !== g.order || s.spheres.length - 1 !== g.longest)) return 'wrong finite group ' + nameOf(p);
+  }
+  return true;
+});
+AV.test('exact integer search agrees: (2,3,7) in ℤ[2cos(π/7)], and Cartan matrices for labels 4, 6, ∞', () => {
+  for (const m of [[7, 3, 2], [7, 3, 3], [6, 3, 2], [4, 4, 2], [3, 3, 3], [INF, 3, 2], [6, 4, 2], [INF, INF, 7], [INF, 2, 2]]) {
+    const depth = m[0] === INF && m[1] === INF ? 9 : 13, e = exactSpheres(m, depth), s = search(m, { maxLen: depth, maxCount: 1e9 }).spheres;
+    if (e.length !== s.length || !e.every((v, i) => v === s[i])) return 'mismatch for ' + nameOf(m);
+  }
+  return true;
+});
+AV.test("(2,3,7): the rate is Lehmer's number 1.176280818259917…, and the denominator is Lehmer's polynomial", () => {
+  const A = analyze([7, 3, 2]);
+  if (Math.abs(A.tau - 1.17628081825991750654) > 1e-9) return 'rate ' + A.tau;
+  if (!poly.div(A.g.den, LEHMER) || !poly.eq(A.S, LEHMER)) return 'the denominator is not divisible by Lehmer\'s polynomial';
+  const c = seriesCoefficients(A.g, 400);
+  return Math.abs(Number(c[400] * 10n ** 12n / c[399]) / 1e12 - A.tau) < 1e-9 || 'coefficient ratio does not converge to the rate';
+});
+AV.test('flat triangles (2,3,6), (2,4,4), (3,3,3): all roots are roots of unity and the ball grows like n²', () => {
+  for (const m of [[6, 3, 2], [4, 4, 2], [3, 3, 3]]) {
+    const A = analyze(m), c = seriesCoefficients(A.g, 240);
+    if (A.kind !== 'polynomial' || A.S.length !== 1 || A.pole !== 2) return 'not quadratic: ' + nameOf(m);
+    const ball = n => { let s = 0; for (let k = 0; k <= n; k++) s += Number(c[k]); return s; };
+    if (Math.abs(ball(240) / ball(120) - 4) > 0.05 || c.some((v, k) => v > 4n * BigInt(k) + 1n)) return 'ball of ' + nameOf(m) + ' is not quadratic';
+  }
+  return seriesCoefficients(growthSeries([3, 3, 3]), 50).every((v, k) => v === (k ? 3n * BigInt(k) : 1n)) || '(3,3,3) spheres are not 3n';
+});
+AV.test('all 71 hyperbolic triangles: compact gives a Salem number, an ideal vertex a Pisot number', () => {
+  let n = 0;
+  for (const m of ALL) {
+    const A = analyze(m);
+    if (A.type >= 0) continue;
+    n++;
+    if (A.kind !== (m.includes(INF) ? 'pisot' : 'salem') || !(A.tau > 1.17 && A.tau < 2 + 1e-9)) return nameOf(m) + ' is ' + A.kind + ', rate ' + A.tau;
+  }
+  const A = analyze([INF, 3, 2]);
+  return (n === 71 && poly.eq(A.S, PLASTIC) && Math.abs(A.tau - 1.32471795724474602596) < 1e-9) || 'count ' + n + ', (2,3,∞) rate ' + A.tau;
+});
+AV.test("Steinberg's identity for the finite groups: the alternating sum over all subsets is t^N / W(t)", () => {
+  for (const m of ALL.filter(x => typeOf(x) > 0)) {
+    const g = growthSeries(m), { F, Q } = steinbergSum(m);                // F/Q - 1/W = t^N/W  <=>  F W = (t^N + 1) Q
+    const tN = new Array(g.longest).fill(0n).concat([1n]);
+    if (!poly.eq(poly.mul(F, g.num), poly.mul(poly.add(tN, [1n]), Q))) return 'fails for ' + nameOf(m);
+  }
+  return true;
+});
+AV.test('sign tests are safe: every non-zero root coefficient met in the searches has absolute value ≥ 1', () => {
+  for (const m of ALL) { const s = search(m, { maxCount: m.includes(7) || m.includes(INF) ? 6000 : 1500, maxLen: 40 }); if (s.minCoef < 1 - 1e-9) return nameOf(m) + ': ' + s.minCoef; }
+  return true;
+});
+AV.test('geometry: every triangle drawn is congruent to the first one (disk, plane and sphere)', () => {
+  const dist = {
+    '-1': (p, q) => Math.acosh(1 + 2 * ((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2) / ((1 - p[0] ** 2 - p[1] ** 2) * (1 - q[0] ** 2 - q[1] ** 2))),
+    '0': (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]),
+    '1': (p, q) => Math.acos(AV.clamp(p[0] * q[0] + p[1] * q[1] + p[2] * q[2], -1, 1)),
+  };
+  for (const m of [[7, 3, 2], [5, 4, 2], [7, 7, 7], [6, 3, 2], [4, 4, 2], [3, 3, 3], [3, 3, 2], [5, 3, 2], [7, 2, 2]]) {
+    const geo = geometry(m), S = search(m, { frame: geo.frame, maxCount: 1200 }), d = dist[geo.type];
+    const sides = w => [0, 1, 2].map(i => d(vertexAt(S, geo, w, i), vertexAt(S, geo, w, (i + 1) % 3)));
+    const s0 = sides(0);
+    for (let w = 1; w < S.count; w++) if (sides(w).some((v, i) => Math.abs(v - s0[i]) > 1e-6)) return nameOf(m) + ': triangle ' + w + ' is not congruent';
+  }
+  return true;
+});
+</script>
+</body>
+</html>

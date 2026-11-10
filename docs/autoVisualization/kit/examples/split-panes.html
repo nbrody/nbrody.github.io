@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hyperbolic Circles · AutoViz kit example</title>
+<link rel="stylesheet" href="../av.css">
+</head>
+<body>
+<!-- Kit example: two panes (a picture and a chart), a slider, drag-in-pane, hyperbolic.js + plot.js. -->
+<script src="../av.js"></script>
+<script src="../draw.js"></script>
+<script src="../plot.js"></script>
+<script src="../complex.js"></script>
+<script src="../hyperbolic.js"></script>
+<script>
+'use strict';
+const { hyp, mob, cx } = AV;
+
+let center = [0, 0];                 // centre of the circle, in the disk
+const cam = AV.camera();
+const SPOKES = 16;
+const circumference = r => 2 * Math.PI * Math.sinh(r);
+
+function draw(app) {
+  const ctx = app.ctx, r = app.get('r');
+  AV.clear(app);
+
+  // left: the disk
+  const disk = app.pane('disk');
+  const fit = disk.fitCircle(18);
+  cam.fit(-1, 1, -1, 1, { x: fit.x - fit.r, y: fit.y - fit.r, w: 2 * fit.r, h: 2 * fit.r });
+  hyp.drawDisk(ctx, cam);
+  const back = mob.inv(hyp.diskMove(center));           // sends 0 to the centre
+  const rim = [];
+  for (let k = 0; k < SPOKES; k++) {
+    const e = mob.apply(back, cx.polar(Math.tanh(r / 2), 2 * Math.PI * k / SPOKES));
+    rim.push(e);
+    hyp.drawGeodesic(ctx, cam, center, e, { color: AV.rgba(AV.C.blue, 0.45), width: 1 });
+  }
+  const c = hyp.diskCircle(center, r);
+  ctx.beginPath(); ctx.arc(cam.X(c.center[0]), cam.Y(c.center[1]), c.r * cam.s, 0, 2 * Math.PI);
+  ctx.fillStyle = AV.rgba(AV.C.accent, 0.06); ctx.fill();
+  AV.ring(ctx, cam.X(c.center[0]), cam.Y(c.center[1]), c.r * cam.s, AV.C.accent, 1.8);
+  for (const e of rim) AV.dot(ctx, cam.X(e[0]), cam.Y(e[1]), 2.4, AV.C.accent);
+  AV.dot(ctx, cam.X(center[0]), cam.Y(center[1]), 4, AV.C.ink, { glow: 4 });
+
+  // right: circumference against radius
+  const pane = app.pane('plot');
+  const box = pane.fitRect(pane.w / Math.max(1, pane.h), 14);
+  const N = 120, hyper = [], flat = [];
+  for (let i = 0; i <= N; i++) { const t = 4 * i / N; hyper.push([t, circumference(t)]); flat.push([t, 2 * Math.PI * t]); }
+  const P = AV.plot(ctx, { x: box.x, y: box.y + 14, w: box.w, h: box.h - 14 }, {
+    x: [0, 4], y: [0, 180], xlabel: 'radius r',
+    series: [
+      { data: flat, color: AV.C.muted, width: 1.4, dash: [4, 4] },
+      { data: hyper.filter(p => p[0] <= r), color: AV.C.accent, width: 2.2 },
+    ],
+    refs: [{ x: r }],
+  });
+  AV.label(ctx, '2πr', P.X(3.7), P.Y(2 * Math.PI * 3.7) - 12, { color: AV.C.muted, size: 12 });
+
+  app.readout('<span class="big">2π sinh r</span><br>C = ' + AV.fmt(circumference(r), 2) +
+    ' <span class="k">vs</span> 2πr = ' + AV.fmt(2 * Math.PI * r, 2) + '<small>ratio ×' + AV.fmt(Math.sinh(r) / r, 2) + '</small>');
+  app.legend([{ color: AV.C.accent, label: 'hyperbolic' }, { color: AV.C.muted, label: 'Euclidean', line: true }]);
+}
+
+const app = AV.page({
+  title: 'Hyperbolic Circles',
+  hook: 'In the hyperbolic plane, a circle’s circumference grows exponentially with its radius.',
+  date: 'kit example',
+  hint: 'drag the centre',
+  panes: [{ id: 'disk', weight: 3 }, { id: 'plot', weight: 2, label: 'circumference' }],
+  controls: [
+    { type: 'play' },
+    { type: 'slider', id: 'r', label: 'r', min: 0.1, max: 4, step: 0.01, value: 1.2, format: v => AV.fmt(v, 2) },
+  ],
+  tour: [
+    { text: 'The accent circle is a hyperbolic circle of radius <i>r</i>, drawn in the Poincaré disk.',
+      enter: a => { a.pause(); a.set('r', 1.2); } },
+    { text: 'Grow <i>r</i>. Its circumference is 2π sinh <i>r</i>, which leaves the Euclidean 2π<i>r</i> behind exponentially fast.',
+      enter: a => { a.pause(); a.tween(2600, u => a.set('r', 0.3 + 3.2 * u)); } },
+    { text: 'Drag the centre toward the edge: the circle looks smaller, yet every measurement stays the same.',
+      enter: a => { a.pause(); a.set('r', 1.6); a.tween(1600, u => { center = [0.55 * u, 0.25 * u]; }); } },
+  ],
+  math: `<p>In constant curvature −1 a circle of radius <i>r</i> has circumference <b>2π sinh <i>r</i></b> and encloses area 2π(cosh <i>r</i> − 1),
+    so both grow like e<sup><i>r</i></sup>. In the Poincaré disk the hyperbolic circle about 0 is the Euclidean circle of radius tanh(<i>r</i>/2);
+    the isometry <i>z</i> ↦ (<i>z</i> + <i>p</i>)/(1 + <i>p̄z</i>) carries it to a Euclidean circle about <i>p</i>, with the same hyperbolic size.</p>
+    <p class="ref">A kit example: two panes, a slider, dragging inside a pane.</p>`,
+  step: (dt, a) => { a.set('r', 0.1 + (a.get('r') - 0.1 + dt * 0.6) % 3.9); },
+  autoplay: false,
+  draw,
+});
+
+app.pointer({
+  drag: p => {
+    if (!p.pane || p.pane.id !== 'disk') return;
+    const [x, y] = cam.toWorld(p.x, p.y);
+    const m = Math.hypot(x, y);
+    center = m < 0.96 ? [x, y] : [0.96 * x / m, 0.96 * y / m];
+  },
+  dbl: () => { center = [0, 0]; },
+});
+
+AV.test('hyperbolic circle: points at distance r from the centre', () => {
+  const p = [0.4, -0.3], r = 1.7, c = hyp.diskCircle(p, r);
+  const err = Math.max(...[0, 1, 2, 3, 4, 5].map(k => Math.abs(hyp.diskDist(cx.add(c.center, cx.polar(c.r, k)), p) - r)));
+  return err < 1e-9 || 'error ' + err;
+});
+AV.test('measured circumference ≈ 2π sinh r', () => {
+  const p = [0.3, 0.5], r = 2.2, c = hyp.diskCircle(p, r), N = 4000;
+  let L = 0;
+  for (let k = 0; k < N; k++) L += hyp.diskDist(cx.add(c.center, cx.polar(c.r, 2 * Math.PI * k / N)), cx.add(c.center, cx.polar(c.r, 2 * Math.PI * (k + 1) / N)));
+  return Math.abs(L / circumference(r) - 1) < 1e-5 || 'ratio ' + L / circumference(r);
+});
+</script>
+</body>
+</html>

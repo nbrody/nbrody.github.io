@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The 24-Cell and the Hurwitz Units · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+<link rel="stylesheet" href="../kit/vendor/katex/katex.min.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/gl.js"></script>
+<script src="../kit/vendor/katex/katex.min.js"></script>
+<script src="../kit/tex.js"></script>
+<script>
+'use strict';
+
+/*MATH-BEGIN*/
+/* ---------- mathematics: the Hurwitz units, exactly ----------
+   A quaternion (a + bi + cj + dk)/2 is stored as its doubled coordinates [a, b, c, d], all integers.
+   The Hurwitz order is the set with a ≡ b ≡ c ≡ d mod 2; a unit has a² + b² + c² + d² = 4. */
+
+const qmul = (p, q) => {
+  const r = [
+    p[0] * q[0] - p[1] * q[1] - p[2] * q[2] - p[3] * q[3],
+    p[0] * q[1] + p[1] * q[0] + p[2] * q[3] - p[3] * q[2],
+    p[0] * q[2] - p[1] * q[3] + p[2] * q[0] + p[3] * q[1],
+    p[0] * q[3] + p[1] * q[2] - p[2] * q[1] + p[3] * q[0],
+  ];
+  if (r.some(x => x % 2 !== 0)) throw new Error('the product leaves the order');
+  return r.map(x => x / 2 + 0);
+};
+const qconj = q => [q[0], -q[1] + 0, -q[2] + 0, -q[3] + 0];
+const norm4 = q => q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];          // 4·N(q)
+const dist4 = (p, q) => norm4([p[0] - q[0], p[1] - q[1], p[2] - q[2], p[3] - q[3]]);  // 4·|p − q|²
+const key = q => q.join(',');
+
+// the 8 Lipschitz units ±1, ±i, ±j, ±k, then the 16 units (±1 ± i ± j ± k)/2
+const U = [];
+for (let s = 0; s < 4; s++) for (const e of [2, -2]) { const q = [0, 0, 0, 0]; q[s] = e; U.push(q); }
+for (let b = 0; b < 16; b++) U.push([0, 1, 2, 3].map(s => (b >> s & 1 ? -1 : 1)));
+const N = U.length;
+const INDEX = new Map(U.map((q, i) => [key(q), i]));
+const idx = q => { const i = INDEX.get(key(q)); if (i === undefined) throw new Error('not a unit: ' + key(q)); return i; };
+
+const MUL = U.map(p => U.map(q => idx(qmul(p, q))));          // the multiplication table (throws if not closed)
+const ONE = idx([2, 0, 0, 0]), MINUS = idx([-2, 0, 0, 0]), OMEGA = idx([-1, 1, 1, 1]);
+const QI = idx([0, 2, 0, 0]), QJ = idx([0, 0, 2, 0]), QK = idx([0, 0, 0, 2]);
+const INV = U.map(q => idx(qconj(q)));
+const ORDER = U.map((_, i) => { let n = 1, x = i; while (x !== ONE) { x = MUL[i][x]; n++; } return n; });
+
+// Q₈ and its cosets ω^s Q₈: three cross-polytopes (16-cells)
+const Q8 = U.map((_, i) => i).filter(i => U[i].includes(0));
+const COSET = new Array(N).fill(-1);
+{ let w = ONE; for (let s = 0; s < 3; s++) { for (const h of Q8) COSET[MUL[w][h]] = s; w = MUL[OMEGA][w]; } }
+
+// the 24-cell, from distances alone: edges at |p − q|² = 1, cell diagonals at |p − q|² = 2
+const ADJ = U.map(p => U.map(q => dist4(p, q) === 4));
+const EDGES = [], DIAGS = [], TRIS = [];
+for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+  if (ADJ[i][j]) EDGES.push([i, j]);
+  if (dist4(U[i], U[j]) === 8) DIAGS.push([i, j]);
+  for (let k = j + 1; k < N; k++) if (ADJ[i][j] && ADJ[i][k] && ADJ[j][k]) TRIS.push([i, j, k]);
+}
+// an octahedral cell: two vertices at distance √2 and their four common neighbors
+const CELLS = (() => {
+  const seen = new Map();
+  for (const [i, j] of DIAGS) {
+    const common = U.map((_, k) => k).filter(k => ADJ[i][k] && ADJ[j][k]);
+    if (common.length !== 4) continue;
+    const c = [i, j, ...common].sort((a, b) => a - b);
+    seen.set(c.join(','), c);
+  }
+  return [...seen.values()];
+})();
+const CELL_INDEX = new Map(CELLS.map((c, k) => [c.join(','), k]));
+const CELL_FACES = CELLS.map(c => TRIS.filter(t => t.every(v => c.includes(v))));
+// twice the center of a cell is a quaternion of norm 2 (a vertex of the dual 24-cell), in doubled coordinates
+const CELL_CENTER = CELLS.map(c => [0, 1, 2, 3].map(s => c.reduce((a, v) => a + U[v][s], 0) / 3));
+
+const leftPerm = u => U.map((_, i) => MUL[u][i]);
+const imageOf = (u, verts) => verts.map(v => MUL[u][v]).sort((a, b) => a - b).join(',');
+const cellPerm = u => CELLS.map(c => CELL_INDEX.get(imageOf(u, c)));
+function cycleLengths(perm, on) {
+  const seen = new Set(), out = [];
+  for (const s of on || perm.keys()) {
+    if (seen.has(s)) continue;
+    let n = 0;
+    for (let x = s; !seen.has(x); x = perm[x]) { seen.add(x); n++; }
+    out.push(n);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+// reduction mod 3: (a + bi + cj + dk)/2 ↦ 2(a + bI + cJ + dK) in M₂(𝔽₃), I = [0 −1; 1 0], J = [1 1; 1 −1], K = IJ
+const mod3 = x => ((x % 3) + 3) % 3;
+const toSL2 = ([a, b, c, d]) => [2 * (a + c - d), 2 * (-b + c + d), 2 * (b + c + d), 2 * (a - c + d)].map(mod3);
+const m2mul = (A, B) => [A[0] * B[0] + A[1] * B[2], A[0] * B[1] + A[1] * B[3], A[2] * B[0] + A[3] * B[2], A[2] * B[1] + A[3] * B[3]].map(mod3);
+
+// the same units as points of S³ ⊂ ℝ⁴ (floating point from here on), coordinates (1, i, j, k)
+const PT = U.map(q => q.map(x => x / 2));
+const dot4 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+const unit4 = q => { const n = Math.hypot(q[0], q[1], q[2], q[3]); return q.map(x => x / n); };
+const fmul = (p, q) => [
+  p[0] * q[0] - p[1] * q[1] - p[2] * q[2] - p[3] * q[3],
+  p[0] * q[1] + p[1] * q[0] + p[2] * q[3] - p[3] * q[2],
+  p[0] * q[2] - p[1] * q[3] + p[2] * q[0] + p[3] * q[1],
+  p[0] * q[3] + p[1] * q[2] - p[2] * q[1] + p[3] * q[0],
+];
+const fconj = q => [q[0], -q[1], -q[2], -q[3]];
+const lmat = ([a, b, c, d]) => [[a, -b, -c, -d], [b, a, -d, c], [c, d, a, -b], [d, -c, b, a]];   // q ↦ u·q
+const rmat = ([a, b, c, d]) => [[a, -b, -c, -d], [b, a, d, -c], [c, -d, a, b], [d, c, -b, a]];   // q ↦ q·u
+const mat4mul = (A, B) => A.map(r => [0, 1, 2, 3].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j] + r[3] * B[3][j]));
+const mat4vec = (M, v) => M.map(r => dot4(r, v));
+
+// u = cos θ + sin θ·n with n a unit imaginary quaternion: u = exp(θn)
+function axisAngle(ui, fallback) {
+  const q = PT[ui], s = Math.hypot(q[1], q[2], q[3]);
+  return { theta: Math.atan2(s, q[0]), n: s > 1e-9 ? [q[1] / s, q[2] / s, q[3] / s] : fallback };
+}
+// The one-parameter group t ↦ exp(tθn): left multiplication by it is an isoclinic (Clifford) rotation of S³
+// that turns every point along its own great circle, and at t = 1 it is left multiplication by u.
+const flow = (n, theta, t) => { const s = Math.sin(t * theta); return lmat([Math.cos(t * theta), s * n[0], s * n[1], s * n[2]]); };
+/*MATH-END*/
+
+/* ---------- typesetting ---------- */
+
+const T = AV.tex, tx = AV.texify;
+const NAMES = {
+  '2,0,0,0': '1', '-2,0,0,0': '-1', '0,2,0,0': 'i', '0,-2,0,0': '-i', '0,0,2,0': 'j', '0,0,-2,0': '-j', '0,0,0,2': 'k', '0,0,0,-2': '-k',
+  '-1,1,1,1': '\\omega', '-1,-1,-1,-1': '\\omega^2', '1,-1,-1,-1': '-\\omega', '1,1,1,1': '-\\omega^2',
+};
+function unitTex(i) {
+  const q = U[i], k = key(q);
+  if (NAMES[k]) return NAMES[k];
+  const s = (q[0] < 0 ? '-1' : '1') + ['i', 'j', 'k'].map((v, m) => (q[m + 1] < 0 ? '-' : '+') + v).join('');
+  return '\\tfrac{' + s + '}{2}';
+}
+
+/* ---------- the view: a rotation q ↦ A·q·B of ℝ⁴, then stereographic projection from −1 ---------- */
+
+// The picture is the stereographic shadow (w, x, y, z) ↦ (x, y, z)/(1 + w) of S³, seen by a fixed 3D camera
+// (x right, y up, z toward the eye). viewFor puts the point `center` at the origin, `top` straight above it,
+// and `front` at the angle `yaw` to the right of the eye's line of sight.
+function viewFor(center, top, front, yaw) {
+  const A0 = fconj(center), t = fmul(A0, top), s = Math.hypot(t[1], t[2], t[3]);
+  const a = [0, t[1] / s, t[2] / s, t[3] / s];
+  const S0 = a[2] < -0.999 ? [0, 1, 0, 0] : unit4([1, 0, 0, 0].map((x, m) => x - fmul([0, 0, 1, 0], a)[m]));   // turns a to j
+  const f = fmul(fmul(S0, fmul(A0, front)), fconj(S0)), psi = yaw - Math.atan2(f[1], f[3]);
+  const S = unit4(fmul([Math.cos(psi / 2), 0, Math.sin(psi / 2), 0], S0));
+  return { A: unit4(fmul(S, A0)), B: fconj(S) };
+}
+const VIEW = {
+  lipschitz: { ...viewFor(unit4([1, 1, 1, 1]), unit4([1, 1, 0, 0]), [0, 0, 0, 1], 0.42), Rs: 2.5 },    // a tetrahedral cell of the 16-cell in the middle
+  hurwitz: { ...viewFor(unit4([1, 1, 0, 0]), [1, 0, 0, 0], [0.5, 0.5, 0.5, 0.5], 0.62), Rs: 2.85 },       // an octahedral cell of the 24-cell in the middle
+};
+const view = { A: VIEW.lipschitz.A.slice(), B: VIEW.lipschitz.B.slice(), Rs: VIEW.lipschitz.Rs };
+const viewMatrix = () => mat4mul(lmat(view.A), rmat(view.B));
+function slerp(p, q, t) {
+  const d = AV.clamp(dot4(p, q), -1, 1), th = Math.acos(d);
+  if (th < 1e-4 || Math.PI - th < 1e-4) return unit4(p.map((x, m) => x + (q[m] - x) * t));
+  return p.map((x, m) => (Math.sin((1 - t) * th) * x + Math.sin(t * th) * q[m]) / Math.sin(th));
+}
+/* Dragging turns the picture in two orthogonal planes of ℝ⁴, so the two drag directions commute:
+     horizontal → the xz-plane: an ordinary turntable spin of the shadow about its vertical axis;
+     vertical   → the yw-plane: the vertical axis rotates into the fourth dimension, so the shadow flows
+                  up or down through the center, out past infinity and back (the inside becomes the outside).
+   With q ↦ A q B, multiplying A on the left by exp(jα) and B on the right by exp(jβ) turns the (1, j)-plane
+   by α + β and the (k, i)-plane by α − β. */
+function turn(psi, phi) {
+  const a = (psi + phi) / 2, b = (phi - psi) / 2;
+  view.A = unit4(fmul([Math.cos(a), 0, Math.sin(a), 0], view.A));
+  view.B = unit4(fmul(view.B, [Math.cos(b), 0, Math.sin(b), 0]));
+}
+
+/* ---------- state ---------- */
+
+const PAL = [AV.C.accent, AV.C.amber, AV.C.rose];              // the cosets Q₈, ωQ₈, ω²Q₈
+const PALF = PAL.map(h => AV.hexRgb(h).map(x => x / 255));
+const CAM_D = 22, PITCH = 0.3, CP = Math.cos(PITCH), SP = Math.sin(PITCH);
+const RHO_E = 0.02, RHO_V = 0.072, GAMMA = 0.4, FAR = [3.3, 6.6], FAR_GLASS = [2.5, 3.9], FAR_RING = [2.7, 4.8];
+const OMEGA_AXIS = axisAngle(OMEGA).n;
+
+let app = null, labels = null;
+let geom = { x: 0, y: 0, r: 100 };
+let mode = 'lipschitz', mix = 0;          // mix: 0 = the 16-cell of Lipschitz units, 1 = the 24-cell
+let g = ONE;                              // the unit applied so far: the point that started at q now sits at g·q
+let lastU = -1, lastAxis = OMEGA_AXIS;
+let anim = null, animId = 0;              // a unit being applied: { ui, n, theta, t }
+const ring = { fade: 0, n: 0 };           // the great circles the points travel along
+let markFade = 1, hands = false, dragging = false, turned = false, viewTok = 0;
+let spots = [];                           // where each of the 24 places is on screen (for taps and labels)
+
+const colorOf = k => PALF[((k - COSET[g]) % 3 + 3) % 3];       // the color now sitting on the place coset k
+let colNow = [0, 1, 2].map(colorOf), colTok = 0;
+function recolor(ms) {
+  const id = ++colTok, from = colNow, to = [0, 1, 2].map(colorOf);
+  if (!ms || !app) { colNow = to; return; }
+  app.tween(ms, u => { if (id === colTok) colNow = from.map((c, k) => c.map((x, m) => x + (to[k][m] - x) * u)); }, { key: 'colors' });
+}
+
+const CELL0 = CELL_INDEX.get([ONE, QI, idx([1, 1, 1, 1]), idx([1, 1, 1, -1]), idx([1, 1, -1, 1]), idx([1, 1, -1, -1])].sort((a, b) => a - b).join(','));
+const CELL_PERM = U.map((_, u) => cellPerm(u));
+
+/* ---------- actions ---------- */
+
+function stopAnim() { anim = null; animId++; ring.fade = 0; }
+
+// Multiply every point on the left by the unit u: the genuine rotation t ↦ exp(tθn)·q, 0 ≤ t ≤ 1.
+function apply(ui) {
+  if (anim || ui === ONE || !app) return false;
+  const { n, theta } = axisAngle(ui, lastAxis), id = ++animId;
+  lastAxis = n; lastU = ui;
+  anim = { ui, n, theta, t: 0, id };
+  buildRings(n);
+  app.tween(260, v => { if (animId === id) ring.fade = v; }, { key: 'ring' });
+  app.tween(Math.min(1400, 380 + 480 * theta), v => { if (anim && anim.id === id) anim.t = v; }, { key: 'apply' }).then(() => {
+    if (!anim || anim.id !== id) return;
+    g = MUL[ui][g];                       // exact: the configuration is now the permuted one, the view untouched
+    anim = null;
+    recolor(0);
+    app.tween(1500, v => { if (animId === id) ring.fade = 1 - AV.clamp((v - 0.45) / 0.55, 0, 1); }, { key: 'ring', ease: 'linear' });
+    app.redraw();
+  });
+  return true;
+}
+function resetG() {
+  stopAnim();
+  lastU = -1; lastAxis = OMEGA_AXIS;
+  if (g === ONE) return;
+  g = ONE;
+  recolor(500);
+  markFade = 0;
+  app.tween(600, u => { markFade = u; }, { key: 'mark' });
+}
+function tweenView(to, ms = 1100) {
+  const id = ++viewTok, A0 = view.A.slice(), B0 = view.B.slice(), R0 = view.Rs;
+  const flip = dot4(A0, to.A) < 0, A1 = flip ? to.A.map(x => -x) : to.A, B1 = flip ? to.B.map(x => -x) : to.B;   // (A, B) and (−A, −B) are the same rotation
+  turned = false;
+  app.tween(ms, u => {
+    if (id !== viewTok) return;
+    view.A = slerp(A0, A1, u); view.B = slerp(B0, B1, u); view.Rs = AV.lerp(R0, to.Rs, u);
+  }, { key: 'view' });
+}
+function setMode(m, quiet) {
+  if (quiet) app.set('units', m, { silent: true });
+  if (m === mode) { if (turned) tweenView(VIEW[m]); return; }
+  mode = m;
+  const m0 = mix, m1 = m === 'hurwitz' ? 1 : 0;
+  app.tween(1000, u => { if (mode === m) mix = AV.lerp(m0, m1, u); }, { key: 'mix' });
+  tweenView(VIEW[m]);
+}
+function enterStep(m) { hands = false; resetG(); setMode(m, true); }
+
+/* ---------- the stage: tubes along great-circle arcs, drawn after stereographic projection (WebGL2) ---------- */
+
+const CAMERA = `
+uniform vec4 uCam;   // cos pitch, sin pitch, camera distance, focal length in px
+uniform vec4 uScr;   // center x, center y, width, height in CSS px
+vec4 toClip(vec3 W, out float zv) {
+  float Y = W.y * uCam.x - W.z * uCam.y, Z = W.y * uCam.y + W.z * uCam.x;
+  float zc = uCam.z - Z;
+  zv = Z;
+  vec2 px = vec2(uScr.x + uCam.w * W.x / zc, uScr.y - uCam.w * Y / zc);
+  vec2 ndc = vec2(px.x / uScr.z * 2.0 - 1.0, 1.0 - px.y / uScr.w * 2.0);
+  const float n = 1.0, f = 80.0;
+  return vec4(ndc * zc, ((f + n) / (f - n) - 2.0 * f * n / ((f - n) * zc)) * zc, zc);
+}`;
+// An arc cos(t)·A + sin(t)·B of a great circle of S³. Its normal plane in S³ is spanned by N1, N2 (constant along
+// the arc); stereographic projection is conformal, so their images are orthonormal up to the scale 1/(1 + w)
+// and sweep out a round tube around the projected arc, which is an arc of a true circle.
+const TUBE_VS = `#version 300 es
+precision highp float;
+layout(location = 0) in vec2 aSA;     // position along the arc in [0, 1], angle around the tube
+layout(location = 1) in vec4 iA;
+layout(location = 2) in vec4 iB;
+layout(location = 3) in vec4 iN1;
+layout(location = 4) in vec4 iN2;
+layout(location = 5) in vec4 iK;      // arc angle, coset of its start, coset of its end
+uniform mat4 uM;
+uniform vec3 uCol[3];
+uniform vec3 uShow;
+uniform float uKind, uRho, uGamma, uGrow, uTint, uInk;
+out vec3 vN, vP, vCol;
+out float vZ, vEm, vLam;
+${CAMERA}
+void main() {
+  float t = aSA.x * iK.x;
+  vec4 q = uM * (cos(t) * iA + sin(t) * iB);
+  float lam = 1.0 / max(1.0 + q.x, 1e-4);
+  vec3 P = q.yzw * lam;
+  vec4 n1 = uM * iN1, n2 = uM * iN2;
+  vec3 D1 = normalize(n1.yzw - P * n1.x), D2 = normalize(n2.yzw - P * n2.x);
+  vec3 dir = cos(aSA.y) * D1 + sin(aSA.y) * D2;
+  int ka = int(iK.y + 0.5), kb = int(iK.z + 0.5);
+  const vec3 steel = vec3(0.56, 0.60, 0.70);
+  float grow = uGrow;
+  if (uKind < 0.5) vCol = mix(steel, mix(uCol[ka], uCol[kb], smoothstep(0.12, 0.88, aSA.x)), uTint);
+  else if (uKind < 1.5) { vCol = mix(steel, uCol[ka], 0.75); grow = 0.9 * uShow[ka]; }
+  else vCol = mix(steel, vec3(0.925, 0.922, 0.902), uInk);
+  float rad = uRho * grow * pow(min(lam, 40.0), uGamma);
+  vec3 W = P + rad * dir;
+  vN = dir; vP = W; vEm = uKind > 1.5 ? 0.5 * uInk : 0.0; vLam = lam;
+  gl_Position = toClip(W, vZ);
+}`;
+const BALL_VS = `#version 300 es
+precision highp float;
+layout(location = 0) in vec3 aDir;
+layout(location = 1) in vec4 iP;
+layout(location = 2) in vec2 iK;      // coset, index
+uniform mat4 uM;
+uniform vec3 uCol[3];
+uniform vec3 uVis;
+uniform float uRho, uGamma, uMark;
+out vec3 vN, vP, vCol;
+out float vZ, vEm, vLam;
+${CAMERA}
+void main() {
+  vec4 q = uM * iP;
+  float lam = 1.0 / max(1.0 + q.x, 1e-4);
+  int k = int(iK.x + 0.5);
+  float rad = uRho * uVis[k] * (abs(iK.y - uMark) < 0.5 ? 1.3 : 1.0) * pow(min(lam, 40.0), uGamma);
+  vec3 W = q.yzw * lam + rad * aDir;
+  vN = aDir; vP = W; vCol = uCol[k]; vEm = 1.0; vLam = lam;
+  gl_Position = toClip(W, vZ);
+}`;
+const SOLID_FS = `#version 300 es
+precision highp float;
+in vec3 vN, vP, vCol;
+in float vZ, vEm, vLam;
+out vec4 o;
+uniform vec3 uEye, uLight;
+uniform float uRs;
+uniform vec2 uFar;
+//#AV
+float hash(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+void main() {
+  vec3 N = normalize(vN), V = normalize(uEye - vP);
+  if (dot(N, V) < 0.0) N = -N;
+  float diff = 0.5 + 0.5 * dot(N, uLight);
+  float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+  float spec = pow(max(dot(reflect(-uLight, N), V), 0.0), 40.0);
+  vec3 matte = vCol * (0.25 + 0.75 * diff * diff) + 0.12 * rim * vCol + 0.14 * spec;
+  vec3 lit = vCol * (0.55 + 0.55 * diff) + 0.22 * rim + 0.2 * spec;
+  vec3 col = mix(matte, lit, vEm);
+  col = mix(AV_BG, col, 0.36 + 0.64 * smoothstep(-uRs, uRs, vZ));          // depth cue: the far side sinks into the ground
+  // Whatever swings out toward the pole dissolves. The distance from the center is read off the conformal factor
+  // (1 + r²)/2, so a mesh segment that straddles the pole (a chord through the picture) is dropped as well.
+  float fade = 1.0 - smoothstep(uFar.x, uFar.y, sqrt(max(2.0 * vLam - 1.0, 0.0)));
+  if (smoothstep(0.0, 0.32, fade) <= hash(gl_FragCoord.xy)) discard;
+  o = vec4(mix(AV_BG, col, fade), 1.0);
+}`;
+const FACE_VS = `#version 300 es
+precision highp float;
+layout(location = 0) in vec4 aQ;
+layout(location = 1) in vec4 aNu;     // the unit normal, inside S³, of the great sphere carrying this face
+uniform mat4 uM;
+out vec3 vP, vN;
+out float vZ, vLam;
+${CAMERA}
+void main() {
+  vec4 q = uM * aQ;
+  vLam = 1.0 / max(1.0 + q.x, 1e-4);
+  vP = q.yzw * vLam;
+  vec4 nu = uM * aNu;
+  vN = nu.yzw - vP * nu.x;              // conformal: the image of the normal is the normal of the image
+  gl_Position = toClip(vP, vZ);
+}`;
+const FACE_FS = `#version 300 es
+precision highp float;
+in vec3 vP, vN;
+in float vZ, vLam;
+out vec4 o;
+uniform vec3 uEye, uLight;
+uniform float uRs, uAlpha;
+uniform vec2 uFar;
+//#AV
+void main() {
+  vec3 N = normalize(vN), V = normalize(uEye - vP);
+  if (dot(N, V) < 0.0) N = -N;
+  float fres = pow(1.0 - dot(N, V), 2.0), spec = pow(max(dot(reflect(-uLight, N), V), 0.0), 60.0);
+  float a = uAlpha * (0.055 + 0.3 * fres + 0.35 * spec) * (0.45 + 0.55 * smoothstep(-uRs, uRs, vZ)) * (1.0 - smoothstep(uFar.x, uFar.y, sqrt(max(2.0 * vLam - 1.0, 0.0))));
+  a *= clamp(0.62 / vLam, 0.0, 1.15);                                   // a cell swollen by the projection thins to a veil
+  o = vec4(AV_INK * a, a);
+}`;
+
+const G = { ready: false };
+const SEG = 20, SIDES = 10, RING_MAX = 36;
+
+// two unit vectors spanning the orthogonal complement of the orthonormal pair a, b
+function complement(a, b) {
+  const out = [];
+  for (let e = 0; e < 4 && out.length < 2; e++) {
+    let v = [0, 0, 0, 0]; v[e] = 1;
+    for (const w of [a, b, ...out]) { const d = dot4(v, w); v = v.map((x, m) => x - d * w[m]); }
+    const n = Math.hypot(v[0], v[1], v[2], v[3]);
+    if (n > 0.4) out.push(v.map(x => x / n));
+  }
+  return out;
+}
+function arcInstance(a, b, ka, kb) {
+  const c = dot4(a, b), bp = unit4(b.map((x, m) => x - c * a[m])), [n1, n2] = complement(a, bp);
+  return [...a, ...bp, ...n1, ...n2, Math.acos(AV.clamp(c, -1, 1)), ka, kb, 0];
+}
+function setupGL(gl) {
+  G.tube = AV.gl.program(gl, TUBE_VS, SOLID_FS);
+  G.ball = AV.gl.program(gl, BALL_VS, SOLID_FS);
+  G.face = AV.gl.program(gl, FACE_VS, FACE_FS);
+  const buffer = (data, target = gl.ARRAY_BUFFER, usage = gl.STATIC_DRAW) => { const b = gl.createBuffer(); gl.bindBuffer(target, b); gl.bufferData(target, data, usage); return b; };
+  const attrib = (loc, size, stride, off, div) => { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, off); gl.vertexAttribDivisor(loc, div); };
+
+  // a unit tube: (SEG + 1) × (SIDES + 1) vertices
+  const tv = [], ti = [];
+  for (let s = 0; s <= SEG; s++) for (let a = 0; a <= SIDES; a++) tv.push(s / SEG, 2 * Math.PI * a / SIDES);
+  for (let s = 0; s < SEG; s++) for (let a = 0; a < SIDES; a++) {
+    const p = s * (SIDES + 1) + a, q = p + SIDES + 1;
+    ti.push(p, q, p + 1, p + 1, q, q + 1);
+  }
+  const tubeV = buffer(new Float32Array(tv));
+  G.tubeN = ti.length;
+  const tubeVAO = (data, usage) => {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, tubeV); attrib(0, 2, 0, 0, 0);
+    buffer(new Uint16Array(ti), gl.ELEMENT_ARRAY_BUFFER);
+    const buf = buffer(data, gl.ARRAY_BUFFER, usage);
+    for (let k = 0; k < 5; k++) attrib(1 + k, 4, 80, 16 * k, 1);
+    gl.bindVertexArray(null);
+    return { vao, buf };
+  };
+  G.e24 = tubeVAO(new Float32Array(EDGES.flatMap(([i, j]) => arcInstance(PT[i], PT[j], COSET[i], COSET[j]))));
+  G.e16 = tubeVAO(new Float32Array(DIAGS.flatMap(([i, j]) => arcInstance(PT[i], PT[j], COSET[i], COSET[j]))));
+  G.rings = tubeVAO(new Float32Array(RING_MAX * 20), gl.DYNAMIC_DRAW);
+  G.outline = tubeVAO(new Float32Array(12 * 20), gl.DYNAMIC_DRAW);
+  G.outlined = -1;
+
+  // a unit sphere for the vertices
+  const sv = [], si = [], LA = 14, LO = 22;
+  for (let a = 0; a <= LA; a++) for (let b = 0; b <= LO; b++) {
+    const th = Math.PI * a / LA, ph = 2 * Math.PI * b / LO;
+    sv.push(Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph));
+  }
+  for (let a = 0; a < LA; a++) for (let b = 0; b < LO; b++) {
+    const p = a * (LO + 1) + b, q = p + LO + 1;
+    si.push(p, q, p + 1, p + 1, q, q + 1);
+  }
+  G.ballN = si.length;
+  G.ballVAO = gl.createVertexArray();
+  gl.bindVertexArray(G.ballVAO);
+  buffer(new Float32Array(sv)); attrib(0, 3, 0, 0, 0);
+  buffer(new Uint16Array(si), gl.ELEMENT_ARRAY_BUFFER);
+  buffer(new Float32Array(PT.flatMap((p, i) => [...p, COSET[i], i]))); attrib(1, 4, 24, 0, 1); attrib(2, 2, 24, 16, 1);
+  gl.bindVertexArray(null);
+
+  // the 8 spherical triangles of each octahedral cell, subdivided on S³
+  const fv = [], SUB = 10;
+  const corner = (a, b, c, u, v) => unit4([0, 1, 2, 3].map(m => a[m] * (SUB - u - v) + b[m] * u + c[m] * v));
+  for (const faces of CELL_FACES) for (const [i, j, k] of faces) {
+    const a = PT[i], b = PT[j], c = PT[k];
+    let nu = [1, 0.37, 0.61, 0.83];                        // any vector off the face's hyperplane, made orthogonal to a, b, c
+    const frame = [];
+    for (const w of [a, b, c]) { let v = w; for (const e of frame) { const d = dot4(v, e); v = v.map((x, m) => x - d * e[m]); } frame.push(unit4(v)); }
+    for (const e of frame) { const d = dot4(nu, e); nu = nu.map((x, m) => x - d * e[m]); }
+    nu = unit4(nu);
+    const put = (u, v) => fv.push(...corner(a, b, c, u, v), ...nu);
+    for (let u = 0; u < SUB; u++) for (let v = 0; v < SUB - u; v++) {
+      put(u, v); put(u + 1, v); put(u, v + 1);
+      if (u + v < SUB - 1) { put(u + 1, v); put(u + 1, v + 1); put(u, v + 1); }
+    }
+  }
+  G.faceN = fv.length / 8 / CELLS.length;
+  G.faceVAO = gl.createVertexArray();
+  gl.bindVertexArray(G.faceVAO);
+  buffer(new Float32Array(fv)); attrib(0, 4, 32, 0, 0); attrib(1, 4, 32, 16, 0);
+  gl.bindVertexArray(null);
+  G.ready = true;
+}
+
+// The orbits of the flow exp(tn): great circles through the places on stage, each a ring of six 60° arcs.
+function orbitCircles(n, places) {
+  const nq = [0, n[0], n[1], n[2]], circles = [];
+  for (const p of places) {
+    const a = PT[p], b = fmul(nq, a);
+    if (circles.some(c => dot4(c.a, a) ** 2 + dot4(c.b, a) ** 2 > 1 - 1e-9)) continue;
+    circles.push({ a, b });
+  }
+  return circles;
+}
+function buildRings(n) {
+  const circles = orbitCircles(n, placesNow()).slice(0, RING_MAX / 6), data = [];
+  for (const { a, b } of circles) {
+    const [n1, n2] = complement(a, b);
+    for (let m = 0; m < 6; m++) {
+      const c = Math.cos(m * Math.PI / 3), s = Math.sin(m * Math.PI / 3);
+      data.push(...a.map((x, e) => c * x + s * b[e]), ...a.map((x, e) => -s * x + c * b[e]), ...n1, ...n2, Math.PI / 3, 0, 0, 0);
+    }
+  }
+  ring.n = data.length / 20;
+  if (!G.ready) return;
+  const gl = app.gl;
+  gl.bindBuffer(gl.ARRAY_BUFFER, G.rings.buf);
+  gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+}
+
+function renderGL(a, M, f) {
+  const gl = a.gl;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.disable(gl.SCISSOR_TEST);
+  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+  gl.clearColor(7 / 255, 9 / 255, 13 / 255, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND);
+  const uM = new Float32Array(16);
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) uM[c * 4 + r] = M[r][c];
+  const common = { uM, uCam: [CP, SP, CAM_D, f], uScr: [geom.x, geom.y, a.W, a.H], uGamma: GAMMA, uEye: [0, CAM_D * SP, CAM_D * CP], uLight: [-0.42, 0.72, 0.55], uRs: view.Rs, uFar: FAR };
+  const cols = new Float32Array(colNow.flat()), s = COSET[g];
+  const vis = [0, 1, 2].map(k => (k === s ? 1 : mix)), show16 = [0, 1, 2].map(k => (k === s ? 1 - mix : 0));
+
+  G.ball.set({ ...common, uVis: vis, uRho: RHO_V, uMark: g });
+  gl.uniform3fv(G.ball.u('uCol'), cols);
+  gl.bindVertexArray(G.ballVAO);
+  gl.drawElementsInstanced(gl.TRIANGLES, G.ballN, gl.UNSIGNED_SHORT, 0, N);
+
+  G.tube.set({ ...common, uShow: show16, uRho: RHO_E, uTint: 0.42 });
+  gl.uniform3fv(G.tube.u('uCol'), cols);
+  const tubes = (set, kind, grow, count) => {
+    G.tube.set({ uKind: kind, uGrow: grow });
+    gl.bindVertexArray(set.vao);
+    gl.drawElementsInstanced(gl.TRIANGLES, G.tubeN, gl.UNSIGNED_SHORT, 0, count);
+  };
+  if (mix > 0.002) tubes(G.e24, 0, mix, EDGES.length);
+  if (mix < 0.998) tubes(G.e16, 1, 1, DIAGS.length);
+  if (ring.n && ring.fade > 0.002) { G.tube.set({ uRho: RHO_E * 1.22, uInk: 0.62, uFar: FAR_RING }); tubes(G.rings, 2, ring.fade, ring.n); G.tube.set({ uFar: FAR }); }
+
+  // the marked cell: its twelve edges in white, its eight faces as glass
+  const alpha = mix * markFade, cell = CELL_PERM[g][CELL0];
+  if (alpha > 0.01) {
+    if (G.outlined !== cell) {
+      G.outlined = cell;
+      const c = CELLS[cell], data = EDGES.filter(([i, j]) => c.includes(i) && c.includes(j)).flatMap(([i, j]) => arcInstance(PT[i], PT[j], 0, 0));
+      gl.bindBuffer(gl.ARRAY_BUFFER, G.outline.buf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    }
+    G.tube.set({ uRho: RHO_E * 1.3, uInk: 1 });
+    tubes(G.outline, 2, alpha, 12);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    G.face.set({ ...common, uAlpha: alpha, uFar: FAR_GLASS });
+    gl.bindVertexArray(G.faceVAO);
+    gl.drawArrays(gl.TRIANGLES, cell * G.faceN, G.faceN);
+    gl.depthMask(true); gl.disable(gl.BLEND);
+  }
+  gl.bindVertexArray(null);
+}
+
+/* ---------- drawing ---------- */
+
+const placesNow = () => (mode === 'hurwitz' ? U.map((_, i) => i) : Q8).map(q => MUL[g][q]);    // the places occupied on stage
+
+// The live check, exact: is the set on stage closed, of norm 1, and carried to itself by the last unit applied?
+const checked = { key: '' };
+function check() {
+  const u = lastU >= 0 ? lastU : OMEGA, k = mode + '|' + g + '|' + u;
+  if (checked.key === k) return checked;
+  const P = placesNow(), set = new Set(P);
+  const has = q => INDEX.has(key(q)) && set.has(INDEX.get(key(q)));
+  checked.key = k; checked.u = u; checked.count = P.length;
+  checked.closed = P.every(p => P.every(q => has(qmul(U[p], U[q]))));
+  checked.norm = P.every(p => norm4(U[p]) === 4);
+  const image = new Map(P.map(p => [p, idx(qmul(U[u], U[p]))]));
+  checked.same = P.every(p => set.has(image.get(p)));
+  checked.cycle = 0;
+  if (checked.same) {
+    const lens = new Set(cycleLengths(U.map((_, i) => image.get(i)), P));
+    if (mode === 'hurwitz') for (const n of cycleLengths(CELL_PERM[u])) lens.add(n);
+    if (lens.size === 1) checked.cycle = [...lens][0];
+  }
+  return checked;
+}
+
+function draw(a) {
+  const o = a.octx, f = geom.r * Math.sqrt(CAM_D * CAM_D - view.Rs * view.Rs) / view.Rs;
+  const V = viewMatrix(), M = anim ? mat4mul(V, flow(anim.n, anim.theta, anim.t)) : V;
+  if (a.gl && G.ready) renderGL(a, M, f);
+
+  // the same projection on the CPU, for the marker, the labels and taps
+  const project = (Mx, p, boost = 1) => {
+    const [w, x, y, z] = mat4vec(Mx, p), d = 1 + w;
+    if (d < 0.03) return null;
+    const Y = (y * CP - z * SP) / d, zc = CAM_D - (y * SP + z * CP) / d;
+    if (zc < 1) return null;
+    const k = f / zc;
+    return { x: geom.x + k * x / d, y: geom.y - k * Y, r: k * RHO_V * boost * Math.pow(Math.min(1 / d, 40), GAMMA), far: Math.hypot(x, y, z) / d };
+  };
+  const s = COSET[g];
+  spots = PT.map((p, i) => { const q = project(M, p, i === g ? 1.3 : 1); return q && (COSET[i] === s || mix > 0.5) && q.far < FAR[1] ? q : null; });
+
+  // a soft halo in each vertex's color
+  o.globalCompositeOperation = 'lighter';
+  spots.forEach((q, i) => {
+    if (!q) return;
+    const vis = COSET[i] === s ? 1 : mix, R = q.r * 3.2, c = colNow[COSET[i]].map(x => 255 * x);
+    const dim = vis * (1 - AV.clamp((q.far - FAR[0]) / (FAR[1] - FAR[0]), 0, 1)) * 0.2;
+    if (dim < 0.01 || R < 1) return;
+    const gr = o.createRadialGradient(q.x, q.y, q.r * 0.6, q.x, q.y, R);
+    gr.addColorStop(0, AV.rgba(c, dim)); gr.addColorStop(1, AV.rgba(c, 0));
+    o.fillStyle = gr;
+    o.beginPath(); o.arc(q.x, q.y, R, 0, 2 * Math.PI); o.fill();
+  });
+  o.globalCompositeOperation = 'source-over';
+
+  const lab = [];
+  const outward = q => {
+    const dx = q.x - geom.x, dy = q.y - geom.y, d = Math.hypot(dx, dy);
+    const ux = d > 14 ? dx / d : 0.62, uy = d > 14 ? dy / d : -0.78;
+    return [q.x + ux * (q.r + 13), q.y + uy * (q.r + 12)];
+  };
+  const named = mix < 0.5 && s === 0;                 // the Lipschitz places carry their names
+  if (named) for (const i of Q8) {
+    const q = project(V, PT[i], i === g ? 1.3 : 1);
+    if (!q || q.far > FAR[0]) continue;
+    const [x, y] = outward(i === g ? { ...q, r: q.r + 6 } : q);
+    lab.push({ key: 'u' + i, x, y, tex: unitTex(i), size: 16, color: i === g ? AV.C.ink : AV.C.ink2 });
+  }
+  // where the marked point goes under the powers of the unit: one faint ring for each place of its cycle
+  const c = check(), m = spots[g];
+  if (c.same && lastU >= 0) for (let p = MUL[c.u][g]; p !== g; p = MUL[c.u][p]) {
+    const q = project(V, PT[p], 1.3);
+    if (q && q.far < FAR[0]) AV.ring(o, q.x, q.y, q.r + 5.5, 'rgba(236,235,230,' + 0.3 * markFade + ')', 1);
+  }
+  if (m && markFade > 0.02) {
+    o.globalAlpha = markFade;
+    AV.ring(o, m.x, m.y, m.r + 5.5, 'rgba(236,235,230,0.9)', 1.4);
+    o.globalAlpha = 1;
+    if (!named) { const [x, y] = outward({ ...m, r: m.r + 6 }); lab.push({ key: 'mark', x, y, tex: unitTex(g), size: 17, opacity: markFade }); }
+  }
+  if (labels) labels.set(lab);
+
+  const dotOf = k => '<i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 5px 0 ' + (k ? 10 : 0) + 'px;background:' + PAL[k] + '"></i>';
+  const what = c.count === 24 ? T('24') + ' Hurwitz units' : s === 0 ? T('8') + ' Lipschitz units' : 'the coset ' + T(s === 1 ? '\\omega Q_8' : '\\omega^2Q_8');
+  a.readout('<span class="big">' + what + '</span>' +
+    '<br><span class="k">closed</span> ' + AV.ok(c.closed) + ' &nbsp;<span class="k">norm</span> ' + T('1') + ' ' + AV.ok(c.norm) +
+    '<br>' + T(unitTex(c.u) + '\\,V=V') + ' ' + AV.ok(c.same) + ' &nbsp;' +
+    (c.same ? '<span class="k">in cycles of</span> ' + T(String(c.cycle)) : '<span class="k">another 16-cell</span>') +
+    '<small>' + dotOf(0) + T('Q_8') + dotOf(1) + T('\\omega Q_8') + dotOf(2) + T('\\omega^2Q_8') + '</small>');
+}
+
+/* ---------- the page ---------- */
+
+const DEMO = [QI, idx([1, -1, -1, -1]), QJ, idx([1, 1, 1, -1]), MINUS, QK];     // orders 4, 6, 4, 6, 2, 4
+app = AV.page({
+  title: 'The 24-Cell and the Hurwitz Units',
+  hook: 'The 24 unit Hurwitz quaternions are the corners of a perfect four-dimensional solid.',
+  date: '2026-11-09',
+  credit: 'generated by Claude (Fable 5)',
+  hint: 'drag to turn in 4D · tap a corner to multiply by it',
+  stage: 'webgl2',
+  glOptions: { antialias: true, preserveDrawingBuffer: true },
+  posterStep: 1,
+  posterDelay: 2400,
+  controls: [
+    { type: 'play' },
+    { type: 'segmented', id: 'units', label: 'Units', value: 'lipschitz',
+      options: [{ value: 'lipschitz', label: 'Lipschitz' }, { value: 'hurwitz', label: 'Hurwitz' }], onChange: v => setMode(v) },
+    { type: 'button', id: 'apply', label: 'apply ' + T('\\omega'), key: 'w', primary: true, title: 'Multiply every point by this unit, on the left',
+      onClick: () => { hands = true; apply(OMEGA); } },
+  ],
+  tour: [
+    { text: tx('Eight unit quaternions, $\\pm1,\\pm i,\\pm j,\\pm k$, on the sphere $S^3$. Stereographic projection flattens it and edges become circular arcs: a 16-cell.'),
+      enter: a => { enterStep('lipschitz'); a.play(); } },
+    { text: tx('Add the sixteen units $\\tfrac12(\\pm1\\pm i\\pm j\\pm k)$. All 24 Hurwitz units are the corners of the 24-cell. Drag to turn it.'),
+      enter: a => { enterStep('hurwitz'); a.play(); } },
+    { text: tx('Multiply every point by $\\omega=\\tfrac12(-1+i+j+k)$. The 24-cell glides onto itself; its three colored 16-cells trade places: $\\omega^3=1$.'),
+      enter: a => { enterStep('hurwitz'); a.pause(); a.pulse('apply'); a.after(1100, () => apply(OMEGA)); a.every(4600, () => { if (!hands) apply(OMEGA); }); } },
+    { text: tx('Tap any corner to multiply by it. The 24 units form the binary tetrahedral group $2T\\cong\\mathrm{SL}_2(\\mathbb{F}_3)$.'),
+      enter: a => { enterStep('hurwitz'); a.play(); let k = 0; a.after(1100, () => apply(DEMO[0])); a.every(4400, () => { if (!hands) apply(DEMO[++k % DEMO.length]); }); } },
+  ],
+  math: tx(`<p>The <b>Hurwitz order</b> $\\mathcal{O}=\\mathbb{Z}\\langle i,j,\\omega\\rangle$, $\\omega=\\tfrac12(-1+i+j+k)$, is a maximal order in the quaternion algebra
+    $\\left(\\tfrac{-1,-1}{\\mathbb{Q}}\\right)$. It is Euclidean, which is how Hurwitz proved Lagrange's four-square theorem.
+    Its 24 units form the binary tetrahedral group $2T\\cong\\mathrm{SL}_2(\\mathbb{F}_3)$, by reduction mod 3.</p>
+    <p>They are the vertices of the regular <b>24-cell</b> $\\{3,4,3\\}$: 24 vertices, 96 edges, 96 triangles, 24 octahedral cells, self-dual.
+    Left multiplication by a unit is an isoclinic rotation of $S^3$ preserving it. The cosets of $Q_8=\\{\\pm1,\\pm i,\\pm j,\\pm k\\}$ are three inscribed 16-cells, cycled by $\\omega$.</p>
+    <p class="ref">Hurwitz 1896, 1919; Schläfli 1852; Coxeter, <i>Regular Polytopes</i>, 1948.</p>`),
+  setup: a => {
+    app = a;
+    labels = AV.texLabels(a);
+    if (a.gl) setupGL(a.gl);                              // no WebGL2: the page stays dark but does not throw
+  },
+  step: dt => { if (!anim && !dragging) turn(dt * 0.2, 0); },
+  draw,
+});
+
+app.onResize(a => { geom = a.fitCircle(a.mode === 'full' ? 4 : 0); if (a.mode !== 'full') geom.r *= 0.88; });   // geometry only: never the mathematical state
+
+function pick(p) {
+  let best = -1, bd = Infinity;
+  spots.forEach((q, i) => {
+    if (!q) return;
+    const d = Math.hypot(q.x - p.x, q.y - p.y);
+    if (d < Math.max(16, q.r + 7) && d - q.r < bd) { bd = d - q.r; best = i; }
+  });
+  return best;
+}
+app.pointer({
+  down: () => { hands = true; },
+  drag: (p, d) => { dragging = true; turned = true; viewTok++; turn(d.dx * 0.006, -d.dy * 0.006); app.cursor('grabbing'); },
+  up: () => { dragging = false; app.cursor('grab'); },
+  tap: p => { const i = pick(p); if (i >= 0) apply(i); },
+  hover: p => { if (!dragging) app.cursor(pick(p) >= 0 ? 'pointer' : 'grab'); },
+  dbl: p => { if (pick(p) < 0) tweenView(VIEW[mode], 900); },          // double-click the ground: back to the home view
+});
+app.cursor('grab');
+
+/* ---------- self-checks: known facts, run on every load ---------- */
+
+const count = (arr, f) => arr.filter(f).length;
+AV.test('the units of the Hurwitz order: 24 quaternions of norm 1 (8 Lipschitz + 16 half-integer)', () => {
+  const found = new Set();
+  for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (let c = -2; c <= 2; c++) for (let d = -2; d <= 2; d++) {
+    const q = [a, b, c, d];
+    if (norm4(q) === 4 && q.every(x => (x - a) % 2 === 0)) found.add(key(q));
+  }
+  return (found.size === 24 && U.every(q => found.has(key(q)) && norm4(q) === 4) && Q8.length === 8) || found.size + ' units';
+});
+AV.test('closed under multiplication and inverses (576 exact products over ½ℤ)', () => {
+  for (const p of U) for (const q of U) {
+    let r;
+    try { r = qmul(p, q); } catch (e) { return key(p) + ' · ' + key(q) + ' is not integral'; }
+    if (!INDEX.has(key(r))) return key(p) + ' · ' + key(q) + ' is not a unit';
+  }
+  return U.every((_, i) => MUL[i][INV[i]] === ONE && MUL[ONE][i] === i) || 'no inverses';
+});
+AV.test('2T class structure: 1, 1, 8, 6, 8 elements of order 1, 2, 3, 4, 6', () => {
+  const got = [1, 2, 3, 4, 6].map(n => count(ORDER, x => x === n)).join(',');
+  return got === '1,1,8,6,8' || got;
+});
+AV.test('ω = (−1+i+j+k)/2 has order 3, −ω has order 6, i has order 4, and ω³ = 1 exactly', () => {
+  const w3 = qmul(qmul(U[OMEGA], U[OMEGA]), U[OMEGA]);
+  return (ORDER[OMEGA] === 3 && ORDER[MUL[MINUS][OMEGA]] === 6 && ORDER[QI] === 4 && ORDER[MINUS] === 2 && key(w3) === '2,0,0,0') || 'orders ' + ORDER[OMEGA] + ', ' + ORDER[MUL[MINUS][OMEGA]];
+});
+AV.test('the 24-cell: 96 edges, every vertex of degree 8', () =>
+  (EDGES.length === 96 && ADJ.every(r => count(r, Boolean) === 8)) || EDGES.length + ' edges');
+AV.test('96 triangles, three around every edge, each in exactly two cells', () => {
+  const perEdge = EDGES.every(([i, j]) => count(TRIS, t => t.includes(i) && t.includes(j)) === 3);
+  const inTwo = TRIS.every(t => count(CELLS, c => t.every(v => c.includes(v))) === 2);
+  return (TRIS.length === 96 && perEdge && inTwo) || TRIS.length + ' triangles';
+});
+AV.test('24 octahedral cells (6 vertices, 12 edges, 8 faces); their centers are the 24 quaternions of norm 2', () => {
+  if (CELLS.length !== 24) return CELLS.length + ' cells';
+  const octa = CELLS.every((c, k) => c.length === 6 && count(EDGES, ([i, j]) => c.includes(i) && c.includes(j)) === 12 && CELL_FACES[k].length === 8);
+  const centers = new Set(CELL_CENTER.map(key));
+  const dual = CELL_CENTER.every(c => c.every(Number.isInteger) && norm4(c) === 8 && c.every(x => x % 2 === 0));
+  return (octa && dual && centers.size === 24) || 'cells are not octahedra around norm-2 centers';
+});
+AV.test('Euler characteristic 24 − 96 + 96 − 24 = 0 and self-dual: the cell centers again span 96 edges of degree 8', () => {
+  const dualEdges = [];
+  CELL_CENTER.forEach((p, i) => CELL_CENTER.forEach((q, j) => { if (i < j && dist4(p, q) === 8) dualEdges.push([i, j]); }));
+  return (N - EDGES.length + TRIS.length - CELLS.length === 0 && dualEdges.length === 96) || dualEdges.length + ' dual edges';
+});
+AV.test('left multiplication by each of the 24 units permutes vertices, edges, triangles and cells', () => {
+  const E = new Set(EDGES.map(e => e.join(','))), F = new Set(TRIS.map(t => t.join(',')));
+  for (let u = 0; u < N; u++) {
+    if (new Set(leftPerm(u)).size !== 24) return 'not a permutation';
+    if (!EDGES.every(e => E.has(imageOf(u, e))) || !TRIS.every(t => F.has(imageOf(u, t)))) return 'not an isometry';
+    if (new Set(CELL_PERM[u]).size !== 24 || CELL_PERM[u].includes(undefined)) return 'cells are not permuted';
+  }
+  return true;
+});
+AV.test('ω cycles everything in threes: 8 cycles of vertices, 32 of edges, 32 of triangles, 8 of cells', () => {
+  const orbit = (list) => {
+    const at = new Map(list.map((x, k) => [x.join(','), k]));
+    return cycleLengths(list.map(x => at.get(imageOf(OMEGA, x))));
+  };
+  const all = [cycleLengths(leftPerm(OMEGA)), orbit(EDGES), orbit(TRIS), cycleLengths(CELL_PERM[OMEGA])];
+  return (all.every(c => c.every(n => n === 3)) && all.map(c => c.length).join(',') === '8,32,32,8') || all.map(c => c.join(' ')).join(' | ');
+});
+AV.test('the cosets of Q₈ are three 16-cells (8 vertices, 24 edges of length √2 each), cycled by ω', () => {
+  for (let s = 0; s < 3; s++) {
+    const C = U.map((_, i) => i).filter(i => COSET[i] === s);
+    if (C.length !== 8) return 'coset of size ' + C.length;
+    if (!C.every(p => C.every(q => [0, 8, 16].includes(dist4(U[p], U[q]))))) return 'not a cross-polytope';
+    if (!C.every(p => COSET[MUL[OMEGA][p]] === (s + 1) % 3)) return 'ω does not cycle the cosets';
+    if (count(DIAGS, ([i, j]) => COSET[i] === s && COSET[j] === s) !== 24) return 'wrong edge count';
+  }
+  return DIAGS.every(([i, j]) => COSET[i] === COSET[j]) && Q8.every(p => Q8.every(q => COSET[MUL[p][q]] === 0));
+});
+AV.test('the animation t ↦ exp(tθn)·q is a rotation of ℝ⁴ for every t and lands exactly on u·q at t = 1', () => {
+  let worst = 0;
+  for (let u = 0; u < N; u++) {
+    const { n, theta } = axisAngle(u, OMEGA_AXIS);
+    for (const t of [0.3, 0.71, 1]) {
+      const L = flow(n, theta, t);
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) worst = Math.max(worst, Math.abs(dot4(L[r], L[c]) - (r === c ? 1 : 0)));
+    }
+    const L1 = flow(n, theta, 1), L0 = flow(n, theta, 0);
+    for (let p = 0; p < N; p++) {
+      const end = mat4vec(L1, PT[p]), start = mat4vec(L0, PT[p]);
+      for (let m = 0; m < 4; m++) worst = Math.max(worst, Math.abs(end[m] - PT[MUL[u][p]][m]), Math.abs(start[m] - PT[p][m]));
+    }
+  }
+  return worst < 1e-12 || 'residual ' + worst;
+});
+AV.test('the orbits of ω are 4 great hexagons made of 24 edges of the 24-cell (a discrete Hopf fibration)', () => {
+  const circles = orbitCircles(OMEGA_AXIS, U.map((_, i) => i));
+  const on = (c, p) => dot4(c.a, PT[p]) ** 2 + dot4(c.b, PT[p]) ** 2 > 1 - 1e-9;
+  const sizes = circles.map(c => count(U, (_, p) => on(c, p))), edgesOn = count(EDGES, ([i, j]) => circles.some(c => on(c, i) && on(c, j)));
+  return (circles.length === 4 && sizes.every(n => n === 6) && edgesOn === 24) || circles.length + ' circles, ' + edgesOn + ' edges';
+});
+AV.test('reduction mod 3 is an isomorphism of the unit group onto SL₂(𝔽₃)', () => {
+  const img = U.map(toSL2), name = m => m.join('');
+  if (!img.every(m => mod3(m[0] * m[3] - m[1] * m[2]) === 1)) return 'determinant is not 1';
+  if (new Set(img.map(name)).size !== 24) return 'not injective';
+  for (let p = 0; p < N; p++) for (let q = 0; q < N; q++) if (name(m2mul(img[p], img[q])) !== name(img[MUL[p][q]])) return 'not a homomorphism';
+  let size = 0;
+  for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) for (let c = 0; c < 3; c++) for (let d = 0; d < 3; d++) if (mod3(a * d - b * c) === 1) size++;
+  return size === 24 || '|SL₂(𝔽₃)| = ' + size;
+});
+AV.test('the views are rotations of ℝ⁴ and dragging turns two orthogonal planes', () => {
+  const ortho = M => { let w = 0; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) w = Math.max(w, Math.abs(dot4(M[r], M[c]) - (r === c ? 1 : 0))); return w; };
+  const saved = { A: view.A, B: view.B };
+  view.A = [1, 0, 0, 0]; view.B = [1, 0, 0, 0];
+  turn(0.3, 0);
+  const H = viewMatrix();
+  view.A = [1, 0, 0, 0]; view.B = [1, 0, 0, 0];
+  turn(0, 0.3);
+  const Vt = viewMatrix();
+  view.A = saved.A; view.B = saved.B;
+  const c = Math.cos(0.3), s = Math.sin(0.3);
+  const spin = Math.abs(H[0][0] - 1) + Math.abs(H[2][2] - 1) + Math.abs(H[1][1] - c) + Math.abs(H[3][3] - c) + Math.abs(H[1][3] - s);   // w and y fixed; z turns toward x
+  const flip = Math.abs(Vt[1][1] - 1) + Math.abs(Vt[3][3] - 1) + Math.abs(Vt[0][0] - c) + Math.abs(Vt[2][2] - c) + Math.abs(Vt[2][0] - s);  // x and z fixed; 1 turns toward j
+  const centered = Math.abs(mat4vec(mat4mul(lmat(VIEW.hurwitz.A), rmat(VIEW.hurwitz.B)), unit4([1, 1, 0, 0]))[0] - 1);
+  return (ortho(H) + ortho(Vt) + spin + flip + centered < 1e-12) || 'spin ' + spin + ', flip ' + flip + ', center ' + centered;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hecke Groups · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/complex.js"></script>
+<script src="../kit/hyperbolic.js"></script>
+<script>
+'use strict';
+const { hyp } = AV;
+
+/* ---------- mathematics: pure functions, no drawing ---------- */
+
+// PSL₂(ℝ) as flat [a, b, c, d]; act on the upper half-plane (∞ = null).
+const mul = (A, B) => [A[0] * B[0] + A[1] * B[2], A[0] * B[1] + A[1] * B[3], A[2] * B[0] + A[3] * B[2], A[2] * B[1] + A[3] * B[3]];
+function act(M, z) {
+  const [a, b, c, d] = M;
+  if (z === null) return Math.abs(c) < 1e-14 ? null : [a / c, 0];
+  const rx = c * z[0] + d, ry = c * z[1], n = rx * rx + ry * ry;
+  if (n < 1e-24) return null;
+  const px = a * z[0] + b, py = a * z[1];
+  return [(px * rx + py * ry) / n, (py * rx - px * ry) / n];
+}
+const Sm = [0, -1, 1, 0];                         // z ↦ −1/z
+const Tm = lam => [1, lam, 0, 1];                 // z ↦ z + λ
+const hecke = q => 2 * Math.cos(Math.PI / q);     // the discrete values below 2
+
+// The standard region F_λ = {|Re z| ≤ λ/2, |z| ≥ 1}, as a geodesic polygon.
+// For λ > 2 the free sides on ℝ are replaced by the geodesics that cut off the funnels.
+function region(lam) {
+  if (lam < 2 - 1e-12) { const s = Math.sqrt(1 - lam * lam / 4); return [null, [-lam / 2, s], [lam / 2, s]]; }
+  if (lam < 2 + 1e-12) return [null, [-1, 0], [1, 0]];
+  return [null, [-lam / 2, 0], [-1, 0], [1, 0], [lam / 2, 0]];
+}
+
+// Breadth-first images gF across the side pairings T^{±1}, S; duplicates merged by the image of 2i.
+const BASE = [0, 2];
+function tiles(lam, { cap = 3600, minY = 0.004, maxX = reach } = {}) {
+  const gens = { S: Sm, T: Tm(lam), t: Tm(-lam) };
+  const next = { '': ['S', 'T', 't'], S: ['T', 't'], T: ['T', 'S'], t: ['t', 'S'] };
+  const key = m => { const w = act(m, BASE); return Math.round(w[0] * 1e6) + ',' + Math.round(Math.log(w[1]) * 1e6); };
+  const id = [1, 0, 0, 1], seen = new Set([key(id)]), out = [];
+  let layer = [{ m: id, last: '', d: 0 }];
+  while (layer.length && out.length < cap) {
+    const nl = [];
+    for (const t of layer) {
+      out.push(t);
+      if (out.length >= cap) break;
+      for (const g of next[t.last]) {
+        const m = mul(t.m, gens[g]), w = act(m, BASE);
+        if (w[1] < minY || Math.abs(w[0]) > maxX) continue;
+        const k = key(m);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        nl.push({ m, last: g, d: t.d + 1 });
+      }
+    }
+    layer = nl;
+  }
+  return out;
+}
+
+// Snap λ to 2cos(π/q) or 2 when close (a gentle magnet on the slider).
+function snap(raw) {
+  for (let q = 3; q <= 30; q++) {
+    const h = hecke(q), gap = Math.min(h - hecke(q - 1) || 1, hecke(q + 1) - h);
+    if (Math.abs(raw - h) < Math.min(0.014, 0.3 * gap)) return { lam: h, q };
+  }
+  if (Math.abs(raw - 2) < 0.006) return { lam: 2, q: Infinity };
+  return { lam: raw, q: null };
+}
+const NAMES = { 3: '1', 4: '√2', 5: 'φ', 6: '√3' };
+
+/* ---------- state ---------- */
+
+let raw = 1, lam = 1, qSnap = 3;     // slider value, effective λ, and its q (null = off the magnets)
+let T = [];
+let reach = 3.4;                     // |Re z| beyond which tiles are off screen (set on resize)
+let star = false, starFade = 0;      // the petals ⟨ST⟩(F ∪ SF) around the corner
+let dwell = 0, dir = 1;              // play: sweep λ, resting on each discrete value
+const cam = AV.camera();
+
+function setLam(v, { exact = false } = {}) {
+  raw = v;
+  const s = exact ? { lam: v, q: null } : snap(v);
+  for (let q = 3; exact && q <= 30; q++) if (Math.abs(v - hecke(q)) < 1e-12) s.q = q;
+  if (s.lam === lam && s.q === qSnap && T.length) return;
+  lam = s.lam; qSnap = s.q;
+  T = tiles(lam);
+}
+
+/* ---------- drawing ---------- */
+
+function draw(app) {
+  const ctx = app.ctx;
+  AV.clear(app);
+  const F = region(lam);
+
+  // the tiles: two colours by word-length parity (well defined exactly when the relators have even length)
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  // a discrete group covers each point once; otherwise overlaps stack up, so dim each copy to keep the pile-up legible
+  const k = lam >= 2 || qSnap ? 1 : 0.22;
+  const fillA = AV.rgba(AV.C.blue, 0.2 * k), fillB = AV.rgba(AV.C.violet, 0.13 * k), edge = 'rgba(236,235,230,' + 0.16 * Math.sqrt(k) + ')';
+  for (const t of T) {
+    const P = F.map(z => act(t.m, z));
+    ctx.beginPath();
+    P.forEach((p, i) => hyp.pathGeodesic(ctx, cam, p, P[(i + 1) % P.length], 'uhp', i > 0));
+    ctx.closePath();
+    ctx.fillStyle = t.d % 2 ? fillB : fillA;
+    ctx.fill();
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // the real axis
+  const y0 = cam.Y(0);
+  AV.line(ctx, 0, y0, app.W, y0, 'rgba(236,235,230,0.28)', 1);
+
+  // the petals around the elliptic corner v = fixed point of ST
+  if (starFade > 0.01) {
+    // λ < 2: ST is a rotation about v and the petals wrap around it; λ ≥ 2: they march off, never closing
+    const ST = mul(Sm, Tm(lam)), STi = mul(Tm(-lam), Sm);
+    const powers = [[1, 0, 0, 1]];
+    if (lam < 2) {
+      const petals = qSnap ? qSnap : Math.ceil(Math.PI / Math.acos(lam / 2)) + 2;
+      for (let k = 1; k < petals; k++) powers.push(mul(ST, powers[k - 1]));
+    } else {
+      let a = powers[0], b = powers[0];
+      for (let k = 1; k <= 5; k++) { a = mul(ST, a); b = mul(STi, b); powers.push(a, b); }
+    }
+    powers.forEach((g, k) => {
+      for (const h of [g, mul(g, Sm)]) {
+        const P = F.map(z => act(h, z));
+        hyp.drawPolygon(ctx, cam, P, { model: 'uhp', color: AV.rgba(AV.C.amber, 0.75 * starFade), width: 1.1,
+          fill: AV.rgba(AV.C.amber, (k === 0 ? 0.1 : 0.05) * starFade) });
+      }
+    });
+    if (lam <= 2) {
+      const v = [-lam / 2, Math.sqrt(Math.max(0, 1 - lam * lam / 4))];
+      AV.dot(ctx, cam.X(v[0]), cam.Y(v[1]), 3.2, AV.C.amber, { glow: 4 });
+    }
+  }
+
+  // F itself
+  hyp.drawPolygon(ctx, cam, F, { model: 'uhp', color: AV.C.accent, width: 1.7 });
+  const top = F[1][1] + 0.45;
+  AV.label(ctx, 'F', cam.X(0), cam.Y(Math.max(top, 1.35)), { size: 17, serif: true, italic: true, color: AV.C.accent });
+
+  // the live check
+  const L = AV.fmt(lam, 4);
+  let html;
+  if (lam >= 2) {
+    html = '<span class="big">λ = ' + L + '</span><br>' +
+      '<span class="k">tr ST</span> = λ ≥ 2 · ST ' + (lam === 2 ? 'parabolic' : 'hyperbolic') + '<br>' +
+      '<small>no rotation to close up · discrete ' + AV.ok(true) + '</small>';
+  } else {
+    const ratio = Math.PI / Math.acos(lam / 2);
+    const good = qSnap != null;
+    html = '<span class="big">λ = ' + (good && NAMES[qSnap] ? NAMES[qSnap] : L) + '</span>' +
+      (good ? ' <span class="k">= 2cos(π/' + qSnap + ')</span>' : '') + '<br>' +
+      '<span class="k">ST turns by</span> 2θ, &nbsp;π/θ = ' + (good ? qSnap : AV.fmt(ratio, 3)) + ' ' + AV.ok(good) + '<br>' +
+      '<small>' + (good ? qSnap + ' petals close up · discrete' : 'petals overlap · not discrete') + '</small>';
+  }
+  app.readout(html);
+  app.legend([{ color: AV.C.accent, label: 'region F', line: true }, { color: AV.C.amber, label: 'corner petals', line: true }]);
+}
+
+/* ---------- the page ---------- */
+
+const app = AV.page({
+  title: 'Hecke Groups',
+  hook: 'Slide by λ, then flip: the copies tile only at magic values of λ.',
+  date: '2026-09-29',
+  credit: 'generated by Claude (Opus 5.5)',
+  hint: 'slide λ',
+  controls: [
+    { type: 'play' },
+    { type: 'slider', id: 'lam', label: 'λ', min: 0.8, max: 2.4, step: 0.001, value: 1,
+      format: v => { const s = snap(v); return s.q && NAMES[s.q] ? NAMES[s.q] : AV.fmt(s.lam, 3); },
+      onChange: v => setLam(v) },
+    { type: 'toggle', id: 'star', label: 'petals', value: false,
+      onChange: v => { star = v; app.tween(500, u => { starFade = v ? u : 1 - u; }, { key: 'star' }); } },
+  ],
+  tour: [
+    { text: 'The modular group: copies of the region <b>F</b> under <i>z</i> ↦ <i>z</i> + 1 and <i>z</i> ↦ −1/<i>z</i> tile the half-plane.',
+      enter: a => { a.pause(); a.set('star', false); const from = raw; a.tween(900, u => { setLam(from + (1 - from) * u); a.set("lam", raw, { silent: true }); }, { key: "lam" }); } },
+    { text: 'Nudge the translation to λ = 1.07. The copies no longer fit: they pile up forever, and the group is not discrete.',
+      enter: a => { a.pause(); a.set('star', false); a.pulse('lam'); a.tween(1300, u => { setLam(1 + 0.07 * u, { exact: true }); a.set("lam", raw, { silent: true }); }, { key: "lam" }); } },
+    { text: 'Yet at λ = √2, φ, √3 the tiling snaps back: <b>q</b> petals close up exactly around the corner.',
+      enter: a => {
+        a.pause(); a.set('star', true);
+        const go = (to, ms) => { const from = raw; return a.tween(ms, u => { setLam(from + (to - from) * u, { exact: u < 1 }); a.set("lam", raw, { silent: true }); }, { key: "lam" }); };
+        go(Math.SQRT2, 1100).then(() => a.after(1300, () => go((1 + Math.sqrt(5)) / 2, 900).then(() => a.after(1300, () => go(Math.sqrt(3), 900)))));
+      } },
+    { text: 'Why: <i>ST</i> rotates the corner by 2θ where λ = 2cos θ. Discreteness forces θ = π/<i>q</i>, unless λ ≥ 2 opens <b>F</b> up.',
+      enter: a => { a.set('star', true); a.play(); } },
+  ],
+  math: `<p>The <b>Hecke group</b> H(λ) = ⟨<i>S</i>: <i>z</i> ↦ −1/<i>z</i>, <i>T</i>: <i>z</i> ↦ <i>z</i> + λ⟩ ⊂ PSL₂(ℝ).
+    Its corner <i>v</i> = (−λ + <i>i</i>√(4 − λ²))/2 is fixed by <i>ST</i> = [[0, −1], [1, λ]], of trace λ: for λ = 2cos θ it rotates by 2θ.
+    <b>Hecke (1936):</b> H(λ) is discrete exactly when λ ≥ 2 or λ = 2cos(π/<i>q</i>), <i>q</i> ≥ 3; then F is a fundamental domain and
+    H(λ) ≅ ℤ/2 ∗ ℤ/<i>q</i> (ℤ/2 ∗ ℤ for λ ≥ 2). λ = 1 is PSL₂(ℤ). Leutbecher (1967): for <i>q</i> = 5 the cusps are ℚ(√5) ∪ {∞}.</p>
+    <p class="ref">Tiles: breadth-first images <i>g</i>F, merged by the image of 2<i>i</i>; colours are word-length parity.</p>`,
+  step: (dt, a) => {
+    if (dwell > 0) { dwell -= dt; return; }
+    let v = raw + dir * dt * 0.07;
+    if (v > 2.35) { v = 2.35; dir = -1; dwell = 1.2; }
+    if (v < 0.95) { v = 0.95; dir = 1; }
+    const before = qSnap;
+    setLam(v);
+    if (qSnap && qSnap !== before) { dwell = 1.3; raw = lam; }
+    a.set('lam', raw, { silent: true });
+  },
+  autoplay: false,
+  posterStep: 0,
+  draw,
+});
+
+app.onResize(a => {
+  const r = a.fitRect(Math.max(1, a.W / a.H), 8);
+  const s = Math.min(r.w / (a.W < a.H ? 3.1 : 4.6), r.h / 2.3);   // phones: zoom in on F and its neighbours
+  cam.s = s;
+  cam.x = 0; cam.ox = r.x + r.w / 2;
+  cam.oy = r.y + r.h / 2; cam.y = (r.h / 2 - 6) / s;   // ℝ sits on the bottom edge of the rect
+  reach = Math.max(Math.abs(cam.toWorld(0, 0)[0]), Math.abs(cam.toWorld(a.W, 0)[0])) + 1.4;
+  T = tiles(lam);                                       // same λ, just a wider or narrower view
+});
+
+/* ---------- self-checks ---------- */
+
+AV.test('(ST)^q = ±I at λ = 2cos(π/q), q = 3…12', () => {
+  for (let q = 3; q <= 12; q++) {
+    const ST = mul(Sm, Tm(hecke(q)));
+    let g = [1, 0, 0, 1];
+    for (let k = 0; k < q; k++) g = mul(g, ST);
+    const e = Math.min(Math.abs(g[0] - 1) + Math.abs(g[3] - 1), Math.abs(g[0] + 1) + Math.abs(g[3] + 1)) + Math.abs(g[1]) + Math.abs(g[2]);
+    if (e > 1e-9) return 'q = ' + q + ', error ' + e;
+  }
+  return true;
+});
+const inF = (lam, z, m = 1e-6) => Math.abs(z[0]) < lam / 2 - m && z[0] * z[0] + z[1] * z[1] > 1 + m;
+const inverse = ([a, b, c, d]) => [d, -b, -c, a];
+function maxCover(lam) {
+  const G = tiles(lam, { cap: 3000, minY: 0.02 });
+  let worst = 0;
+  for (let i = 0; i < 23; i++) for (let j = 0; j < 11; j++) {
+    const z = [-1.6 + 3.2 * i / 22 + 0.0123, 0.25 + 1.5 * j / 10 + 0.0071];
+    let n = 0;
+    for (const t of G) if (inF(lam, act(inverse(t.m), z))) n++;
+    worst = Math.max(worst, n);
+  }
+  return worst;
+}
+AV.test('λ = 1, √2, φ, √3: no point lies in two tiles', () => {
+  for (const q of [3, 4, 5, 6]) { const c = maxCover(hecke(q)); if (c > 1) return 'q = ' + q + ' covers ' + c + '×'; }
+  return true;
+});
+AV.test('λ = 1.07, 1.5: tiles overlap (not discrete)', () => {
+  for (const l of [1.07, 1.5]) if (maxCover(l) < 2) return 'no overlap at λ = ' + l;
+  return true;
+});
+AV.test('the corner is fixed by ST', () => {
+  const l = 1.3, v = [-l / 2, Math.sqrt(1 - l * l / 4)], w = act(mul(Sm, Tm(l)), v);
+  return Math.hypot(w[0] - v[0], w[1] - v[1]) < 1e-12 || 'moved to ' + w;
+});
+</script>
+</body>
+</html>

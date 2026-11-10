@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Cayley Graph of BS(1, 2) · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+<link rel="stylesheet" href="../kit/vendor/katex/katex.min.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/space3d.js"></script>
+<script src="../kit/exact.js"></script>
+<script src="../kit/vendor/katex/katex.min.js"></script>
+<script src="../kit/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- mathematics: BS(1,2) = < a, t | t a t^-1 = a^2 > as affine maps of the line ----------
+   An element is the map g(y) = 2^k y + x with x in Z[1/2] and k in Z, stored as { x, k } where
+   x = n / 2^e is an exact dyadic rational (BigInt n, e >= 0, lowest terms). The generators are
+   a: y -> y + 1 and t: y -> 2y. Composition gives (x, k)(x', k') = (x + 2^k x', k + k'), so in the
+   Cayley graph (right multiplication) an a-edge at level k is a horizontal step of length 2^k and
+   a t-edge goes straight up one level. */
+
+const dy = (n, e = 0) => { n = BigInt(n); while (e > 0 && n % 2n === 0n) { n /= 2n; e--; } return { n, e }; };
+const dyAdd = (p, q) => { const e = Math.max(p.e, q.e); return dy((p.n << BigInt(e - p.e)) + (q.n << BigInt(e - q.e)), e); };
+const dyNeg = p => ({ n: -p.n, e: p.e });
+const dyShift = (p, k) => (k >= 0 ? dy(p.n << BigInt(k), p.e) : dy(p.n, p.e - k));        // 2^k · p
+const dyNum = p => Number(p.n) / 2 ** p.e;
+
+const G = (x, k) => ({ x, k });
+const ID = G(dy(0), 0);
+const mul = (g, h) => G(dyAdd(g.x, dyShift(h.x, g.k)), g.k + h.k);
+const inv = g => G(dyNeg(dyShift(g.x, -g.k)), -g.k);
+const gEq = (g, h) => g.k === h.k && g.x.n === h.x.n && g.x.e === h.x.e;
+const gKey = g => g.x.n + '/' + g.x.e + '@' + g.k;
+// letters: a, t and their inverses A, T
+const GEN = { a: G(dy(1), 0), A: G(dy(-1), 0), t: G(dy(0), 1), T: G(dy(0), -1) };
+const INV = { a: 'A', A: 'a', t: 'T', T: 't' };
+// the vertex reached by walking a word from the identity, one edge per letter
+const walkTo = w => [...w].reduce((g, s) => mul(g, GEN[s]), ID);
+
+/* The same word as a function, computed independently: apply the letters to the exact points
+   0 and 1, rightmost letter first. Then g(0) = x and g(1) - g(0) = 2^k. */
+const act = (s, y) => (s === 'a' ? dyAdd(y, dy(1)) : s === 'A' ? dyAdd(y, dy(-1)) : s === 't' ? dyShift(y, 1) : dyShift(y, -1));
+function wordMap(w) {
+  let y0 = dy(0), y1 = dy(1);
+  for (let i = w.length - 1; i >= 0; i--) { y0 = act(w[i], y0); y1 = act(w[i], y1); }
+  const d = dyAdd(y1, dyNeg(y0));                                    // the slope: a power of two
+  const ok = d.n > 0n && (d.n & (d.n - 1n)) === 0n && (d.e === 0 || d.n === 1n);
+  return { x: y0, k: d.e > 0 ? -d.e : d.n.toString(2).length - 1, ok };
+}
+// append a letter to a freely reduced word (walking back along the last edge cancels it)
+const pushLetter = (w, s) => (w.length && w[w.length - 1] === INV[s] ? w.slice(0, -1) : [...w, s]);
+
+/* The Bass–Serre tree: its vertices are the cosets g<a>. Two elements lie in the same coset
+   exactly when g^-1 h is a power of a, which for (x, k), (x', k) says x ≡ x' mod 2^k. */
+const sameCoset = (g, h) => { const q = mul(inv(g), h); return q.k === 0 && q.x.e === 0; };
+
+/* ---------- the drawn window, and its layout in space ----------
+   Levels KMIN..KMAX above the root coset 2^KMIN·Z; a vertex is (x, k) with x a multiple of 2^KMIN.
+   In x the window is 2·HW wide and slides to follow the walker (edges fade out past its two ends);
+   in height it is fixed, and a step that would leave it is refused with a nudge.
+   Coordinates: [x, height, depth].
+
+   Level spacing: level k sits at height 2^k (not k). Then every brick is a 2 : 1 rectangle when
+   seen face-on, which is exactly the upper half-plane model: the bricks are hyperbolically
+   congruent and the a-edges are horocycle arcs of equal hyperbolic length. Linear spacing would
+   draw a tidier tree but would hide the hyperbolic plane, the point of the page.
+
+   Fan: a coset c at level k is the line { height = 2^k, depth = 2^k · u(c) }, where the slope u(c)
+   lies in (-U, U): the root has slope 0 and the two children of a coset at tree depth d get its
+   slope ± U / 2^(d+1). So all sheets leave a common spine (the line height = depth = 0, their
+   shared boundary at infinity) like the pages of a book, the side view (looking along x) is the
+   binary tree with no crossings, and the face-on orthographic view of every sheet is its exact
+   brick half-plane. The sign of the split alternates with the level so that the sheet through the
+   identity lies inside the book instead of on its cover. */
+const KMIN = -1, KMAX = 4, DEPTH = KMAX - KMIN, STEP = 2 ** KMIN;
+const U = 0.5;
+const HW = 8, FADE = 1.25, X0 = 8, CY = 8.25;          // the window shows x within HW of its center
+// m = x / 2^KMIN (an integer); the coset of (x, k) is m mod 2^d with d = k - KMIN
+const mOf = x => { const p = dyShift(x, -KMIN); if (p.e !== 0) throw new Error('vertex below the window'); return p.n; };
+function slopeOf(m, d) {
+  let u = 0;
+  for (let i = 0; i < d; i++) u += (i % 2 ? -1 : 1) * (2 * Number((m >> BigInt(i)) & 1n) - 1) / 2 ** (i + 1);
+  return U * u;
+}
+const SLOPE = [];
+for (let d = 0; d <= DEPTH; d++) SLOPE.push(Float64Array.from({ length: 1 << d }, (_, r) => slopeOf(BigInt(r), d)));
+const posAt = (i, d) => { const n = 1 << d, h = 2 ** (KMIN + d); return [i * STEP, h, h * SLOPE[d][((i % n) + n) % n]]; };
+const posOf = g => posAt(Number(mOf(g.x)), g.k - KMIN);
+const inLevels = g => g.k >= KMIN && g.k <= KMAX;
+// the sheet through s: the cosets s mod 2^k for every k. Is the vertex g on it?
+const onSheet = (g, s) => ((mOf(g.x) - mOf(s)) & ((1n << BigInt(g.k - KMIN)) - 1n)) === 0n;
+// the vertices drawn when the window is centered at cx: [i, d] meaning x = i·STEP at level KMIN + d
+function windowVertices(cx = X0) {
+  const out = [];
+  for (let i = Math.ceil((cx - HW - FADE) / STEP); i <= Math.floor((cx + HW + FADE) / STEP); i++) for (let d = 0; d <= DEPTH; d++) out.push([i, d]);
+  return out;
+}
+const vertexAt = (i, d) => G(dyShift(dy(i), KMIN), KMIN + d);
+
+/* ---------- typesetting ---------- */
+
+const T = AV.tex, tx = AV.texify, { clamp, lerp } = AV;
+function wordTex(w) {
+  if (!w.length) return '1';
+  const runs = [];
+  for (const s of w) {
+    const b = s.toLowerCase(), e = s === b ? 1 : -1, r = runs[runs.length - 1];
+    if (r && r.b === b) r.e += e; else runs.push({ b, e });
+  }
+  const shown = runs.length > 7 ? runs.slice(-6) : runs;
+  return (shown === runs ? '' : '\\cdots\\,') + shown.map(r => r.b + (r.e === 1 ? '' : '^{' + r.e + '}')).join('\\,');
+}
+const absTex = p => { const n = String(p.n < 0n ? -p.n : p.n); return p.e === 0 ? n : '\\tfrac{' + n + '}{' + (p.e <= 6 ? 2 ** p.e : '2^{' + p.e + '}') + '}'; };
+const mapTex = g => 'y\\mapsto ' + (g.k === 0 ? 'y' : g.k === 1 ? '2y' : '2^{' + g.k + '}y') + (g.x.n === 0n ? '' : (g.x.n < 0n ? '-' : '+') + absTex(g.x));
+
+/* ---------- state ---------- */
+
+const COL = { a: AV.C.accent, t: AV.C.violet, trail: AV.C.amber, sheet: AV.C.blue };
+const VIEWS = {
+  brick: { yaw: 0, pitch: 0, zoom: 3, cy: 1.7 },      // with the window centered on the brick (x = 1)
+  face: { yaw: 0, pitch: 0, zoom: 1, cy: CY },
+  fan: { yaw: 1.0, pitch: 0.26, zoom: 0.84, cy: CY },
+  side: { yaw: Math.PI / 2, pitch: 0, zoom: 1, cy: CY },
+  shortcut: { yaw: 0.5, pitch: 0.2, zoom: 0.9, cy: CY },
+  wander: { yaw: -0.95, pitch: 0.28, zoom: 0.84, cy: CY },
+};
+const cam = AV.orbit3d({ ortho: true });
+const view = { ...VIEWS.brick };                        // tweened: angles, zoom, target
+let camGoal = { zoom: view.zoom, cy: view.cy };
+const vis = { others: 0, sheet: 0.4, brick: 1 };        // opacities: the other sheets, the walker's sheet, the one brick
+let visGoal = { ...vis };
+let geom = { cx: 0, cy: 0, s: 30, side: 500 };
+let viewX = 1;                                          // center of the window in x
+let swayT = 0, swayOff = 0;                             // play: the view sways about its heading
+
+let word = [], path = [ID];                             // the freely reduced walk and its vertices
+let drawPath = [posOf(ID)], head = 0;                   // the drawn trail: positions, and how far along the marker is
+let sheet = dy(0), sheetOld = null, sheetMix = 1;       // the highlighted sheet (cross-fades when the walker leaves it)
+let ghost = 0;                                          // how much of the long way a^16 is drawn
+let bump = null;                                        // a nudge against the edge of the window
+let wordVer = 0, gen = 0, scripted = false, turning = 0;   // turning: a scripted change of view angle is running
+let closeUp = true;                                     // the tour's close-up of one brick: the first step by the reader zooms back out
+let labels = null, app = null;
+
+const walker = () => path[path.length - 1];
+
+/* ---------- motion ---------- */
+
+function panTo(x, ms) { const v0 = viewX; return app.tween(ms, u => { viewX = lerp(v0, x, u); }, { key: 'pan' }); }
+function resetWalk(cx = X0) {
+  closeUp = cx !== X0;
+  for (const key of ['walk', 'sheet', 'ghost', 'bump']) app.tween(1, () => {}, { key });
+  word = []; path = [ID]; drawPath = [posOf(ID)]; head = 0;
+  sheet = dy(0); sheetOld = null; sheetMix = 1; ghost = 0; bump = null; wordVer++;
+  panTo(cx, 900);
+}
+function visTo(v, ms) {
+  visGoal = { ...visGoal, ...v };
+  const v0 = { ...vis }, v1 = { ...visGoal };
+  return app.tween(ms, u => { for (const k in v1) vis[k] = lerp(v0[k], v1[k], u); }, { key: 'vis' });
+}
+const wrapPi = x => x - 2 * Math.PI * Math.round(x / (2 * Math.PI));
+function viewTo(v, ms) {
+  const jobs = [];
+  if (v.yaw != null) {
+    view.yaw = v.yaw + wrapPi(view.yaw + swayOff - v.yaw);            // the short way around
+    swayOff = 0; swayT = 0;
+    const y0 = view.yaw, p0 = view.pitch, p1 = v.pitch ?? view.pitch;
+    turning++;
+    jobs.push(app.tween(ms, u => { view.yaw = lerp(y0, v.yaw, u); view.pitch = lerp(p0, p1, u); }, { key: 'angle' }).then(done => { turning--; return done; }));
+  }
+  const goal = {};
+  for (const k of ['zoom', 'cy']) if (v[k] != null) goal[k] = v[k];
+  if (Object.keys(goal).length) {
+    camGoal = { ...camGoal, ...goal };
+    const c0 = { zoom: view.zoom, cy: view.cy }, c1 = { ...camGoal };
+    jobs.push(app.tween(ms, u => { for (const k in c1) view[k] = lerp(c0[k], c1[k], u); }, { key: 'cam' }));
+  }
+  return Promise.all(jobs).then(r => r.every(Boolean));
+}
+// a pause that keeps app.busy() true, so a scripted sequence reads as one continuous motion
+const wait = ms => app.tween(ms, () => {});
+// a tour step's choreography: stops as soon as the reader takes over or another step starts
+function run(fn) {
+  const my = ++gen, live = () => my === gen;
+  scripted = true;
+  fn(live).then(() => { if (live()) { scripted = false; app.redraw(); } });
+}
+function interrupt() { gen++; scripted = false; }
+
+// after a step: keep the walker's sheet lit and the walker inside the window
+function follow(g) {
+  if (!onSheet(g, sheet)) {
+    sheetOld = sheet; sheet = g.x; sheetMix = 0;
+    app.tween(450, u => { sheetMix = u; }, { key: 'sheet' });
+    if (visGoal.others < 1) visTo({ others: 1 }, 800);              // the walker has found another sheet: show them all
+  }
+  const x = dyNum(g.x);
+  if (x < viewX - HW || x > viewX + HW) {
+    panTo(x < viewX ? x + HW - 3 : x - HW + 3, 650);
+  }
+}
+// one edge of the walk; stepping back along the last edge erases it
+function doStep(s, ms) {
+  const g = mul(walker(), GEN[s]);
+  if (!inLevels(g)) {                                                // the window ends here: nudge and stay
+    const h = 2 ** walker().k, b = { v: [0, (s === 't' ? 0.07 : -0.25) * h, 0], u: 0 };
+    bump = b;
+    return app.tween(280, u => { b.u = Math.sin(Math.PI * u); }, { key: 'bump', ease: 'linear' }).then(() => { if (bump === b) bump = null; return false; });
+  }
+  const n0 = path.length - 1;
+  if (head > n0) head = n0;                                          // an erasure was still running: finish it
+  drawPath.length = path.length;
+  const back = word.length && word[word.length - 1] === INV[s];
+  word = pushLetter(word, s);
+  if (back) path.pop(); else { path.push(g); drawPath.push(posOf(g)); }
+  wordVer++;
+  follow(walker());
+  const h0 = head, h1 = path.length - 1;
+  return app.tween(ms * clamp(Math.abs(h1 - h0), 0.6, 2), u => { head = lerp(h0, h1, u); }, { key: 'walk' });
+}
+// a step taken by the reader
+function userStep(s) {
+  interrupt();
+  if (closeUp) { closeUp = false; viewTo({ zoom: 1, cy: CY }, 800); panTo(X0, 800); }
+  if (visGoal.sheet < 1 || visGoal.brick > 0) visTo({ sheet: 1, brick: 0 }, 600);
+  doStep(s, 240);
+}
+
+/* ---------- drawing ---------- */
+
+const PERSP = 0.2, ZR = 9;
+function aim() {
+  const yaw = view.yaw + swayOff, cp = Math.cos(view.pitch);
+  cam.set(yaw, view.pitch);
+  // orthographic exactly face-on and exactly side-on (so those two views are exact), a gentle
+  // perspective in between
+  const e = clamp((1 - cp * Math.max(Math.abs(Math.sin(yaw)), Math.abs(Math.cos(yaw)))) / 0.22, 0, 1), p = PERSP * e * e * (3 - 2 * e);
+  cam.ortho = p < 1e-3;
+  cam.dist = cam.ortho ? 1e6 : 14 / p;
+  cam.target = [viewX, view.cy, 0];
+  cam.cx = geom.cx; cam.cy = geom.cy; cam.s = geom.s * view.zoom;
+}
+function headPos() {
+  const n = drawPath.length - 1;
+  if (n === 0) return drawPath[0];
+  const h = clamp(head, 0, n), i = Math.min(Math.floor(h), n - 1), f = h - i, p = drawPath[i], q = drawPath[i + 1];
+  return [lerp(p[0], q[0], f), lerp(p[1], q[1], f), lerp(p[2], q[2], f)];
+}
+function fadeGrad(ctx, A, B, color, alpha, f0) {
+  const g = ctx.createLinearGradient(A[0], A[1], B[0], B[1]), c0 = AV.rgba(color, 0), c1 = AV.rgba(color, alpha);
+  g.addColorStop(0, c0); g.addColorStop(f0, c1); g.addColorStop(1 - f0, c1); g.addColorStop(1, c0);
+  return g;
+}
+const seg = (ctx, A, B) => { ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); };
+
+let readoutVer = -1, readoutHTML = '';
+function readout() {
+  if (readoutVer === wordVer) return readoutHTML;
+  readoutVer = wordVer;
+  const g = walker(), m = wordMap(word);
+  const home = gEq(g, ID), isId = m.ok && m.k === 0 && m.x.n === 0n;
+  const agree = m.ok && m.k === g.k && m.x.n === g.x.n && m.x.e === g.x.e;      // the map is the vertex
+  const pureA = g.k === 0 && g.x.e === 0 && g.x.n !== 0n;
+  readoutHTML = '<span class="big">' + T(wordTex(word)) + '</span>' +
+    '<br>' + T(mapTex(G(m.x, m.k))) +
+    '<br><span class="k">steps</span> ' + word.length +
+    (pureA ? ' <span class="k">· with</span> ' + T('a') + ' <span class="k">alone</span> ' + AV.int(g.x.n < 0n ? -g.x.n : g.x.n)
+      : ' <span class="k">· level</span> ' + T(String(g.k))) +
+    '<small>' + (isId ? 'the identity map' : 'not the identity') + ' · ' + (home ? 'back at the start' : 'away from the start') + ' ' + AV.ok(agree && isId === home) + '</small>';
+  return readoutHTML;
+}
+
+function draw(a) {
+  const ctx = a.ctx;
+  AV.clear(a);
+  aim();
+  const xl = viewX - HW - FADE, xr = viewX + HW + FADE, f0 = FADE / (xr - xl), xc0 = viewX - HW, xc1 = viewX + HW;
+  const fadeX = x => clamp((HW + FADE - Math.abs(x - viewX)) / FADE, 0, 1);
+  const mask = d => (1n << BigInt(d)) - 1n, ms = mOf(sheet), mo = sheetOld && sheetMix < 1 ? mOf(sheetOld) : null;
+  const rNew = [], rOld = [];
+  for (let d = 0; d <= DEPTH; d++) { rNew.push(Number(ms & mask(d))); rOld.push(mo === null ? -1 : Number(mo & mask(d))); }
+  const wOf = (d, r) => Math.max(r === rNew[d] ? sheetMix : 0, r === rOld[d] ? 1 - sheetMix : 0);    // how much this coset is lit
+  const mixA = (w, lo, hi) => (1 - w) * lo * vis.others + w * hi * vis.sheet;
+  const cue = (z, w) => lerp(0.45 + 0.55 * clamp(0.5 + z / (2 * ZR), 0, 1), 1, 0.7 * w);             // far things fade
+  const zs = clamp(Math.sqrt(view.zoom), 0.9, 1.7);
+  // the two cut ends of the window are planes x = const: seen edge-on (face-on to the sheets) they vanish
+  const cutOn = clamp((Math.abs(Math.sin(view.yaw + swayOff)) * Math.cos(view.pitch) - 0.04) / 0.5, 0, 1);
+  const items = [];
+
+  // cosets: each is a whole line of a-edges; each strip to its parent coset is a row of bricks
+  for (let d = 0; d <= DEPTH; d++) {
+    const n = 1 << d, h = 2 ** (KMIN + d);
+    for (let r = 0; r < n; r++) {
+      const w = wOf(d, r), z = h * SLOPE[d][r];
+      const A = cam.project([xl, h, z]), B = cam.project([xr, h, z]);
+      const al = mixA(w, 0.24, 0.92);
+      if (al > 0.01 && Math.hypot(A[0] - B[0], A[1] - B[1]) > 0.5) items.push({ kind: 0, w, z: (A[2] + B[2]) / 2, A, B, al });
+      if (d === 0) continue;
+      // 2^d strips coincide face-on: thin the fill so that the stack stays quiet
+      const fa = mixA(w, 1 - Math.pow(1 - 0.085, 1 / n), 0.13), ca = mixA(w, 0.3, 0.3) * cutOn;
+      if (fa < 0.002 && ca < 0.01) continue;
+      const hp = h / 2, zp = hp * SLOPE[d - 1][r & (n / 2 - 1)];
+      const E = cam.project([xc0, h, z]), F = cam.project([xc1, h, z]), C = cam.project([xc1, hp, zp]), D = cam.project([xc0, hp, zp]);
+      const zq = (E[2] + F[2] + C[2] + D[2]) / 4;
+      if (fa >= 0.002) items.push({ kind: 1, w, z: zq - 0.01, A: E, B: F, C, D, al: fa });
+      // where the window cuts the complex: a copy of the tree at each end
+      if (ca >= 0.01) items.push({ kind: 4, w, z: (E[2] + D[2]) / 2, A: D, B: E, al: ca }, { kind: 4, w, z: (F[2] + C[2]) / 2, A: C, B: F, al: ca });
+    }
+  }
+  // vertices and the t-edge up to each
+  for (let i = Math.ceil(xl / STEP); i <= Math.floor(xr / STEP); i++) {
+    const fx = fadeX(i * STEP);
+    if (fx < 0.02) continue;
+    let prev = null;
+    for (let d = 0; d <= DEPTH; d++) {
+      const n = 1 << d, w = wOf(d, ((i % n) + n) % n), p = cam.project(posAt(i, d));
+      const da = fx * mixA(w, 0.55, 1), ta = fx * mixA(w, 0.28, 0.9);
+      if (da > 0.01) items.push({ kind: 3, w, z: p[2] + 0.02, A: p, al: da });
+      if (prev && ta > 0.01) items.push({ kind: 2, w, z: (p[2] + prev[2]) / 2, A: prev, B: p, al: ta });
+      prev = p;
+    }
+  }
+  items.sort((p, q) => (p.w > 0.5) - (q.w > 0.5) || p.z - q.z);
+  ctx.lineCap = 'round';
+  for (const it of items) {
+    const c = cue(it.z, it.w);
+    if (it.kind === 0) {
+      ctx.strokeStyle = fadeGrad(ctx, it.A, it.B, COL.a, it.al * c, f0);
+      ctx.lineWidth = lerp(0.8, 1.5, it.w);
+      seg(ctx, it.A, it.B);
+    } else if (it.kind === 1) {
+      ctx.fillStyle = AV.rgba(COL.sheet, it.al * c);
+      ctx.beginPath(); ctx.moveTo(it.A[0], it.A[1]); ctx.lineTo(it.B[0], it.B[1]); ctx.lineTo(it.C[0], it.C[1]); ctx.lineTo(it.D[0], it.D[1]); ctx.closePath(); ctx.fill();
+    } else if (it.kind === 2) {
+      ctx.strokeStyle = AV.rgba(COL.t, it.al * c);
+      ctx.lineWidth = lerp(0.75, 1.4, it.w);
+      seg(ctx, it.A, it.B);
+    } else if (it.kind === 4) {
+      ctx.strokeStyle = AV.rgba(AV.C.ink2, it.al * c);
+      ctx.lineWidth = 0.7;
+      seg(ctx, it.A, it.B);
+    } else {
+      ctx.fillStyle = AV.rgba(AV.C.ink, it.al * c);
+      // seen from the side a whole coset line is one dot, a vertex of the tree: draw it a little larger
+      ctx.beginPath(); ctx.arc(it.A[0], it.A[1], lerp(1.2 + 0.9 * cutOn * cutOn, 2.2 + 0.5 * cutOn * cutOn, it.w) * zs * it.A[3], 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+
+  // let the graph sink into the ground before it reaches the title and the captions
+  if (a.mode === 'full') {
+    const g = ctx.createRadialGradient(geom.cx, geom.cy, 0.74 * geom.side, geom.cx, geom.cy, 1.15 * geom.side);
+    g.addColorStop(0, AV.rgba(AV.C.bg, 0)); g.addColorStop(1, AV.rgba(AV.C.bg, 0.94));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, a.W, a.H);
+  }
+
+  // the one brick of the relator: two a-edges below, one above, a t-edge on each side
+  if (vis.brick > 0.01) {
+    const P = [[0, 1], [2, 1], [4, 1], [4, 2], [0, 2]].map(([i, d]) => cam.project(posAt(i, d)));
+    ctx.globalAlpha = vis.brick;
+    AV.polyline(ctx, P, { closed: true, fill: COL.sheet, fillAlpha: 0.2, color: null });
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = COL.a; seg(ctx, P[0], P[1]); seg(ctx, P[1], P[2]); seg(ctx, P[3], P[4]);
+    ctx.strokeStyle = COL.t; seg(ctx, P[2], P[3]); seg(ctx, P[4], P[0]);
+    for (const p of P) AV.dot(ctx, p[0], p[1], 3.2, AV.C.ink);
+    ctx.globalAlpha = 1;
+  }
+
+  // the long way: a^16 along level 0
+  if (ghost > 0.01) {
+    const g0 = clamp(0, xc0, xc1), g1 = clamp(ghost, xc0, xc1);
+    if (g1 > g0) {
+      const A = cam.project(posAt(g0 / STEP, -KMIN)), B = cam.project(posAt(g1 / STEP, -KMIN));
+      AV.line(ctx, A[0], A[1], B[0], B[1], AV.rgba(COL.trail, 0.75), 1.5, [2, 5]);
+    }
+    for (let j = 1; j <= Math.floor(ghost + 1e-9); j++) { const p = cam.project(posAt(j / STEP, -KMIN)), f = fadeX(j); if (f > 0.02) AV.dot(ctx, p[0], p[1], 2.3, AV.rgba(COL.trail, 0.9 * f)); }
+  }
+
+  // the trail, the start, the walker
+  const hp = headPos(), trail = [];
+  for (let i = 0; i <= Math.min(Math.floor(head), drawPath.length - 1); i++) trail.push(drawPath[i]);
+  trail.push(hp);
+  const STROKES = [[0.2, 7], [0.95, 2.3]];                           // a soft halo, then the line
+  let run = [];
+  const flush = () => { if (run.length > 1) for (const [al, wd] of STROKES) AV.polyline(ctx, run, { color: COL.trail, alpha: al, width: wd }); run = []; };
+  const inside = p => p[0] >= xc0 && p[0] <= xc1;
+  for (let i = 0; i + 1 < trail.length; i++) {
+    const p = trail[i], q = trail[i + 1];
+    if (inside(p) && inside(q)) { if (!run.length) run.push(cam.project(p)); run.push(cam.project(q)); continue; }
+    flush();                                                         // a stretch that leaves the window fades out like the edges do
+    const cuts = [0, 1];
+    if (p[0] !== q[0]) for (const xc of [xl, xc0, xc1, xr]) { const t = (xc - p[0]) / (q[0] - p[0]); if (t > 0 && t < 1) cuts.push(t); }
+    cuts.sort((s, t) => s - t);
+    for (let j = 0; j + 1 < cuts.length; j++) {
+      const at = t => [lerp(p[0], q[0], t), lerp(p[1], q[1], t), lerp(p[2], q[2], t)];
+      const u = at(cuts[j]), v = at(cuts[j + 1]), a0 = fadeX(u[0]), a1 = fadeX(v[0]);
+      if (a0 < 0.01 && a1 < 0.01) continue;
+      const A = cam.project(u), B = cam.project(v);
+      for (const [al, wd] of STROKES) {
+        if (Math.abs(a0 - a1) < 1e-3) ctx.strokeStyle = AV.rgba(COL.trail, al * a0);
+        else { const g = ctx.createLinearGradient(A[0], A[1], B[0], B[1]); g.addColorStop(0, AV.rgba(COL.trail, al * a0)); g.addColorStop(1, AV.rgba(COL.trail, al * a1)); ctx.strokeStyle = g; }
+        ctx.lineWidth = wd;
+        seg(ctx, A, B);
+      }
+    }
+  }
+  flush();
+  const S = cam.project(drawPath[0]), sf = fadeX(drawPath[0][0]);
+  if (sf > 0.02) AV.ring(ctx, S[0], S[1], 7, AV.rgba(AV.C.ink, 0.75 * sf), 1.2);
+  const Wp = cam.project(bump ? [hp[0] + bump.v[0] * bump.u, hp[1] + bump.v[1] * bump.u, hp[2] + bump.v[2] * bump.u] : hp);
+  AV.dot(ctx, Wp[0], Wp[1], 5, COL.trail, { glow: 3.6 });
+  AV.dot(ctx, Wp[0], Wp[1], 2, AV.C.ink);
+
+  // the four ways on: tap one
+  const lab = [];
+  if (!scripted && a.mode === 'full') {
+    const g = walker(), W = cam.project(posOf(g));
+    for (const s of 'AatT') {
+      const h = mul(g, GEN[s]);
+      if (!inLevels(h)) continue;
+      const Q = cam.project(posOf(h)), len = Math.hypot(Q[0] - W[0], Q[1] - W[1]);
+      if (len < 9) continue;                                          // seen end-on, an a-step does not move
+      const col = s === 'a' || s === 'A' ? COL.a : COL.t;
+      AV.ring(ctx, Q[0], Q[1], 4.5, AV.rgba(col, 0.9), 1.2);
+      if (len < 18) continue;                                         // too close to name
+      const ux = (Q[0] - W[0]) / len, uy = (Q[1] - W[1]) / len;
+      let nx = -uy, ny = ux;                                          // the label sits diagonally beyond the ring, between the edges through it,
+      if (0.35 * nx - ny < 0) { nx = -nx; ny = -ny; }                 // on the upper side, where the rows are further apart
+      lab.push({ key: s, x: Q[0] + 10.5 * (ux + nx), y: Q[1] + 10.5 * (uy + ny), tex: s === 'a' || s === 't' ? s : s.toLowerCase() + '^{-1}', color: col, size: 13 });
+    }
+  }
+  labels.set(lab);
+
+  a.readout(readout());
+  a.legend([{ color: COL.a, label: T('a'), line: true }, { color: COL.t, label: T('t'), line: true }, { color: COL.trail, label: 'trail', line: true }, { color: COL.sheet, label: 'one sheet' }]);
+}
+
+/* ---------- the page ---------- */
+
+app = AV.page({
+  title: 'The Cayley Graph of BS(1, 2)',
+  hook: 'One relation folds a tree and a hyperbolic plane into a single group.',
+  date: '2026-11-09',
+  credit: 'generated by Claude (Fable 5)',
+  hint: 'drag to orbit · tap a neighbor',
+  autoplay: false,
+  posterStep: 3,
+  posterDelay: 4200,
+  controls: [
+    { type: 'play' },
+    { type: 'button', id: 'A', label: T('a^{-1}'), key: 'A', title: 'Step backward along a (Shift+A)', onClick: () => userStep('A') },
+    { type: 'button', id: 'a', label: T('a'), key: 'a', title: 'Step along a (A)', onClick: () => userStep('a') },
+    { type: 'button', id: 'T', label: T('t^{-1}'), key: 'T', title: 'Step down along t (Shift+T)', onClick: () => userStep('T') },
+    { type: 'button', id: 't', label: T('t'), key: 't', title: 'Step up along t (T)', onClick: () => userStep('t') },
+  ],
+  tour: [
+    { text: tx('One relation, $tat^{-1}=a^2$, drawn as a brick: up, across the top once, down, back along the bottom twice.'),
+      enter: a => {
+        a.pause(); resetWalk(1); visTo({ others: 0, sheet: 0.4, brick: 1 }, 700); viewTo(VIEWS.brick, 900);
+        run(async live => { await wait(800); for (const s of 'taTAA') { if (!live()) return; await doStep(s, 400); } });
+      } },
+    { text: tx('Bricks stack into a half-plane. One level up, each brick and each step along $a$ is twice as big: hyperbolically, all bricks are equal.'),
+      enter: a => {
+        a.pause(); resetWalk(); visTo({ others: 0, sheet: 1, brick: 0 }, 700); viewTo(VIEWS.face, 1000);
+        run(async live => { await wait(1000); for (const s of 'aatatata') { if (!live()) return; await doStep(s, 300); } });
+      } },
+    { text: 'Step up from an even or an odd corner and you land on different sheets. Seen from the side, the sheets branch along a tree.',
+      enter: a => {
+        a.pause(); resetWalk(); visTo({ others: 1, sheet: 1, brick: 0 }, 900);
+        run(async live => {
+          if (!await viewTo(VIEWS.fan, 1000) || !live()) return;
+          for (const s of 'tTat') { if (!live()) return; await doStep(s, 250); }      // up from 0, back, up from 1: another sheet
+          await wait(250);
+          if (live()) await viewTo(VIEWS.side, 1200);
+        });
+      } },
+    { text: tx('The shortcut to $a^{16}$: climb three levels, take two steps, climb back down. Eight steps, and no word is shorter: $a$ is exponentially distorted.'),
+      enter: a => {
+        a.pause(); resetWalk(); visTo({ others: 0.55, sheet: 1, brick: 0 }, 700); viewTo(VIEWS.shortcut, 1000);
+        run(async live => {
+          await wait(450);
+          if (!live()) return;
+          await a.tween(700, u => { ghost = 16 * u; }, { key: 'ghost' });
+          for (const s of 'tttaaTTT') { if (!live()) return; await doStep(s, 250); }
+        });
+      } },
+    { text: tx('Now wander. Each word is a map $y\\mapsto 2^ky+x$; it is the identity exactly when you are back at the start.'),
+      enter: a => {
+        resetWalk(); visTo({ others: 1, sheet: 1, brick: 0 }, 700);
+        for (const id of ['A', 'a', 'T', 't']) a.pulse(id);
+        run(async live => { if (await viewTo(VIEWS.wander, 1100) && live()) a.play(); });
+      } },
+  ],
+  math: tx(`<p>The <b>Baumslag–Solitar group</b> $BS(1,2)=\\langle a,t\\mid tat^{-1}=a^2\\rangle$ acts on the line by $a\\colon y\\mapsto y+1$ and $t\\colon y\\mapsto 2y$,
+    so it is $\\mathbb{Z}[\\tfrac12]\\rtimes\\mathbb{Z}$: solvable and amenable, yet of exponential growth. Since $t^nat^{-n}=a^{2^n}$, the subgroup $\\langle a\\rangle$ is exponentially distorted.</p>
+    <p>Its Cayley 2-complex is (trivalent tree) $\\times\\ \\mathbb{R}$. Each upward path in the tree carries a sheet: a hyperbolic plane tiled by congruent horobricks.
+    Farb and Mosher used this geometry to prove that the group is quasi-isometrically rigid.</p>
+    <p class="ref">Baumslag and Solitar 1962; Farb and Mosher 1998. Companions: <a style="color:inherit" href="2026-08-19-bruhat-tits-tree.html">the Bruhat–Tits tree</a>,
+    <a style="color:inherit" href="2026-08-13-heisenberg-growth.html">Heisenberg growth</a>.</p>`),
+  setup: a => { app = a; labels = AV.texLabels(a); },
+  onPlay: on => { if (!on) { view.yaw += swayOff; swayOff = 0; swayT = 0; } },
+  step: dt => { swayT += dt; swayOff = 0.3 * Math.sin(0.5 * swayT); },
+  draw,
+});
+
+app.onResize(a => {
+  const r = a.fitRect(17.6 / 16.4, 6);
+  geom = { cx: r.cx, cy: r.cy, s: Math.min(r.w / 17.6, r.h / 16.4), side: Math.max(r.w, r.h) };
+});
+
+app.pointer({
+  drag: (p, d) => {
+    interrupt();
+    if (turning) app.tween(1, () => {}, { key: 'angle' });          // the reader takes the camera
+    view.yaw += d.dx * 0.008;
+    view.pitch = clamp(view.pitch + d.dy * 0.008, -0.4, 1.4);
+  },
+  up: (p, e, dragged) => {                                 // released almost face-on or side-on: settle exactly there
+    if (!dragged || app.playing) return;
+    const q = Math.round(view.yaw / (Math.PI / 2)) * Math.PI / 2;
+    if (Math.abs(view.yaw - q) < 0.13 && Math.abs(view.pitch) < 0.13) viewTo({ yaw: q, pitch: 0 }, 320);
+  },
+  wheel: (p, dy) => { closeUp = false; view.zoom = clamp(view.zoom * Math.exp(-dy * 0.0012), 0.6, 6); camGoal.zoom = view.zoom; },
+  tap: p => {
+    const g = walker(), W = cam.project(posOf(g));
+    let best = null, bd = Math.min(34, Math.hypot(W[0] - p.x, W[1] - p.y));
+    for (const s of 'aAtT') {
+      const h = mul(g, GEN[s]);
+      if (!inLevels(h)) continue;
+      const Q = cam.project(posOf(h));
+      if (Math.hypot(Q[0] - W[0], Q[1] - W[1]) < 9) continue;
+      const dd = Math.hypot(Q[0] - p.x, Q[1] - p.y);
+      if (dd < bd) { bd = dd; best = s; }
+    }
+    if (best) userStep(best);
+  },
+});
+app.cursor('grab');
+addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName))) return;
+  const s = e.key === 'ArrowUp' ? 't' : e.key === 'ArrowDown' ? 'T' : e.key === 'Backspace' && word.length ? INV[word[word.length - 1]] : null;
+  if (s) { e.preventDefault(); userStep(s); }
+});
+
+/* ---------- self-checks (exact) ---------- */
+
+AV.test('the relator t a t^-1 a^-2 is the identity, and no proper prefix is', () => {
+  const r = 'taTAA';
+  for (let i = 1; i < r.length; i++) if (gEq(walkTo(r.slice(0, i)), ID)) return 'the prefix ' + r.slice(0, i) + ' is trivial';
+  return gEq(walkTo(r), ID) || 'the relator is not trivial';
+});
+AV.test('t^n a t^-n = a^(2^n) for n <= 10, and a, t do not commute', () => {
+  for (let n = 0; n <= 10; n++) if (!gEq(walkTo('t'.repeat(n) + 'a' + 'T'.repeat(n)), G(dy(1n << BigInt(n)), 0))) return 'fails at n = ' + n;
+  return !gEq(walkTo('at'), walkTo('ta')) || 'a and t commute';
+});
+AV.test('ball sizes 1, 5, 17, 43, 93, 191, 375, 711, 1317: two exact searches agree, growth > 1.5x per step; |a^16| = 8', () => {
+  const far = new Map();                                 // word length of each element found by the first search
+  const grow = (start, gens, times, key, R, dist) => {
+    const seen = new Set([key(start)]), out = [1];
+    let frontier = [start];
+    for (let r = 1; r <= R; r++) {
+      const next = [];
+      for (const g of frontier) for (const s of gens) { const h = times(g, s), k = key(h); if (!seen.has(k)) { seen.add(k); next.push(h); if (dist) dist.set(k, r); } }
+      frontier = next; out.push(seen.size);
+    }
+    return out;
+  };
+  const R = 8, b1 = grow(ID, Object.values(GEN), mul, gKey, R, far);
+  // independently: the matrices [[2^k, x], [0, 1]] over the rationals (kit/exact.js)
+  const Q = AV.Q, M = (p, x) => [Q.of(p), Q.of(x)], half = new Q(1n, 2n);
+  const b2 = grow(M(1n, 0n), [M(1n, 1n), M(1n, -1n), M(2n, 0n), M(half, 0n)], (g, h) => [g[0].mul(h[0]), g[0].mul(h[1]).add(g[1])], g => g[0] + ';' + g[1], R);
+  const want = [1, 5, 17, 43, 93, 191, 375, 711, 1317];
+  if (b1.join() !== want.join() || b2.join() !== want.join()) return 'got ' + b1.join(', ') + ' and ' + b2.join(', ');
+  for (let r = 1; r <= R; r++) if (2 * b1[r] <= 3 * b1[r - 1]) return 'slow growth at radius ' + r;
+  // the tour's shortcut is a geodesic: a^16 first appears at radius 8, while a^4 still needs 4 steps
+  return (far.get(gKey(G(dy(16), 0))) === 8 && far.get(gKey(G(dy(4), 0))) === 4) || 'a^16 has word length ' + far.get(gKey(G(dy(16), 0)));
+});
+AV.test('every drawn brick closes up (a, a, t around one way; t, a around the other), is flat, and is 2 : 1 face-on', () => {
+  let count = 0;
+  for (const [i, d] of windowVertices()) {
+    if (d === DEPTH || (i + 2 * (1 << d)) * STEP > X0 + HW + FADE) continue;
+    const v0 = vertexAt(i, d), v1 = mul(v0, GEN.a), v2 = mul(v1, GEN.a), v3 = mul(v2, GEN.t), v4 = mul(v0, GEN.t);
+    if (!gEq(mul(v4, GEN.a), v3)) return 'the top edge does not close the brick at ' + gKey(v0);
+    if (!gEq([...'taTAA'].reduce((g, s) => mul(g, GEN[s]), v0), v0)) return 'the relator does not close at ' + gKey(v0);
+    const [p0, p1, p2, p3, p4] = [v0, v1, v2, v3, v4].map(posOf);
+    if (p0[1] !== p1[1] || p1[1] !== p2[1] || p0[2] !== p1[2] || p1[2] !== p2[2] || p3[1] !== p4[1] || p3[2] !== p4[2]) return 'a brick is not flat at ' + gKey(v0);
+    if (p3[0] !== p2[0] || p4[0] !== p0[0] || p1[0] - p0[0] !== p2[0] - p1[0] || p2[0] - p0[0] !== 2 * (p4[1] - p0[1])) return 'a brick is not 2 : 1 at ' + gKey(v0);
+    if (!sameCoset(v0, v2) || !sameCoset(v3, v4) || sameCoset(mul(v0, GEN.t), mul(v1, GEN.t))) return 'a brick straddles two strips at ' + gKey(v0);
+    count++;
+  }
+  return count > 100 || 'only ' + count + ' bricks';
+});
+AV.test('every drawn vertex: one coset below, two above (the tree is trivalent), and the fan separates cosets exactly', () => {
+  const V = windowVertices();
+  for (const [i, d] of V) {
+    const v = vertexAt(i, d), va = mul(v, GEN.a), vaa = mul(va, GEN.a);
+    if (!sameCoset(mul(v, GEN.T), mul(va, GEN.T))) return 'two cosets below ' + gKey(v);
+    if (sameCoset(mul(v, GEN.t), mul(va, GEN.t)) || !sameCoset(mul(v, GEN.t), mul(vaa, GEN.t))) return 'not exactly two cosets above ' + gKey(v);
+    if (d < DEPTH) {                                      // the two children sit on either side of their parent, closer than any cousin
+      const u = posAt(i, d)[2] / posAt(i, d)[1], u1 = posOf(mul(v, GEN.t)), u2 = posOf(mul(va, GEN.t)), gap = U / 2 ** (d + 1);
+      if (Math.abs(u1[2] / u1[1] - u) !== gap || Math.abs(u2[2] / u2[1] - u) !== gap || u1[2] === u2[2]) return 'the fan is uneven above ' + gKey(v);
+    }
+  }
+  for (let p = 0; p < V.length; p++) for (let q = p + 1; q < V.length; q++) {
+    if (V[p][1] !== V[q][1]) continue;
+    const g = vertexAt(...V[p]), h = vertexAt(...V[q]);
+    if ((posOf(g)[2] === posOf(h)[2]) !== sameCoset(g, h)) return 'the fan confuses ' + gKey(g) + ' and ' + gKey(h);
+    if (onSheet(g, dy(0)) !== sameCoset(g, G(dy(0), g.k))) return 'the sheet test is wrong at ' + gKey(g);
+  }
+  return true;
+});
+AV.test('a word as a walk and as an affine map agree; the shortcut t^3 a^2 t^-3 is a^16 in 8 steps', () => {
+  let seed = 20261109;
+  const rnd = n => { seed = (seed * 1103515245 + 12345) % 2147483648; return Math.floor(seed / 2147483648 * n); };
+  for (let trial = 0; trial < 300; trial++) {
+    let w = [];
+    for (let j = 0, n = 1 + rnd(40); j < n; j++) w = pushLetter(w, 'aAtT'[rnd(4)]);
+    for (let j = 1; j < w.length; j++) if (w[j] === INV[w[j - 1]]) return 'not freely reduced';
+    const g = walkTo(w), m = wordMap(w);
+    if (!m.ok || !gEq(g, G(m.x, m.k))) return 'walk and map differ for ' + w.join('');
+    if (gEq(g, ID) !== (m.k === 0 && m.x.n === 0n)) return 'identity test differs for ' + w.join('');
+  }
+  const s = [...'tttaaTTT'];
+  return (s.length === 8 && gEq(walkTo(s), walkTo('a'.repeat(16))) && wordTex(s) === 't^{3}\\,a^{2}\\,t^{-3}') || 'the shortcut is wrong';
+});
+</script>
+</body>
+</html>
