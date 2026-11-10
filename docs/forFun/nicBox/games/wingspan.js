@@ -311,6 +311,9 @@ class WingspanGame {
     advanceTurn() {
         const pid = this.activePlayerId;
         this.actionsLeft[pid]--;
+        // Ignore taps during the delay before the next prompt (double-tap would
+        // otherwise spend an extra action).
+        this.phase = 'idle';
         // Next player (rotate seat)
         this.turnIndex = (this.turnIndex + 1) % this.turnOrder.length;
         setTimeout(() => this.promptCurrentPlayer(), 900);
@@ -359,6 +362,7 @@ class WingspanGame {
     // ── Action Handlers ───────────────────────────────────
     handleAction(pid, action) {
         if (pid !== this.activePlayerId || this.phase !== 'awaiting_action') return;
+        if ((this.actionsLeft[pid] || 0) <= 0) return;
 
         const b = this.boards[pid];
         switch (action.type) {
