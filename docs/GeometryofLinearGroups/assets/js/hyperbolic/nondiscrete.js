@@ -58,8 +58,10 @@
  * finite orders, common fixed points, ℚ-ranks and the multiplier's order are
  * exact. The inequalities (0 ≤ t < 4, Jørgensen's sum) are floating-point
  * comparisons with a margin, and realness is exact when K has complex
- * conjugation or the number is rational. Without an exact context the result
- * is numerical evidence, not a proof.
+ * conjugation or the number is rational. A realness test that only checked
+ * |Im| < 10⁻¹⁰ is not a proof: an exact certificate requires realness itself
+ * to be exact. Without an exact context the result is numerical evidence,
+ * not a proof.
  */
 import { Matrix2x2, Complex, pslKey, distFromIdentityPSL, uhsToBall, reduceWord, invertWord } from './math.js';
 import { exactFromWord, ExactMat, Frac, minimalPolynomial, polyString } from './exact.js';
@@ -337,6 +339,30 @@ function ordersUpTo(bound) {
     return out;
 }
 
+/** The number of real roots of a squarefree p ∈ ℚ[x] (coefficients low → high), by Sturm's theorem. */
+function realRootCount(p) {
+    const trim = (a) => { while (a.length && a[a.length - 1].isZero()) a.pop(); return a; };
+    const rem = (a, b) => {
+        a = a.slice();
+        const db = b.length - 1;
+        for (let k = a.length - 1; k >= db; k--) {
+            const q = a[k].div(b[db]);
+            if (!q.isZero()) for (let i = 0; i <= db; i++) a[k - db + i] = a[k - db + i].sub(q.mul(b[i]));
+        }
+        return trim(a.slice(0, db));
+    };
+    const chain = [trim(p.slice()), trim(p.slice(1).map((c, i) => c.mul(new Frac(BigInt(i + 1)))))];
+    while (chain[chain.length - 1].length > 1) {
+        const r = rem(chain[chain.length - 2], chain[chain.length - 1]);
+        if (!r.length) break;
+        chain.push(r.map(c => c.neg()));
+    }
+    const sgn = (f) => (f.p > 0n ? 1 : f.p < 0n ? -1 : 0);
+    const changes = (s) => { let n = 0, prev = 0; for (const x of s) { if (x && prev && x !== prev) n++; if (x) prev = x; } return n; };
+    const lead = chain.map(f => sgn(f[f.length - 1]));
+    return changes(chain.map((f, i) => (f.length % 2 ? lead[i] : -lead[i]))) - changes(lead);
+}
+
 class Exact {
     constructor(ctx, { allowConj, deadline, maxEvals }) {
         this.K = ctx.field;
@@ -402,7 +428,18 @@ class Exact {
     realAt(x) {
         if (this.isRational(x)) return { real: true, exact: true };
         const K = this.K;
-        if (!K.hasConj() && this.allowConj && !this.triedConj && typeof K.ensureConj === 'function' && K.deg <= 6) {
+        // Without conjugation: a number whose minimal polynomial over ℚ has
+        // only real roots (Sturm) is real at every embedding. This is cheap,
+        // and covers the totally real trace invariants of Fuchsian groups.
+        if (!K.hasConj()) {
+            try {
+                const p = minimalPolynomial(x);
+                if (realRootCount(p) === p.length - 1) return { real: true, exact: true };
+            } catch (e) { /* try conjugation */ }
+        }
+        // Any field the reader will build (degree ≤ 32). ensureConj throws
+        // rather than searching when adjoining the conjugate would be huge.
+        if (!K.hasConj() && this.allowConj && !this.triedConj && typeof K.ensureConj === 'function' && K.deg <= 32) {
             this.triedConj = true;
             try { K.ensureConj(); } catch (e) { /* too large: decide numerically */ }
         }
@@ -468,7 +505,10 @@ function ellipticTest(pool, X) {
                 if (!t.isZero()) continue;
             }
             const real = X.realAt(t);
-            if (!real.real) continue;
+            // |Im| < 10⁻¹⁰ is not a proof that t is real: a loxodromic whose
+            // trace invariant sits that close to ℝ would be called an elliptic
+            // of infinite order, and ⟨it⟩ is discrete.
+            if (!real.real || !real.exact) continue;
             const theta = rotationAngle(tv.re);
             let order = null;
             for (const m of X.orders) {
@@ -484,13 +524,13 @@ function ellipticTest(pool, X) {
                 kind: 'elliptic', exact: true, words: [el.word],
                 headline: `${W} is an elliptic of infinite order`,
                 lines: [
-                    `${W} is elliptic: tr²/det ${tText} is real${real.exact ? '' : ' (numerically: |Im| < 10⁻¹⁰)'} and lies in (0, 4), so it rotates about its axis by θ ≈ ${piMultiple(theta)}.`,
+                    `${W} is elliptic: tr²/det ${tText} is real and lies in (0, 4), so it rotates about its axis by θ ≈ ${piMultiple(theta)}.`,
                     `A finite order m would make e^{iθ} a primitive m-th root of unity of degree ≤ 2 over ℚ(tr²/det), so φ(m) ≤ ${bound}; no such m has ${Wp}ᵐ = 1 (checked exactly). ${W} has infinite order.`,
                     `Its powers rotate by multiples of θ, which are dense in the circle and accumulate at the identity: the group is not discrete.`,
                 ],
                 tex: [
                     `Let $W = ${wordTex(el.word)}$ and $t = \\operatorname{tr}^2 W/\\det W$. Then $t ${eqTex(X.show(t))}$${mp ? `, a root of $${mp}$` : ''}.`,
-                    `This $t$ is real${real.exact ? '' : ' (numerically, $|\\operatorname{Im} t| < 10^{-10}$)'} and lies in $(0, 4)$, so $W$ is elliptic.`,
+                    `This $t$ is real (exact) and lies in $(0, 4)$, so $W$ is elliptic.`,
                     `$W$ rotates about its axis by the angle $\\theta$ with $t = 4\\cos^2(\\theta/2)$, which is $\\theta \\approx ${piTex(theta)}$.`,
                     `If $W$ had finite order $m$, then $e^{i\\theta}$ would be a primitive $m$-th root of unity of degree at most $2$ over $\\mathbb{Q}(t)$, so $\\varphi(m) \\le ${bound}$.`,
                     `No such $m$ has $W^m = 1$ (checked exactly), so $W$ has infinite order.`,
@@ -643,7 +683,9 @@ function exactCusp(c, pool, X) {
     if (basis.length === 2) {
         const rho = basis[1].rho;
         const real = X.realAt(rho);
-        if (real.real) {
+        // Same gate as the elliptic test. A lattice ℤ + ℤρ with Im ρ ≠ 0 is
+        // discrete; a purely numerical "ρ is real" must not certify otherwise.
+        if (real.real && real.exact) {
             const Q = wordText(basis[1].word);
             const mp = X.minpolyText(rho);
             return {
@@ -651,13 +693,13 @@ function exactCusp(c, pool, X) {
                 headline: `the parabolics ${P} and ${Q} share a cusp and translate it by a real irrational ratio`,
                 lines: [
                     `${P} and ${Q} are parabolic with the same fixed point (exact: their nilpotent parts are proportional over K).`,
-                    `In the frame where it is ∞ they translate by τ and ρτ with ρ ${eq(X.show(rho))}${mp ? `, a root of ${mp}` : ''}: irrational (exact) and real${real.exact ? ' (exact)' : ' (numerically: |Im| < 10⁻¹⁰)'}.`,
+                    `In the frame where it is ∞ they translate by τ and ρτ with ρ ${eq(X.show(rho))}${mp ? `, a root of ${mp}` : ''}: irrational and real (both exact).`,
                     `So ⟨${P}, ${Q}⟩ ≅ ℤ² translates a line densely — its elements accumulate at the identity: the group is not discrete.`,
                 ],
                 tex: [
                     `The parabolics $P = ${wordTex(basis[0].word)}$ and $Q = ${wordTex(basis[1].word)}$ have the same fixed point: their nilpotent parts are proportional over $K$ (exact).`,
                     `In the frame where that point is $\\infty$, they translate by $\\tau$ and $\\rho\\tau$, with $\\rho ${eqTex(X.show(rho))}$${X.minpolyTex(rho) ? `, a root of $${X.minpolyTex(rho)}$` : ''}.`,
-                    `This $\\rho$ is irrational (exact) and real${real.exact ? ' (exact)' : ' (numerically, $|\\operatorname{Im}\\rho| < 10^{-10}$)'}.`,
+                    `This $\\rho$ is irrational and real (both exact).`,
                     'So $\\langle P, Q\\rangle \\cong \\mathbb{Z}^2$ translates a line densely, and its elements accumulate at the identity. The group is not discrete.',
                 ],
                 points,
