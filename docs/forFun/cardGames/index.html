@@ -110,6 +110,12 @@
     }
     .game-card:hover { border-color: rgba(201,168,76,0.4); background: rgba(201,168,76,0.05); transform: scale(1.02); }
     .game-card.selected { border-color: var(--gold); background: rgba(201,168,76,0.1); }
+    .game-card.coming-soon {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .game-card.coming-soon:hover { transform: none; border-color: rgba(201,168,76,0.15); background: rgba(255,255,255,0.02); }
     .game-icon { font-size: 28px; display: block; margin-bottom: 6px; }
     .game-name { font-family: var(--font-display); font-size: 13px; color: var(--gold); letter-spacing: 1px; }
     .game-badge { font-size: 10px; color: #666; margin-top: 3px; }
@@ -331,7 +337,8 @@
       { id: 'blackjack', name: 'Blackjack', icon: '🃏', badge: '1–6 players', desc: 'Beat the dealer' },
       { id: 'war',       name: 'War',       icon: '⚔️', badge: '2–4 players', desc: 'Highest card wins' },
       { id: 'gofish',    name: 'Go Fish',   icon: '🐟', badge: '2–5 players', desc: 'Collect sets of 4' },
-      { id: 'snap',      name: 'Snap',      icon: '👆', badge: '2–6 players', desc: 'Shout SNAP fastest' },
+      // Snap is listed so the catalog is honest, but there is no engine/hand UI.
+      { id: 'snap',      name: 'Snap',      icon: '👆', badge: 'Coming soon', desc: 'Shout SNAP fastest', comingSoon: true },
     ];
 
     // ===== INIT =====
@@ -353,9 +360,9 @@
       grid.innerHTML = '';
       for (const g of GAMES) {
         const card = document.createElement('div');
-        card.className = 'game-card';
+        card.className = 'game-card' + (g.comingSoon ? ' coming-soon' : '');
         card.id = 'game-' + g.id;
-        card.onclick = () => selectGame(g.id);
+        if (!g.comingSoon) card.onclick = () => selectGame(g.id);
         card.innerHTML = `
           <span class="game-icon">${g.icon}</span>
           <div class="game-name">${g.name}</div>
@@ -387,6 +394,8 @@
     }
 
     function selectGame(id) {
+      const game = GAMES.find(g => g.id === id);
+      if (!game || game.comingSoon) { toast('Coming soon!'); return; }
       _selectedGame = id;
       document.querySelectorAll('.game-card').forEach(c => c.classList.remove('selected'));
       document.getElementById('game-' + id).classList.add('selected');
@@ -395,7 +404,8 @@
 
     // ===== HOST TABLE =====
     function hostTable() {
-      if (!_selectedGame) { toast('Pick a game first!'); return; }
+      const game = GAMES.find(g => g.id === _selectedGame);
+      if (!game || game.comingSoon) { toast('Pick a game first!'); return; }
       _roomCode = generateCode();
       _playerName = document.getElementById('host-name').value.trim() || 'Host';
       _playerId = 'host';
