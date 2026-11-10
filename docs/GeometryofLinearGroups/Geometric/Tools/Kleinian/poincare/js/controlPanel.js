@@ -5,11 +5,30 @@
 
 import * as THREE from 'three';
 
-// Color palettes for the polyhedron faces
-// mode: 0 = cosine palette, 1 = monochrome
-// offset: vec3 phase offset for cosine palette
-// freq: frequency multiplier for color variation
+// Color palettes for the polyhedron faces.
+// A palette is either a list of hex `colors` (pairing class k takes color k;
+// made in the Design Studio, /designStudio/palettes/) or a classic cosine
+// palette: mode 0 = cosine, 1 = monochrome, with a vec3 phase `offset` and a
+// frequency `freq`.
 export const colorPalettes = {
+    // Real palettes adapted for faces on the dark ball (mid-to-light, all
+    // distinct) by the Design Studio's engine: designStudio/palettes, fromCorpus(id, 8, 'poincare').
+    hiroshige: { name: 'Hiroshige', source: 'MetBrewer', colors: ['#a2d2d6', '#e88542', '#376794', '#f5a03e', '#6eb5cd', '#ffd88e', '#e65a4c', '#ffc335'] },
+    // From a photo of a pixelated water-lily pond: OKLab clusters, one color per hue, brightened a little
+    lilyPatch: { name: 'Lily Patch', source: 'photo', colors: ['#886bee', '#68ba40', '#2d8dd0', '#d55759', '#b6d752', '#c75ae7', '#e9893c', '#5bcbb4'] },
+    tiepolo: { name: 'Tiepolo', source: 'MetBrewer', colors: ['#b23624', '#eb7f45', '#25689d', '#f6daa9', '#f2af57', '#818e4e', '#63aec6', '#3e7a70'] },
+    hokusai: { name: 'Hokusai', source: 'MetBrewer', colors: ['#d8d97a', '#9fcf75', '#7bd3cd', '#6eafdc', '#427fc6', '#1f63b0', '#58ae76', '#8ef3ed'] },
+    morgenstern: { name: 'Morgenstern', source: 'MetBrewer', colors: ['#db8872', '#ffc680', '#a56457', '#dfbbc8', '#ffb178', '#c7a2b6', '#b08ba5', '#98768e'] },
+    monet: { name: 'Monet', source: 'MetBrewer', colors: ['#749e89', '#c399a2', '#7d87b2', '#abccbe', '#e3cacf', '#c2cae3', '#4e6d58', '#9f6e71'] },
+    cross: { name: 'Cross', source: 'MetBrewer', colors: ['#fa995e', '#75adb6', '#d88cb6', '#006e89', '#e7665f', '#9cb57f', '#f2a99e', '#ffd79b'] },
+    rosePine: { name: 'Rosé Pine', source: 'editor theme', colors: ['#eb6f92', '#f6c177', '#ebbcba', '#31748f', '#9ccfd8', '#c4a7e7', '#a26dd9', '#66a1b3'] },
+    nord: { name: 'Nord', source: 'editor theme', colors: ['#bf616a', '#ebcb8b', '#81a1c1', '#a3be8c', '#5e81ac', '#d08770', '#88c0d0', '#b48ead'] },
+    catppuccin: { name: 'Catppuccin', source: 'editor theme', colors: ['#f0c5c5', '#7faefa', '#f280a1', '#a1dc9c', '#80d6e6', '#faaa78', '#c79ef6', '#f8db9a'] },
+    kanagawa: { name: 'Kanagawa', source: 'editor theme', colors: ['#c34043', '#7e9cd8', '#ffa066', '#98bb6c', '#d27e99', '#76946a', '#e6c384', '#c0a36e'] },
+    tokyoNight: { name: 'Tokyo Night', source: 'editor theme', colors: ['#7aa2f7', '#9ece6a', '#f7768e', '#ff9e64', '#7dcfff', '#73daca', '#bb9af7', '#2ac3de'] },
+    flexoki: { name: 'Flexoki', source: 'Steph Ango', colors: ['#d14d41', '#3aa99f', '#d0a215', '#8b7ec8', '#879a39', '#ce5d97', '#4385be', '#da702c'] },
+    okabeIto: { name: 'Okabe–Ito', source: 'color-blind safe', colors: ['#e59f00', '#55b3e9', '#009d73', '#efe342', '#0072b1', '#d45e00', '#cc78a7', '#b4dcf5'] },
+    observable: { name: 'Observable', source: 'Observable Plot', colors: ['#4269d0', '#efb118', '#97bbf5', '#9c6b4e', '#3ca951', '#ff8ab7', '#a463f2', '#6cc5b0'] },
     rainbow: {
         name: 'Rainbow',
         mode: 0,
@@ -60,8 +79,8 @@ export const colorPalettes = {
     }
 };
 
-// Current palette (used by shader)
-let currentPalette = 'rainbow';
+// Current palette: Hiroshige by default (Rainbow, the old default, is under Classic)
+let currentPalette = 'hiroshige';
 
 export function getCurrentPalette() {
     return currentPalette;
@@ -69,6 +88,63 @@ export function getCurrentPalette() {
 
 export function getPaletteSettings() {
     return colorPalettes[currentPalette];
+}
+
+/** The hex colors of a discrete palette (null for a cosine one). */
+export function getPaletteColors(key = currentPalette) {
+    const p = colorPalettes[key];
+    return p && p.colors ? p.colors.slice() : null;
+}
+
+/** Choose a palette by key; returns false for an unknown key. */
+export function setCurrentPalette(key) {
+    if (!colorPalettes[key]) return false;
+    currentPalette = key;
+    syncPaletteSelect();
+    return true;
+}
+
+/**
+ * A palette from outside (the Design Studio, ?palette=…): it takes the
+ * 'studio' slot in the dropdown and becomes the current palette.
+ */
+export function setCustomPalette(colors, name = 'Design Studio') {
+    colorPalettes.studio = {
+        name: `${name}`,
+        mode: 2,
+        colors: colors.map((c) => (c.startsWith('#') ? c : '#' + c).toLowerCase()),
+        offset: new THREE.Vector3(0, 0, 0),
+        freq: 0
+    };
+    return setCurrentPalette('studio');
+}
+
+/** Rebuild the dropdown from colorPalettes and show the current choice. */
+export function syncPaletteSelect() {
+    const sel = document.getElementById('color-palette-select');
+    if (!sel) return;
+    const keys = Object.keys(colorPalettes);
+    const have = [...sel.options].map((o) => o.value);
+    if (have.join() !== keys.join() || [...sel.options].some((o) => o.textContent !== colorPalettes[o.value].name)) {
+        sel.textContent = '';
+        const groups = { studio: 'From the Design Studio', discrete: 'Palettes', classic: 'Classic' };
+        const kind = (k) => (k === 'studio' ? 'studio' : colorPalettes[k].colors ? 'discrete' : 'classic');
+        for (const g of ['studio', 'discrete', 'classic']) {
+            const ks = keys.filter((k) => kind(k) === g);
+            if (!ks.length) continue;
+            const og = document.createElement('optgroup');
+            og.label = groups[g];
+            for (const k of ks) {
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.textContent = colorPalettes[k].name;
+                if (colorPalettes[k].source) opt.title = colorPalettes[k].source;
+                og.appendChild(opt);
+            }
+            sel.appendChild(og);
+        }
+    }
+    sel.value = currentPalette;
 }
 
 /** Read the same finite integer limits shown in the form, including on Render. */
@@ -205,13 +281,7 @@ export function setupControlPanel(handlers) {
     // Color palette dropdown
     const paletteSelect = document.getElementById('color-palette-select');
     if (paletteSelect) {
-        // Populate dropdown
-        Object.keys(colorPalettes).forEach(key => {
-            const opt = document.createElement('option');
-            opt.value = key;
-            opt.textContent = colorPalettes[key].name;
-            paletteSelect.appendChild(opt);
-        });
+        syncPaletteSelect();
 
         paletteSelect.addEventListener('change', () => {
             currentPalette = paletteSelect.value;

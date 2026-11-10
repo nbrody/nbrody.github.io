@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Palette Studio</title>
+    <meta name="description" content="Lock a color or two and get whole palettes, completed by analogy with 1,450 palettes made by people, and ranked by a model that learns your taste.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        // theme before first paint: saved choice, else the system's
+        (function () {
+            let t = null;
+            try { t = localStorage.getItem('designStudio.theme'); } catch (e) {}
+            if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        })();
+    </script>
+</head>
+<body>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+        <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 7.5-1.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+        <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+        <symbol id="i-heart-fill" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+        <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+        <symbol id="i-vary" viewBox="0 0 24 24"><circle cx="7" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="7" r="2.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="17" r="2.4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.7 10.6l4.9-2.5M9.7 13.4l4.9 2.5" stroke="currentColor" stroke-width="2"/></symbol>
+        <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M4 7h3.5c4.5 0 4.5 10 9 10H20M4 17h3.5c1.4 0 2.3-.9 3-2M13.5 9c.7-1.1 1.6-2 3-2H20M17.5 4.5L20 7l-2.5 2.5M17.5 14.5L20 17l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+        <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </svg>
+
+    <header class="top">
+        <a class="crumb" href="../">Design Studio</a>
+        <span class="crumb-sep" aria-hidden="true">/</span>
+        <h1>Palettes</h1>
+        <p class="tagline">Lock a color or two. The rest is completed by analogy with <span id="corpus-count">1,456</span> palettes people made.</p>
+        <button id="theme-btn" class="icon-btn" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
+            <svg class="i"><use href="#i-moon"/></svg>
+        </button>
+    </header>
+
+    <div class="layout">
+        <main class="work">
+            <section class="working" aria-label="Your palette">
+                <div id="strip" class="strip"></div>
+                <div class="working-actions">
+                    <button id="like-working" class="tint-btn" type="button" title="Save this palette and teach the model you like it (H)">
+                        <svg class="i"><use href="#i-heart"/></svg><span>Save</span>
+                    </button>
+                    <button id="regen" class="tint-btn primary" type="button" title="New suggestions around your locked colors (Space)">
+                        <svg class="i"><use href="#i-shuffle"/></svg><span>Suggest</span>
+                    </button>
+                </div>
+            </section>
+
+            <div class="stage">
+                <section class="preview panel" aria-label="Preview">
+                    <div class="panel-head">
+                        <div class="seg" role="tablist" aria-label="Preview">
+                            <button role="tab" data-tab="poincare" aria-selected="true">Poincaré</button>
+                            <button role="tab" data-tab="tiling" aria-selected="false">Tiling</button>
+                            <button role="tab" data-tab="chart" aria-selected="false">Chart</button>
+                        </div>
+                        <div class="seg small" role="group" aria-label="Preview background">
+                            <button data-bg="dark" aria-pressed="true">Dark</button>
+                            <button data-bg="light" aria-pressed="false">Light</button>
+                        </div>
+                    </div>
+                    <div class="preview-body">
+                        <div class="pane" data-pane="poincare">
+                            <div id="poincare-host" class="poincare-host">
+                                <div class="pane-msg" id="poincare-msg">Loading Poincaré…</div>
+                            </div>
+                        </div>
+                        <div class="pane" data-pane="tiling" hidden><canvas id="tiling-canvas"></canvas></div>
+                        <div class="pane" data-pane="chart" hidden><div id="chart" class="chart"></div></div>
+                    </div>
+                    <div class="panel-foot">
+                        <label class="foot-field" id="group-field">
+                            <span>Group</span>
+                            <select id="group-select"></select>
+                        </label>
+                        <label class="foot-field">
+                            <span>Color vision</span>
+                            <select id="cvd-select">
+                                <option value="">Typical</option>
+                                <option value="deutan">Deuteranopia</option>
+                                <option value="protan">Protanopia</option>
+                                <option value="tritan">Tritanopia</option>
+                            </select>
+                        </label>
+                        <p class="foot-note" id="preview-note"></p>
+                    </div>
+                </section>
+
+                <section class="suggestions" aria-label="Suggestions">
+                    <div class="sugg-head">
+                        <button id="back-btn" class="icon-btn small" type="button" hidden aria-label="Back to suggestions" title="Back to suggestions">
+                            <svg class="i"><use href="#i-back"/></svg>
+                        </button>
+                        <h2 id="sugg-title">Suggestions</h2>
+                        <span class="sugg-meta" id="sugg-meta"></span>
+                        <div class="seg small" role="group" aria-label="Thumbnails">
+                            <button data-thumbs="poincare" aria-pressed="true" title="Each suggestion on the live Poincaré domain">Poincaré</button>
+                            <button data-thumbs="tiling" aria-pressed="false" title="Each suggestion as a tiling of the disk">Tiling</button>
+                        </div>
+                    </div>
+                    <div id="grid" class="grid" role="listbox" aria-label="Suggested palettes"></div>
+                    <p class="keys"><kbd>←</kbd><kbd>→</kbd> step through · <kbd>Space</kbd> new round · <kbd>H</kbd> save · <kbd>X</kbd> not for me · click a swatch to edit, its lock to keep it</p>
+                </section>
+            </div>
+        </main>
+
+        <aside class="sidebar" aria-label="Controls">
+            <section class="side-sec">
+                <h3>Made for</h3>
+                <div class="seg wide" role="group" aria-label="Made for" id="ctx-seg">
+                    <button data-ctx="poincare">Poincaré</button>
+                    <button data-ctx="chart">Chart</button>
+                    <button data-ctx="ui">Interface</button>
+                    <button data-ctx="free">Free</button>
+                </div>
+                <p class="hint" id="ctx-note"></p>
+                <div class="row">
+                    <span class="row-label">Colors</span>
+                    <div class="stepper">
+                        <button id="n-minus" type="button" aria-label="Fewer colors">−</button>
+                        <output id="n-out">8</output>
+                        <button id="n-plus" type="button" aria-label="More colors">+</button>
+                    </div>
+                </div>
+                <label class="row switch-row">
+                    <span class="row-label">Keep to the context's lightness</span>
+                    <input type="checkbox" id="fit-toggle" class="switch" checked>
+                </label>
+            </section>
+
+            <section class="side-sec">
+                <h3>Steer</h3>
+                <label class="slider">
+                    <span class="slider-ends"><span>Darker</span><span>Lighter</span></span>
+                    <input type="range" id="steer-light" min="-1" max="1" step="0.05" value="0">
+                </label>
+                <label class="slider">
+                    <span class="slider-ends"><span>Muted</span><span>Vivid</span></span>
+                    <input type="range" id="steer-vivid" min="-1" max="1" step="0.05" value="0">
+                </label>
+            </section>
+
+            <section class="side-sec">
+                <h3>Learn from</h3>
+                <div class="chips" id="source-chips"></div>
+                <p class="hint">Turn a source off to stop drawing on it. <em>Hue rules</em> are classic harmonies (triad, split complementary…) with the lightness rhythm of a real palette.</p>
+            </section>
+
+            <section class="side-sec">
+                <h3>Your taste</h3>
+                <p class="hint" id="taste-note"></p>
+                <label class="row switch-row">
+                    <span class="row-label">Rank by my taste</span>
+                    <input type="checkbox" id="taste-toggle" class="switch" checked>
+                </label>
+                <button id="taste-reset" class="link-btn" type="button">Forget my ratings</button>
+            </section>
+
+            <section class="side-sec">
+                <h3>Saved</h3>
+                <div id="saved" class="saved"></div>
+            </section>
+
+            <section class="side-sec">
+                <h3>Use it</h3>
+                <button id="use-poincare" class="solid-btn" type="button">
+                    <span>Use in Poincaré</span><svg class="i"><use href="#i-out"/></svg>
+                </button>
+                <p class="hint">Poincaré on this browser opens with this palette from now on; its Color Palette menu switches back.</p>
+                <div class="seg small wide" role="group" aria-label="Export format" id="fmt-seg">
+                    <button data-fmt="hex" aria-pressed="true">Hex</button>
+                    <button data-fmt="css" aria-pressed="false">CSS</button>
+                    <button data-fmt="js" aria-pressed="false">JS</button>
+                    <button data-fmt="link" aria-pressed="false">Link</button>
+                </div>
+                <div class="code-box">
+                    <pre id="export-code"></pre>
+                    <button id="copy-btn" class="icon-btn small" type="button" aria-label="Copy" title="Copy"><svg class="i"><use href="#i-copy"/></svg></button>
+                </div>
+            </section>
+
+            <section class="side-sec about">
+                <h3>How it works</h3>
+                <p>For each palette in the corpus, the studio finds the colors that could play the parts of your locked ones, then turns its hues, scales its chroma and shifts its lightness so they land exactly on yours. The rest of that palette becomes the completion. Everything happens in OKLab.</p>
+                <p>A small neural network, trained to tell those palettes from random, rainbow and scrambled ones, ranks the results. Your <svg class="i inline"><use href="#i-heart"/></svg> and <svg class="i inline"><use href="#i-x"/></svg> retrain its last layer, on this browser only.</p>
+                <p class="sources" id="source-credits"></p>
+            </section>
+        </aside>
+    </div>
+
+    <div id="editor" class="editor" hidden role="dialog" aria-label="Edit color">
+        <div class="editor-swatch" id="ed-swatch"></div>
+        <label class="ed-row"><span>Hex</span><input id="ed-hex" class="field mono" spellcheck="false" maxlength="7"></label>
+        <label class="ed-row"><span>L</span><input type="range" id="ed-L" min="0" max="1" step="0.005"></label>
+        <label class="ed-row"><span>C</span><input type="range" id="ed-C" min="0" max="0.37" step="0.002"></label>
+        <label class="ed-row"><span>H</span><input type="range" id="ed-H" min="0" max="360" step="1"></label>
+        <div class="ed-actions">
+            <label class="tint-btn picker-btn">System picker<input type="color" id="ed-native"></label>
+            <button id="ed-done" class="tint-btn primary" type="button">Done</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -12,6 +12,8 @@ import { buildPolyhedron } from './polyhedron.js';
 import { arrToMat } from './compute.js';
 import { app, sceneMatrix, fordSceneMatrix, wordToMatrix } from './app.js';
 import { colorPalettes, getCurrentPalette } from './controlPanel.js';
+import { discretePool } from './paletteColors.js';
+import { colorClasses, polyhedronContacts } from './faceColoring.js';
 
 const vec3 = (a) => (a ? new THREE.Vector3(a[0], a[1], a[2]) : null);
 
@@ -115,14 +117,24 @@ function safeWord(word) {
     try { return wordToMatrix(word); } catch (e) { return null; }
 }
 
-// ---------------- face colours ----------------
+// ---------------- face colors ----------------
 
 let faceColorCache = null;
 
-/** Golden-ratio hues through the chosen palette: class k → [r,g,b]. */
-function classColor(k, n) {
-    const p = colorPalettes[getCurrentPalette()] || colorPalettes.rainbow;
-    const t = (k * 0.6180339887 + 0.13) % 1;
+/**
+ * Candidate colors for k pairing classes (see discretePool), or for a
+ * classic cosine palette, golden-ratio steps through it.
+ */
+function colorPool(k) {
+    const p = colorPalettes[getCurrentPalette()] || colorPalettes.hiroshige;
+    if (p.colors) return discretePool(p.colors, k);
+    const m = Math.ceil(1.5 * k) + 4;
+    return Array.from({ length: m }, (_, i) => ({ rgb: cosineColor(p, i), cost: 0.04 * i / m }));
+}
+
+/** Step i of a classic cosine palette → [r,g,b]. */
+function cosineColor(p, i) {
+    const t = (i * 0.6180339887 + 0.13) % 1;
     if (p.mode === 1) {
         const g = 0.32 + 0.4 * t;
         return [g, g, g * 1.04];
@@ -131,33 +143,45 @@ function classColor(k, n) {
     return [0.5 + 0.5 * Math.cos(x + p.offset.x), 0.5 + 0.5 * Math.cos(x + p.offset.y), 0.5 + 0.5 * Math.cos(x + p.offset.z)];
 }
 
+/** The home-frame copy of a displayed domain (it keeps the polyhedron). */
+function homeOf(domain) {
+    if (domain === app.scene) return app.home;
+    if (domain === app.fordScene) return app.fordHome;
+    return domain;
+}
+
+/** Which walls of a domain touch (see faceColoring.js). */
+export function wallContacts(domain) {
+    const home = homeOf(domain) || domain;
+    let poly = home.poly;
+    if (!poly) {
+        try { poly = home.poly = buildPolyhedron(home.walls); } catch (e) { poly = null; }
+    }
+    return poly ? polyhedronContacts(poly) : [];
+}
+
 /**
- * Colour per wall of the displayed domain. A face and its partner have the
- * same colour (the pairing class), so the gluing reads at a glance; Face
- * Labels (s_k on one, s_k⁻¹ on the other) tell the two sides apart.
+ * Color per wall of the displayed domain. A face and its partner have the
+ * same color (the pairing class), so the gluing reads at a glance; Face
+ * Labels (s_k on one, s_k⁻¹ on the other) tell the two sides apart. Faces
+ * that touch get colors far apart.
  */
 export function faceColors(domain = displayedDomain()) {
     if (!domain) return [];
     if (faceColorCache && faceColorCache.domain === domain) return faceColorCache.colors;
-    const { colors, classes } = pairColors(domain.walls.map(w => (w.pairing ? w.pairing.partner : -1)));
+    const partner = domain.walls.map(w => (w.pairing ? w.pairing.partner : -1));
+    const { colors, classes } = pairColors(partner, wallContacts(domain));
     faceColorCache = { domain, colors, classes };
     return colors;
 }
 
 /**
- * Colours for faces paired up by `partner` (each face's partner index, −1
- * if none): one colour per pair, exactly the same on both faces.
+ * Colors for faces paired up by `partner` (each face's partner index, −1 if
+ * none): one color per pair, exactly the same on both faces, and far apart
+ * for faces listed as touching in `contacts` ([i, j, weight]).
  */
-export function pairColors(partner) {
-    const classes = new Array(partner.length).fill(-1);
-    let n = 0;
-    partner.forEach((j, i) => {
-        if (classes[i] >= 0) return;
-        classes[i] = n;
-        if (j >= 0 && classes[j] < 0) classes[j] = n;
-        n++;
-    });
-    const colors = partner.map((_, i) => classColor(classes[i], n));
+export function pairColors(partner, contacts = []) {
+    const { colors, classes } = colorClasses(partner, contacts, colorPool);
     return { colors, classes };
 }
 

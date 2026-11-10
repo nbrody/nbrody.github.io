@@ -52,6 +52,10 @@ Uses the existing sibling `vendor/three` files; no dependency installation is re
   each pairing carries its facet's corners onto the partner's. Plus the genus-2 octagon (against
   the Dirichlet 18-gon), the cut cells and cycle orders of the (2,3,7) group, the right-angled
   dodecahedron as its own Delaunay domain, and cusped surfaces.
+- `faceColoring.test.mjs` — face colors (`js/faceColoring.js`): a face and its partner share one
+  color, the result never varies, faces that touch (an edge, a corner of the plane polygon, a cusp)
+  end up further apart than under the old rule on every preset's Dirichlet domain and on Delaunay
+  domains, and the search matches brute force on small graphs.
 
 The non-discreteness searches stop on a wall-clock budget, so when every file runs at once on a
 busy machine two of them can run out of time; `--test-concurrency=1` runs the files one by one.

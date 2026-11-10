@@ -43,7 +43,7 @@
                 'app', 'domain', 'scene', 'overlays', 'isoAxis', 'inspector', 'panels',
                 'invariantsPanel', 'horoballs', 'tessellation', 'permalink', 'domainService',
                 'compute', 'format', 'tower', 'expr', 'planar', 'welcome', 'nondiscrete', 'classical',
-                'gluing', 'highlight', 'unwrap', 'postfx', 'delaunay', 'delaunayView', 'delaunayPanel'];
+                'gluing', 'highlight', 'unwrap', 'postfx', 'delaunay', 'delaunayView', 'delaunayPanel', 'pathTrace'];
             for (const m of mods) {
                 im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             }
@@ -408,6 +408,7 @@
                 <div class="control-group">
                     <button id="export-3mf" class="btn btn-add-alt"
                         title="Export the domain as a 3D-printable mesh">⬇ Export .3MF</button>
+                    <button id="path-trace" class="btn btn-add-alt" hidden>Path Trace ↗</button>
                 </div>
 
                 <div class="control-group">

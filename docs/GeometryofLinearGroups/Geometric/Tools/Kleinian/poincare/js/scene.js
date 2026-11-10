@@ -42,9 +42,10 @@ export const material = new THREE.ShaderMaterial({
         u_time: { value: 0 },
         u_opacity: { value: 1.0 },
         u_edgeLines: { value: 0 },
-        u_colorMode: { value: palette.mode },
-        u_colorOffset: { value: palette.offset.clone() },
-        u_colorFreq: { value: palette.freq },
+        // cosine-palette settings; a palette of hex colors has none (faces take u_faceColor)
+        u_colorMode: { value: palette.mode ?? 2 },
+        u_colorOffset: { value: palette.offset ? palette.offset.clone() : new THREE.Vector3() },
+        u_colorFreq: { value: palette.freq ?? 0 },
         u_uhs: { value: false },
         u_ceiling: { value: 0 },           // UHS cutaway height (0 = off)
         u_lightMode: { value: 0 },

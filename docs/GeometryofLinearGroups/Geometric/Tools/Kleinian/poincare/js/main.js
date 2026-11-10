@@ -8,15 +8,19 @@ import * as THREE from 'three';
 import { Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD, pslKey } from './math.js';
 import { serializeTowerContext } from './tower.js';
 import { exportDomainAs3MF } from './export3mf.js';
+import { wirePathTrace, mountPathTraceOptions, isLocalPage, srgbToLinear } from './pathTrace.js';
 import { createInsideView } from './insideView.js';
 import { createInsideHoneycomb } from './insideHoneycomb.js';
 import { createQuestTiling } from './questTiling.js';
 import { createHoneycombView } from './honeycombView.js';
 import { createLimitSet } from './limitSet.js';
-import { mirrorFragmentShader } from './mirror.js';
+import { mirrorFragmentShader, mirrorDefaults } from './mirror.js';
 import { vertexShader } from './shaders.js';
 import { setupMatrixInput, getMatricesFromUI, getExactContext, getInputState, loadExample } from './matrixInput.js';
-import { setupControlPanel, readBoundedInteger, updateToggleBtn } from './controlPanel.js';
+import { setupControlPanel, readBoundedInteger, updateToggleBtn, setCustomPalette, setCurrentPalette, getCurrentPalette, getPaletteColors, colorPalettes } from './controlPanel.js';
+import { isHexList } from './paletteColors.js';
+import { delaunayContacts } from './faceColoring.js';
+import { exampleLibrary } from './groupLibrary.js';
 import { createDomainService } from './domainService.js';
 import { matToArr } from './compute.js';
 import {
@@ -137,11 +141,11 @@ function delaunayResult() {
         R = computeDelaunayDomain(app.home, { dim });
     }
     dl.result = R; dl.home = app.home; dl.dim = dim;
-    // One colour per face pairing, the same on both of its sides.
+    // One color per face pairing, the same on both of its sides; sides that touch differ.
     dl.colors = R.ok ? pairColors(R.sides.map((S, si) => {
         const P = R.pairs[S.pair];
         return P.minus === si ? P.plus : P.minus;
-    })).colors : [];
+    }), delaunayContacts(R)).colors : [];
     return R;
 }
 
@@ -1008,6 +1012,40 @@ function currentState() {
     };
 }
 
+// What the tracer's poincare scene reads (demos/poincareScene.ts there): the displayed domain's
+// walls in the ball model (a plane n·q ≤ 0, or a sphere s·(|q − c| − r) ≤ 0), their face colours
+// as the raymarcher shows them (pastel in light mode) converted to linear light, a point inside
+// the domain, and the camera. Outside the ball model the camera is the ball model's default.
+// It carries the Path Trace button's Advanced options; when their look is Mirror (as it is by
+// default in Mirror mode) it also carries the mirror shader's settings, for the tracer's mirror
+// look (the walls reflecting along hyperbolic geodesics, the edges glowing).
+function pathTraceScene(options = { look: mirrorMode ? 'mirror' : 'matte' }) {
+    if (delaunayShowing()) throw new Error('it draws Dirichlet and Ford domains; set Domain to Dirichlet first.');
+    const D = displayedDomain();
+    if (!D || !D.walls.length) throw new Error('compute a domain first.');
+    const light = view.theme === 'light';
+    const lin = (c) => (light ? c.map((x) => x + (1 - x) * 0.62) : c).map(srgbToLinear);
+    const xyz = (v) => [v.x, v.y, v.z];
+    const walls = D.walls.map(({ geom: g }) => (g.type === 'plane'
+        ? { type: 'plane', n: xyz(g.n) }
+        : { type: 'sphere', c: xyz(g.c), r: g.r, s: g.s }));
+    const ball = view.model === 'ball' && !planar.on && !insideView.isActive();
+    const pose = ball
+        ? { position: camera.position.toArray(), target: controls.target.toArray() }
+        : { position: [2.5, 1.5, 2.5], target: [0, 0, 0] };
+    return {
+        walls,
+        colors: faceColors(D).map(lin),
+        free: lin([0.6, 0.6, 0.6]),
+        inside: xyz(D.conePoint || D.basepoint),
+        view: { ...pose, fov: THREE.MathUtils.degToRad(camera.fov) },
+        theme: view.theme,
+        options,
+        ...(options.look === 'mirror' ? { mirror: { ...mirrorDefaults } } : {}),
+        provenance: `poincare ${window.APP_VERSION}, ${walls.length} faces, ${options.look}: ${updatePermalink() || location.href}`,
+    };
+}
+
 function updatePermalink() {
     if (EMBED || inputError) return null;       // the URL keeps the last valid group
     try { return writeStateToURL(currentState()); } catch (e) { return null; }
@@ -1100,17 +1138,7 @@ function initUI() {
         },
         onFaceCountChange: (count) => { app.maxFaces = count; requestCompute(); },
         onWordLengthChange: (depth) => { app.depth = depth; requestCompute(); },
-        onPaletteChange: () => {
-            invalidateFaceColors();
-            if (dl.result && dl.result.ok) { dl.home = null; delaunayResult(); }
-            if (dl.on) rebuildDelaunay();
-            else {
-                if (questTilingOn) rebuildQuestTiling();
-                if (render.honeycomb) rebuildHoneycomb();
-            }
-            onSceneMoved();
-            rebuildFaceLabels();
-        },
+        onPaletteChange: () => paletteChanged(),
         onPanelLayout: (width) => applyViewOffset(width),
         controls, mesh, material
     });
@@ -1275,6 +1303,31 @@ function initUI() {
         }
     });
 
+    // Path Trace: the domain, as the ball model shows it, rendered by the local path tracer in a
+    // new tab (assets/js/pathTrace.js). Only on a page served from this computer, where the
+    // tracer can be running.
+    const traceBtn = document.getElementById('path-trace');
+    if (traceBtn && isLocalPage()) {
+        traceBtn.hidden = false;
+        traceBtn.title = 'Render this domain in Steve Trettel\'s path tracer, running on this computer (opens in a new tab)';
+        const traceOptions = mountPathTraceOptions(traceBtn, {
+            app: 'poincare',
+            looks: [['auto', 'As shown (Mirror in Mirror mode)'], ['matte', 'Matte'], ['metal', 'Metal'], ['glass', 'Glass'], ['mirror', 'Mirror']],
+            autoLook: () => (mirrorMode ? 'mirror' : 'matte'),
+            formulaHint: ' and c, the face colour (a solid checker: mix(c, vec3(1.0), mod(dot(floor(6.0*p), vec3(1.0)), 2.0)))',
+        });
+        wirePathTrace(traceBtn, {
+            prepare: () => {
+                const options = traceOptions.values();
+                const S = pathTraceScene(options);
+                const files = [['poincare.json', JSON.stringify(S), 'application/json']];
+                const scene = options.look === 'matte' ? 'poincare' : `poincare-${options.look}`;
+                return { scene, file: 'poincare', files, summary: `Sent the ${S.walls.length}-face domain (${options.look}) to the path tracer.` };
+            },
+            report: (kind, text) => { if (kind === 'error' || /blocked/.test(text)) setBanner('warning', 'Path Trace: ' + text); },
+        });
+    }
+
     // Picking: the 3D walls, or in the plane picture the edges of the polygon
     // (a click in a neighbouring tile picks the edge it lies across).
     const pickAt = (e) => (planar.on ? planarPick(rayFromEvent(e), app.scene, view.model === 'uhs') : pickWall(rayFromEvent(e)));
@@ -1363,6 +1416,50 @@ function panelWidth() {
     return p.getBoundingClientRect().width + 24;
 }
 
+// ---------------- face palette ----------------
+
+/** Everything that shows face colors follows a palette change. */
+function paletteChanged() {
+    invalidateFaceColors();
+    if (dl.result && dl.result.ok) { dl.home = null; delaunayResult(); }
+    if (dl.on) rebuildDelaunay();
+    else {
+        if (questTilingOn) rebuildQuestTiling();
+        if (render.honeycomb) rebuildHoneycomb();
+    }
+    onSceneMoved();
+    rebuildFaceLabels();
+}
+
+/**
+ * Only the domain's face colors, for the Design Studio's thumbnails: one
+ * uniform upload, no relayout, so a frame can be drawn and read at once.
+ */
+function previewFaceColors() {
+    invalidateFaceColors();
+    const D = displayedDomain();
+    if (!D) return;
+    loadDomainUniforms(D, faceColors(D));
+    if (mesh.material !== material && app.scene) loadTessUniforms(mesh.material);
+}
+
+// A palette from ?palette=hex,hex,… wins; otherwise the one the Design
+// Studio last handed over ("Use in Poincaré") on this browser.
+const STUDIO_KEY = 'designStudio.poincarePalette';
+function initialPalette() {
+    const q = new URLSearchParams(location.search).get('palette');
+    if (q) {
+        const colors = q.split(/[,\s]+/).filter(Boolean).map((c) => '#' + c.replace('#', ''));
+        if (isHexList(colors)) { setCustomPalette(colors, 'From the link'); return; }
+        if (colorPalettes[q]) { setCurrentPalette(q); return; }
+    }
+    if (EMBED) return;
+    try {
+        const saved = JSON.parse(localStorage.getItem(STUDIO_KEY) || 'null');
+        if (saved && isHexList(saved.colors)) setCustomPalette(saved.colors, saved.name ? `Studio: ${saved.name}` : 'Design Studio');
+    } catch (e) { /* storage blocked */ }
+}
+
 // ---------------- tutorial / embed API ----------------
 
 window.PoincareAPI = {
@@ -1408,7 +1505,13 @@ window.PoincareAPI = {
     getQuality: () => quality,
     setAntialias(on) { postfx.setEnabled(on); },
     /** Draw one frame now (the loop may be paused in a hidden tab). */
-    renderNow() { postfx.render(scene, camera, material.uniforms.u_bgColor.value); },
+    renderNow() {
+        // the raymarcher reads the eye from a uniform the frame loop sets
+        camera.updateMatrixWorld();
+        if (mesh.material.uniforms.u_cameraPos) mesh.material.uniforms.u_cameraPos.value.copy(camera.position);
+        material.uniforms.u_cameraPos.value.copy(camera.position);
+        postfx.render(scene, camera, material.uniforms.u_bgColor.value);
+    },
     setHoneycombWalls(v) {
         const el = document.getElementById('honeycomb-walls');
         if (el) { el.value = String(v); el.dispatchEvent(new Event('input')); }
@@ -1449,6 +1552,28 @@ window.PoincareAPI = {
     },
     loadExample,
     permalink: () => updatePermalink(),
+    /** Example names, in library order (for loadExample(i)). */
+    examples: () => exampleLibrary.map((e) => e.name),
+    /** Use a palette: a key of the dropdown, or a list of hex colors. */
+    setPalette(p, name) {
+        const ok = Array.isArray(p) ? (isHexList(p) && setCustomPalette(p, name)) : setCurrentPalette(p);
+        if (ok) paletteChanged();
+        return !!ok;
+    },
+    /** Recolor the faces only (cheap; for drawing thumbnails). */
+    previewPalette(colors) {
+        if (!isHexList(colors) || !setCustomPalette(colors, 'Preview')) return false;
+        previewFaceColors();
+        return true;
+    },
+    palette: () => ({ key: getCurrentPalette(), colors: getPaletteColors() }),
+    palettes: () => Object.fromEntries(Object.entries(colorPalettes).map(([k, p]) => [k, { name: p.name, colors: p.colors || null }])),
+    /** How many pairing classes the faces fall into (colors in use). */
+    faceClassCount() {
+        const D = displayedDomain();
+        if (!D) return 0;
+        return new Set(D.walls.map((w, i) => Math.min(i, w.pairing && w.pairing.partner >= 0 ? w.pairing.partner : i))).size;
+    },
 };
 
 // Remote joystick: the deck forwards {type:'orbit', dx, dy} from the phone.
@@ -1468,6 +1593,7 @@ window.addEventListener('message', (e) => {
 const urlState = EMBED ? null : readStateFromURL();
 // a page that frames this one in a small space can ask for the panel closed (`panel: 'closed'`)
 if (urlState && urlState.panel === 'closed') document.getElementById('control-panel')?.classList.add('collapsed');
+initialPalette();
 initUI();
 applyThemeUniforms();
 if (urlState) {
