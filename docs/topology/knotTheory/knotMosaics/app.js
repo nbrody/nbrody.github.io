@@ -1300,6 +1300,7 @@ function restoreState(s) {
     if (surfaceSelect.value !== s.surface) {
         surfaceSelect.value = s.surface;
         if (typeof populateExamples === 'function') populateExamples();
+        syncSmoothButtonVisibility();
     }
     syncSizeControls();
     updateHud();
@@ -1661,8 +1662,6 @@ function onSurfaceChange() {
     // Disk cells are {row, col}, sphere cells {face, row, col}: a selection
     // kept across the switch made Delete throw (or write the wrong cell).
     state.selectedCells = [];
-    // "View in R³" is unified across all surfaces, so its visibility no
-    // longer needs to be toggled here.
     syncSizeControls();
     initGrid();
     updateHud();
@@ -1780,6 +1779,7 @@ function applyExample(ex) {
         state.surface = ex.surface;
         surfaceSelect.value = ex.surface;
         populateExamples();
+        syncSmoothButtonVisibility();
     }
 
     if (state.surface === 'sphere') {
@@ -1924,10 +1924,14 @@ document.getElementById('cube-smooth-btn').addEventListener('click', () => {
     window.openSmooth({ polylines, label });
 });
 
-// The "View in R³" button is unified across surfaces, so nothing to
-// toggle here. (Older builds had separate Smooth/Fold buttons; this stub
-// remains as a no-op so other call sites stay safe.)
-function syncSmoothButtonVisibility() {}
+// "View in R³" has an embedding only for the disk and the foldable
+// surfaces; on RP², the cylinder and the Möbius band it would do nothing,
+// so it is hidden there.
+function syncSmoothButtonVisibility() {
+    const btn = document.getElementById('view-r3-btn');
+    const ok = state.surface === 'disk' || FOLDABLE_SURFACES.includes(state.surface);
+    if (btn) btn.style.display = ok ? '' : 'none';
+}
 syncSmoothButtonVisibility();
 
 // Panel collapse/expand (#collapse-btn) is wired by ../../assets/poincare-ui.js.
