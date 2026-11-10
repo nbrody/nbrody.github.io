@@ -1541,6 +1541,10 @@ window.__smoothExtract = {
 window.__smoothChains = () => chains;
 window.__smoothStep = () => stepLink(chains);
 
+// What Reset rebuilds from: the folded polylines the overlay was opened
+// with (and their tile size), or null for the current disk mosaic.
+let resetSource = null;
+
 window.openSmooth = function (opts) {
     opts = opts || {};
     let built;
@@ -1559,6 +1563,7 @@ window.openSmooth = function (opts) {
     }
     chains = built.chains;
     tileSize = opts.polylines ? foldTileSize() : MOSAIC_SCALE;
+    resetSource = opts.polylines ? { polylines: opts.polylines, tileSize } : null;
     applyTubeRadius();
     recenterLink(chains);
     if (!renderer) initScene();
@@ -1591,10 +1596,13 @@ window.closeSmooth = function () {
 document.getElementById('smooth-close-btn').addEventListener('click', window.closeSmooth);
 document.getElementById('smooth-play-btn').addEventListener('click', () => setRunning(!running));
 document.getElementById('smooth-reset-btn').addEventListener('click', () => {
-    const built = buildChainsFromGrid(state.grid);
+    // Opened from a folded sphere/torus: the disk walker can't rebuild it.
+    const built = resetSource
+        ? buildChainsFromPolylines(resetSource.polylines)
+        : buildChainsFromGrid(state.grid);
     if (built.error) { alert(built.error); return; }
     chains = built.chains;
-    tileSize = MOSAIC_SCALE;
+    tileSize = resetSource ? resetSource.tileSize : MOSAIC_SCALE;
     applyTubeRadius();
     recenterLink(chains);
     buildTubes();
