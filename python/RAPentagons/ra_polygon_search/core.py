@@ -44,6 +44,11 @@ class SearchConfig:
     normalize_sign: bool = True
     require_primitive: bool = True
 
+    def __post_init__(self) -> None:
+        bad = [p for p in self.primes if int(p) <= 1]
+        if bad:
+            raise ValueError(f"primes must be integers > 1, got {bad}")
+
 
 @dataclass(frozen=True)
 class PolygonSolution:
@@ -113,13 +118,18 @@ def is_s_unit(n: int, primes: Sequence[int]) -> bool:
         return False
     m = abs(n)
     for p in primes:
+        # p<=1 would make `m % p == 0` and `m //= p` a no-op / non-progress loop.
+        if int(p) <= 1:
+            return False
         while m % p == 0:
             m //= p
     return m == 1
 
 
 def generate_s_unit_norms(primes: Sequence[int], max_norm: int) -> List[int]:
-    primes = tuple(sorted(set(primes)))
+    primes = tuple(sorted({int(p) for p in primes if int(p) > 1}))
+    if not primes:
+        return [1] if max_norm >= 1 else []
     vals: Set[int] = {1}
     frontier = [1]
     for p in primes:

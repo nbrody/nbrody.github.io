@@ -11,7 +11,10 @@ class TriviaGame {
         this.timer = null;
         this.timeLeft = 20;
         this.answers = {};
+        this.revealed = false;
         this.listeners = [];
+        this.pendingTimeouts = [];
+        this.dead = false;
 
         // Trivia question bank
         this.questions = [
@@ -114,6 +117,16 @@ class TriviaGame {
         this.init();
     }
 
+    schedule(fn, ms) {
+        const id = setTimeout(() => {
+            this.pendingTimeouts = this.pendingTimeouts.filter(t => t !== id);
+            if (this.dead) return;
+            fn();
+        }, ms);
+        this.pendingTimeouts.push(id);
+        return id;
+    }
+
     init() {
         this.render();
         this.listenForAnswers();
@@ -144,6 +157,7 @@ class TriviaGame {
     }
 
     showQuestion() {
+        if (this.dead) return;
         if (this.currentQuestionIndex >= this.totalQuestions) {
             this.endTrivia();
             return;
@@ -151,6 +165,7 @@ class TriviaGame {
 
         const q = this.questions[this.currentQuestionIndex];
         this.answers = {};
+        this.revealed = false;
 
         // Update Firebase
         updateGameState(this.roomCode, {
@@ -159,12 +174,18 @@ class TriviaGame {
         });
 
         // Update UI
-        document.getElementById('trivia-progress').textContent =
-            `Question ${this.currentQuestionIndex + 1} / ${this.totalQuestions}`;
-        document.getElementById('trivia-category').textContent = q.category;
-        document.getElementById('trivia-text').textContent = q.question;
-
+        const progressEl = document.getElementById('trivia-progress');
+        const categoryEl = document.getElementById('trivia-category');
+        const textEl = document.getElementById('trivia-text');
         const answersEl = document.getElementById('trivia-answers');
+        const tallyEl = document.getElementById('answer-tally');
+        if (!progressEl || !categoryEl || !textEl || !answersEl) return;
+
+        progressEl.textContent =
+            `Question ${this.currentQuestionIndex + 1} / ${this.totalQuestions}`;
+        categoryEl.textContent = q.category;
+        textEl.textContent = q.question;
+
         const labels = ['A', 'B', 'C', 'D'];
         answersEl.innerHTML = q.answers.map((a, i) => `
             <div class="trivia-answer-btn" id="trivia-ans-${i}">
@@ -173,7 +194,7 @@ class TriviaGame {
             </div>
         `).join('');
 
-        document.getElementById('answer-tally').innerHTML = '';
+        if (tallyEl) tallyEl.innerHTML = '';
 
         // Start timer
         this.timeLeft = 20;
@@ -209,18 +230,28 @@ class TriviaGame {
 
         actionsRef.on('child_added', (snapshot) => {
             const data = snapshot.val();
-            if (data.action?.type === 'trivia_answer' && !this.answers[data.playerId]) {
-                this.answers[data.playerId] = {
-                    answer: data.action.answer,
-                    timestamp: data.action.timestamp
-                };
-                this.showPlayerAnswered(data.playerId);
+            if (data.action?.type !== 'trivia_answer') return;
+            if (this.revealed) return;
+            // Ignore answers aimed at a different question (late taps after
+            // reveal/advance would otherwise score against the next item).
+            if (data.action.questionIndex !== undefined &&
+                data.action.questionIndex !== this.currentQuestionIndex) {
+                return;
+            }
+            if (this.answers[data.playerId]) return;
+            // Unknown player ids (e.g. mid-game joiners) must not enter scoring.
+            if (!this.players[data.playerId]) return;
 
-                // Check if all players answered
-                if (Object.keys(this.answers).length >= Object.keys(this.players).length) {
-                    clearInterval(this.timer);
-                    setTimeout(() => this.revealAnswer(), 500);
-                }
+            this.answers[data.playerId] = {
+                answer: data.action.answer,
+                timestamp: data.action.timestamp
+            };
+            this.showPlayerAnswered(data.playerId);
+
+            // Check if all players answered
+            if (Object.keys(this.answers).length >= Object.keys(this.players).length) {
+                clearInterval(this.timer);
+                this.schedule(() => this.revealAnswer(), 500);
             }
         });
 
@@ -259,6 +290,11 @@ class TriviaGame {
     }
 
     revealAnswer() {
+        if (this.dead) return;
+        if (this.revealed) return;
+        this.revealed = true;
+        if (this.timer) clearInterval(this.timer);
+
         const q = this.questions[this.currentQuestionIndex];
         const correct = q.correct;
 
@@ -279,7 +315,7 @@ class TriviaGame {
         // Score players who got it right (faster = more points)
         const correctPlayers = [];
         Object.entries(this.answers).forEach(([pid, data]) => {
-            if (data.answer === correct) {
+            if (data.answer === correct && this.players[pid]) {
                 correctPlayers.push({ pid, timestamp: data.timestamp });
             }
         });
@@ -288,15 +324,16 @@ class TriviaGame {
         correctPlayers.sort((a, b) => a.timestamp - b.timestamp);
         correctPlayers.forEach((p, index) => {
             const points = Math.max(100 - index * 20, 20); // 100, 80, 60, 40, 20
-            const currentScore = this.players[p.pid]?.score || 0;
-            this.players[p.pid].score = currentScore + points;
-            updateScoreDisplay(p.pid, this.players[p.pid].score);
+            const player = this.players[p.pid];
+            if (!player) return;
+            player.score = (player.score || 0) + points;
+            updateScoreDisplay(p.pid, player.score);
         });
 
         renderScoreboard();
 
         // Clear actions for next question
-        setTimeout(() => {
+        this.schedule(() => {
             getRoomRef(this.roomCode).child('gameState/actions').remove();
             this.currentQuestionIndex++;
             this.showQuestion();
@@ -309,7 +346,10 @@ class TriviaGame {
     }
 
     cleanup() {
+        this.dead = true;
         if (this.timer) clearInterval(this.timer);
+        this.pendingTimeouts.forEach(clearTimeout);
+        this.pendingTimeouts = [];
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
     }

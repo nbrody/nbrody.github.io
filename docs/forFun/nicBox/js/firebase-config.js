@@ -27,26 +27,31 @@ function generateRoomCode() {
 }
 
 async function createRoom() {
-    let code = generateRoomCode();
-    const roomRef = db.ref(`rooms/${code}`);
-    const snapshot = await roomRef.once('value');
+    const maxAttempts = 100;
 
-    // Avoid collisions
-    while (snapshot.exists()) {
-        code = generateRoomCode();
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const code = generateRoomCode();
+        const roomRef = db.ref(`rooms/${code}`);
+
+        // Claim the code atomically: abort (return undefined) if a room already
+        // exists, then retry with a fresh code instead of overwriting a live room.
+        const result = await roomRef.transaction((room) => {
+            if (room !== null) return;
+            return {
+                code: code,
+                state: 'lobby', // lobby | picking | playing | results
+                host: null,
+                players: {},
+                game: null,
+                gameState: {},
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
+        });
+
+        if (result.committed) return code;
     }
 
-    await roomRef.set({
-        code: code,
-        state: 'lobby', // lobby | picking | playing | results
-        host: null,
-        players: {},
-        game: null,
-        gameState: {},
-        createdAt: firebase.database.ServerValue.TIMESTAMP
-    });
-
-    return code;
+    throw new Error('Could not allocate a room code');
 }
 
 async function joinRoom(roomCode, playerName, avatar) {
@@ -57,11 +62,20 @@ async function joinRoom(roomCode, playerName, avatar) {
         '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'
     ];
 
+    // Prefetch so the transaction's first local value is the real room, not a
+    // cached null. Returning undefined on that initial null aborts immediately
+    // and never retries against the server, so fresh phones would always fail.
+    const existing = await roomRef.once('value');
+    if (!existing.exists()) throw new Error('Room not found');
+    if (existing.val().closedAt) throw new Error('Room is closed');
+
     // Atomic: commit host assignment + new player in one transaction, so two
     // simultaneous joiners can't both claim host.
     let abortReason = null;
     const result = await roomRef.transaction((room) => {
-        if (room === null) { abortReason = 'notfound'; return; }
+        // Still null (cache miss or room deleted): pass it through so Firebase
+        // re-runs us against the server value; a deleted room fails below.
+        if (room === null) { abortReason = 'notfound'; return room; }
         if (room.closedAt) { abortReason = 'closed'; return; }
         if (!room.players) room.players = {};
 
@@ -135,7 +149,11 @@ function playerAction(roomCode, playerId, action) {
 // Wipe gameState between games so stale actions don't re-fire child_added
 // listeners when the next game attaches its handlers.
 function resetGameState(roomCode) {
-    return db.ref(`rooms/${roomCode}/gameState`).set({});
+    const roomRef = db.ref(`rooms/${roomCode}`);
+    return Promise.all([
+        roomRef.child('gameState').set({}),
+        roomRef.child('drawerSecret').remove()
+    ]);
 }
 
 // If the current host disconnects, promote another connected player.

@@ -19,6 +19,8 @@ class DrawGuessGame {
         this.timeLeft = 60;
         this.guessedPlayers = {};
         this.strokes = [];      // full drawing data from drawer
+        this.pendingTimeouts = [];
+        this.dead = false;
 
         this.wordBank = [
             // Easy
@@ -39,6 +41,16 @@ class DrawGuessGame {
         this.wordIndex = 0;
 
         this.init();
+    }
+
+    schedule(fn, ms) {
+        const id = setTimeout(() => {
+            this.pendingTimeouts = this.pendingTimeouts.filter(t => t !== id);
+            if (this.dead) return;
+            fn();
+        }, ms);
+        this.pendingTimeouts.push(id);
+        return id;
     }
 
     init() {
@@ -94,6 +106,8 @@ class DrawGuessGame {
     // ── Round Flow ─────────────────────────────────────────
 
     startRound() {
+        if (this.dead) return;
+
         this.round++;
         if (this.round > this.totalRounds) {
             this.endDrawGuess();
@@ -109,30 +123,42 @@ class DrawGuessGame {
         this.clearCanvas();
         this.timeLeft = 60;
 
-        document.getElementById('dg-round').textContent = `Round ${this.round} / ${this.totalRounds}`;
-        document.getElementById('dg-guesses').innerHTML = '';
+        const roundEl = document.getElementById('dg-round');
+        const guessesEl = document.getElementById('dg-guesses');
+        const wordEl = document.getElementById('dg-word-display');
+        const drawerEl = document.getElementById('dg-drawer-label');
+        if (!roundEl || !wordEl || !drawerEl) return;
+
+        roundEl.textContent = `Round ${this.round} / ${this.totalRounds}`;
+        if (guessesEl) guessesEl.innerHTML = '';
 
         // Show word hint (blanks) to guessers
         const blanks = this.currentWord.split('').map(c => c === ' ' ? '  ' : '_').join(' ');
-        document.getElementById('dg-word-display').innerHTML = `
+        wordEl.innerHTML = `
             <span class="dg-blanks">${blanks}</span>
             <span class="dg-word-length">(${this.currentWord.length} letters)</span>
         `;
 
-        document.getElementById('dg-drawer-label').innerHTML = `
+        drawerEl.innerHTML = `
             ${drawer.avatar} <span style="color:${drawer.color};font-weight:700;">${drawer.name}</span> is drawing!
         `;
 
-        // Push state to Firebase
+        // Shared gameState must NOT include the secret word — every phone
+        // already listens to this path. Publish the word only on drawerSecret
+        // so guesser UIs never receive it in their gameState snapshot.
         updateGameState(this.roomCode, {
             phase: 'drawing',
             drawerId: drawerId,
-            word: this.currentWord,  // only the drawer's phone reads this
             wordLength: this.currentWord.length,
             drawing: null,
             guesses: null,
             actions: null,
-            timeLeft: this.timeLeft
+            timeLeft: this.timeLeft,
+            revealedWord: null
+        });
+        getRoomRef(this.roomCode).child('drawerSecret').set({
+            drawerId: drawerId,
+            word: this.currentWord
         });
 
         this.startTimer();
@@ -178,13 +204,17 @@ class DrawGuessGame {
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
             if (data.strokes) {
-                const strokes = Object.values(data.strokes);
+                // Firebase maps keyed s0/s1/…/s10 arrive in lexicographic JSON
+                // order (s0,s1,s10,s2,…). Sort by numeric suffix so strokes and
+                // points redraw in draw order.
+                const strokes = orderedFirebaseValues(data.strokes);
                 for (const stroke of strokes) {
-                    if (!stroke.points || stroke.points.length < 2) continue;
+                    if (!stroke.points) continue;
+                    const pts = orderedFirebaseValues(stroke.points);
+                    if (pts.length < 2) continue;
                     this.ctx.beginPath();
                     this.ctx.strokeStyle = stroke.color || '#000000';
                     this.ctx.lineWidth = stroke.width || 4;
-                    const pts = Object.values(stroke.points);
                     this.ctx.moveTo(pts[0].x * this.canvas.width, pts[0].y * this.canvas.height);
                     for (let i = 1; i < pts.length; i++) {
                         this.ctx.lineTo(pts[i].x * this.canvas.width, pts[i].y * this.canvas.height);
@@ -225,6 +255,10 @@ class DrawGuessGame {
         if (this.guessedPlayers[playerId]) return; // already guessed correctly
 
         const player = this.players[playerId];
+        // Mid-game joiners (or stale actions) are not in the construction-time
+        // players snapshot — ignore rather than crash on player.color/name.
+        if (!player) return;
+
         const guessClean = guess.trim().toLowerCase();
         const correct = guessClean === this.currentWord.toLowerCase();
 
@@ -249,6 +283,7 @@ class DrawGuessGame {
 
             // Drawer also gets points
             const drawer = this.players[drawerId];
+            if (!drawer) return;
             drawer.score = (drawer.score || 0) + 5;
             updateScoreDisplay(drawerId, drawer.score);
 
@@ -265,17 +300,22 @@ class DrawGuessGame {
     }
 
     revealWord() {
-        document.getElementById('dg-word-display').innerHTML = `
-            <span class="dg-revealed-word">The word was: <strong>${this.currentWord}</strong></span>
-        `;
+        if (this.dead) return;
+        const wordEl = document.getElementById('dg-word-display');
+        if (wordEl) {
+            wordEl.innerHTML = `
+                <span class="dg-revealed-word">The word was: <strong>${this.currentWord}</strong></span>
+            `;
+        }
 
+        getRoomRef(this.roomCode).child('drawerSecret').remove();
         updateGameState(this.roomCode, {
             phase: 'reveal',
             revealedWord: this.currentWord
         });
 
         // Next round after delay
-        setTimeout(() => {
+        this.schedule(() => {
             getRoomRef(this.roomCode).child('gameState/actions').remove();
             this.startRound();
         }, 4000);
@@ -289,10 +329,30 @@ class DrawGuessGame {
     }
 
     cleanup() {
+        this.dead = true;
         if (this.timer) clearInterval(this.timer);
+        this.pendingTimeouts.forEach(clearTimeout);
+        this.pendingTimeouts = [];
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
+        getRoomRef(this.roomCode).child('drawerSecret').remove();
     }
+}
+
+// Ordered values for Firebase maps keyed with a letter prefix + index
+// (p0, p1, …, p10). JSON/Firebase lexicographic order would otherwise yield
+// p0,p1,p10,p2,… and scramble polylines / stroke sequences.
+function orderedFirebaseValues(map) {
+    if (!map) return [];
+    if (Array.isArray(map)) return map;
+    return Object.keys(map)
+        .sort((a, b) => {
+            const na = parseInt(String(a).replace(/^\D+/, ''), 10);
+            const nb = parseInt(String(b).replace(/^\D+/, ''), 10);
+            if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+            return a < b ? -1 : a > b ? 1 : 0;
+        })
+        .map((k) => map[k]);
 }
 
 // ── Inject Draw & Guess styles ─────────────────────────────

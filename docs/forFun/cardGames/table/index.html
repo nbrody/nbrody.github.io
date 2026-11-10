@@ -175,7 +175,7 @@
       position: absolute;
       left: 50%; top: 50%;
       transform: translate(-80px, -50px);
-      cursor: pointer;
+      cursor: default;
       z-index: 15;
     }
     #deck-pile .deck-stack {
@@ -328,7 +328,7 @@
   <div id="felt-table">
 
     <!-- Deck pile -->
-    <div id="deck-pile" onclick="drawFromDeck()">
+    <div id="deck-pile">
       <div class="deck-stack">
         <div class="deck-card" style="top:6px; left:3px; opacity:0.4;"></div>
         <div class="deck-card" style="top:3px; left:1px; opacity:0.6;"></div>
@@ -415,12 +415,31 @@
     };
 
     const ENGINES = { blackjack: Blackjack, war: War, gofish: GoFish };
-    let engine = ENGINES[session.game] || Blackjack;
+    // Unknown/unimplemented catalog ids (e.g. leftover sessionStorage 'snap')
+    // must not silently run Blackjack while phones still think they are in Snap.
+    const engine = ENGINES[session.game] || null;
     let gameState = null;
     let stateHistory = [];
 
+    function abortMissingEngine() {
+      document.getElementById('game-name-label').textContent = session.game || 'Unknown';
+      document.getElementById('result-emoji').textContent = '🃏';
+      document.getElementById('result-title').textContent = 'Game unavailable';
+      document.getElementById('result-subtitle').textContent =
+        (session.game || 'This game') + ' is not available yet. Return to the lobby to pick Blackjack, War, or Go Fish.';
+      const overlay = document.getElementById('game-over-overlay');
+      overlay.classList.add('visible');
+      const newRoundBtn = overlay.querySelector('.btn-gold');
+      if (newRoundBtn) newRoundBtn.style.display = 'none';
+      document.getElementById('loading-screen').style.display = 'none';
+    }
+
     // ===== INIT =====
     function init() {
+      if (!engine) {
+        abortMissingEngine();
+        return;
+      }
       // Update UI
       document.getElementById('game-name-label').textContent = engine.DISPLAY_NAME;
       document.getElementById('room-code-pill').textContent = session.room;
@@ -512,12 +531,13 @@
 
         const player = gameState.players?.[pid];
         const isCurrent = gameState.currentPlayer === pid;
+        // Declared once for the seat — must not sit after blackjack info uses it (TDZ crash).
+        const hand = player?.hand || [];
 
         nameEl.className = `seat-name ${isCurrent ? 'active' : 'inactive'}`;
 
         if (cardsEl) {
           cardsEl.innerHTML = '';
-          const hand = player?.hand || [];
           if (hand.length) {
             hand.forEach((card, i) => {
               // Show face-down for Go Fish (private hands) / War
@@ -537,8 +557,7 @@
 
         if (infoEl) {
           if (session.game === 'blackjack') {
-            const total = blackjackTotal(player?.hand || []);
-            const result = player?.result;
+            const total = blackjackTotal(hand);
             const chips = player?.chips || 100;
             infoEl.innerHTML = hand.length
               ? `<div>${total > 21 ? '💀BUST' : total}</div><div class="chip-count">💰${chips}</div>`
@@ -549,8 +568,6 @@
             infoEl.textContent = player?.deck?.length ? `${player.deck.length} cards` : '❌ Out';
           }
         }
-
-        const hand = player?.hand;
       });
 
       // Game over check
@@ -562,6 +579,7 @@
 
     // ===== GAME ACTIONS =====
     window.dealCards = function() {
+      if (!engine) { toast('Game unavailable'); return; }
       if (!engine.dealRound) { toast('Click "Next" to proceed'); return; }
       stateHistory.push(JSON.parse(JSON.stringify(gameState)));
       gameState = engine.dealRound(gameState);
@@ -570,6 +588,7 @@
     };
 
     window.nextAction = function() {
+      if (!engine || !gameState) { toast('Game unavailable'); return; }
       if (gameState.phase === 'done') { newRound(); return; }
       if (session.game === 'blackjack' && gameState.phase === 'betting') {
         dealCards();
@@ -587,16 +606,13 @@
     };
 
     window.drawFromDeck = function() {
-      // Table-side deck draw (for games where it makes sense)
-      if (!gameState.deck?.length) { toast('Deck is empty!'); return; }
-      const card = gameState.deck.pop();
-      const discard = document.getElementById('discard-pile');
-      discard.innerHTML = '';
-      discard.appendChild(renderCard(card));
-      updateTableView();
+      // Decorative pond/shoe only. Games draw through their engines
+      // (Go Fish ask → pond, Blackjack hit, etc.). A table-side pop()
+      // used to delete cards from the shared deck without dealing them.
     };
 
     window.newRound = function() {
+      if (!engine) { backToLobby(); return; }
       document.getElementById('game-over-overlay').classList.remove('visible');
       const playerIds = Object.keys(session.players);
       gameState = engine.initState(playerIds);
@@ -662,6 +678,7 @@
       }
 
       if (msg.type === 'player-action' && msg.roomCode === session.room) {
+        if (!engine || !gameState) return;
         const { playerId, action, ...params } = msg;
         stateHistory.push(JSON.parse(JSON.stringify(gameState)));
 

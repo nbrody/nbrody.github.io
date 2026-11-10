@@ -184,7 +184,9 @@ function setupTriviaController(container) {
 
     // Listen for new questions to reset buttons
     getRoomRef(myRoom).child('gameState/currentQuestion').on('value', (snapshot) => {
-        if (snapshot.val() !== null) {
+        const qIdx = snapshot.val();
+        if (qIdx !== null) {
+            triviaCurrentQuestion = qIdx;
             resetTriviaButtons();
         }
     });
@@ -193,37 +195,52 @@ function setupTriviaController(container) {
     getRoomRef(myRoom).child('gameState/revealAnswer').on('value', (snapshot) => {
         const correctIndex = snapshot.val();
         if (correctIndex !== null) {
+            triviaAnswerLocked = true;
             revealCorrectOnPhone(correctIndex);
         }
     });
 }
 
+let triviaAnswerLocked = false;
+let triviaCurrentQuestion = null;
+
 function submitTriviaAnswer(answerIndex) {
+    // Block double-taps and answers after the TV has revealed.
+    if (triviaAnswerLocked) return;
+    triviaAnswerLocked = true;
+
     const buttons = document.querySelectorAll('.phone-trivia-btn');
     buttons.forEach(b => b.classList.add('answered'));
-    buttons[answerIndex].classList.add('selected-answer');
+    if (buttons[answerIndex]) buttons[answerIndex].classList.add('selected-answer');
 
-    // Send answer to Firebase
+    // Tag with the question index so a late push after advance cannot score
+    // against the next question on the TV.
     playerAction(myRoom, myPlayerId, {
         type: 'trivia_answer',
         answer: answerIndex,
+        questionIndex: triviaCurrentQuestion,
         timestamp: Date.now()
     });
 
     const status = document.getElementById('answer-status');
-    status.textContent = 'Answer locked in!';
-    status.className = 'status-badge success';
-    status.style.display = 'block';
+    if (status) {
+        status.textContent = 'Answer locked in!';
+        status.className = 'status-badge success';
+        status.style.display = 'block';
+    }
 
     // Haptic feedback
     if (navigator.vibrate) navigator.vibrate(50);
 }
 
 function resetTriviaButtons() {
+    triviaAnswerLocked = false;
     const buttons = document.querySelectorAll('.phone-trivia-btn');
     buttons.forEach(b => {
         b.classList.remove('answered', 'selected-answer');
         b.style.opacity = '1';
+        b.style.background = '';
+        b.style.color = '';
     });
     const status = document.getElementById('answer-status');
     if (status) {
@@ -321,6 +338,13 @@ function setupCheckersController(container) {
 }
 
 function playCheckersMove(moveIndex) {
+    // Clear move buttons immediately so double-taps cannot queue duplicate actions
+    // while the TV still shows the same turn (500ms delayed turn advance).
+    const movesContainer = document.getElementById('checkers-moves');
+    if (movesContainer) movesContainer.innerHTML = '';
+    const turnMsg = document.getElementById('checkers-turn-msg');
+    if (turnMsg) turnMsg.textContent = 'Move sent...';
+
     playerAction(myRoom, myPlayerId, {
         type: 'checkers_move',
         moveIndex: moveIndex,
@@ -522,7 +546,6 @@ function setupDrawGuessController(container) {
                 roleEl.innerHTML = '🎨 <strong>You are drawing!</strong>';
                 drawerUI.style.display = 'flex';
                 guesserUI.style.display = 'none';
-                document.getElementById('dg-word-reveal').textContent = `Draw: ${state.word}`;
 
                 if (!dgCanvasSetup) {
                     dgCanvasSetup = true;
@@ -540,6 +563,19 @@ function setupDrawGuessController(container) {
             drawerUI.style.display = 'none';
             guesserUI.style.display = 'none';
             dgCanvasSetup = false;
+        }
+    });
+
+    // Secret word is published outside gameState so guessers never receive it
+    // on their shared gameState listener.
+    getRoomRef(myRoom).child('drawerSecret').on('value', (snapshot) => {
+        const secret = snapshot.val();
+        const wordEl = document.getElementById('dg-word-reveal');
+        if (!wordEl) return;
+        if (secret && secret.drawerId === myPlayerId && secret.word) {
+            wordEl.textContent = `Draw: ${secret.word}`;
+        } else {
+            wordEl.textContent = '';
         }
     });
 }
