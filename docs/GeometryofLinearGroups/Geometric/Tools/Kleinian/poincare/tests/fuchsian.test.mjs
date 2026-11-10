@@ -114,6 +114,14 @@ test('Γ(2): the domain verifies with its three cusps, where two walls only touc
     assert.equal(classical(G2).kind, 'parabolic-pair');
 });
 
+test('ping-pong for parabolics with determinants of 250 bits: an exact square root, no float seed', () => {
+    // (2p+1 p+1; −p−1 −1) is parabolic with det p²; |ab| = 4(p+1)(q+1)/pq > 4. isqrt(p²q²) used to
+    // start from Math.sqrt(Number(·)), off by ~2⁷⁰, and step down one at a time.
+    const p = 3n ** 40n, q = 5n ** 27n;
+    const A = [2n * p + 1n, p + 1n, -(p + 1n), -1n].map(String), B = [2n * q + 1n, -(q + 1n), q + 1n, -1n].map(String);
+    assert.equal(classical([A, B]).kind, 'parabolic-pair');
+});
+
 test('a reflection and a parabolic over ℚ(√7): ℤ/2 ∗ ℤ with one cusp at w = −√7, not verified at w = +√7', () => {
     // the mirror of g₁ (from −1 to (4 + w)/3) fits in a strip of g₂ only at w = −√7
     const mats = [['-1', '-1-w', '1-w', '1'], ['1', 'w', '0', '1']];

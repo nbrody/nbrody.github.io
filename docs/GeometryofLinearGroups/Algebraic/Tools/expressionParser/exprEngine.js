@@ -795,7 +795,11 @@ function imagRational(F, c) {
     const r = new Rat(rn, rd);
     return F.numeric(c).im >= 0 ? r : r.neg();
 }
-function isqrt(n) { if (n < 2n) return n; let x = BigInt(Math.floor(Math.sqrt(Number(n)))); while (x * x > n) x--; while ((x + 1n) * (x + 1n) <= n) x++; return x; }
+function isqrt(n) {   // floor(√n), Newton's method: a float seed is off by ~2^(bits/2 − 53) for large n
+    if (n < 2n) return n;
+    let x = 1n << BigInt(Math.ceil(n.toString(2).length / 2));
+    for (;;) { const y = (x + n / x) >> 1n; if (y >= x) return x; x = y; }
+}
 
 /** Best rational approximation p/q of x with q ≤ qmax (continued fractions). */
 function guessRational(x, qmax = 1000) {
