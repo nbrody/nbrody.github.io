@@ -248,6 +248,23 @@ export class HyperbolicMetric {
         return true;
     }
 
+    // A coarser copy on the same disk, cheap enough to re-solve many times a
+    // second: the metric of the moment while punctures move (see follow).
+    follower(maxM = 80) {
+        return new HyperbolicMetric(this.P, this.disk, { maxM: Math.min(maxM, this.maxM), res: this.res, pinFrac: this.pinFrac });
+    }
+
+    // Punctures on the move: re-solve (warm) once one has gone more than
+    // `frac` of its cusp's size from where it was at the last solve.
+    follow(P, frac = 0.025) {
+        if (P.length !== this.n) return this.refresh(P);
+        const floor = 1e-3 * this.disk.R;
+        for (let i = 0; i < this.n; i++) {
+            if (Math.hypot(P[i].x - this.P[i].x, P[i].y - this.P[i].y) > Math.max(frac * this.s[i], floor)) return this.refresh(P, 2);
+        }
+        return false;
+    }
+
     // ---- evaluation
 
     vAt(x, y) {

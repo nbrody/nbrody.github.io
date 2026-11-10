@@ -163,7 +163,8 @@ for (let run = 0; run < runs; run++) {
     ok(isSimple(sim) === true, 'geodesic mural simple');
     const an = E.analyze(sim);
     ok(countsKey(an) === JSON.stringify([counts.up, counts.down, counts.beta]), 'geodesic mural keeps its class');
-    // twists with the metric switched off while the punctures move, as in the app
+    // twists with the metric switched off while the punctures move (the app's
+    // fallback when the metric cannot follow them)
     let words = an.loops.map(L => L.word);
     for (const g of [1, -2, 1]) {
         const F = E.cutFrame(sim.P);
@@ -176,6 +177,46 @@ for (let run = 0; run < runs; run++) {
         const got = E.analyze(sim).loops.map(L => A.canonicalCyclic(L.word)).map(String).sort();
         const want = words.map(w => A.canonicalCyclic(A.artin(w, Math.abs(g), Math.sign(g)))).map(String).sort();
         ok(JSON.stringify(got) === JSON.stringify(want), `geodesic: σ${g} acts by Artin`);
+        words = E.analyze(sim).loops.map(L => L.word);
+    }
+    // the same with the metric following the punctures, as in the app's
+    // geodesic look: the curve should arrive at the new geodesic, not near it
+    const settle = () => { const S3 = new E.Settler(sim); while (!S3.settled && S3.iters < 3000) S3.step(); };
+    const farthest = (xs, ys) => {           // of these points from the curve
+        let worst = 0;
+        for (let i = 0; i < xs.length; i += 3) {
+            let best = Infinity;
+            for (let g = 0; g < sim.N; g++) {
+                const g1 = sim.next[g];
+                best = Math.min(best, E.segPoint(sim.X[g], sim.Y[g], sim.X[g1], sim.Y[g1], xs[i], ys[i]).d);
+            }
+            worst = Math.max(worst, best);
+        }
+        return worst;
+    };
+    for (const g of [-1, 2]) {
+        const F = E.cutFrame(sim.P);
+        const main = sim.metric, live = main.follower();
+        const tw = E.twistFrame(sim, F.order[Math.abs(g) - 1], F.order[Math.abs(g)], Math.sign(g));
+        sim.metric = live; sim.annealing = false;
+        let guard = 0, solves = 0;
+        while (!tw.done && guard++ < 20000) {
+            E.twistStep(sim, tw);
+            if (live.follow(sim.P)) solves++;
+            E.relaxIteration(sim, { tensionMax: 0.3 });
+        }
+        sim.metric = main;
+        ok(tw.done, `following: σ${g} finishes`);
+        const arrived = E.getLoops(sim).reduce((a, l) => ({ x: a.x.concat(l.x), y: a.y.concat(l.y) }), { x: [], y: [] });
+        settle();
+        const off = farthest(arrived.x, arrived.y) / main.disk.R;
+        console.log(`following: σ${g} in ${guard} steps, ${solves} metric solves, arrives within ${(100 * off).toFixed(1)}% of the disk's radius of the geodesic`);
+        // (pulled taut with no metric, as it used to be, it arrives some 20% away)
+        ok(off < 0.06, `following: σ${g} arrives at the geodesic (${(100 * off).toFixed(1)}% of R away)`);
+        ok(isSimple(sim) === true, `following: simple after σ${g}`);
+        const got = E.analyze(sim).loops.map(L => A.canonicalCyclic(L.word)).map(String).sort();
+        const want = words.map(w => A.canonicalCyclic(A.artin(w, Math.abs(g), Math.sign(g)))).map(String).sort();
+        ok(JSON.stringify(got) === JSON.stringify(want), `following: σ${g} acts by Artin`);
         words = E.analyze(sim).loops.map(L => L.word);
     }
 }

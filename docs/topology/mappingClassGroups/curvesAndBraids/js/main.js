@@ -140,8 +140,7 @@ function updateStatus() {
 // The geodesic look: the complete hyperbolic metric on a disk around the
 // punctures (cusps at the punctures, the circle infinitely far away). Rebuilt
 // when the set of punctures changes or the curve leaves the disk; a half
-// twist only exchanges two punctures, so it never needs a rebuild. While
-// punctures move the drift is switched off.
+// twist only exchanges two punctures, so it never needs a rebuild.
 let metricKey = '';
 function syncMetric(force = false) {
     if (state.look !== 'geodesic' || !sim.P.length) {
@@ -162,6 +161,35 @@ function syncMetric(force = false) {
     sim.ellMax = disk.R / 200;
     metricKey = key;
     wake();
+}
+
+// While punctures move (a twist, a drag) the metric moves with them: a coarser
+// copy on the same disk, re-solved from its last solution every time a
+// puncture has gone a little way. The curve keeps flowing toward the geodesic
+// of the metric of the moment, so it is carried from the old geodesic to the
+// new one as a geodesic, instead of being pulled out of shape and let go.
+const follow = { main: null, m: null };
+function followStart() {
+    if (state.look !== 'geodesic' || !sim.metric) return false;
+    if (sim.metric !== follow.m) {
+        if (follow.main !== sim.metric) { follow.main = sim.metric; follow.m = sim.metric.follower(); }
+        else follow.m.refresh(sim.P, 6);
+        sim.metric = follow.m;
+    }
+    sim.useMetric = true;
+    return true;
+}
+const following = () => !!follow.m && sim.metric === follow.m;
+function followStep() {
+    if (!following()) return;
+    // a puncture dragged up to the circle: the metric cannot follow it out,
+    // and the curve goes on without one until the puncture is let go
+    const { cx, cy, R } = follow.m.disk;
+    if (sim.P.some(p => Math.hypot(p.x - cx, p.y - cy) > 0.94 * R)) { followEnd(); sim.useMetric = false; return; }
+    follow.m.follow(sim.P);
+}
+function followEnd() {
+    if (following()) sim.metric = follow.main;
 }
 
 // strand separation for the geodesic look: a hair, small enough that the
@@ -469,11 +497,15 @@ function twistDuration() {
     return 2.6 * Math.pow(0.08, s / 100);          // 2.6 s … 0.2 s
 }
 
-const movingOpts = () => (state.look === 'geodesic' ? { tension: false } : {});
+// the solver while punctures move: with the metric following them the curve
+// is pulled harder than at rest, to keep up; with no metric to pull it right
+// (or the solver paused) it is only kept apart
+const movingOpts = () => (state.look !== 'geodesic' ? {}
+    : following() && state.running ? { tensionMax: 0.3 } : { tension: false });
 
 function startNextTwist() {
     if (!state.queue.length || state.anim) return;
-    sim.useMetric = false;
+    if (!followStart()) sim.useMetric = false;
     const g = state.queue.shift();
     const i = Math.abs(g);
     const F = E.cutFrame(sim.P);
@@ -490,17 +522,21 @@ function stepTwist(dt, t0, budget) {
     const a = state.anim;
     a.t += dt / a.dur;
     const goal = Math.PI * ease(Math.min(1, a.t));
+    // with the metric following, the curve flows after every step of the twist
+    const flow = following();
     let k = 0;
     while (!a.tw.done && a.tw.theta < goal - 1e-9 && performance.now() - t0 < budget) {
         E.twistStep(sim, a.tw, a.t >= 1 ? Math.PI : goal);
-        if ((k++ & 1) === 0) E.relaxIteration(sim, movingOpts());
+        followStep();
+        if (flow || (k++ & 1) === 0) E.relaxIteration(sim, movingOpts());
     }
     if (a.t >= 1 && !a.tw.done) {
-        while (!a.tw.done && performance.now() - t0 < budget) { E.twistStep(sim, a.tw, Math.PI); E.relaxIteration(sim, movingOpts()); }
+        while (!a.tw.done && performance.now() - t0 < budget) { E.twistStep(sim, a.tw, Math.PI); followStep(); E.relaxIteration(sim, movingOpts()); }
     }
     state.dirty = true;
     if (a.tw.done) {
         state.anim = null;
+        followEnd();
         sim.useMetric = true;
         state.braidLog.push(a.gen);
         refreshAnalysis();
@@ -674,6 +710,7 @@ function endPointer(e) {
         const d = state.drag;
         state.drag = null;
         canvas.classList.remove('dragging');
+        followEnd();
         if (d.active) { refreshAnalysis(); wake(true); }
         return;
     }
@@ -1046,13 +1083,17 @@ function tick(now) {
     }
     stepZip(dt);
     if (!state.anim && state.queue.length && !state.drag?.active && state.zipT === 0) startNextTwist();
-    if (state.anim) stepTwist(dt, t0, budget * 0.75);
+    if (state.anim) stepTwist(dt, t0, following() ? budget : budget * 0.75);
     else if (state.drag?.active) {
         const d = state.drag;
         let k = 0;
-        sim.useMetric = false;
+        if (!d.followed) { d.followed = true; if (!followStart()) sim.useMetric = false; }
         while (performance.now() - t0 < budget * 0.6) {
-            const left = E.dragStep(sim, d.q, d.tx, d.ty);
+            // in the geodesic look the puncture takes its cusp along: the
+            // curve never comes near a cusp, so it should not be run into
+            const reach = following() ? Math.max(1, 0.3 * follow.m.s[d.q] / (1.6 * sim.h * sim.rpFactor)) : 1;
+            const left = E.dragStep(sim, d.q, d.tx, d.ty, reach);
+            followStep();
             if ((k++ % 3) === 0) E.relaxIteration(sim, movingOpts());
             if (left < 1e-6) break;
         }
@@ -1064,7 +1105,7 @@ function tick(now) {
         const moving = state.anim || state.drag?.active;
         if (moving) settler.wake();
         while (performance.now() - t0 < budget) {
-            settler.step();
+            settler.step(moving ? movingOpts() : undefined);
             if (settler.settled && !moving) {
                 state.settled = true;
                 if (state.refitOnSettle) { state.refitOnSettle = false; fitView(true); }
@@ -1276,14 +1317,15 @@ function wirePanel() {
     document.addEventListener('panel:collapse', () => { state.dirty = true; });
 
     $('solver-explain').innerHTML = texify(`
-<p><b>Geodesic.</b> The punctured disk carries a unique complete hyperbolic metric $\\rho\\,|dz|$ (curvature $-1$, a cusp at each puncture, the boundary circle at infinite distance), and each essential curve has a unique geodesic in its isotopy class. With $u = \\log\\rho$, curvature $-1$ means $\\Delta u = e^{2u}$. The exact Poincaré disk and exact cusp profiles are glued together and a bounded correction is solved on a grid by nonlinear multigrid. The curve then flows by hyperbolic curve shortening, which moves it with speed $\\kappa - \\partial_n u$ along the normal.</p>
+<p><b>Geodesic.</b> The punctured disk carries a unique complete hyperbolic metric $\\rho\\,|dz|$ (curvature $-1$, a cusp at each puncture, the boundary circle at infinite distance), and each essential curve has a unique geodesic in its isotopy class. With $u = \\log\\rho$, curvature $-1$ means $\\Delta u = e^{2u}$. The exact Poincaré disk and exact cusp profiles are glued together and a bounded correction is solved on a grid by nonlinear multigrid. The curve then flows by hyperbolic curve shortening, which moves it with speed $\\kappa - \\partial_n u$ along the normal. While punctures move, in a twist or a drag, a coarser copy of the metric is solved again every few steps, so the curve stays a geodesic of the surface of the moment all the way from the old one to the new one.</p>
 <p><b>Train track.</b> A band of fixed thickness pulled tight: strands repel to one spacing apart and stack in bands.</p>
 <p>Either way, no vertex moves more than $0.45\\times$ its clearance (its segments' distance to every other segment and puncture); twists and drags use the same test on relative motion. Nothing ever touches, so the isotopy class never changes.</p>`);
     $('braid-explain').innerHTML = texify(
         'A generator turns its two punctures half way round their midpoint, along the dashed path, inside an ellipse ' +
         'that holds no other puncture. The plane inside the ellipse turns with them and comes to rest at its rim, so ' +
         'the curve is carried by a homeomorphism of the plane. Dragging a puncture works the same way: a disk around ' +
-        'it moves rigidly with it and the curve beyond is pushed aside.');
+        'it moves rigidly with it and the curve beyond is pushed aside. In the geodesic look the metric moves with the ' +
+        'punctures and the curve keeps tightening as they go.');
     $('braid-subtitle').innerHTML = texify(
         '$\\sigma_i$ turns the $i$-th and $(i+1)$-st punctures from the left half way round each other ' +
         'counterclockwise, and $\\sigma_i^{-1}$ turns them clockwise, carrying the curve along.');

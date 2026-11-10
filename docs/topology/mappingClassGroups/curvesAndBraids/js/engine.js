@@ -451,24 +451,32 @@ function collapseSafe(sim, G, a, v, c, mark) {
     return true;
 }
 
-// Keep segment lengths near ell = 0.4 h: split long ones, merge short ones
+// The length segments are kept near: 0.4 h, or with a metric a fixed
+// hyperbolic length, so that they shrink where ρ is large (near the cusps).
+// Null without a metric.
+function meshTarget(sim) {
+    if (!(sim.metric && sim.ellHyp)) return null;
+    const M = sim.metric, eh = sim.ellHyp, lo = 0.04 * sim.h, cap = Math.max(0.4 * sim.h, sim.ellMax || 0);
+    return (x, y) => Math.max(lo, Math.min(cap, eh / M.rho(x, y)));
+}
+
+// Keep segment lengths near their target: split long ones, merge short ones
 // (only where the merged segment sweeps over nothing). Drops loops that have
 // shrunk to nothing around no puncture.
 export function remesh(sim, force = false) {
     const { X, Y, N, next, prev } = sim;
-    const ell = 0.4 * sim.h, hiL = 1.45 * ell, loL = 0.5 * ell;
-    // with a metric, segments shrink where ρ is large (near the cusps)
-    const cap = Math.max(ell, sim.ellMax || 0);
-    const target = sim.metric && sim.ellHyp
-        ? (x, y) => Math.max(0.04 * sim.h, Math.min(cap, sim.ellHyp / sim.metric.rho(x, y)))
-        : null;
+    const ell = 0.4 * sim.h, hiL = 1.45 * ell;
+    const target = meshTarget(sim);
+    // the target of every segment is kept for the solver (see localSmooth),
+    // good until the vertices are renumbered
+    const segT = target ? buf(sim, 'segT', N, Float64Array) : null;
+    sim.segTFor = -1;
     const lenOK = (g, k) => {
         const L = Math.hypot(X[k] - X[g], Y[k] - Y[g]);
-        const t = target ? target(0.5 * (X[k] + X[g]), 0.5 * (Y[k] + Y[g])) : ell;
+        const t = target ? (segT[g] = target(0.5 * (X[k] + X[g]), 0.5 * (Y[k] + Y[g]))) : ell;
         return L <= 1.45 * t && L >= 0.5 * t;
     };
     let need = force;
-    void hiL; void loL;
     // interior angle below ~70°: a spike, which only the solver's own
     // clamping can produce; remove its apex
     const SPIKE = 0.34;
@@ -483,7 +491,7 @@ export function remesh(sim, force = false) {
             if (!lenOK(g, next[g]) || spike(g)) { need = true; break; }
         }
     }
-    if (!need) return false;
+    if (!need) { if (segT) sim.segTFor = N; return false; }
     const G = buildGrid(sim, Math.max(sim.h, 2 * hiL));
     const mark = buf(sim, 'mark', N, Int32Array); mark.fill(-1, 0, N);
     const loops = [];
@@ -597,6 +605,13 @@ function tensionMoves(sim, DX, DY, capLen, sw) {
                 const gn = du.gx - (du.gx * tx + du.gy * ty) * tx, gnY = du.gy - (du.gx * tx + du.gy * ty) * ty;
                 const l2 = 0.5 * Math.hypot(X[g] - X[a], Y[g] - Y[a]) * Math.hypot(X[c] - X[g], Y[c] - Y[g]);
                 rx[i] -= l2 * gn; ry[i] -= l2 * gnY;
+                // Only the normal part: where the segments are graded (they
+                // shorten toward the cusps) the umbrella also has a part
+                // along the curve, of first order in the grading, and the
+                // smoothing below would spread it across the curve wherever
+                // the curve bends, which carried strands into the cusps.
+                const along = rx[i] * tx + ry[i] * ty;
+                rx[i] -= along * tx; ry[i] -= along * ty;
             }
         }
         solveCyclic(n, s2, rx, ry, ox, oy, w);
@@ -613,11 +628,29 @@ function tensionMoves(sim, DX, DY, capLen, sw) {
         }
     }
     const lim = slack(sim, sw, TDX, TDY);
-    for (let g = 0; g < sim.N; g++) {
+    const { N, next, prev } = sim;
+    const K = buf(sim, 'slackK', N, Float64Array);
+    for (let g = 0; g < N; g++) {
         const m = Math.hypot(TDX[g], TDY[g]);
-        const k = m > lim[g] ? lim[g] / m : 1;
-        DX[g] += k * TDX[g]; DY[g] += k * TDY[g];
+        K[g] = m > lim[g] ? lim[g] / m : 1;
     }
+    if (sim.metric && sim.useMetric !== false) {
+        // Holding back one vertex and not the next leaves a ripple in a band
+        // on the move. Hold back its neighbors too (the least factor within
+        // W vertices, then averaged: never more than the vertex's own).
+        const W = 4, K2 = buf(sim, 'slackK2', N, Float64Array);
+        for (let g = 0; g < N; g++) {
+            let m = K[g], a = g, c = g;
+            for (let j = 0; j < W; j++) { a = prev[a]; c = next[c]; if (K[a] < m) m = K[a]; if (K[c] < m) m = K[c]; }
+            K2[g] = m;
+        }
+        for (let g = 0; g < N; g++) {
+            let s = K2[g], a = g, c = g;
+            for (let j = 0; j < W; j++) { a = prev[a]; c = next[c]; s += K2[a] + K2[c]; }
+            K[g] = s / (2 * W + 1);
+        }
+    }
+    for (let g = 0; g < N; g++) { DX[g] += K[g] * TDX[g]; DY[g] += K[g] * TDY[g]; }
 }
 
 // How far each vertex may be pulled: toward a neighbor at distance d it may
@@ -654,11 +687,40 @@ function slack(sim, sw, TDX, TDY) {
     return f;
 }
 
+// Fairing, for a geodesic: move each vertex along the normal so that the
+// curvature there comes closer to the mean of its neighbors'. This is fourth
+// order (a geodesic's own bends, which vary slowly, are left alone, and
+// nothing is pulled in), and it irons out the ripples that strands pressed
+// together pick up while they move.
+function fair(sim, DX, DY, mu) {
+    const { X, Y, N, next, prev } = sim;
+    const kap = buf(sim, 'kappa', N, Float64Array);
+    for (let g = 0; g < N; g++) {
+        const a = prev[g], c = next[g];
+        const ux = X[g] - X[a], uy = Y[g] - Y[a], vx = X[c] - X[g], vy = Y[c] - Y[g];
+        const den = Math.hypot(ux, uy) * Math.hypot(vx, vy) * Math.hypot(ux + vx, uy + vy);
+        kap[g] = den > 0 ? 2 * (ux * vy - uy * vx) / den : 0;
+    }
+    for (let g = 0; g < N; g++) {
+        const a = prev[g], c = next[g];
+        const la = Math.hypot(X[g] - X[a], Y[g] - Y[a]), lc = Math.hypot(X[c] - X[g], Y[c] - Y[g]);
+        const tx = X[c] - X[a], ty = Y[c] - Y[a];
+        const tl = Math.hypot(tx, ty);
+        if (!(tl > 0) || !(la + lc > 0)) continue;
+        // moving the vertex d to the left lowers its curvature by 2d/(la·lc)
+        const d = 0.5 * la * lc * mu * (kap[g] - (kap[a] * lc + kap[c] * la) / (la + lc));
+        DX[g] -= d * ty / tl; DY[g] += d * tx / tl;
+    }
+}
+
 // Even out the vertices along the curve (tangential part of the umbrella
 // move, which does not change the shape) and straighten sharp turns (its
 // normal part, only where the curve turns by more than 75° at one vertex,
 // far sharper than any settled bend, so the settled shape is not pulled in).
-function localSmooth(sim, DX, DY) {
+// With a metric the vertices are evened out in the remesher's own measure
+// (segT, each segment's target length): evened out by plain length they
+// would forever drift away from the cusps and be split again.
+function localSmooth(sim, DX, DY, segT) {
     const { X, Y, N, next, prev } = sim;
     const COS_SHARP = Math.cos(75 * Math.PI / 180);
     for (let g = 0; g < N; g++) {
@@ -668,7 +730,11 @@ function localSmooth(sim, DX, DY) {
         const tl = Math.hypot(tx, ty);
         if (tl < 1e-12) { DX[g] += 0.5 * mx; DY[g] += 0.5 * my; continue; }
         tx /= tl; ty /= tl;
-        const mt = mx * tx + my * ty;
+        let mt = mx * tx + my * ty;
+        if (segT) {
+            const wa = 1 / segT[a], wc = 1 / segT[g];
+            mt = (Math.hypot(X[c] - X[g], Y[c] - Y[g]) * wc - Math.hypot(X[g] - X[a], Y[g] - Y[a]) * wa) / (wa + wc);
+        }
         DX[g] += 0.3 * mt * tx; DY[g] += 0.3 * mt * ty;
         const ux = X[g] - X[a], uy = Y[g] - Y[a], vx = X[c] - X[g], vy = Y[c] - Y[g];
         const den = Math.hypot(ux, uy) * Math.hypot(vx, vy);
@@ -691,11 +757,23 @@ export function relaxIteration(sim, opts = {}) {
     x0.set(sim.X.subarray(0, N)); y0.set(sim.Y.subarray(0, N));
     const DX = buf(sim, 'DX', N, Float64Array), DY = buf(sim, 'DY', N, Float64Array);
     const omega = opts.omega ?? 1.2;
+    // each segment's target length, from the remesh above or afresh
+    let segT = null;
+    const target = meshTarget(sim);
+    if (target) {
+        segT = buf(sim, 'segT', N, Float64Array);
+        if (sim.segTFor !== N) {
+            const { X, Y, next } = sim;
+            for (let g = 0; g < N; g++) segT[g] = target(0.5 * (X[g] + X[next[g]]), 0.5 * (Y[g] + Y[next[g]]));
+        }
+    }
+    const geodesic = sim.metric && sim.useMetric !== false;
     let ov = 0;
     for (let p = 0; p < passes; p++) {
         const sw = sweep(sim, true);
         DX.fill(0, 0, N); DY.fill(0, 0, N);
-        localSmooth(sim, DX, DY);
+        localSmooth(sim, DX, DY, segT);
+        if (geodesic) fair(sim, DX, DY, 0.2);
         if (p === 0 && opts.tension !== false) tensionMoves(sim, DX, DY, sim.tension * sim.h, sw);
         // spacing: overlap-weighted average of the contact pushes
         for (let g = 0; g < N; g++) {
@@ -833,9 +911,9 @@ function applyScaled(sim, DX, DY, pmoves, alpha) {
 // ------------------------------------------------------------------ dragging a puncture
 
 // Push puncture q toward (tx, ty), carrying a disk of curve around it
-// rigidly and the curve a little farther out partly. Returns the distance
-// still to go.
-export function dragStep(sim, q, tx, ty) {
+// rigidly and the curve a little farther out partly (`reach` widens both).
+// Returns the distance still to go.
+export function dragStep(sim, q, tx, ty, reach = 1) {
     const p = sim.P[q];
     remesh(sim);
     let dx = tx - p.x, dy = ty - p.y;
@@ -854,7 +932,7 @@ export function dragStep(sim, q, tx, ty) {
     }
     const N = sim.N;
     const DX = buf(sim, 'DX', N, Float64Array), DY = buf(sim, 'DY', N, Float64Array);
-    const rp = h * sim.rpFactor, R0 = 1.6 * rp, R1 = 4 * rp;
+    const rp = h * sim.rpFactor, R0 = 1.6 * rp * reach, R1 = 4 * rp * reach;
     for (let g = 0; g < N; g++) {
         const d = Math.hypot(sim.X[g] - p.x, sim.Y[g] - p.y);
         let s = 0;
@@ -941,8 +1019,13 @@ export function twistStep(sim, tw, goal = Math.PI) {
     tw.steps = (tw.steps || 0) + 1;
     if (dth > 1e-12) {
         // exact rotation increments (a scaled-down chord would let the
-        // punctures spiral inward); shrink the angle until the step is safe
-        let tryAng = dth;
+        // punctures spiral inward); shrink the angle until the step is safe.
+        // The search starts just above the last angle that had to be shrunk
+        // (most steps then pass first time), and from the top again after a
+        // few passes in a row, in case the tight spot has gone.
+        const probe = !tw.safeAng || tw.passes >= 4;
+        let tryAng = probe ? dth : Math.min(dth, 1.04 * tw.safeAng);
+        let ok = false;
         for (let attempt = 0; attempt < 8; attempt++) {
             const ang = tw.sign * tryAng;
             for (let g = 0; g < N; g++) {
@@ -955,10 +1038,15 @@ export function twistStep(sim, tw, goal = Math.PI) {
             if (alpha >= 0.999) {
                 applyScaled(sim, DX, DY, pm, 1);
                 tw.theta += tryAng;
+                ok = true;
+                if (attempt > 0) { tw.safeAng = tryAng; tw.passes = 0; }       // the limit, found
+                else if (probe) tw.safeAng = 0;                                // no limit below dth
+                else if (tryAng < dth) { tw.safeAng = tryAng; tw.passes++; }   // passed: look higher
                 break;
             }
             tryAng *= Math.max(0.05, 0.9 * alpha);
         }
+        if (!ok) tw.safeAng = 0;
         if (tw.theta > Math.PI - 1e-12) tw.theta = Math.PI;
         // jam relief: strands packed too tight to move together; loosen the
         // spacing and let them spread before going on
