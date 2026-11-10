@@ -1110,7 +1110,9 @@ function specItems(sources) {
         let u = v, d = null;
         if (!gIsId) { const lm = localMap(g, v); u = lm.labels; d = fnorm(toFloat(lm.h)); }
         const { F, gap } = frameAt(u, st, fc);
-        const Mq = qmul(ga, specMat(frameOf(v), spec.a)), M = fnorm(Mq.map((x) => x.toNumber()));
+        // g(a)·g_v(a) leaves PGL₂ at a pole of g (the example (1, t/(t−1); 0, 1) at the default
+        // t = 1): it is no isometry, so the plane lands on the base as v₀ does, with no tessellation.
+        const Mq = qmul(ga, specMat(frameOf(v), spec.a)), M = qdet(Mq).isZero() ? ID : fnorm(Mq.map((x) => x.toNumber()));
         // Where it lands: on the half-plane, M = A·K with A: z ↦ β + αz taking i to M·i and K a
         // rotation about i, so the plane unrolls around its own place in the frame A and only K
         // turns its contents. (A disk base has no such frames, so there it is the base and K = M.)
@@ -1137,7 +1139,7 @@ function chooseOverlays(items) {
     const seen = new Set();
     for (const it of [...items].sort((a, b) => b.rs - a.rs)) {
         const k = latticeKey(it.Mq);
-        it.overlay = !seen.has(k) && seen.size < OVERLAYS;
+        it.overlay = k != null && !seen.has(k) && seen.size < OVERLAYS;
         if (it.overlay) seen.add(k);
     }
 }

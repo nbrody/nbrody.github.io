@@ -139,6 +139,16 @@ for (let t = 0; t < 100; t++) {
     const U = Zgens[rnd(3)], c = Q.of(rnd(5) + 1, rnd(3) + 1);
     ok(latticeKey(M) === latticeKey(qmul(M, U)) && latticeKey(M) === latticeKey(M.map((x) => x.mul(c))), 'lattice key ignores PGL₂(ℤ) and scaling');
 }
+ok(latticeKey([Q.ZERO, Q.ZERO, Q.ZERO, Q.ZERO]) === null, 'the zero matrix names no lattice');
+ok(latticeKey([Q.ZERO, Q.ZERO, Q.ZERO, Q.ONE]) === null, 'a rank-1 matrix names no lattice');
+ok(latticeKey([Q.ZERO, Q.ONE, Q.ZERO, Q.ZERO]) === null, '(0 1; 0 0) names no lattice');
+// the built-in example (1, t/(t−1); 0, 1), cleared of its denominator, vanishes at the default t = 1
+const pole = normalizePGL(polyMatrix(['1', '\\frac{t}{t-1}', '0', '1'].map(parseRat)).map(fromPoly));
+ok(!det(pole).isZero() && qdet(specMat(pole, Q.ONE)).isZero(), '(1 t/(t−1); 0 1) is in PGL₂ but singular at t = 1');
+for (const labels of [[], [[1n, 0n]], [[0n, 1n]], [[1n, 2n]]]) {
+    ok(latticeKey(qmul(specMat(pole, Q.ONE), specMat(frameOf(labels), Q.ONE))) === null, `collapse at t = 1 does not throw on ${keyOf(labels) || 'v₀'}`);
+}
+ok(latticeKey(qmul(specMat(pole, Q.of(2)), specMat(frameOf([]), Q.of(2)))) !== null, 'the same element at t = 2 still lands');
 ok(latticeKey(I2) === latticeKey(specMat(frameOf([[3n, 1n], [-2n, 1n]]), Q.ONE)), 'at t = 1 the planes at integer cusps land on the base tessellation');
 ok(latticeKey(I2) !== latticeKey(specMat(frameOf([[1n, 2n]]), Q.ONE)), 'the plane at 1/2 lands as a shifted tessellation');
 ok(latticeKey(I2) !== latticeKey(specMat(frameOf([[0n, 1n]]), Q.of(2))), 'at t = 2 the plane at 0 lands scaled by 1/2');
