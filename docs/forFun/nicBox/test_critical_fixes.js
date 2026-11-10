@@ -1,5 +1,5 @@
 /**
- * Regression checks for nicBox joinRoom prefetch.
+ * Regression checks for nicBox joinRoom prefetch and War round capping.
  * Run: node docs/forFun/nicBox/test_critical_fixes.js
  */
 'use strict';
@@ -126,7 +126,56 @@ function testJoinRoomRejectsMissingWithoutTransaction() {
     );
 }
 
+function testWarCapsRoundsToDealtCards() {
+    const document = {
+        head: { appendChild() {} },
+        createElement() {
+            return { textContent: '' };
+        },
+        getElementById() {
+            return {
+                textContent: '',
+                innerHTML: '',
+                style: {},
+                className: '',
+                offsetHeight: 0,
+            };
+        },
+    };
+
+    const ctx = {
+        console,
+        document,
+        updateGameState() {},
+        getRoomRef() {
+            return {
+                child() {
+                    return { on() {}, off() {} };
+                },
+            };
+        },
+        updateScoreDisplay() {},
+        renderScoreboard() {},
+        endGame() {},
+    };
+    vm.createContext(ctx);
+    loadScript('games/war.js', ctx, ['WarGame']);
+
+    const players = {
+        p1: { name: 'A', avatar: '1', color: '#f00', score: 0 },
+        p2: { name: 'B', avatar: '2', color: '#0f0', score: 0 },
+        p3: { name: 'C', avatar: '3', color: '#00f', score: 0 },
+        p4: { name: 'D', avatar: '4', color: '#ff0', score: 0 },
+    };
+    const game = new ctx.WarGame('ROOM', players, { innerHTML: '' });
+    assert.strictEqual(game.playerIds.length, 4);
+    assert.strictEqual(Object.values(game.decks)[0].length, 13);
+    assert.strictEqual(game.maxRounds, 13, '4-player War must not exceed 13 dealt cards');
+    console.log('ok War caps rounds to dealt hand size');
+}
+
 async function main() {
+    testWarCapsRoundsToDealtCards();
     await testJoinRoomPrefetchesBeforeTransaction();
     await testJoinRoomRejectsMissingWithoutTransaction();
     console.log('All nicBox critical fix tests passed.');
