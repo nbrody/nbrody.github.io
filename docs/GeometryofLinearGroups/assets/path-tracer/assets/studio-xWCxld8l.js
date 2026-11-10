@@ -2652,13 +2652,37 @@ const checkerDescriptor = {
     // the procedural chart reader (fable-imagery P1) → keeps its frame under rotation (P1b)
   }
 };
+const thinFilmGLSL = "// Soap film (thin_film) — the wall of a soap bubble: a dielectric film in air, so thin that a\n// ray crossing it neither bends nor shifts. It reflects with the film's interference\n// reflectance R(λ) (the Airy sum over the film's internal bounces, s and p averaged) or passes\n// straight through with 1 − R(λ); nothing is absorbed. The regions on either side are the\n// media (author `ior: 1` for air inside the bubble), and they do not bend the ray.\n// Fields read: mp.film_thickness (nm, the mean thickness), mp.film_ior (the film's index).\n// The thickness varies over each bubble as on a draining film: thinner at the top, thicker\n// below, with swirls whose pattern differs from one instance to the next (hit.element).\n// Pure delta: eval/pdf return zero (§3.1); transport skips NEE via material_has_nondelta_lobes.\n// Provides: thin_film_eval/sample/pdf/emission(), thin_film_albedo().\n// Depends on: MaterialProperties, Hit/Frame, InteractionSample, LOBE_*, SPECTRUM_ZERO/ONE,\n//             SPECTRUM_N, spectrum_average, ambient_dot, PI.\n\nSpectrum thin_film_eval(Direction wi, Direction wo, Hit hit, MaterialProperties mp) { return SPECTRUM_ZERO; } // pure delta\nfloat    thin_film_pdf (Direction wi, Direction wo, Hit hit, MaterialProperties mp) { return 0.0; }\nSpectrum thin_film_emission(Direction wo, Hit hit, MaterialProperties mp) { return SPECTRUM_ZERO; }\n// The albedo guide sees a clear surface: the film transmits nearly everything.\nSpectrum thin_film_albedo(Hit hit, MaterialProperties mp) { return SPECTRUM_ONE; }\n\n// Reflectance of a film of index n_f and thickness d (nm) in air, at wavelength λ (nm), for\n// light arriving at cos_i. With r the air→film amplitude coefficient, the film→air one is −r,\n// and R = 2r²(1 − cos δ) / (1 + r⁴ − 2r² cos δ), δ = 4π n_f d cos_t / λ (Born & Wolf §7.6).\nfloat thin_film_airy(float lambda, float d, float n_f, float cos_i) {\n    float cos_t = sqrt(max(0.0, 1.0 - (1.0 - cos_i * cos_i) / (n_f * n_f)));\n    float rs = (cos_i - n_f * cos_t) / (cos_i + n_f * cos_t);\n    float rp = (n_f * cos_i - cos_t) / (n_f * cos_i + cos_t);\n    float c = cos(4.0 * PI * n_f * d * cos_t / lambda);\n    float s2 = rs * rs, p2 = rp * rp;\n    float Rs = 2.0 * s2 * (1.0 - c) / (1.0 + s2 * s2 - 2.0 * s2 * c);\n    float Rp = 2.0 * p2 * (1.0 - c) / (1.0 + p2 * p2 - 2.0 * p2 * c);\n    return 0.5 * (Rs + Rp);\n}\n\n// The film's thickness where the ray meets it (nm).\nfloat thin_film_thickness(Hit hit, MaterialProperties mp) {\n    // The outward normal: ng faces the side the ray came from, which is inside on the way out.\n    vec3 n = hit.region_from == hit.region_owner ? -hit.ng : hit.ng;\n    float h = fract(sin(float(hit.element) * 12.9898 + 0.5) * 43758.5453);   // per bubble\n    float a = 2.0 * PI * h;\n    float swirl = sin(5.0 * (n.x * cos(a) + n.z * sin(a)) + 3.0 * n.y + 6.0 * h)\n                * sin(4.0 * n.y + 2.5 * (n.z * cos(a) - n.x * sin(a)));\n    return max(20.0, mp.film_thickness * (1.0 - 0.45 * n.y + 0.22 * swirl));\n}\n\nSpectrum thin_film_reflectance(Hit hit, MaterialProperties mp, float cos_i) {\n    float d = thin_film_thickness(hit, mp), n_f = mp.film_ior;\n    Spectrum R;\n#if SPECTRUM_N == 4\n    // Spectral transport: each lane at its own wavelength.\n    for (int i = 0; i < 4; ++i) R[i] = thin_film_airy(hit.wl.lambda[i], d, n_f, cos_i);\n#else\n    // RGB transport: each channel averages its band of the spectrum (red 590–665 nm, green\n    // 500–575 nm, blue 420–495 nm).\n    vec3 acc = vec3(0.0);\n    for (int k = 0; k < 4; ++k) {\n        vec3 l = vec3(590.0, 500.0, 420.0) + 25.0 * float(k);\n        acc += vec3(thin_film_airy(l.x, d, n_f, cos_i), thin_film_airy(l.y, d, n_f, cos_i), thin_film_airy(l.z, d, n_f, cos_i));\n    }\n    for (int i = 0; i < SPECTRUM_N; ++i) R[i] = 0.25 * acc[min(i, 2)];\n#endif\n    return clamp(R, 0.0, 1.0);\n}\n\nInteractionSample thin_film_sample(Direction wo, Hit hit, MaterialProperties mp, float uc, vec2 u) {\n    Direction n = hit.frame.n;                        // oriented toward region_from (§4.1)\n    float cos_i = clamp(ambient_dot(wo, n, hit.p), 1e-6, 1.0);\n    Spectrum R = thin_film_reflectance(hit, mp, cos_i);\n    // Reflect with the mean reflectance's probability; each branch's weight is its lobe over\n    // that probability, so the estimate stays unbiased in every channel.\n    float P = clamp(spectrum_average(R), 0.005, 0.995);\n\n    InteractionSample s;\n    if (uc < P) {\n        s.wi     = normalize(2.0 * cos_i * n - wo);\n        s.weight = R / P;\n        s.flags  = LOBE_REFLECTION | LOBE_DELTA;\n    } else {\n        s.wi     = -wo;                               // straight through: the film is thin\n        s.weight = (SPECTRUM_ONE - R) / (1.0 - P);\n        s.flags  = LOBE_TRANSMISSION | LOBE_DELTA;\n    }\n    s.pdf = 0.0;\n    return s;\n}\n";
+const thinFilmDescriptor = {
+  id: "thin_film",
+  glsl: thinFilmGLSL,
+  // Fields read (matches thin_film.glsl's header): the film's mean thickness in nm and its
+  // index. The region-table ior is the media on either side (the same row dielectric
+  // declares); the film does not bend the ray, so author it equal on both sides (1: air).
+  properties: [
+    { name: "film_thickness", glslType: "float", source: "film_thickness", default: 500, storage: "field", constraint: { kind: "positive" } },
+    { name: "film_ior", glslType: "float", source: "film_ior", default: 1.33, storage: "field", constraint: { kind: "positive" } },
+    { name: "ior", glslType: "float", role: "index", source: "ior", default: 1.5, storage: "region-table", constraint: { kind: "positive" } }
+  ],
+  albedo: { fn: "thin_film_albedo" },
+  capabilities: {
+    nonDeltaLobes: false,
+    // pure delta: eval ≡ 0, NEE skips (the generated guard)
+    transmission: true,
+    // crosses the interface: ior row, current_medium
+    support: "sphere",
+    // reflection and straight-through transmission, both delta
+    emissive: false
+  }
+};
 const MATERIAL_MODELS = {
   lambert: lambertDescriptor,
   dielectric: dielectricDescriptor,
   rough_dielectric: roughDielectricDescriptor,
   ggx: ggxDescriptor,
   mirror: mirrorDescriptor,
-  checker: checkerDescriptor
+  checker: checkerDescriptor,
+  thin_film: thinFilmDescriptor
 };
 function modelStructFields(d) {
   return [
@@ -18071,6 +18095,7 @@ async function readStoredScene(id) {
   }
 }
 const GLASS_TINT = 0.3;
+const BOUNCES = { matte: 6, metal: 6, glass: 12, bubble: 32 };
 const PREVIEW_BALLS = 6e4;
 async function buildScene(id, look, strategies) {
   const name = postedFile("twodim");
@@ -18086,7 +18111,7 @@ async function buildScene(id, look, strategies) {
   }
   const o = meta.options ?? {};
   if (meta.view.ortho) console.warn("twoDimFields: the app was in orthographic view; rendering with a pinhole camera instead");
-  usePostedView(strategies, meta.view, look === "glass" ? 12 : 6, o, name);
+  usePostedView(strategies, meta.view, BOUNCES[look], o, name);
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
   const P = table.positions, R = table.sizes ?? new Float32Array(table.count).fill(1);
   for (let i = 0; i < table.count; i++) {
@@ -18095,10 +18120,11 @@ async function buildScene(id, look, strategies) {
       hi[a] = Math.max(hi[a], P[3 * i + a] + R[i]);
     }
   }
-  const room = studio(lo, hi, meta.view, meta.settings.theme === "light", o);
-  const formula = look !== "glass" && o.surface === "formula" && o.formula?.trim() ? surfaceFormula(o, "") : null;
+  const room = studio(lo, hi, meta.view, meta.settings.theme === "light", o, look === "bubble" ? "softbox" : "studio");
+  const clear = look === "glass" || look === "bubble";
+  const formula = !clear && o.surface === "formula" && o.formula?.trim() ? surfaceFormula(o, "") : null;
   const row = look === "metal" ? "f0" : look === "glass" ? "transmittance" : "albedo";
-  let colors = formula ? void 0 : table.colors;
+  let colors = formula || look === "bubble" ? void 0 : table.colors;
   if (look === "glass" && colors) colors = colors.map((c) => 1 - GLASS_TINT * (1 - c));
   const balls = instanceCloud({ ...table, colors }, { shape: "sphere", material: "ball", name: "balls", colorDrives: row });
   const shown2 = Math.min(table.count, PREVIEW_BALLS);
@@ -18108,9 +18134,9 @@ async function buildScene(id, look, strategies) {
     positions: table.positions.subarray(0, 3 * shown2),
     sizes: (table.sizes ?? new Float32Array(table.count).fill(1)).subarray(0, shown2),
     colors: (colors ?? new Float32Array(3 * table.count).fill(0.7)).subarray(0, 3 * shown2)
-  }, look === "glass");
+  }, clear);
   const paint = formula ? { kind: "glsl", source: formula } : void 0;
-  const ball = look === "metal" ? { model: "ggx", f0: paint ?? [0.9, 0.9, 0.9], roughness: o.roughness ?? 0.28 } : look === "glass" ? { model: "dielectric", ior: 1.5, transmittance: [0.95, 0.97, 0.98] } : { model: "lambert", albedo: paint ?? [0.8, 0.8, 0.8] };
+  const ball = look === "metal" ? { model: "ggx", f0: paint ?? [0.9, 0.9, 0.9], roughness: o.roughness ?? 0.28 } : look === "glass" ? { model: "dielectric", ior: 1.5, transmittance: [0.95, 0.97, 0.98] } : look === "bubble" ? { model: "thin_film", ior: 1, film_ior: 1.33, film_thickness: o.filmThickness ?? 500 } : { model: "lambert", albedo: paint ?? [0.8, 0.8, 0.8] };
   return {
     id,
     name: `2dimFields ${meta.settings.field === "i" ? "ℚ(i)" : "ℚ(ω)"} — ${table.count} balls (${look})`,
@@ -18137,6 +18163,11 @@ const twoDimFieldsScenes = {
     "2dimFields tree of balls (glass)",
     (s) => buildScene("twoDimFields-glass", "glass", s),
     "DATA — 2dimFields, the same tree as glass beads (ior 1.5, 12 bounces), each tinted by its palette colour."
+  ),
+  "twoDimFields-bubble": postedEntry(
+    "2dimFields tree of balls (bubbles)",
+    (s) => buildScene("twoDimFields-bubble", "bubble", s),
+    "DATA — 2dimFields, the same tree as soap bubbles: thin_film walls (film index 1.33, mean thickness from the options, 500 nm by default) with air inside, 32 bounces, under the Softbox (whose broad panel each bubble reflects) unless the options choose a lighting."
   )
 };
 function isAsyncSceneEntry(e) {

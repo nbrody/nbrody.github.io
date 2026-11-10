@@ -60,6 +60,9 @@ function inGamut(L, a, b) {
 const ROLES = {
     dark: { fill: [0.29, 0.78], str: [0.80, 0.85], horo: [0.68, 1], ball: [0.52, 1] },
     light: { fill: [0.94, 0.38], str: [0.47, 1], horo: [0.72, 0.9], ball: [0.80, 0.85] },
+    // Balls sent to the path tracer: mid-tones at full chroma. The light theme's pale balls wash
+    // out under physical lighting, and the dark theme's rely on the app's strong lights.
+    trace: { ball: [0.68, 1.05] },
 };
 const restyle = ([L, a, b], [Lr, k]) => inGamut(Math.min(0.985, Math.max(0.08, Lr + 0.35 * (L - 0.62))), a * k, b * k);
 

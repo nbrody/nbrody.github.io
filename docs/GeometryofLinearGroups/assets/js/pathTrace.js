@@ -247,6 +247,15 @@ export function mountPathTraceOptions(anchor, { app, looks, autoLook = () => 'ma
             out.look = look(v);
             return out;
         },
+        /** Set some fields (by id; others keep their values), as a preset does. */
+        set(values) {
+            for (const { f, input } of rows) {
+                if (!(f.id in values)) continue;
+                v[f.id] = values[f.id];
+                input.value = v[f.id];
+            }
+            sync();
+        },
     };
 }
 

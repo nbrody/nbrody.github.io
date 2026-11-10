@@ -26,7 +26,7 @@
 +    }); } finally { db.close(); }
 +}
 +
- type Look = 'matte' | 'metal' | 'glass';
+ type Look = 'matte' | 'metal' | 'glass' | 'bubble';
  
  /** How far a glass bead's tint goes from white toward its palette colour. */
 @@ -29,8 +42,10 @@
@@ -41,7 +41,7 @@
 +    else { meta = await fetchPosted<TwoDimMeta>(name, '2dimFields'); table = await loadInstances(`/test-data/${name}.inst`); }
      const o = meta.options ?? {};
      if (meta.view.ortho) console.warn('twoDimFields: the app was in orthographic view; rendering with a pinhole camera instead');
-     usePostedView(strategies, meta.view, look === 'glass' ? 12 : 6, o, name);
+     usePostedView(strategies, meta.view, BOUNCES[look], o, name);
 --- a/demos/posted.ts
 +++ b/demos/posted.ts
 @@ -170,14 +170,14 @@
