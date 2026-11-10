@@ -102,7 +102,7 @@
     let courseShape = []; // polygon for the course outline
 
     // ── Hole Definitions ────────────────────────────
-    // Each hole: { par, tee:[x,y], hole:[x,y], course:[polygon], walls:[[x,y,w,h],...], sand:[[cx,cy,r],...], water:[[cx,cy,r],...] }
+    // Each hole: { par, tee:[x,y], hole:[x,y], course:[polygon], walls:[[x,y,w,h],...], sand:[[cx,cy,r],...], water:[[cx,cy,outerR] or [cx,cy,outerR,innerR],...] }
     // Coordinates in design space (CW x CH)
     const HOLES = [
         // ─── Hole 1: Straight Shot ───
@@ -128,6 +128,9 @@
             water: [],
         },
         // ─── Hole 3: Island Green ───
+        // Water is an annulus [cx, cy, outerR, innerR]: the cup sits on a
+        // dry island. A filled circle here made the hole unwinnable because
+        // water is tested before the sink check and fully covered the cup.
         {
             par: 3,
             tee: [200, 600],
@@ -135,7 +138,7 @@
             course: [[60, 70], [340, 70], [340, 660], [60, 660]],
             walls: [],
             sand: [[130, 180, 28], [270, 180, 28]],
-            water: [[200, 180, 65]],
+            water: [[200, 180, 65, 36]],
         },
         // ─── Hole 4: Narrow Channel ───
         {
@@ -392,12 +395,20 @@
         return false;
     }
 
-    function checkWater() {
-        for (const w of waterHazards) {
-            const d = Math.hypot(ballX - w[0], ballY - w[1]);
-            if (d < w[2] - 5) return true;
+    // Water hazards are [cx, cy, outerR] or [cx, cy, outerR, innerR].
+    // innerR > 0 is a dry island (used by Island Green).
+    function isInWater(bx, by, hazards) {
+        for (const w of hazards) {
+            const d = Math.hypot(bx - w[0], by - w[1]);
+            const outer = w[2] - 5;
+            const inner = w[3] || 0;
+            if (d < outer && d >= inner) return true;
         }
         return false;
+    }
+
+    function checkWater() {
+        return isInWater(ballX, ballY, waterHazards);
     }
 
     // ── Load Hole ───────────────────────────────────
@@ -597,9 +608,16 @@
         for (const w of waterHazards) {
             const [sx, sy] = toScreen(w[0], w[1]);
             const r = w[2] * scale;
+            const inner = (w[3] || 0) * scale;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(sx, sy, r, 0, Math.PI * 2);
+            if (inner > 0) ctx.arc(sx, sy, inner, 0, Math.PI * 2, true);
+            ctx.clip('evenodd');
 
             // Water gradient
-            const grad = ctx.createRadialGradient(sx, sy, r * 0.1, sx, sy, r);
+            const grad = ctx.createRadialGradient(sx, sy, Math.max(r * 0.1, inner), sx, sy, r);
             grad.addColorStop(0, COLORS.waterLight);
             grad.addColorStop(1, COLORS.water);
             ctx.beginPath();
@@ -607,7 +625,7 @@
             ctx.fillStyle = grad;
             ctx.fill();
 
-            // Animated ripples
+            // Animated ripples (clipped to the water ring)
             const numRipples = 3;
             for (let i = 0; i < numRipples; i++) {
                 const phase = (t * 0.001 + i / numRipples) % 1;
@@ -618,6 +636,7 @@
                 ctx.lineWidth = 1.5;
                 ctx.stroke();
             }
+            ctx.restore();
         }
     }
 
@@ -1121,4 +1140,32 @@
     // ── Init ────────────────────────────────────────
     resize();
     requestAnimationFrame(gameLoop);
+
+    if (globalThis.MINIGOLF_TEST) {
+        Object.assign(globalThis.MINIGOLF_TEST, {
+            HOLES,
+            HOLE_RADIUS,
+            BALL_RADIUS,
+            isInWater,
+            sinkRadius: HOLE_RADIUS - BALL_RADIUS * 0.5,
+            /** Place a slow ball on the cup and run one physics tick. */
+            trySinkAtCup(holeIndex) {
+                loadHole(holeIndex);
+                gameActive = true;
+                ballX = holeX;
+                ballY = holeY;
+                ballVX = 0;
+                ballVY = 1;
+                ballMoving = true;
+                ballInHole = false;
+                updatePhysics();
+                return {
+                    ballInHole,
+                    atTee: ballX === teeX && ballY === teeY,
+                    ballX,
+                    ballY,
+                };
+            },
+        });
+    }
 })();
