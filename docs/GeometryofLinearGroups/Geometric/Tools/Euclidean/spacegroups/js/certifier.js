@@ -77,6 +77,7 @@ const ANGLE_TOL = 0.02;        // radians, for 2π/m matching
 const LINE_SAMPLES = 1440;
 const LINE_HALF = RBOUND * 1.05;   // half-length of the sampled line segment
 const MAX_CYCLE_LEN = 200;
+const MAX_CYCLE_ORDER = 10000;   // past this 2π/m is far below ANGLE_TOL: a degenerate cycle, and P^m would hang
 
 // ---------------- Edge extraction ----------------
 
@@ -566,7 +567,8 @@ export function certifyDomain(walls, basepoint) {
 
         // Angle condition: angleSum = 2π/m
         const mFloat = 2 * Math.PI / angleSum;
-        const m = Math.round(mFloat);
+        // a zero or tiny angle sum makes m infinite or huge (the P^m loop below would never end)
+        const m = Number.isFinite(mFloat) && mFloat <= MAX_CYCLE_ORDER ? Math.round(mFloat) : 0;
         const angleOk = m >= 1 && Math.abs(angleSum - 2 * Math.PI / m) < ANGLE_TOL;
 
         // Cycle transformation condition: P^m = identity
