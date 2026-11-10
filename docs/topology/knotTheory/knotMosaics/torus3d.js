@@ -4,7 +4,7 @@
 (function () {
     let scene, camera, renderer, controls;
     let mainGroup, baseGeoms = [];
-    let animId = null, isFolded = false;
+    let animId = null, isFolded = false, foldTimer = null;
     let renderMode = 'tubes'; // 'tiles' or 'tubes'
 
     const FOLD_DURATION = 2000;
@@ -267,6 +267,7 @@
         const uiBtn = document.getElementById('cube-unfold-btn');
         uiBtn.textContent = 'Unfold';
         uiBtn.onclick = () => {
+            if (window.getAppState().surface !== 'torus') return;
             animateFold(!isFolded);
             uiBtn.textContent = isFolded ? 'Unfold' : 'Fold';
         };
@@ -278,7 +279,8 @@
         onResize();
         buildModel();
         loop();
-        setTimeout(() => {
+        clearTimeout(foldTimer);
+        foldTimer = setTimeout(() => {
             animateFold(true);
             uiBtn.textContent = 'Unfold';
         }, 300);
@@ -288,6 +290,7 @@
     const originalClose = window.closeCubeFold;
     window.closeCubeFold = function () {
         document.getElementById('cube-overlay').style.display = 'none';
+        clearTimeout(foldTimer);   // closed within 300 ms: don't start folding
         if (animId) { cancelAnimationFrame(animId); animId = null; }
         if (originalClose) originalClose();
     };

@@ -5,7 +5,7 @@
 (function () {
     let scene, camera, renderer, controls;
     let cubeGroup, pivots = {}, meshes = {}, strandGroups = {}, elbowGroup;
-    let animId = null, isFolded = false;
+    let animId = null, isFolded = false, foldTimer = null;
     let renderMode = 'tubes'; // 'tiles' or 'tubes'
 
     const FOLD_DURATION = 1500;
@@ -316,18 +316,27 @@
     window.openCubeFold = function () {
         document.getElementById('cube-overlay').style.display = 'block';
         document.getElementById('cube-hide-grid').checked = false;
+        // The Fold/Unfold button is shared with torus3d.js, which relabels it
+        // and sets its onclick: take it back.
+        const unfoldBtn = document.getElementById('cube-unfold-btn');
+        unfoldBtn.textContent = 'Unfold';
+        unfoldBtn.onclick = null;
         if (!renderer) init();
         onResize(); buildNet(); loop();
-        setTimeout(() => animateFold(true), 300);
+        clearTimeout(foldTimer);
+        foldTimer = setTimeout(() => animateFold(true), 300);
     };
 
     window.closeCubeFold = function () {
         document.getElementById('cube-overlay').style.display = 'none';
+        clearTimeout(foldTimer);   // closed within 300 ms: don't start folding
         if (animId) { cancelAnimationFrame(animId); animId = null; }
     };
 
     document.getElementById('cube-close-btn').addEventListener('click', window.closeCubeFold);
-    document.getElementById('cube-unfold-btn').addEventListener('click', () => animateFold(!isFolded));
+    document.getElementById('cube-unfold-btn').addEventListener('click', () => {
+        if (window.getAppState().surface === 'sphere') animateFold(!isFolded);
+    });
     document.getElementById('cube-hide-grid').addEventListener('change', e => setStrandsOnly(e.target.checked));
 
     // Render mode toggle (tiles/tubes) — wired up in cube3d since it loads first
