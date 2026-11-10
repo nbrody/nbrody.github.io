@@ -170,8 +170,8 @@ export function enumerateGeneral(nGens, relators, subgroupWords, { maxCosets = 4
         const queue = [];
         const merge = (u, v) => { u = find(u); v = find(v); if (u === v) return; if (v < u) [u, v] = [v, u]; parent[v] = u; queue.push(v); };
         merge(a, b);
-        while (queue.length) {
-            const g = queue.shift();
+        for (let head = 0; head < queue.length; head++) {
+            const g = queue[head];
             const row = table[g];
             for (let x = 0; x < W; x++) {
                 const dd = row[x];

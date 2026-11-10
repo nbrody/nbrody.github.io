@@ -1480,7 +1480,7 @@ const ringCache = new Map();
 function residueRing(Ok, pr, m) {
     const key = `${pr.p}|${pr.H.map((r) => r.join(',')).join(';')}|${m}`;
     if (ringCache.has(key)) return ringCache.get(key);
-    const R = smallRing(Ok, pr, m) || bigRing(Ok, pr, m);
+    const R = smallRing(Ok, pr, m) || cyclicRing(Ok, pr, m) || bigRing(Ok, pr, m);
     ringCache.set(key, R);
     if (ringCache.size > 60) ringCache.delete(ringCache.keys().next().value);
     return R;
@@ -1518,6 +1518,43 @@ function smallRing(Ok, pr, m) {
         fromK: (x) => index.get(L.residue(X.toSV(Ok.toCoords(x))).join(',')),
         fromInt: (c) => idx(Ok.one.map((x) => BigInt(c) * x)),
         key: (a) => a,
+    };
+}
+/**
+ * O/𝔭^m when it is cyclic (the HNF of 𝔭^m has one pivot N > 1, e.g. f = e = 1) and N < 2²⁶, p odd: plain numbers mod N.
+ * A reduced element is a·e_c, and (a e_c)(b e_c) = ab·κ e_c with κ a unit, so t = κa is an isomorphism onto ℤ/N.
+ * The same interface as bigRing (vec gives the reduced O-coordinates), without BigInt vectors or modular powers.
+ */
+function cyclicRing(Ok, pr, m) {
+    if (pr.p === 2n) return null;
+    const L = localRing(Ok, pr, m);
+    const rows = L.PM.filter((row) => row[row.findIndex((v) => v !== 0n)] !== 1n);
+    if (rows.length !== 1) return null;
+    const col = rows[0].findIndex((v) => v !== 0n), Nb = rows[0][col];
+    if (Nb >= 1n << 26n) return null;
+    const N = Number(Nb), p = Number(pr.p);
+    const md = (x) => ((x % N) + N) % N;
+    const invN = (a) => { let [r0, r1, s0, s1] = [md(a), N, 1, 0]; while (r1) { const q = Math.floor(r0 / r1); [r0, r1] = [r1, r0 - q * r1]; [s0, s1] = [s1, s0 - q * s1]; } return r0 === 1 ? md(s0) : -1; };
+    const e = Ok.one.map((_, i) => (i === col ? 1n : 0n));
+    const kappa = md(Number(X.bmod(L.reduce(Ok.mul(e, e))[col], Nb)));
+    const kInv = invN(kappa);
+    if (kInv < 0) return null;
+    const toT = (v) => { const r = L.reduce(v); if (r.some((c, i) => i !== col && c !== 0n)) throw new Error('internal: cyclic residue ring'); return (md(Number(X.bmod(r[col], Nb))) * kappa) % N; };
+    const q = L.Np, unitOrder = (q - 1n) * q ** BigInt(m - 1);
+    const powP = (b, x) => { let r = 1; b %= p; while (x > 0) { if (x & 1) r = (r * b) % p; b = (b * b) % p; x = Math.floor(x / 2); } return r; };
+    const half = (p - 1) / 2;
+    return {
+        L, q, m, size: L.size,
+        zero: 0, one: 1 % N, two: 2 % N,
+        add: (a, b) => (a + b) % N, sub: (a, b) => (a - b + N) % N, neg: (a) => (N - a) % N, mul: (a, b) => (a * b) % N,
+        isZero: (a) => a === 0, isUnit: (a) => a % p !== 0,
+        inv: (a) => invN(a),
+        isSquare: (u) => powP(u, half) === 1, squareClasses: 2n,
+        vec: (a) => e.map((_, i) => (i === col ? BigInt((a * kInv) % N) : 0n)),
+        fromK: (x) => toT(L.residue(X.toSV(Ok.toCoords(x)))),
+        fromInt: (c) => toT(Ok.one.map((x) => BigInt(c) * x)),
+        key: (a) => a,
+        unitOrder,
     };
 }
 function bigRing(Ok, pr, m) {

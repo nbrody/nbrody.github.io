@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thompson's Group F · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/exact.js"></script>
+<script>
+'use strict';
+const Q = AV.Q;
+
+/* ---------- mathematics: Thompson's group F as tree pairs ----------
+   A tree is a Set of caret addresses ('' = root, '0' its left child, …); a leaf with address s is
+   the dyadic interval [0.s, 0.s + 2^-|s|]. An element is a pair {D, R} with equally many leaves:
+   leaf i of D is sent linearly onto leaf i of R. Products are composition: mul(f, g) = f ∘ g. */
+
+const leaves = T => { const out = []; const go = s => (T.has(s) ? (go(s + '0'), go(s + '1')) : out.push(s)); go(''); return out; };
+const pair = (D, R) => ({ D: new Set(D), R: new Set(R) });
+const copy = e => pair(e.D, e.R);
+const balanced = e => leaves(e.D).length === leaves(e.R).length;
+const ID = () => pair([], []);
+const inv = e => pair(e.R, e.D);
+// The generator x_n: identity on [0, 1 − 2^-n], a scaled copy of x₀ after it.
+const X = n => {
+  const D = new Set(), R = new Set();
+  for (let k = 0; k <= n; k++) { D.add('1'.repeat(k)); R.add('1'.repeat(k)); }
+  D.add('1'.repeat(n + 1)); R.add('1'.repeat(n) + '0');
+  return { D, R };
+};
+// Split leaf i in both trees: an expansion, the map is unchanged.
+function expand(e, i) { e.D.add(leaves(e.D)[i]); e.R.add(leaves(e.R)[i]); return e; }
+// Expand e until its side ('D' or 'R') contains every caret of T.
+function refine(e, side, T) {
+  for (const a of [...T].sort((p, q) => p.length - q.length)) if (!e[side].has(a)) expand(e, leaves(e[side]).indexOf(a));
+  return e;
+}
+function mul(f, g) {
+  const G = refine(copy(g), 'R', f.D), F = refine(copy(f), 'D', G.R);
+  return pair(G.D, F.R);
+}
+// Common carets: leaves i, i + 1 are siblings in both trees.
+function commonCarets(e) {
+  const LD = leaves(e.D), LR = leaves(e.R), out = [];
+  if (LD.length !== LR.length) return out;
+  const sib = (a, b) => a.endsWith('0') && b === a.slice(0, -1) + '1';
+  for (let i = 0; i + 1 < LD.length; i++) if (sib(LD[i], LD[i + 1]) && sib(LR[i], LR[i + 1])) out.push(i);
+  return out;
+}
+function reduce(e) {
+  e = copy(e);
+  for (;;) {
+    const c = commonCarets(e);
+    if (!c.length) return e;
+    e.D.delete(leaves(e.D)[c[0]].slice(0, -1)); e.R.delete(leaves(e.R)[c[0]].slice(0, -1));
+  }
+}
+const sameTree = (A, B) => A.size === B.size && [...A].every(a => B.has(a));
+const equal = (f, g) => { const a = reduce(f), b = reduce(g); return sameTree(a.D, b.D) && sameTree(a.R, b.R); };
+// Exact dyadic endpoints.
+const left = s => new Q(s ? BigInt('0b' + s) : 0n, 1n << BigInt(s.length));
+const width = s => new Q(1n, 1n << BigInt(s.length));
+function apply(e, x) {
+  const LD = leaves(e.D), LR = leaves(e.R);
+  for (let i = 0; i < LD.length; i++) {
+    const a = left(LD[i]);
+    if (x.cmp(a) >= 0 && x.cmp(a.add(width(LD[i]))) <= 0) return left(LR[i]).add(x.sub(a).mul(width(LR[i]).div(width(LD[i]))));
+  }
+}
+const isPow2 = n => n > 0n && (n & (n - 1n)) === 0n;
+// The PL map's pieces are exactly dyadic with slopes ±powers of 2 (recomputed from the breakpoints).
+function plCheck(e) {
+  const LD = leaves(e.D), LR = leaves(e.R);
+  const xs = LD.map(left).concat([Q.of(1)]), ys = LR.map(left).concat([Q.of(1)]);
+  for (let i = 0; i < LD.length; i++) {
+    const m = ys[i + 1].sub(ys[i]).div(xs[i + 1].sub(xs[i]));
+    if (!isPow2(xs[i].d) || !isPow2(ys[i].d) || !isPow2(m.n) || !isPow2(m.d)) return false;
+  }
+  return true;
+}
+// Leaf exponent: left edges climbed from a leaf before the path would touch the right spine.
+const exponents = T => leaves(T).map(s => {
+  let t = 0; while (t < s.length && s[s.length - 1 - t] === '0') t++;
+  return Math.max(0, /^1*$/.test(s.slice(0, s.length - t)) ? t - 1 : t);
+});
+// Normal form x₀^a₀ ⋯ x_n^a_n x_n^-b_n ⋯ x₀^-b₀, as [[i, ±k], …].
+function normalForm(e) {
+  e = reduce(e);
+  const a = exponents(e.R), b = exponents(e.D), w = [];
+  a.forEach((k, i) => k && w.push([i, k]));
+  for (let i = b.length - 1; i >= 0; i--) b[i] && w.push([i, -b[i]]);
+  return w;
+}
+function evalWord(w) {
+  let e = ID();
+  for (const [i, k] of w) for (let j = 0; j < Math.abs(k); j++) e = mul(e, k > 0 ? X(i) : inv(X(i)));
+  return reduce(e);
+}
+const wordHTML = w => !w.length ? '1' : w.map(([i, k]) => '<i>x</i>' + AV.sub(i) + (k === 1 ? '' : AV.sup(k))).join('');
+
+/* ---------- state ---------- */
+
+let cur = X(0);            // what the trees show (may be unbalanced while editing)
+let shown = X(0);          // the last balanced pair: what the graph shows
+let gFrom = X(0);          // graph tween source
+let from = null;           // frozen node positions at the start of a morph: { top: Map, bot: Map }
+let mu = 1, gu = 1;        // morph and graph tween progress
+let flip = 1;              // vertical scale of the diagram: 1 → −1 turns it upside down (inverse)
+let busyFlip = false;
+const MAXLEAVES = 16;
+
+// Normalised layout of one tree: x ∈ (0, 1) across, y ≥ 0 up from the leaf row (in units of the
+// tree height). Carets keep 45° slopes until the tree would be too tall, then flatten together.
+function layout(T, aspect) {
+  const L = leaves(T), n = L.length, pos = new Map();
+  const k = Math.min(aspect / (2 * n), 1 / Math.max(1, n - 1));
+  const go = s => {
+    if (!T.has(s)) { const i = L.indexOf(s); pos.set(s, [(i + 0.5) / n, 0]); return [i, i]; }
+    const [l] = go(s + '0'), [, r] = go(s + '1');
+    pos.set(s, [(l + r + 1) / (2 * n), (r - l) * k]);
+    return [l, r];
+  };
+  go('');
+  return pos;
+}
+const anc = (m, a) => { while (!m.has(a)) a = a.slice(0, -1); return m.get(a); };
+// Animated node list for one side: { a, p: [x, y], alpha, leaf }.
+function nodes(T, old, aspect) {
+  const now = layout(T, aspect), out = [];
+  const keys = new Set([...now.keys(), ...(old ? old.keys() : [])]);
+  for (const a of keys) {
+    const inNew = now.has(a), inOld = !old || old.has(a);
+    const s = old ? anc(old, a) : now.get(a), e = anc(now, a);
+    out.push({ a, p: [AV.lerp(s[0], e[0], mu), AV.lerp(s[1], e[1], mu)],
+      alpha: inNew && inOld ? 1 : inNew ? mu : 1 - mu, leaf: inNew && !T.has(a) });
+  }
+  return out;
+}
+
+/* ---------- geometry (recomputed on resize) ---------- */
+
+let tg = { cx: 0, mid: 0, w: 100, h: 100, gap: 30 }, gg = { x: 0, y: 0, s: 100 };
+let roBottom = 0;            // lowest the readout has reached over this pane (phones stack it on the trees)
+function treeGeom(app) {
+  const pane = app.pane('trees');
+  let r = pane.fitRect(pane.w / Math.max(1, pane.h), 14);
+  const ro = app.mode === 'full' && document.querySelector('.av-readout');
+  if (ro) {
+    const b = ro.getBoundingClientRect();
+    if (b.height && b.left < r.x + r.w && b.top < r.y + r.h && b.bottom > r.y) roBottom = Math.max(roBottom, b.bottom + 10);
+  }
+  if (roBottom > r.y) { const y1 = r.y + r.h; r = { x: r.x, y: roBottom, w: r.w, h: y1 - roBottom, cx: r.cx, cy: (roBottom + y1) / 2 }; }
+  const gap = Math.max(22, Math.min(46, r.h * 0.09));
+  const h = (r.h - gap) / 2 - 8;
+  tg = { cx: r.cx, mid: r.cy, h, w: Math.min(r.w - 16, h * 2.9), gap };
+}
+function graphGeom(app) {
+  const pane = app.pane('graph'), r = pane.fitRect(1, 30);
+  gg = { x: r.x + 10, y: r.y + 4, s: Math.min(r.w, r.h) - 14 };
+}
+const TX = x => tg.cx - tg.w / 2 + x * tg.w;
+const TY = (side, y) => tg.mid + flip * (side === 'top' ? -1 : 1) * (tg.gap / 2 + y * tg.h);
+
+/* ---------- drawing ---------- */
+
+const colorAt = t => AV.ramp(0.05 + 0.9 * t, 'aurora');
+const mids = T => leaves(T).map(s => left(s).add(width(s).div(2)).valueOf());
+
+function drawTrees(app) {
+  const ctx = app.ctx, aspect = tg.w / tg.h;
+  const bal = balanced(cur), common = new Set(commonCarets(cur));
+  const LD = leaves(cur.D), LR = leaves(cur.R);
+  const colD = mids(cur.D).map(colorAt), colR = bal ? colD : mids(cur.R).map(colorAt);
+  const hot = new Set();                                   // carets that cancel
+  for (const i of common) { hot.add('D' + LD[i].slice(0, -1)); hot.add('R' + LR[i].slice(0, -1)); }
+  const sides = [['top', cur.D, from && from.top, colD, LD, 'D'], ['bot', cur.R, from && from.bot, colR, LR, 'R']];
+  const pts = {};
+  for (const [side, T, old, col, L, tag] of sides) {
+    const N = nodes(T, old, aspect), at = new Map(N.map(n => [n.a, n]));
+    pts[side] = at;
+    const P = n => [TX(n.p[0]), TY(side, n.p[1])];
+    for (const n of N) {
+      if (n.a === '') continue;
+      const par = at.get(n.a.slice(0, -1)), [x0, y0] = P(par), [x1, y1] = P(n);
+      const isHot = hot.has(tag + n.a.slice(0, -1));
+      AV.line(ctx, x0, y0, x1, y1, isHot ? AV.rgba(AV.C.ink, 0.95 * n.alpha) : AV.rgba(AV.C.ink2, 0.7 * n.alpha), isHot ? 2.2 : 1.2);
+    }
+    for (const n of N) if (hot.has(tag + n.a)) { const [x, y] = P(n); AV.dot(ctx, x, y, 3, AV.C.ink, { glow: 4 }); }
+    for (const n of N) {
+      if (!n.leaf) continue;
+      const [x, y] = P(n), i = L.indexOf(n.a);
+      AV.dot(ctx, x, y, 3.6, bal ? col[i] : AV.mix(col[i], AV.C.rose, 0.55), { glow: 0 });
+    }
+  }
+  if (bal) {                                               // the map: leaf i above ↦ leaf i below
+    ctx.globalCompositeOperation = 'lighter';
+    LD.forEach((s, i) => {
+      const a = pts.top.get(s), b = pts.bot.get(LR[i]);
+      if (!a || !b) return;
+      const xa = TX(a.p[0]), ya = TY('top', a.p[1]), xb = TX(b.p[0]), yb = TY('bot', b.p[1]);
+      AV.line(ctx, xa, ya + Math.sign(yb - ya) * 5, xb, yb - Math.sign(yb - ya) * 5, AV.rgba(colD[i], 0.85), 1.6);
+    });
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+function drawGraph(app) {
+  const ctx = app.ctx, { x: gx, y: gy, s } = gg;
+  const PX = t => gx + t * s, PY = t => gy + s - t * s;
+  const bal = balanced(cur);
+  ctx.save();
+  if (!bal) ctx.globalAlpha = 0.35;
+  for (let k = 1; k < 8; k++) {                             // dyadic grid
+    const a = k % 4 === 0 ? 0.13 : k % 2 === 0 ? 0.07 : 0.035;
+    AV.line(ctx, PX(k / 8), PY(0), PX(k / 8), PY(1), AV.rgba(AV.C.ink, a), 0.7);
+    AV.line(ctx, PX(0), PY(k / 8), PX(1), PY(k / 8), AV.rgba(AV.C.ink, a), 0.7);
+  }
+  ctx.strokeStyle = AV.rgba(AV.C.ink, 0.22); ctx.lineWidth = 0.8; ctx.strokeRect(gx, gy, s, s);
+  AV.line(ctx, PX(0), PY(0), PX(1), PY(1), AV.rgba(AV.C.ink, 0.18), 0.8, [3, 4]);
+  // intervals: domain leaves along the bottom, range leaves up the left side
+  const LD = leaves(shown.D), LR = leaves(shown.R), col = mids(shown.D).map(colorAt);
+  LD.forEach((d, i) => {
+    const a = left(d).valueOf(), b = a + width(d).valueOf(), c = left(LR[i]).valueOf(), e = c + width(LR[i]).valueOf();
+    AV.line(ctx, PX(a) + 1.5, PY(0) + 9, PX(b) - 1.5, PY(0) + 9, col[i], 3);
+    AV.line(ctx, PX(0) - 9, PY(c) - 1.5, PX(0) - 9, PY(e) + 1.5, col[i], 3);
+  });
+  // the PL graph, tweened from the previous element
+  const f = e => { const L = leaves(e.D), R = leaves(e.R); return [L.map(s => left(s).valueOf()).concat(1), R.map(s => left(s).valueOf()).concat(1)]; };
+  const [ax, ay] = f(gFrom), [bx, by] = f(shown);
+  const ev = (xs, ys, t) => { let i = 0; while (i < xs.length - 2 && t > xs[i + 1]) i++; return ys[i] + (ys[i + 1] - ys[i]) * (t - xs[i]) / (xs[i + 1] - xs[i]); };
+  const xs = [...new Set(ax.concat(bx))].sort((p, q) => p - q);
+  const Y = t => AV.lerp(ev(ax, ay, t), ev(bx, by, t), gu);
+  for (let j = 0; j + 1 < xs.length; j++) {
+    const m = (xs[j] + xs[j + 1]) / 2;
+    let i = 0; while (i < bx.length - 2 && m > bx[i + 1]) i++;
+    AV.line(ctx, PX(xs[j]), PY(Y(xs[j])), PX(xs[j + 1]), PY(Y(xs[j + 1])), col[i], 2.4);
+  }
+  for (const t of bx) AV.dot(ctx, PX(t), PY(Y(t)), 2.6, AV.C.ink);
+  AV.label(ctx, '0', PX(0) - 10, PY(0) + 10, { color: AV.C.muted, size: 11 });
+  AV.label(ctx, '1', PX(1), PY(0) + 20, { color: AV.C.muted, size: 11 });
+  AV.label(ctx, '1', PX(0) - 20, PY(1), { color: AV.C.muted, size: 11 });
+  ctx.restore();
+}
+
+function draw(app) {
+  if (!roBottom || app.W < 760) treeGeom(app);
+  AV.clear(app);
+  drawTrees(app);
+  drawGraph(app);
+  const nD = leaves(cur.D).length, nR = leaves(cur.R).length;
+  if (nD !== nR) {
+    app.readout('<span class="big">' + wordHTML(normalForm(shown)) + '</span><br><span class="k">leaves</span> ' + nD + ' ≠ ' + nR + ' ' + AV.ok(false) +
+      '<small>split a leaf in the ' + (nD < nR ? 'top' : 'bottom') + ' tree</small>');
+  } else {
+    const c = commonCarets(cur).length;
+    app.readout('<span class="big">' + wordHTML(normalForm(cur)) + '</span><br><span class="k">leaves</span> ' + nD + ' = ' + nR + ' ' + AV.ok(true) +
+      '<br><span class="k">slopes</span> 2<sup><i>k</i></sup>, dyadic breaks ' + AV.ok(plCheck(cur)) +
+      '<small>' + (c ? c + ' common caret' + (c > 1 ? 's' : '') : 'reduced') + '</small>');
+  }
+}
+
+/* ---------- changing the element ---------- */
+
+function snapshot() {
+  const aspect = tg.w / tg.h, grab = (T, old) => new Map(nodes(T, old, aspect).map(n => [n.a, n.p]));
+  return { top: grab(cur.D, from && from.top), bot: grab(cur.R, from && from.bot) };
+}
+function setCur(next, ms = 800) {
+  if (busyFlip) { busyFlip = false; flip = 1; app.tween(1, () => {}, { key: 'flip' }); }
+  from = snapshot();
+  cur = next;
+  app.tween(ms, u => { mu = u; if (u === 1) from = null; }, { key: 'morph' });
+  if (!balanced(cur)) return;
+  if (!equal(cur, shown)) { gFrom = shown; app.tween(ms, u => { gu = u; }, { key: 'graph' }); }
+  shown = copy(cur);
+}
+function multiply(g) {
+  if (busyFlip) return;
+  const prod = mul(balanced(cur) ? cur : shown, g);
+  setCur(prod, 900);
+  app.after(1500, () => { if (cur === prod && commonCarets(cur).length) setCur(reduce(cur), 900); });
+}
+function invert() {
+  if (busyFlip) return;
+  const base = balanced(cur) ? cur : shown;
+  if (base !== cur) setCur(copy(base), 300);
+  busyFlip = true;
+  gFrom = shown; shown = inv(base);
+  app.tween(900, u => { gu = u; }, { key: 'graph' });
+  app.tween(900, u => {
+    flip = Math.cos(Math.PI * u);
+    if (u === 1) { cur = inv(base); flip = 1; busyFlip = false; }
+  }, { key: 'flip' });
+}
+
+/* ---------- the page ---------- */
+
+const app = AV.page({
+  title: "Thompson's Group F",
+  hook: 'Two binary trees with matching leaves make a piecewise-linear map of [0, 1].',
+  date: '2026-10-01',
+  credit: 'generated by Claude (Opus 5.5)',
+  hint: 'tap a leaf to split it · tap a caret to merge',
+  panes: [{ id: 'trees', weight: 3 }, { id: 'graph', weight: 2, label: 'the map on [0, 1]' }],
+  controls: [
+    { type: 'button', id: 'x0', label: '×x₀', key: '0', title: 'Multiply by x₀', onClick: () => multiply(X(0)) },
+    { type: 'button', id: 'x1', label: '×x₁', key: '1', title: 'Multiply by x₁', onClick: () => multiply(X(1)) },
+    { type: 'button', id: 'inv', label: 'inverse', key: 'i', title: 'Turn the diagram upside down', onClick: invert },
+    { type: 'button', id: 'red', label: 'reduce', key: 'r', primary: true, title: 'Cancel common carets', verify: false,
+      onClick: () => { if (balanced(cur) && commonCarets(cur).length) setCur(reduce(cur), 900); } },
+  ],
+  tour: [
+    { text: 'Each leaf is a dyadic interval. Leaf <i>i</i> of the top tree maps linearly onto leaf <i>i</i> below: this pair is <i>x</i>₀.',
+      enter: () => setCur(X(0), 700) },
+    { text: 'Tap a leaf to halve its interval. The trees now disagree — split a leaf in the other tree to make a new element.',
+      enter: a => {
+        setCur(X(0), 600);
+        a.after(900, () => { const e = copy(cur); e.D.add(leaves(e.D)[0]); setCur(e, 800); });
+        a.after(2300, () => { const e = copy(cur); e.R.add(leaves(e.R)[0]); setCur(e, 800); });
+      } },
+    { text: 'Split the <b>same</b> leaf in both trees: the map does not change. Such common carets cancel, so each element has one reduced pair.',
+      enter: a => { setCur(X(0), 600); a.after(900, () => { setCur(expand(copy(cur), 2), 900); a.pulse('red'); }); } },
+    { text: 'Multiply <i>x</i>₁<i>x</i>₀⁻¹ by <i>x</i>₀: the trees are refined until they match, composed, and the common carets cancel.',
+      enter: a => { setCur(reduce(mul(X(1), inv(X(0)))), 700); a.after(1500, () => { a.pulse('x0'); multiply(X(0)); }); } },
+    { text: 'All such pairs form Thompson’s group <i>F</i>, generated by <i>x</i>₀ and <i>x</i>₁; the readout is each element’s normal form.',
+      enter: () => setCur(evalWord([[0, 1], [1, 2], [3, -1], [0, -1]]), 1000) },
+  ],
+  math: `<p><b>Thompson’s group <i>F</i></b> consists of the piecewise-linear homeomorphisms of [0, 1] with dyadic breakpoints and slopes
+    powers of 2. Each is a pair of binary trees with equally many leaves — dyadic subdivisions of domain and range; adding a caret
+    to matching leaves of both gives the same map, and every element has a unique <b>reduced</b> pair.
+    <i>F</i> = ⟨<i>x</i>₀, <i>x</i>₁ | [<i>x</i>₀<i>x</i>₁⁻¹, <i>x</i>₀⁻¹<i>x</i>₁<i>x</i>₀], [<i>x</i>₀<i>x</i>₁⁻¹, <i>x</i>₀⁻²<i>x</i>₁<i>x</i>₀²]⟩, and the leaf
+    exponents give the normal form <i>x</i>₀<sup><i>a</i>₀</sup>⋯<i>x<sub>n</sub></i><sup><i>a<sub>n</sub></i></sup><i>x<sub>n</sub></i><sup>−<i>b<sub>n</sub></i></sup>⋯<i>x</i>₀<sup>−<i>b</i>₀</sup>.
+    Whether <i>F</i> is amenable is a famous open problem.</p>
+    <p class="ref">Thompson 1965; Cannon–Floyd–Parry 1996. Products compose right to left.</p>`,
+  posterStep: 4,
+  posterDelay: 1400,
+  draw,
+});
+
+app.onResize(a => { roBottom = 0; treeGeom(a); graphGeom(a); });
+
+// Tap a leaf to split it; tap a caret whose children are both leaves to merge it.
+app.pointer({
+  tap: p => {
+    if (busyFlip || !p.pane || p.pane.id !== 'trees') return;
+    const aspect = tg.w / tg.h;
+    let best = null, bd = 20;
+    for (const [side, key] of [['top', 'D'], ['bot', 'R']]) {
+      for (const [a, q] of layout(cur[key], aspect)) {
+        const d = Math.hypot(TX(q[0]) - p.x, TY(side, q[1]) - p.y);
+        if (d < bd) { bd = d; best = { key, a }; }
+      }
+    }
+    if (!best) return;
+    const T = cur[best.key], e = copy(cur);
+    if (!T.has(best.a)) { if (leaves(T).length >= MAXLEAVES) return; e[best.key].add(best.a); }
+    else if (!T.has(best.a + '0') && !T.has(best.a + '1')) e[best.key].delete(best.a);
+    else return;
+    setCur(e, 600);
+  },
+});
+
+/* ---------- self-checks ---------- */
+
+const x0 = X(0), x1 = X(1), w = (...g) => g.reduce(mul), comm = (a, b) => w(a, b, inv(a), inv(b));
+AV.test('x₀ halves [0, ½] and sends ¾ ↦ ½', () => apply(x0, new Q(1n, 2n)).eq(new Q(1n, 4n)) && apply(x0, new Q(3n, 4n)).eq(new Q(1n, 2n)));
+AV.test('relations: x₀⁻¹x₁x₀ = x₂ and both Cannon–Floyd–Parry relators', () =>
+  equal(w(inv(x0), x1, x0), X(2)) && equal(comm(w(x0, inv(x1)), w(inv(x0), x1, x0)), ID()) &&
+  equal(comm(w(x0, inv(x1)), w(inv(x0), inv(x0), x1, x0, x0)), ID()) || 'a relation fails');
+AV.test('tree-pair product = composition of maps (exact, random words)', () => {
+  let seed = 11; const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const gens = [x0, x1, inv(x0), inv(x1)];
+  for (let t = 0; t < 60; t++) {
+    let f = ID(); for (let j = 0, L = 1 + Math.floor(rnd() * 6); j < L; j++) f = mul(f, gens[Math.floor(rnd() * 4)]);
+    const g = gens[t % 4], fg = mul(f, g);
+    for (const x of [new Q(1n, 3n), new Q(5n, 7n), new Q(7n, 10n)]) if (!apply(fg, x).eq(apply(f, apply(g, x)))) return 'fails at word ' + t;
+    if (!plCheck(fg)) return 'not dyadic PL';
+    if (!equal(evalWord(normalForm(fg)), fg)) return 'normal form fails at ' + t;
+    let e = copy(fg); for (let k = 0; k < 3; k++) expand(e, Math.floor(rnd() * leaves(e.D).length));
+    const r1 = reduce(e), r2 = reduce(fg);
+    if (!sameTree(r1.D, r2.D) || !sameTree(r1.R, r2.R)) return 'reduced pair not unique';
+  }
+  return true;
+});
+AV.test('normal form of x₀x₁²x₃⁻¹x₀⁻¹ is itself', () => JSON.stringify(normalForm(evalWord([[0, 1], [1, 2], [3, -1], [0, -1]]))) === '[[0,1],[1,2],[3,-1],[0,-1]]');
+</script>
+</body>
+</html>

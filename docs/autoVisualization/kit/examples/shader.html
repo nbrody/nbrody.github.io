@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Counting Zeros · AutoViz kit example</title>
+<link rel="stylesheet" href="../av.css">
+</head>
+<body>
+<!-- Kit example: a WebGL2 stage (gl.js) with labels on the 2D overlay, a slider, drag to move a contour. -->
+<script src="../av.js"></script>
+<script src="../draw.js"></script>
+<script src="../complex.js"></script>
+<script src="../gl.js"></script>
+<script>
+'use strict';
+const { cx } = AV;
+// f(z) = z^n − 1 (zeros at the n-th roots of unity); a draggable contour counts zeros by winding.
+let loop = { c: [0.55, 0.2], r: 0.7 };
+let view = { cx: 0, cy: 0, s: 1 };   // world→screen: s pixels per unit
+
+const FS = `#version 300 es
+precision highp float;
+in vec2 uv; out vec4 o;
+uniform vec2 uRes; uniform vec3 uView; uniform float uN;
+//#AV
+vec2 cmul(vec2 a, vec2 b) { return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x); }
+void main() {
+  vec2 px = uv * uRes;
+  vec2 z = vec2((px.x - uRes.x * 0.5) / uView.z + uView.x, (px.y - uRes.y * 0.5) / uView.z + uView.y);
+  float r = length(z), th = atan(z.y, z.x);
+  vec2 w = pow(r, uN) * vec2(cos(uN * th), sin(uN * th)) - vec2(1.0, 0.0);
+  float phase = atan(w.y, w.x) / 6.2831853;
+  float m = log(length(w) + 1e-9);
+  float band = fract(m * 0.9);
+  float shade = 0.72 + 0.28 * smoothstep(0.0, 0.9, band);        // soft modulus contours
+  vec3 col = av_cycle(phase) * shade;
+  float vig = smoothstep(1.35, 0.25, length(uv - 0.5));
+  col = mix(AV_BG, col, 0.42 + 0.2 * vig);                        // keep the field dark behind the chrome
+  o = vec4(col, 1.0);
+}`;
+
+let prog, quad;
+function winding(n, c, r, N = 2048) {
+  let total = 0, prev = null;
+  for (let k = 0; k <= N; k++) {
+    const z = cx.add(c, cx.polar(r, 2 * Math.PI * k / N));
+    const w = cx.sub(cx.pow(z, n), [1, 0]);
+    const a = cx.arg(w);
+    if (prev !== null) { let d = a - prev; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; total += d; }
+    prev = a;
+  }
+  return Math.round(total / (2 * Math.PI));
+}
+function zerosInside(n, c, r) {
+  let k = 0;
+  for (let j = 0; j < n; j++) if (cx.abs(cx.sub(cx.polar(1, 2 * Math.PI * j / n), c)) < r) k++;
+  return k;
+}
+
+function draw(app) {
+  const gl = app.gl, o = app.octx, n = app.get('n');
+  const fit = app.fitCircle(0);
+  view = { cx: 0, cy: 0, s: fit.r / 1.6, ox: fit.x, oy: fit.y };
+  AV.gl.viewport(gl, app);
+  // centre the complex plane on the fitted circle
+  const shift = [(app.W / 2 - fit.x) / view.s, -(app.H / 2 - fit.y) / view.s];
+  prog.set({ uRes: [gl.drawingBufferWidth, gl.drawingBufferHeight], uView: [shift[0], shift[1], view.s * app.dpr], uN: n });
+  quad.draw(prog);
+
+  const X = x => fit.x + x * view.s, Y = y => fit.y - y * view.s;
+  o.save();
+  o.setLineDash([5, 5]);
+  AV.ring(o, X(0), Y(0), view.s, 'rgba(236,235,230,0.25)', 1);
+  o.restore();
+  for (let j = 0; j < n; j++) { const z = cx.polar(1, 2 * Math.PI * j / n); AV.dot(o, X(z[0]), Y(z[1]), 4, AV.C.ink, { glow: 3 }); }
+  AV.ring(o, X(loop.c[0]), Y(loop.c[1]), loop.r * view.s, AV.C.accent, 2.2);
+  AV.dot(o, X(loop.c[0]), Y(loop.c[1]), 3, AV.C.accent);
+  const w = winding(n, loop.c, loop.r), k = zerosInside(n, loop.c, loop.r);
+  app.readout('<span class="big">z<sup>' + n + '</sup> − 1</span><br><span class="k">winding</span> ' + w +
+    ' = ' + k + ' <span class="k">zeros inside</span> ' + AV.ok(w === k));
+}
+
+const app = AV.page({
+  title: 'Counting Zeros',
+  hook: 'Walk a loop and count how often the colours cycle: that counts the zeros inside.',
+  date: 'kit example',
+  stage: 'webgl2',
+  edgeScrim: true,
+  hint: 'drag the loop',
+  controls: [
+    { type: 'slider', id: 'n', label: 'n', min: 1, max: 9, step: 1, value: 5, format: v => String(v) },
+  ],
+  tour: [
+    { text: 'Colour is the argument of <i>f</i>(<i>z</i>) = <i>z</i><sup>5</sup> − 1; the white dots are its five zeros.',
+      enter: a => { a.set('n', 5); loop = { c: [0.55, 0.2], r: 0.7 }; } },
+    { text: 'Drag the loop over more zeros: the colours wind once more around it for every zero it encloses.',
+      enter: a => a.tween(1800, u => { loop = { c: [0.55 * (1 - u), 0.2 * (1 - u)], r: 0.7 + 0.8 * u }; }) },
+    { text: 'Change <i>n</i>: the argument principle keeps the count exact.',
+      enter: a => { a.pulse('n'); a.set('n', 7); } },
+  ],
+  math: `<p>For <i>f</i> holomorphic near a closed disk whose boundary avoids its zeros, the <b>argument principle</b> says the winding number of
+    <i>f</i>(∂<i>D</i>) around 0, that is (1/2π) times the change in arg <i>f</i> along the boundary, equals the number of zeros inside, counted with multiplicity.
+    Here <i>f</i>(<i>z</i>) = <i>z<sup>n</sup></i> − 1 has its zeros at the <i>n</i>-th roots of unity.</p>
+    <p class="ref">A kit example: WebGL2 stage, 2D overlay labels, a drag gesture.</p>`,
+  setup: a => { prog = AV.gl.program(a.gl, null, FS); quad = AV.gl.quad(a.gl); },
+  draw,
+});
+
+let grab = null;
+app.pointer({
+  down: p => {
+    const fit = app.fitCircle(0), s = fit.r / 1.6;
+    const z = [(p.x - fit.x) / s, (fit.y - p.y) / s];
+    grab = cx.abs(cx.sub(z, loop.c)) < loop.r + 0.25 ? cx.sub(z, loop.c) : null;
+  },
+  drag: p => {
+    if (!grab) return;
+    const fit = app.fitCircle(0), s = fit.r / 1.6;
+    loop = { c: cx.sub([(p.x - fit.x) / s, (fit.y - p.y) / s], grab), r: loop.r };
+  },
+  wheel: (p, dy) => { loop = { c: loop.c, r: AV.clamp(loop.r * Math.exp(-dy * 0.001), 0.1, 2.5) }; },
+});
+
+AV.test('winding number = zeros inside, for random loops', () => {
+  let s = 3;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 40; i++) {
+    const n = 1 + Math.floor(rnd() * 9), c = [rnd() * 2 - 1, rnd() * 2 - 1], r = 0.2 + rnd() * 1.5;
+    const near = Array.from({ length: n }, (_, j) => Math.abs(cx.abs(cx.sub(cx.polar(1, 2 * Math.PI * j / n), c)) - r)).some(d => d < 1e-3);
+    if (!near && winding(n, c, r) !== zerosInside(n, c, r)) return 'mismatch at n=' + n;
+  }
+  return true;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jørgensen's Inequality · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/plot.js"></script>
+<script src="../kit/complex.js"></script>
+<script>
+'use strict';
+const { cx, mob } = AV;
+
+/* ---------- mathematics: two-generator groups ⟨A, B⟩ ⊂ SL₂(ℂ) ----------
+   A is parabolic (q = ∞) or a rotation of order q; B is a half-turn (tr B = 0).
+   Up to conjugacy such a group is fixed by γ = tr[A,B] − 2, and β = tr²A − 4 is fixed by A.
+   Jørgensen's sequence B₀ = B, Bₙ₊₁ = Bₙ A Bₙ⁻¹ has γ(A, Bₙ₊₁) = γₙ(γₙ − β). */
+
+const betaOf = q => (q === Infinity ? 0 : -4 * Math.sin(Math.PI / q) ** 2);
+const f = (g, beta) => cx.mul(g, [g[0] - beta, g[1]]);             // γ ↦ γ(γ − β)
+
+function generators(q, g) {
+  if (q === Infinity) {
+    const c = cx.sqrt(g);
+    return { A: mob.of(1, 1, 0, 1), B: [[0, 0], cx.scale(cx.inv(c), -1), c, [0, 0]] };
+  }
+  const lam = cx.polar(1, Math.PI / q), beta = betaOf(q);
+  const s = cx.sqrt(cx.scale(g, -1 / beta)), a = cx.sqrt([g[0] / beta - 1, g[1] / beta]);   // bc = −γ/β, a² = γ/β − 1
+  return { A: [lam, [0, 0], [0, 0], cx.conj(lam)], B: [a, s, s, cx.scale(a, -1)] };
+}
+// true inverse (mob.inv is the adjugate): keeps det Bₙ = 1, which conjugation would otherwise drift
+const minv = M => { const d = mob.det(M); return mob.inv(M).map(x => cx.div(x, d)); };
+const comm = (A, B) => mob.mul(mob.mul(A, B), mob.mul(minv(A), minv(B)));
+const gammaOf = (A, B) => cx.sub(mob.tr(comm(A, B)), [2, 0]);
+const dist = (M, N) => Math.sqrt(M.reduce((s, m, i) => s + cx.abs2(cx.sub(m, N[i])), 0));
+
+// Jørgensen's sequence: ‖Bₙ − A‖ for n = 0 … NMAX (stops once it has clearly escaped).
+const NMAX = 40;
+function sequence(q, g) {
+  const { A, B } = generators(q, g), out = [];
+  let Bn = B;
+  for (let n = 0; n <= NMAX; n++) {
+    const d = dist(Bn, A);
+    if (!isFinite(d) || d > 1e5) { out.push([n, 1e5]); break; }
+    out.push([n, Math.max(1e-16, d)]);
+    Bn = mob.mul(mob.mul(Bn, A), minv(Bn));
+  }
+  return out;
+}
+// The orbit of γ under γ ↦ γ(γ − β), until it settles at 0 or leaves the picture.
+function orbitOf(g, beta) {
+  const pts = [g];
+  for (let i = 0; i < 40; i++) {
+    g = f(g, beta);
+    if (!isFinite(g[0]) || cx.abs(g) > 40) break;
+    pts.push(g);
+    if (cx.abs(g) < 1e-7) break;
+  }
+  return pts;
+}
+// The hyperbolic triangle groups (2, q, r): B·A of order r, so tr²AB = 4cos²(π/r) and γ = β + 4cos²(π/r).
+function triangles(q) {
+  const beta = betaOf(q), out = [];
+  for (let r = 3; r <= 40; r++) out.push({ r, g: [beta + 4 * Math.cos(Math.PI / r) ** 2, 0] });
+  out.push({ r: Infinity, g: [beta + 4, 0] });
+  return out;
+}
+
+/* ---------- state ---------- */
+
+let q = Infinity, gam = [1, 0], reveal = 0, clock = 0;
+const marker = () => (app.playing ? reveal : -1);   // while playing, a ring walks along n = 0, 1, 2, …
+const cam = AV.camera();
+const QS = { inf: Infinity, 7: 7, 12: 12 };
+const qName = q => (q === Infinity ? '∞' : String(q));
+
+// The basin of 0 for γ ↦ γ(γ − β), rendered once per β and pane size.
+let basin = null;
+function basinImage(rect, beta) {
+  const cell = 2, w = Math.ceil(rect.w / cell), h = Math.ceil(rect.h / cell);
+  const key = [w, h, beta, cam.x, cam.y, cam.s].join();
+  if (basin && basin.key === key) return basin.canvas;
+  const cv = basin && basin.canvas.width === w && basin.canvas.height === h ? basin.canvas : Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const c2 = cv.getContext('2d'), img = c2.createImageData(w, h), col = AV.C.blue;
+  const rgb = typeof col === 'string' ? hexRGB(col) : col;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const [x0, y0] = cam.toWorld(rect.x + (i + 0.5) * cell, rect.y + (j + 0.5) * cell);
+    let x = x0, y = y0, k = 0;
+    for (; k < 90; k++) {
+      const m = x * x + y * y;
+      if (m < 1e-8 || m > 64) break;
+      const nx = x * (x - beta) - y * y, ny = x * y + y * (x - beta);
+      x = nx; y = ny;
+    }
+    const inside = x * x + y * y < 1e-8, o = 4 * (j * w + i);
+    if (inside) {
+      const a = 0.10 + 0.16 * Math.min(1, k / 30);
+      img.data[o] = rgb[0]; img.data[o + 1] = rgb[1]; img.data[o + 2] = rgb[2]; img.data[o + 3] = Math.round(255 * a);
+    }
+  }
+  c2.putImageData(img, 0, 0);
+  basin = { key, canvas: cv };
+  return cv;
+}
+function hexRGB(s) {
+  if (s[0] === '#') { const n = parseInt(s.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  const m = s.match(/[\d.]+/g); return m.slice(0, 3).map(Number);
+}
+
+/* ---------- drawing ---------- */
+
+const COL = { disc: AV.C.rose, tri: AV.C.green, orbit: AV.C.accent, basin: AV.C.blue };
+
+function placeCamera(app) {
+  const P = app.pane('plane'), box = P.fitRect(P.w / Math.max(1, P.h), 16);
+  cam.fit(-1.55, 4.35, -2.0, 2.0, box);
+  if (app.W < 600) cam.oy += 0.16 * P.h;   // phones: the readout and legend sit over the pane's top
+  return P;
+}
+
+function draw(app) {
+  const ctx = app.ctx, beta = betaOf(q), R = 1 - Math.abs(beta);
+  AV.clear(app);
+
+  /* left: the γ-plane */
+  const P = placeCamera(app);
+  app.clip(P, () => {
+    ctx.save(); ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(basinImage(P, beta), P.x, P.y, Math.ceil(P.w / 2) * 2, Math.ceil(P.h / 2) * 2);
+    ctx.restore();
+    AV.grid(ctx, cam, P, { step: 1 });
+    // Jørgensen's forbidden disc |γ| < 1 − |β|
+    if (R > 0) {
+      ctx.beginPath(); ctx.arc(cam.X(0), cam.Y(0), R * cam.s, 0, 2 * Math.PI);
+      ctx.fillStyle = AV.rgba(COL.disc, 0.12); ctx.fill();
+      AV.ring(ctx, cam.X(0), cam.Y(0), R * cam.s, AV.rgba(COL.disc, 0.9), 1.4);
+    }
+    // the triangle groups: discrete, and all outside the disc
+    for (const T of triangles(q)) {
+      const x = cam.X(T.g[0]), y = cam.Y(T.g[1]);
+      AV.dot(ctx, x, y, T.r === 3 || T.r === Infinity ? 3.2 : 2.2, COL.tri);
+    }
+    const t3 = triangles(q)[0];
+    AV.label(ctx, '(2, 3, ' + qName(q) + ')', cam.X(t3.g[0]), cam.Y(0) + 17, { color: COL.tri, size: 11.5 });
+
+    // the orbit γ, γ(γ − β), … under Jørgensen's iteration
+    const orb = orbitOf(gam, beta), pts = orb.map(z => [cam.X(z[0]), cam.Y(z[1])]);
+    AV.polyline(ctx, pts, { color: COL.orbit, alpha: 0.75, width: 1.3 });
+    pts.forEach((p, i) => { if (i) AV.dot(ctx, p[0], p[1], Math.max(1.4, 3 - 0.12 * i), COL.orbit); });
+    const g0 = pts[0];
+    AV.dot(ctx, g0[0], g0[1], 5, AV.C.ink, { glow: 4 });
+    AV.label(ctx, 'γ', g0[0] + 11, g0[1] - 11, { serif: true, italic: true, size: 15 });
+    if (marker() > 0 && marker() < pts.length) AV.ring(ctx, pts[marker()][0], pts[marker()][1], 7, AV.C.ink, 1.4);
+  });
+
+  /* right: ‖Bₙ − A‖ */
+  const C = app.pane('chart'), box = C.fitRect(C.w / Math.max(1, C.h), 12);
+  const seq = sequence(q, gam).map(([n, d]) => [n, Math.log10(d)]);
+  const PL = AV.plot(ctx, { x: box.x, y: box.y + 16, w: box.w, h: box.h - 16 }, {
+    x: [0, NMAX], y: [-16, 5], ticks: { x: 4, y: 4 }, xlabel: 'step n',
+    series: [{ data: seq, color: COL.orbit, width: 1.8, dots: true }],
+    refs: [{ y: 0, color: AV.C.muted }],
+  });
+  if (marker() >= 0 && marker() < seq.length) AV.ring(ctx, PL.X(seq[marker()][0]), PL.Y(seq[marker()][1]), 7, AV.C.ink, 1.4);
+
+  readout(app);
+}
+
+function readout(app) {
+  const beta = betaOf(q), a = Math.abs(beta), c = cx.abs(gam), J = a + c;
+  const T = triangles(q).find(T => cx.abs(cx.sub(T.g, gam)) < 1e-9);
+  let note;
+  if (c < 1e-9) note = 'γ = 0: <i>A</i>, <i>B</i> share a fixed point';
+  else if (T) note = '(' + [2, q, T.r].sort((x, y) => x - y).map(qName).join(', ') + ') triangle group' + (Math.abs(J - 1) < 1e-9 ? ' · extremal' : '');
+  else if (J < 1 - 1e-12) note = '<i>B</i>ₙ → <i>A</i>: not discrete';
+  else note = 'allowed by Jørgensen';
+  app.readout('<span class="big"><i>J</i> = ' + AV.fmt(J, 3) + '</span> ' + AV.ok(J >= 1 - 1e-9 || c < 1e-9) +
+    '<br><span class="k">|tr²<i>A</i> − 4|</span> ' + AV.fmt(a, 3) + ' <span class="k">+ |γ|</span> ' + AV.fmt(c, 3) +
+    '<small>' + note + '</small>');
+}
+
+/* ---------- the page ---------- */
+
+function moveTo(target, ms = 1100) {
+  const from = gam.slice();
+  return app.tween(ms, u => { gam = [from[0] + (target[0] - from[0]) * u, from[1] + (target[1] - from[1]) * u]; }, { key: 'g', ease: 'inOut' });
+}
+function setQ(v, { snap = true } = {}) {
+  const old = triangles(q), i = old.findIndex(T => cx.abs(cx.sub(T.g, gam)) < 1e-9);
+  q = v;
+  if (snap && i >= 0) moveTo(triangles(q)[i].g, 900);
+}
+
+const app = AV.page({
+  title: "Jørgensen's Inequality",
+  hook: 'A discrete group cannot have two generators that almost commute.',
+  date: '2026-10-07',
+  credit: 'generated by Claude (Opus 5.5)',
+  hint: 'drag γ · green dots snap',
+  panes: [{ id: 'plane', weight: 3 }, { id: 'chart', weight: 2, label: 'log₁₀ ‖Bₙ − A‖' }],
+  controls: [
+    { type: 'play' },
+    { type: 'segmented', id: 'q', value: 'inf', title: 'order of A',
+      options: [{ value: 'inf', label: '<i>A</i> parabolic' }, { value: '7', label: 'order 7' }, { value: '12', label: 'order 12' }],
+      onChange: v => setQ(QS[v]) },
+  ],
+  tour: [
+    { text: 'Each point γ = tr[<i>A</i>,<i>B</i>] − 2 is a group: <i>A</i> parabolic, <i>B</i> a half-turn. The modular group sits on the red disc’s rim.',
+      enter: a => { a.set('q', 'inf', { silent: true }); q = Infinity; a.pause(); moveTo([1, 0]); } },
+    { text: 'Drag γ into the disc: the conjugates <i>B</i>ₙ₊₁ = <i>B</i>ₙ<i>AB</i>ₙ⁻¹ rush to <i>A</i>, so the group cannot be discrete.',
+      enter: a => { a.set('q', 'inf', { silent: true }); q = Infinity; moveTo([0.62, 0.52]).then(() => { clock = 0; a.play(); }); } },
+    { text: 'Each conjugation sends γ to γ(γ − β), here just γ². Outside the disc the orbit of γ escapes; inside it collapses to 0.',
+      enter: a => { a.set('q', 'inf', { silent: true }); q = Infinity; a.pause(); moveTo([1.02, 0.18]); } },
+    { text: 'Make <i>A</i> a rotation of order 7: the disc shrinks, and the (2, 3, 7) triangle group is a fixed point on its rim.',
+      enter: a => { a.pause(); a.set('q', '7', { silent: true }); q = 7; moveTo(triangles(7)[0].g); a.pulse('q'); } },
+    { text: 'In general |tr²<i>A</i> − 4| + |tr[<i>A</i>,<i>B</i>] − 2| ≥ 1 for every discrete non-elementary group. Every green dot obeys it.',
+      enter: a => { a.pause(); a.set('q', '12', { silent: true }); q = 12; moveTo(triangles(12)[1].g); } },
+  ],
+  math: `<p><b>Jørgensen (1976).</b> If ⟨<i>A</i>, <i>B</i>⟩ ⊂ SL₂(ℂ) is discrete and non-elementary, then
+    |tr²<i>A</i> − 4| + |tr[<i>A</i>, <i>B</i>] − 2| ≥ 1. When the sum is smaller, the conjugates <i>B</i>₀ = <i>B</i>,
+    <i>B</i>ₙ₊₁ = <i>B</i>ₙ<i>AB</i>ₙ⁻¹ converge to <i>A</i>. With β = tr²<i>A</i> − 4 and γ = tr[<i>A</i>, <i>B</i>] − 2 the
+    sequence obeys γₙ₊₁ = γₙ(γₙ − β), the polynomial iteration of Gehring and Martin (1989); shaded: the γ with γₙ → 0.
+    Equality holds for the modular group and for the (2, 3, <i>q</i>) triangle groups, <i>q</i> ≥ 7, with <i>A</i> of order <i>q</i>.
+    For parabolic <i>A</i> it is Shimizu’s lemma (1963).</p>
+    <p class="ref">Here <i>B</i> is a half-turn; green: the triangle groups (2, <i>q</i>, <i>r</i>).</p>`,
+  posterStep: 1,
+  posterDelay: 2600,
+  step: dt => { clock += dt; reveal = Math.floor(clock * 3) % (NMAX + 4); },
+  draw,
+});
+app.onResize(() => { basin = null; });
+
+app.pointer({
+  down: p => { if (p.pane && p.pane.id === 'plane') grab(p); },
+  drag: p => { if (p.pane && p.pane.id === 'plane') grab(p); },
+});
+function grab(p) {
+  let g = cam.toWorld(p.x, p.y);
+  for (const T of triangles(q)) if (Math.hypot(cam.X(T.g[0]) - p.x, cam.Y(T.g[1]) - p.y) < 9) g = T.g.slice();
+  app.tween(1, () => {}, { key: 'g' });   // cancel a running glide
+  gam = g;
+  app.redraw();
+}
+app.cursor('crosshair');
+app.legend([
+  { color: COL.disc, label: '<i>J</i> < 1' },
+  { color: COL.basin, label: 'γₙ → 0' },
+  { color: COL.tri, label: 'triangle groups' },
+  { color: COL.orbit, label: 'orbit of γ', line: true },
+]);
+
+/* ---------- self-checks ---------- */
+
+const close = (a, b, e = 1e-9) => cx.abs(cx.sub(a, b)) < e;
+AV.test('generators: det 1, tr B = 0, tr[A,B] − 2 = γ (parabolic and elliptic A)', () => {
+  for (const q of [Infinity, 7, 12]) for (const g of [[0.3, 0.4], [1, 0], [2.5, -1.2]]) {
+    const { A, B } = generators(q, g);
+    if (!close(mob.det(B), [1, 0]) || !close(mob.tr(B), [0, 0]) || !close(gammaOf(A, B), g)) return 'q = ' + q + ', γ = ' + g;
+    if (Math.abs(cx.abs2(mob.tr(A)) - 4 - betaOf(q)) > 1e-12) return 'β for q = ' + q;
+  }
+  return true;
+});
+AV.test('modular group: A = T, B = S has γ = 1 and J = 1', () => {
+  const T = mob.of(1, 1, 0, 1), S = mob.of(0, -1, 1, 0);
+  return close(gammaOf(T, S), [1, 0]) || 'γ = ' + cx.str(gammaOf(T, S));
+});
+AV.test('the matrices obey γ(A, BAB⁻¹) = γ(γ − β)', () => {
+  for (const q of [Infinity, 7]) {
+    let { A, B } = generators(q, [0.7, 0.9]), g = gammaOf(A, B);
+    for (let n = 0; n < 4; n++) {
+      const B2 = mob.mul(mob.mul(B, A), minv(B)), g2 = gammaOf(A, B2);
+      if (!close(g2, f(g, betaOf(q)), 1e-7 * (1 + cx.abs(g2)))) return 'q = ' + q + ', n = ' + n;
+      B = B2; g = g2;
+    }
+  }
+  return true;
+});
+AV.test('inside the disc Bₙ → A (Jørgensen’s sequence)', () => {
+  for (const [q, g, tol] of [[Infinity, [0.6, 0.5], 1e-12], [7, [0.1, 0.12], 1e-2], [12, [-0.3, 0.5], 1e-8]]) {
+    const s = sequence(q, g), last = s[s.length - 1][1];
+    if (s.length !== NMAX + 1 || !(last < tol)) return 'q = ' + q + ': ‖Bₙ − A‖ = ' + last;
+  }
+  return true;
+});
+AV.test('(2, 3, q) is extremal: J = 1 and γ is fixed by γ ↦ γ(γ − β)', () => {
+  for (const q of [7, 8, 12, Infinity]) {
+    const beta = betaOf(q), g = triangles(q)[0].g;
+    if (Math.abs(Math.abs(beta) + cx.abs(g) - 1) > 1e-12 || !close(f(g, beta), g, 1e-12)) return 'q = ' + q;
+  }
+  return true;
+});
+AV.test('every triangle group (2, q, r) satisfies J ≥ 1', () => {
+  for (const q of [7, 12, Infinity]) for (const T of triangles(q)) if (Math.abs(betaOf(q)) + cx.abs(T.g) < 1 - 1e-12) return '(2, ' + q + ', ' + T.r + ')';
+  return true;
+});
+</script>
+</body>
+</html>

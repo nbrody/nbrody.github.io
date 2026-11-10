@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Coxeter Plane · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/linalg.js"></script>
+<script>
+'use strict';
+
+/* ---------- the reflection groups, from their Coxeter diagrams ---------- */
+
+// edges [i, j, m]: the mirrors i and j meet at angle π/m (unlisted pairs: π/2)
+const SYSTEMS = {
+  H3: { label: 'H<sub>3</sub>', name: 'H₃', n: 3, h: 10, roots: 30,  edges: [[1, 2, 5], [2, 3, 3]], exps: [1, 5, 9] },
+  F4: { label: 'F<sub>4</sub>', name: 'F₄', n: 4, h: 12, roots: 48,  edges: [[1, 2, 3], [2, 3, 4], [3, 4, 3]], exps: [1, 5, 7, 11] },
+  H4: { label: 'H<sub>4</sub>', name: 'H₄', n: 4, h: 30, roots: 120, edges: [[1, 2, 5], [2, 3, 3], [3, 4, 3]], exps: [1, 11, 19, 29] },
+  E6: { label: 'E<sub>6</sub>', name: 'E₆', n: 6, h: 12, roots: 72,  edges: [[1, 2, 3], [2, 3, 3], [3, 4, 3], [4, 5, 3], [3, 6, 3]], exps: [1, 4, 5, 7, 8, 11] },
+  E7: { label: 'E<sub>7</sub>', name: 'E₇', n: 7, h: 18, roots: 126, edges: [[1, 2, 3], [2, 3, 3], [3, 4, 3], [4, 5, 3], [5, 6, 3], [3, 7, 3]], exps: [1, 5, 7, 9, 11, 13, 17] },
+  E8: { label: 'E<sub>8</sub>', name: 'E₈', n: 8, h: 30, roots: 240, edges: [[1, 2, 3], [2, 3, 3], [3, 4, 3], [4, 5, 3], [5, 6, 3], [6, 7, 3], [3, 8, 3]], exps: [1, 7, 11, 13, 17, 19, 23, 29] },
+};
+
+const { dot, reflect, eye, mulVec: matVec, norm, jacobi, cholesky, gramSchmidt, lerpFrame, rotateFrame, planeAngle, orderOf, ofMap } = AV.la;
+const keyOf = v => v.map(x => Math.round(x * 1e6)).join(',');
+
+function build(id) {
+  const S = SYSTEMS[id], n = S.n;
+  // unit simple roots with ⟨αi, αj⟩ = −cos(π/mij): rows of the Cholesky factor of the Gram matrix
+  const G = eye(n);
+  for (const [i, j, m] of S.edges) G[i - 1][j - 1] = G[j - 1][i - 1] = -Math.cos(Math.PI / m);
+  const simple = cholesky(G);
+
+  // Φ = W·{αi}: close the simple roots under the simple reflections
+  const roots = [], index = new Map(), queue = [];
+  const add = v => { const k = keyOf(v); if (!index.has(k)) { index.set(k, roots.length); roots.push(v); queue.push(v); } };
+  simple.forEach(add);
+  while (queue.length) { const r = queue.pop(); for (const a of simple) add(reflect(r, a)); }
+
+  // Coxeter element c = s1 s2 ⋯ sn (sn acts first)
+  const applyC = x => { for (let i = n - 1; i >= 0; i--) x = reflect(x, simple[i]); return x; };
+  const C = ofMap(applyC, n);
+  const order = orderOf(C, 200);
+
+  // Coxeter plane: the top eigenspace of c + cᵀ, where c acts as rotation by 2π/h
+  const eig = jacobi(C.map((row, i) => row.map((x, j) => x + C[j][i])));
+  const u = eig[0].vector, v0 = eig[1].vector;
+  const cu = matVec(C, u);
+  const v = Math.atan2(dot(cu, v0), dot(cu, u)) < 0 ? v0.map(x => -x) : v0;
+  const basis = [u, v, ...eig.slice(2).map(e => e.vector)];
+
+  // c permutes the roots; its cycles are the orbits
+  const perm = roots.map(r => index.get(keyOf(applyC(r))));
+  const orbitOf = new Array(roots.length).fill(-1), orbits = [];
+  roots.forEach((_, i) => {
+    if (orbitOf[i] >= 0) return;
+    const cyc = [];
+    for (let j = i; orbitOf[j] < 0; j = perm[j]) { orbitOf[j] = orbits.length; cyc.push(j); }
+    orbits.push(cyc);
+  });
+  const rho = roots.map(r => Math.hypot(dot(r, u), dot(r, v)));
+  const rMin = Math.min(...rho), rMax = Math.max(...rho);
+  const rings = [...new Set(rho.map(x => x.toFixed(6)))].map(Number).sort((a, b) => a - b);
+  const colors = rho.map(x => AV.ramp(rMax - rMin < 1e-9 ? 0.5 : (x - rMin) / (rMax - rMin)));
+
+  // edges of the root polytope: pairs at the smallest angle
+  let best = -2;
+  for (let i = 0; i < roots.length; i++) for (let j = i + 1; j < roots.length; j++) {
+    const d = dot(roots[i], roots[j]);
+    if (d < 1 - 1e-6 && d > best) best = d;
+  }
+  const edges = [];
+  for (let i = 0; i < roots.length; i++) for (let j = i + 1; j < roots.length; j++) {
+    if (Math.abs(dot(roots[i], roots[j]) - best) < 1e-6) edges.push([i, j]);
+  }
+
+  // images of every root under s_n, s_{n−1}s_n, …, c — for the mirror-by-mirror animation
+  const chain = [roots];
+  for (let k = n - 1; k >= 0; k--) chain.push(chain[chain.length - 1].map(r => reflect(r, simple[k])));
+
+  return { id, S, n, simple, roots, C, order, eig, basis, perm, orbits, orbitOf, rho, rMax, rings, colors, edges, chain };
+}
+
+const SYS = {};
+for (const id in SYSTEMS) SYS[id] = build(id);
+
+/* ---------- view state ---------- */
+
+let sys = SYS.E8;
+let Q = sys.basis.map(c => c.slice());        // orthonormal frame; the screen shows columns 0 and 1
+let mark = 0, showOrbit = false, anim = null, fade = 1, hold = 0, pressCount = 0;
+let geom = { x: 0, y: 0, r: 100 };
+
+function defaultMark(s) {
+  let bi = 0, bs = -1e9;
+  s.roots.forEach((r, i) => {
+    const x = dot(r, s.basis[0]), y = dot(r, s.basis[1]);
+    const sc = Math.hypot(x, y) * 4 - Math.abs(Math.atan2(y, x) - Math.PI / 2);
+    if (sc > bs) { bs = sc; bi = i; }
+  });
+  return bi;
+}
+mark = defaultMark(sys);
+
+function tweenFrame(target, ms = 1100) {
+  const from = Q.map(c => c.slice()), s0 = sys;
+  return app.tween(ms, u => { if (sys === s0) Q = lerpFrame(from, target, u); }, { key: 'frame' });
+}
+const snap = ms => tweenFrame(sys.basis, ms);
+function tilted(a1 = 0.62, a2 = 0.45) {
+  const B = sys.basis.map(c => c.slice());
+  rotateFrame(B, 0, 2, a1);
+  return rotateFrame(B, 1, sys.n > 3 ? 3 : 2, a2);
+}
+const tiltDeg = () => planeAngle(Q[0], Q[1], sys.basis[0], sys.basis[1]) * 180 / Math.PI;
+
+// how c acts on the view plane: a rotation (angle) if the plane is c-invariant, else null
+function cOnView() {
+  const cU = matVec(sys.C, Q[0]), cV = matVec(sys.C, Q[1]);
+  const inU = dot(cU, Q[0]) ** 2 + dot(cU, Q[1]) ** 2, inV = dot(cV, Q[0]) ** 2 + dot(cV, Q[1]) ** 2;
+  if (Math.min(inU, inV) < 1 - 1e-7) return null;
+  return Math.atan2(dot(cU, Q[1]), dot(cU, Q[0]));
+}
+
+/* ---------- actions ---------- */
+
+function runC(kind) {
+  if (anim) return Promise.resolve();
+  const n = sys.n;
+  anim = { kind, t: 0 };
+  const ms = kind === 'mirrors' ? 330 * n : 950;
+  return app.tween(ms, u => { if (anim) anim.t = u; }, { ease: kind === 'mirrors' ? 'linear' : 'inOut' }).then(() => {
+    mark = sys.perm[mark];
+    pressCount = (pressCount + 1) % sys.order;
+    anim = null;
+    app.redraw();
+  });
+}
+// Fade out, swap the root system (resetting the view to its Coxeter plane), fade in.
+let switching = null;
+function setSystem(id) {
+  if (switching) return switching.then(() => setSystem(id));
+  if (sys.id === id) return Promise.resolve();
+  app.set('sys', id, { silent: true });
+  switching = app.tween(220, u => { fade = 1 - u; }, { key: 'fade', ease: 'in' }).then(() => {
+    anim = null;
+    sys = SYS[id];
+    Q = sys.basis.map(c => c.slice());
+    mark = defaultMark(sys);
+    pressCount = 0;
+    switching = null;
+    return app.tween(650, u => { fade = u; }, { key: 'fade', ease: 'out' });
+  });
+  return switching;
+}
+
+/* ---------- drawing ---------- */
+
+function positions() {
+  const R = geom.r * 0.94 / sys.rMax, X = Q[0], Y = Q[1];
+  const proj = v => [geom.x + R * dot(v, X), geom.y - R * dot(v, Y)];
+  const base = sys.roots.map(proj);
+  if (!anim) return base;
+  const N = sys.roots.length;
+  if (anim.kind === 'mirrors') {
+    const n = sys.n, f = anim.t * n, st = Math.min(n - 1, Math.floor(f)), loc = AV.ease.inOut(Math.min(1, f - st));
+    const A = sys.chain[st], B = sys.chain[st + 1], out = new Array(N);
+    for (let i = 0; i < N; i++) {
+      const p = proj(A[i]), q = proj(B[i]);
+      out[i] = [p[0] + (q[0] - p[0]) * loc, p[1] + (q[1] - p[1]) * loc];
+    }
+    anim.mirror = n - st;                      // the reflection being applied now
+    return out;
+  }
+  // rotate by t·2π/h in the view plane, plus whatever drift the view adds: exact rotation iff the plane is the Coxeter plane
+  const th = 2 * Math.PI / sys.order, t = anim.t, out = new Array(N);
+  const c1 = Math.cos(th * t), s1 = Math.sin(th * t), c = Math.cos(th), s = Math.sin(th);
+  for (let i = 0; i < N; i++) {
+    const x = base[i][0] - geom.x, y = geom.y - base[i][1];
+    const q = base[sys.perm[i]], qx = q[0] - geom.x, qy = geom.y - q[1];
+    const rx = c * x - s * y, ry = s * x + c * y;
+    const px = c1 * x - s1 * y + t * (qx - rx), py = s1 * x + c1 * y + t * (qy - ry);
+    out[i] = [geom.x + px, geom.y - py];
+  }
+  return out;
+}
+
+function draw(app) {
+  const ctx = app.ctx;
+  AV.clear(app);
+  const P = positions();
+  const R = geom.r * 0.94 / sys.rMax;
+  const scale = 0.9 + 0.1 * fade;
+  ctx.save();
+  ctx.translate(geom.x, geom.y); ctx.scale(scale, scale); ctx.translate(-geom.x, -geom.y);
+  ctx.globalAlpha = fade;
+
+  // the h-gon rings of the Coxeter plane, faintly
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.045)';
+  for (const rr of sys.rings) { ctx.beginPath(); ctx.arc(geom.x, geom.y, rr * R, 0, 2 * Math.PI); ctx.stroke(); }
+
+  // edges of the root polytope, bucketed by colour
+  const E = sys.edges.length;
+  const alpha = AV.clamp(9 / Math.sqrt(E), 0.045, 0.34);
+  const buckets = 10, paths = Array.from({ length: buckets }, () => new Path2D());
+  for (const [i, j] of sys.edges) {
+    const t = ((sys.rho[i] + sys.rho[j]) / 2) / sys.rMax;
+    const b = Math.min(buckets - 1, Math.floor(t * buckets));
+    paths[b].moveTo(P[i][0], P[i][1]); paths[b].lineTo(P[j][0], P[j][1]);
+  }
+  ctx.lineWidth = E > 3000 ? 0.6 : 0.85;
+  ctx.globalCompositeOperation = 'lighter';
+  for (let b = 0; b < buckets; b++) {
+    ctx.strokeStyle = AV.rgba(AV.ramp((b + 0.5) / buckets), alpha * fade);
+    ctx.stroke(paths[b]);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // orbit of the marked root under ⟨c⟩
+  if (showOrbit) {
+    const cyc = sys.orbits[sys.orbitOf[mark]];
+    ctx.beginPath();
+    cyc.forEach((k, i) => (i ? ctx.lineTo(P[k][0], P[k][1]) : ctx.moveTo(P[k][0], P[k][1])));
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(236,235,230,0.62)';
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+  }
+
+  // roots
+  const rad = sys.roots.length > 150 ? 2.3 : sys.roots.length > 60 ? 2.9 : 3.6;
+  for (let i = 0; i < P.length; i++) AV.dot(ctx, P[i][0], P[i][1], rad, AV.rgba(sys.colors[i], 1));
+
+  // the followed root
+  const m = P[mark];
+  AV.dot(ctx, m[0], m[1], rad + 1.6, AV.C.ink, { glow: 5 });
+  AV.ring(ctx, m[0], m[1], rad + 7, 'rgba(236,235,230,0.8)', 1.4);
+  ctx.restore();
+
+  if (anim && anim.kind === 'mirrors' && anim.mirror) {
+    AV.label(ctx, 's' + AV.sub(anim.mirror), geom.x, geom.y - geom.r - 2, { size: 17, serif: true, italic: true, color: AV.C.accent, baseline: 'bottom' });
+  }
+
+  // live check: |Φ| = n·h, and whether c acts on this plane as a rotation
+  const rot = cOnView(), tilt = tiltDeg();
+  const deg = rot == null ? '' : Math.round(Math.abs(rot) * 180 / Math.PI * 10) / 10;
+  app.readout(
+    '<span class="big">' + sys.S.name + '</span> &nbsp;<span class="k">h =</span> ' + sys.order + '<br>' +
+    '|Φ| = ' + sys.roots.length + ' = ' + sys.n + ' · ' + sys.order + ' ' + AV.ok(sys.roots.length === sys.n * sys.order) + '<br>' +
+    (rot != null
+      ? '<small>c here is a rotation by ' + deg + '° ' + AV.ok(true) + '</small>'
+      : '<small>c here is not a rotation ' + AV.ok(false) + ' &nbsp;tilt ' + Math.round(tilt) + '°</small>'));
+}
+
+/* ---------- page ---------- */
+
+const app = AV.page({
+  title: 'The Coxeter Plane',
+  hook: 'Every finite reflection group hides one plane where it is simply a rotation.',
+  date: '2026-09-29',
+  hint: 'drag to tilt · tap a root',
+  controls: [
+    { type: 'play' },
+    { type: 'segmented', id: 'sys', label: 'Root system', value: 'E8',
+      options: Object.keys(SYSTEMS).map(k => ({ value: k, label: SYSTEMS[k].label })),
+      onChange: v => setSystem(v) },
+    { type: 'button', id: 'c', label: 'apply <i>c</i>', key: 'c', primary: true, title: 'Reflect in every simple mirror in turn',
+      onClick: () => { app.pause(); runC('mirrors'); } },
+    { type: 'button', id: 'snap', icon: 'reset', title: 'Back to the Coxeter plane', verify: false,
+      onClick: () => snap(900) },
+  ],
+  tour: [
+    { text: 'These are the <b>240 roots</b> of E<sub>8</sub> — mirror directions in eight dimensions — flattened onto one very special plane.',
+      enter: a => { a.pause(); showOrbit = false; setSystem('E8').then(() => snap(900)); } },
+    { text: 'Press <b><i>c</i></b>: reflect in the eight simple mirrors, one after another. On this plane the total is a rotation by exactly 12°.',
+      enter: a => { a.pause(); showOrbit = false; setSystem('E8').then(() => snap(700)); a.pulse('c'); a.after(1000, () => runC('mirrors')); a.every(4200, () => runC('mirrors')); } },
+    { text: 'Follow one root. Thirty presses of <i>c</i> walk it around a perfect 30-gon and home: <i>c</i> has order <i>h</i> = 30.',
+      enter: a => { showOrbit = true; setSystem('E8').then(() => snap(700)); a.play(); } },
+    { text: 'Now drag to tilt the plane. Anywhere else, <i>c</i> is no rotation at all — the orbit tangles and the picture scrambles.',
+      enter: a => { showOrbit = true; setSystem('E8').then(() => tweenFrame(tilted(), 1400)); a.play(); } },
+    { text: 'Every finite reflection group has such a plane. Try the others: <i>n</i> orbits, each a regular <i>h</i>-gon, so |Φ| = <i>n·h</i>.',
+      enter: a => { showOrbit = true; setSystem('H4').then(() => snap(700)); a.play(); a.pulse('sys'); } },
+  ],
+  math: `
+    <p>Let <i>W</i> be a finite irreducible reflection group of rank <i>n</i> with simple reflections <i>s</i><sub>1</sub>, …, <i>s<sub>n</sub></i>.
+    Any product <i>c</i> = <i>s</i><sub>1</sub><i>s</i><sub>2</sub>⋯<i>s<sub>n</sub></i> is a <b>Coxeter element</b>; all of them are conjugate, and their order <i>h</i> is the <b>Coxeter number</b>.</p>
+    <p>The eigenvalues of <i>c</i> are e<sup>2πi<i>m</i>/<i>h</i></sup> for the exponents 1 = <i>m</i><sub>1</sub> ≤ ⋯ ≤ <i>m<sub>n</sub></i> = <i>h</i> − 1, so e<sup>±2πi/<i>h</i></sup>
+    span a real plane on which <i>c</i> rotates by 2π/<i>h</i>. No root is orthogonal to it, and ⟨<i>c</i>⟩ acts freely on Φ with <i>n</i> orbits,
+    so |Φ| = <i>nh</i> and each orbit lands on a regular <i>h</i>-gon.</p>
+    <p class="ref">Coxeter 1934; Steinberg 1959; Kostant 1959. Roots are unit mirror normals, built from the Coxeter diagram’s Gram matrix.</p>`,
+  step: (dt, a) => {
+    if (anim || a.busy()) { hold = 0; return; }
+    hold += dt;
+    if (hold > 0.35) { hold = 0; runC('rotate'); }
+  },
+  draw,
+});
+
+app.onResize(a => { geom = a.fitCircle(14); });
+
+app.pointer({
+  drag: (p, d) => {
+    const k = 0.0055;
+    rotateFrame(Q, 0, 2, d.dx * k);
+    rotateFrame(Q, 1, sys.n > 3 ? 3 : 2, -d.dy * k);
+    app.cursor('grabbing');
+  },
+  up: () => app.cursor(''),
+  tap: p => {
+    const P = positions();
+    let bi = -1, bd = 18;
+    P.forEach((q, i) => { const d = Math.hypot(q[0] - p.x, q[1] - p.y); if (d < bd) { bd = d; bi = i; } });
+    if (bi >= 0) { mark = bi; showOrbit = true; }
+  },
+  dbl: () => snap(900),
+});
+
+/* ---------- self-checks against the classification ---------- */
+
+for (const id in SYS) {
+  const s = SYS[id], S = s.S;
+  AV.test(S.name + ': |Φ| = ' + S.roots, () => s.roots.length === S.roots || 'got ' + s.roots.length);
+  AV.test(S.name + ': c has order h = ' + S.h, () => s.order === S.h || 'got ' + s.order);
+  AV.test(S.name + ': n orbits of size h', () => s.orbits.length === s.n && s.orbits.every(o => o.length === s.order) || s.orbits.map(o => o.length).join(','));
+  AV.test(S.name + ': c on the plane is rotation by 2π/h', () => {
+    const [u, v] = s.basis, th = 2 * Math.PI / s.order;
+    const cu = matVec(s.C, u), cv = matVec(s.C, v);
+    const e = Math.max(...cu.map((x, i) => Math.abs(x - (Math.cos(th) * u[i] + Math.sin(th) * v[i]))),
+                       ...cv.map((x, i) => Math.abs(x - (-Math.sin(th) * u[i] + Math.cos(th) * v[i]))));
+    return e < 1e-9 || 'residual ' + e;
+  });
+  AV.test(S.name + ': spectrum of c + cᵀ gives exponents ' + S.exps.join(','), () => {
+    const want = S.exps.map(m => 2 * Math.cos(2 * Math.PI * m / S.h)).sort((a, b) => b - a);
+    const got = s.eig.map(e => e.value);
+    const err = Math.max(...want.map((w, i) => Math.abs(w - got[i])));
+    return err < 1e-9 || 'max error ' + err;
+  });
+  AV.test(S.name + ': every orbit is a regular h-gon', () => s.orbits.every(o => {
+    const r = o.map(i => s.rho[i]);
+    return Math.max(...r) - Math.min(...r) < 1e-9 && Math.min(...r) > 1e-6;
+  }));
+}
+AV.test('E₈: 8 rings and 6720 edges (56 neighbours per root)', () =>
+  (SYS.E8.rings.length === 8 && SYS.E8.edges.length === 6720) || SYS.E8.rings.length + ' rings, ' + SYS.E8.edges.length + ' edges');
+</script>
+</body>
+</html>

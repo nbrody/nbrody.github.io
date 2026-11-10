@@ -469,6 +469,17 @@ html.light #theme-btn .icon-moon { display: block; }
 .inv-line b { color: var(--ink); font-weight: 600; }
 .inv-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
 .sym-chip.knotted { border-color: rgba(244, 114, 182, 0.45); color: #f472b6; }
+.diagram-inv:not(:empty) { margin: 2px 0 8px; max-height: 150px; overflow-y: auto; }
+.inv-poly {
+    display: grid; grid-template-columns: 44px 1fr; gap: 6px; align-items: baseline;
+    padding: 4px 0; border-top: 1px solid var(--hairline); font-size: 12.5px; color: var(--ink);
+}
+.inv-poly .katex { font-size: 1.02em; }
+.inv-pk { color: var(--ink-dim); }
+.inv-pv { overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: thin; padding-bottom: 1px; }
+.inv-note { font-size: 11.5px; margin-top: 4px; }
+.inv-note .katex { font-size: 1em; }
+#inv-detail:not(:empty) { margin-bottom: 8px; }
 .sym-chip.on { color: var(--ink); border-color: var(--accent-line); background: var(--accent-soft); }
 
 /* ============================================================

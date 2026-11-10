@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Where Euclid's Algorithm Gets Stuck · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+<link rel="stylesheet" href="../kit/vendor/katex/katex.min.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/complex.js"></script>
+<script src="../kit/hyperbolic.js"></script>
+<script src="../kit/gl.js"></script>
+<script src="../kit/vendor/katex/katex.min.js"></script>
+<script src="../kit/tex.js"></script>
+<script>
+'use strict';
+
+/*MATH-BEGIN*/
+/* ---------- mathematics: the ring O = ℤ[ω] of an imaginary quadratic field ----------
+   ω = √−d (d ≡ 1, 2 mod 4) or (1 + √−d)/2 (d ≡ 3 mod 4); an element is [x, y] = x + yω.
+   Over every fraction λ/μ with (λ, μ) = O sits a hemisphere of radius 1/|μ| in ℍ³ (the isometric
+   sphere of a matrix of SL₂(O) with bottom row (μ, −λ)). A point s = λ'/μ' strictly under it is
+   moved by that matrix to a point with a smaller denominator: one step of Euclid's algorithm.
+   Points under no dome are the singular points (the cusps other than ∞). */
+
+const MMAX = 50;                                        // domes with |μ|² ≤ MMAX
+const FIELDS = [1, 2, 3, 5, 6, 7, 10, 11, 13, 14, 15, 17, 19, 21, 22, 23, 31, 43, 47, 67, 163];
+const CLASS_NUMBER = { 1: 1, 2: 1, 3: 1, 5: 2, 6: 2, 7: 1, 10: 2, 11: 1, 13: 2, 14: 4, 15: 2, 17: 4, 19: 1, 21: 4, 22: 2, 23: 3, 31: 3, 43: 1, 47: 5, 67: 1, 163: 1 };
+
+const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a; };
+const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+
+function ring(d) {
+  const t = d % 4 === 3 ? 1 : 0, n = t ? (d + 1) / 4 : d;              // ω² = tω − n
+  const wRe = t / 2, wIm = Math.sqrt(d) / (t ? 2 : 1);
+  return {
+    d, t, n, D: t * t - 4 * n, wRe, wIm,
+    mul: (a, b) => [a[0] * b[0] - a[1] * b[1] * n, a[0] * b[1] + a[1] * b[0] + a[1] * b[1] * t],
+    conj: a => [a[0] + a[1] * t, -a[1]],
+    norm: a => a[0] * a[0] + t * a[0] * a[1] + n * a[1] * a[1],
+    toC: a => [a[0] + a[1] * wRe, a[1] * wIm],                         // lattice coordinates → ℂ
+    lat: p => [p[0] - p[1] * wRe / wIm, p[1] / wIm],                   // ℂ → lattice coordinates
+  };
+}
+
+// Index of the ideal (λ, μ) in O: the gcd of the 2×2 minors of its ℤ-generators λ, λω, μ, μω.
+function idealIndex(K, l, m) {
+  const g = [l, K.mul(l, [0, 1]), m, K.mul(m, [0, 1])];
+  let r = 0;
+  for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) r = gcd(r, g[i][0] * g[j][1] - g[i][1] * g[j][0]);
+  return r;
+}
+// Hermite basis ⟨a, b + cω⟩ of the ideal (λ, μ).
+function idealBasis(K, l, m) {
+  const rows = [l, K.mul(l, [0, 1]), m, K.mul(m, [0, 1])].map(r => r.slice());
+  let p = [0, 0];
+  for (const r of rows) while (r[1] !== 0) {
+    const q = Math.floor(p[1] / r[1]), s = [p[0] - q * r[0], p[1] - q * r[1]];
+    p = r.slice(); r[0] = s[0]; r[1] = s[1];
+  }
+  if (p[1] < 0) p = [-p[0], -p[1]];
+  let a = 0;
+  for (const r of rows) a = gcd(a, r[0]);
+  return { a, b: ((p[0] % a) + a) % a, c: p[1] };
+}
+// Gauss reduction of a positive definite form ax² + bxy + cy² to |b| ≤ a ≤ c.
+function reduceForm(A, B, C) {
+  for (let it = 0; it < 500; it++) {
+    if (A > C) { [A, B, C] = [C, -B, A]; continue; }
+    if (B > A || B <= -A) {
+      let k = Math.round(B / (2 * A)), B2 = B - 2 * k * A;
+      if (B2 <= -A) { k -= 1; B2 += 2 * A; }
+      if (B2 > A) { k += 1; B2 -= 2 * A; }
+      C = A * k * k - B * k + C; B = B2;
+      continue;
+    }
+    break;
+  }
+  if (A === C && B < 0) B = -B;
+  return [A, B, C];
+}
+// The ideal ⟨α, β⟩ = (λ, μ) as the form N(αx − βy)/N(ideal); its root (−b + √D)/2a is the lattice shape β/α.
+function idealForm(K, l, m) {
+  const { a, b, c } = idealBasis(K, l, m);
+  const A = a / c, B = -(2 * b + c * K.t) / c, C = K.norm([b, c]) / (a * c);
+  if (!Number.isInteger(A) || !Number.isInteger(B) || !Number.isInteger(C) || B * B - 4 * A * C !== K.D) throw new Error('bad form');
+  return { form: reduceForm(A, B, C), index: a * c };
+}
+// All reduced forms of discriminant D: one per ideal class (Gauss).
+function reducedForms(D) {
+  const out = [];
+  for (let A = 1; 3 * A * A <= -D; A++) for (let B = -A + 1; B <= A; B++) {
+    if ((B * B - D) % (4 * A)) continue;
+    const C = (B * B - D) / (4 * A);
+    if (C < A || (C === A && B < 0) || gcd(gcd(A, B), C) !== 1) continue;
+    out.push([A, B, C]);
+  }
+  return out.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+}
+
+const fieldCache = new Map();
+function fieldData(d) {
+  if (fieldCache.has(d)) return fieldCache.get(d);
+  const K = ring(d);
+  // the domes: fractions λ/μ = (x + yω)/N(μ) in the unit cell with (λ, μ) = O, μ up to units
+  const seen = new Set();
+  K.hems = [];
+  const Y = Math.ceil(Math.sqrt(MMAX) / K.wIm) + 1, X = Math.ceil(Math.sqrt(MMAX)) + Y + 1;
+  for (let my = 0; my <= Y; my++) for (let mx = -X; mx <= X; mx++) {
+    if (my === 0 && mx <= 0) continue;
+    const mu = [mx, my], N = K.norm(mu);
+    if (N > MMAX) continue;
+    for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
+      const p = K.mul([x, y], mu);
+      if (p[0] % N || p[1] % N) continue;
+      const lam = [p[0] / N, p[1] / N], key = x + ',' + y + ',' + N;
+      if (seen.has(key) || idealIndex(K, lam, mu) !== 1) continue;
+      seen.add(key);
+      K.hems.push({ x, y, N, lam, mu, r: 1 / Math.sqrt(N) });
+    }
+  }
+  K.hems.sort((a, b) => a.N - b.N);
+  K.levels = [...new Set(K.hems.map(h => h.N))];
+  K.levelAt = M => { let l = 1; for (const v of K.levels) if (v <= M) l = v; return l; };
+  K.countAt = M => { let c = 0; while (c < K.hems.length && K.hems[c].N <= M) c++; return c; };
+  // ideal classes, by reduced forms; the principal class first
+  K.forms = reducedForms(K.D);
+  K.h = K.forms.length;
+  K.classOf = f => K.forms.findIndex(g => g[0] === f[0] && g[1] === f[1] && g[2] === f[2]);
+  // singular points (x + yω)/N: N is a shortest vector of the non-principal ideal (N, x + yω)
+  K.sing = [];
+  for (let N = 2; 3 * N * N <= -K.D; N++) for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
+    if (gcd(gcd(x, y), N) !== 1) continue;
+    const { form, index } = idealForm(K, [x, y], [N, 0]);
+    if (N * N === index * form[0]) K.sing.push({ x, y, N, form, cls: K.classOf(form), w: K.toC([x / N, y / N]) });
+  }
+  K.pitClasses = new Set(K.sing.map(s => s.cls)).size;
+  fieldCache.set(d, K);
+  return K;
+}
+
+/* The floor of the Ford domain, rasterised over one period: for each texel of the unit cell (in
+   lattice coordinates) the highest dome above it. The shader uses it as a candidate list and then
+   shades the exact hemisphere; the exact arithmetic below uses it to find the dome over a point. */
+function makeFloor(K, Gu) {
+  const Gv = Math.min(2048, Math.max(8, Math.round(Gu * K.wIm)));
+  return { K, Gu, Gv, top: new Float32Array(Gu * Gv), ids: new Int32Array(Gu * Gv).fill(-1), offs: new Uint8Array(Gu * Gv), count: 0 };
+}
+function addDomes(F, n1) {
+  const { K, Gu, Gv, top, ids, offs } = F;
+  for (let k = F.count; k < n1; k++) {
+    const h = K.hems[k], r = h.r, cu = h.x / h.N, cv = h.y / h.N, dv = r / K.wIm;
+    const j0 = Math.floor((cv - dv) * Gv - 0.5), j1 = Math.ceil((cv + dv) * Gv - 0.5);
+    for (let j = j0; j <= j1; j++) {
+      const v = (j + 0.5) / Gv - cv, yy = v * K.wIm, rem = r * r - yy * yy;
+      if (rem <= 0) continue;
+      const half = Math.sqrt(rem), uc = cu - v * K.wRe;
+      const i0 = Math.ceil((uc - half) * Gu - 0.5), i1 = Math.floor((uc + half) * Gu - 0.5);
+      const sj = Math.floor(j / Gv), row = (j - sj * Gv) * Gu;
+      for (let i = i0; i <= i1; i++) {
+        const xx = (i + 0.5) / Gu - uc, h2 = rem - xx * xx;
+        if (h2 <= 0) continue;
+        const si = Math.floor(i / Gu), q = row + i - si * Gu;
+        if (h2 > top[q]) { top[q] = h2; ids[q] = k; offs[q] = (2 - si) + 5 * (2 - sj); }
+      }
+    }
+  }
+  F.count = n1;
+  return F;
+}
+// Connected gaps of the floor (on the torus ℂ/O), and how many of them contain no singular point.
+function gapStats(F) {
+  const { K, Gu, Gv, ids } = F, n = Gu * Gv, near = new Uint8Array(n), lab = new Uint8Array(n);
+  for (const s of K.sing) for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) {
+    const i = ((Math.floor(s.x / s.N * Gu) + a) % Gu + Gu) % Gu, j = ((Math.floor(s.y / s.N * Gv) + b) % Gv + Gv) % Gv;
+    near[j * Gu + i] = 1;
+  }
+  let gaps = 0, pitless = 0, open = 0;
+  const stack = [];
+  for (let q0 = 0; q0 < n; q0++) {
+    if (ids[q0] >= 0 || lab[q0]) continue;
+    let touches = false, size = 0;
+    lab[q0] = 1; stack.push(q0);
+    while (stack.length) {
+      const q = stack.pop(), i = q % Gu, j = (q - i) / Gu;
+      size++;
+      if (near[q]) touches = true;
+      const nb = [j * Gu + (i + 1) % Gu, j * Gu + (i + Gu - 1) % Gu, ((j + 1) % Gv) * Gu + i, ((j + Gv - 1) % Gv) * Gu + i];
+      for (const q2 of nb) if (ids[q2] < 0 && !lab[q2]) { lab[q2] = 1; stack.push(q2); }
+    }
+    open += size;
+    if (size < 3 && touches) continue;                    // the pinhole of a pit, not a gap
+    gaps++;
+    if (!touches) pitless++;
+  }
+  return { gaps, pitless, open: open / n };
+}
+// The highest dome of F strictly above the exact point s = (X + Yω)/Ns, or null.
+function domeOver(F, X, Y, Ns) {
+  const K = F.K, Lu = X / Ns, Lv = Y / Ns;
+  let best = null;
+  const tryDome = (k, tu, tv) => {
+    const h = K.hems[k];
+    const nn = K.norm([X * h.N - (h.x + tu * h.N) * Ns, Y * h.N - (h.y + tv * h.N) * Ns]), lim = Ns * Ns * h.N;
+    if (nn >= lim) return;                                 // exact: |s − λ/μ|² < 1/|μ|²
+    const h2 = (lim - nn) / (lim * h.N);
+    if (!best || h2 > best.h2) best = { k, t: [tu, tv], h2 };
+  };
+  const Tu = Math.floor(Lu * F.Gu - 0.5), Tv = Math.floor(Lv * F.Gv - 0.5);
+  for (let e = 0; e < 4; e++) {
+    const i = Tu + (e & 1), j = Tv + (e >> 1);
+    const ci = Math.floor(i / F.Gu), cj = Math.floor(j / F.Gv), q = (j - cj * F.Gv) * F.Gu + (i - ci * F.Gu);
+    if (F.ids[q] < 0) continue;
+    tryDome(F.ids[q], (F.offs[q] % 5) - 2 + ci, Math.floor(F.offs[q] / 5) - 2 + cj);
+  }
+  if (best) return best;
+  const bu = Math.floor(Lu), bv = Math.floor(Lv);
+  for (let k = 0; k < F.count; k++) for (let du = -2; du <= 2; du++) for (let dv = -2; dv <= 2; dv++) tryDome(k, bu + du, bv + dv);
+  return best;
+}
+// c, e ∈ O with c·a + e·b = −1, so that [[c, e], [b, −a]] ∈ SL₂(O).
+function complete(K, a, b) {
+  const Nb = K.norm(b), bc = K.conj(b);
+  for (let i = 0; i < Nb; i++) for (let j = 0; j < Nb; j++) {
+    const p = K.mul(add(K.mul([i, j], a), [1, 0]), bc);
+    if (p[0] % Nb === 0 && p[1] % Nb === 0) return [[i, j], [-p[0] / Nb, -p[1] / Nb]];
+  }
+  return null;
+}
+function singularAt(K, X, Y, Ns) {
+  const g = gcd(gcd(X, Y), Ns), N = Ns / g, x = ((X / g) % N + N) % N, y = ((Y / g) % N + N) % N;
+  return K.sing.find(s => s.N === N && s.x === x && s.y === y) || null;
+}
+/* Euclid's algorithm on the pair (λ, μ) using only the domes of F: while s = λ/μ lies under a dome
+   over a/b, replace (λ, μ) by g(λ, μ) with g = [[c, e], [b, −a]]; the new denominator bλ − aμ is
+   smaller. Ends at ∞ (denominator 0), in a pit (a singular point), or stuck in a gap of F. */
+function descend(F, lam, mu, pos) {
+  const K = F.K, chain = [];
+  for (let it = 0; it < 80; it++) {
+    const N = K.norm(mu), s = K.mul(lam, K.conj(mu));
+    const hit = domeOver(F, s[0], s[1], N);
+    if (!hit) {
+      chain.push({ pos, z: 0, N });
+      const sg = singularAt(K, s[0], s[1], N);
+      return { chain, end: sg ? 'pit' : 'gap', pit: sg };
+    }
+    chain.push({ pos, z: Math.sqrt(hit.h2), N });
+    const h = K.hems[hit.k], b = h.mu, a = add(h.lam, K.mul(hit.t, b));
+    const mu2 = sub(K.mul(b, lam), K.mul(a, mu));
+    if (mu2[0] === 0 && mu2[1] === 0) return { chain, end: 'inf', pit: null };
+    const [c, e] = complete(K, a, b);
+    let lam2 = add(K.mul(c, lam), K.mul(e, mu));
+    const N2 = K.norm(mu2), s2 = K.mul(lam2, K.conj(mu2)), w = K.toC([s2[0] / N2, s2[1] / N2]);
+    const L = K.lat([w[0] - pos[0], w[1] - pos[1]]);
+    let kap = [Math.round(L[0]), Math.round(L[1])], bd = Infinity;          // translate back next to the marble
+    for (const cu of [Math.floor(L[0]), Math.ceil(L[0])]) for (const cv of [Math.floor(L[1]), Math.ceil(L[1])]) {
+      const kc = K.toC([cu, cv]), dd = Math.hypot(w[0] - kc[0] - pos[0], w[1] - kc[1] - pos[1]);
+      if (dd < bd) { bd = dd; kap = [cu, cv]; }
+    }
+    const kc = K.toC(kap);
+    lam = sub(lam2, K.mul(kap, mu2)); mu = mu2; pos = [w[0] - kc[0], w[1] - kc[1]];
+  }
+  return { chain, end: 'gap', pit: null };
+}
+/*MATH-END*/
+
+/* ---------- typesetting ---------- */
+
+const T = AV.tex;
+const rootTex = K => (K.d === 1 ? 'i' : '\\sqrt{-' + K.d + '}');
+function quadTex(K, p, q) {                                           // p + q√−d
+  if (q === 0) return String(p);
+  const qs = (Math.abs(q) === 1 ? '' : Math.abs(q)) + rootTex(K);
+  return p === 0 ? (q < 0 ? '-' : '') + qs : p + (q < 0 ? '-' : '+') + qs;
+}
+function fracTex(K, lam, mu) {                                        // λ/μ in lowest visible terms
+  let [p, q, r, s] = K.t ? [2 * lam[0] + lam[1], lam[1], 2 * mu[0] + mu[1], mu[1]] : [lam[0], lam[1], mu[0], mu[1]];
+  if (s !== 0) {                                                      // rationalise the denominator
+    const cn = K.mul(lam, K.conj(mu)), N = K.norm(mu);
+    [p, q, r, s] = K.t ? [2 * cn[0] + cn[1], cn[1], 2 * N, 0] : [cn[0], cn[1], N, 0];
+  }
+  const g = gcd(gcd(p, q), r) || 1;
+  p /= g; q /= g; r /= g;
+  if (r < 0) { p = -p; q = -q; r = -r; }
+  return r === 1 ? quadTex(K, p, q) : '\\frac{' + quadTex(K, p, q) + '}{' + r + '}';
+}
+const elemTex = (K, a) => fracTex(K, a, [1, 0]);
+const big = s => s.replace(/\\frac/g, '\\dfrac');
+function formTex([a, b, c]) {
+  const co = (k, v, first) => (k === 0 ? '' : (k < 0 ? '-' : first ? '' : '+') + (Math.abs(k) === 1 ? '' : Math.abs(k)) + v);
+  return co(a, 'x^2', true) + co(b, 'xy', false) + co(c, 'y^2', false);
+}
+const fieldTex = K => '\\mathbb{Q}(' + rootTex(K) + ')';
+
+/* ---------- state ---------- */
+
+const GU = 384, TAN = 0.26;
+const CLASS_COL = [AV.C.ink, AV.C.amber, AV.C.rose, AV.C.violet, AV.C.green, AV.C.sky, AV.C.cream];
+const scene = { K: null, F: null, level: 0, lo: 0, u: 1, all: 0, dir: 1, hasA: false, ver: 0, stats: { gaps: 0, pitless: 0 } };
+const cam = { yaw: 0.42, pitch: 0.98, Rw: 2, target: [0.5, 0.5] };
+let geom = { x: 0, y: 0, r: 100 }, inset = { x: 0, y: 0, r: 60 };
+let sel = -1;                 // selected ideal class
+let marble = null, queued = null;
+let motion = 0, dragging = false, wheelT = -1, hands = false;   // hands: the reader has touched the stage
+let labels = null, app = null;
+
+const defaultView = K => ({ Rw: AV.clamp(1.9 + 0.6 * K.wIm, 2.5, 5.6), target: [0.5 + K.wRe / 2, K.wIm / 2] });
+
+// A tween that changes what the GPU draws: the stage renders at motion quality while one is running.
+function glTween(ms, fn, opt) {
+  motion++;
+  return app.tween(ms, fn, opt).then(done => { motion--; app.redraw(); return done; });
+}
+
+/* ---------- the stage: a ray-marched Ford floor (WebGL2) ---------- */
+
+const FS = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+in vec2 uv; out vec4 o;
+uniform vec2 uRes, uCenter;
+uniform vec3 uEye, uRight, uUp, uFwd, uLight;
+uniform float uTan, uDist, uStep;
+uniform vec2 uW, uGrid;
+uniform int uSphW, uNC, uAA;
+uniform sampler2D uMapA, uMapB, uSph;
+uniform float uHasA, uU, uLo, uAll, uNmax, uSel;
+uniform vec3 uCusp[16];
+uniform vec3 uCls[8];
+//#AV
+struct Hit { float h; vec2 c; float r; float n; float sc; };
+vec2 lat(vec2 p) { return vec2(p.x - p.y * uW.x / uW.y, p.y / uW.y); }
+void cand(sampler2D map, vec2 Ti, vec2 p, inout Hit best) {
+  vec2 cell = floor(Ti / uGrid);
+  vec4 m = texelFetch(map, ivec2(Ti - cell * uGrid), 0);
+  if (m.a < 0.5) return;
+  int id = int(m.r * 255.0 + 0.5) + 256 * int(m.g * 255.0 + 0.5);
+  int oc = int(m.b * 255.0 + 0.5);
+  vec4 s = texelFetch(uSph, ivec2(id % uSphW, id / uSphW), 0);
+  vec2 cl = s.xy + vec2(float(oc % 5) - 2.0, float(oc / 5) - 2.0) + cell;
+  vec2 c = vec2(cl.x + cl.y * uW.x, cl.y * uW.y);
+  vec2 d = p - c;
+  float h2 = s.z * s.z - dot(d, d);
+  if (h2 <= 0.0) return;
+  float sc = uAll * (s.w > uLo ? uU : 1.0);
+  float h = sc * sqrt(h2);
+  if (h > best.h) best = Hit(h, c, s.z, s.w, sc);
+}
+float hFast(vec2 p) {
+  Hit b = Hit(0.0, vec2(0.0), 1.0, 1.0, 1.0);
+  vec2 Ti = floor(lat(p) * uGrid);
+  cand(uMapB, Ti, p, b);
+  if (uHasA > 0.5) cand(uMapA, Ti, p, b);
+  return b.h;
+}
+Hit hFull(vec2 p) {
+  Hit b = Hit(0.0, vec2(0.0), 1.0, 1.0, 1.0);
+  vec2 T0 = floor(lat(p) * uGrid - 0.5);
+  for (int k = 0; k < 4; k++) {
+    vec2 Ti = T0 + vec2(float(k & 1), float(k >> 1));
+    cand(uMapB, Ti, p, b);
+    if (uHasA > 0.5) cand(uMapA, Ti, p, b);
+  }
+  return b;
+}
+// Soft beacons rising from the pits, so a pit shows from the side even when its floor is hidden.
+vec3 beacons(vec3 ro, vec3 rd, float zlo) {
+  const float ZMAX = 0.7, SIG = 0.05;
+  if (zlo >= ZMAX) return vec3(0.0);
+  float A = dot(rd.xy, rd.xy);
+  float tHi = (ZMAX - ro.z) / rd.z, tLo = (zlo - ro.z) / rd.z;
+  vec3 Qm = ro + rd * mix(tHi, tLo, 0.5);
+  vec2 Lq = lat(Qm.xy);
+  float steep = 1.0 - smoothstep(0.05, 0.3, sqrt(A));
+  vec3 g = vec3(0.0);
+  for (int i = 0; i < 16; i++) {
+    if (i >= uNC) break;
+    vec2 dl = uCusp[i].xy - Lq;
+    dl -= floor(dl + 0.5);
+    vec2 s = Qm.xy + vec2(dl.x + dl.y * uW.x, dl.y * uW.y);        // the nearest copy of the pit
+    float tc = clamp(dot(s - ro.xy, rd.xy) / max(A, 1e-6), tHi, tLo);
+    vec3 Q = ro + rd * tc;
+    vec2 e = Q.xy - s;
+    float fade = mix(1.0 - Q.z / ZMAX, 1.0 - 0.5 * (zlo + ZMAX) / ZMAX, steep);
+    float len = min(SIG * 1.77 / max(sqrt(A), 1e-3), (ZMAX - zlo) / -rd.z);
+    float on = (uSel < -0.5 || abs(uSel - uCusp[i].z) < 0.5) ? 1.0 : 0.25;
+    g += pow(uCls[int(uCusp[i].z + 0.5)], vec3(1.5)) * on * fade * len * exp(-dot(e, e) / (SIG * SIG));
+  }
+  return g * 9.0;
+}
+vec3 shade(vec2 px) {
+  vec2 ndc = (px - uCenter) / (0.5 * uRes.y);
+  vec3 rd = normalize(uFwd + uTan * (ndc.x * uRight + ndc.y * uUp));
+  float tBot = -uEye.z / rd.z, t0 = max((max(uAll, 0.02) - uEye.z) / rd.z, 0.0);
+  float len = tBot - t0;
+  int n = int(clamp(ceil(len * length(rd.xy) / uStep), 4.0, 96.0));
+  float dt = len / float(n), tp = t0, th = tBot;
+  for (int i = 1; i <= 96; i++) {
+    if (i > n) break;
+    float t = t0 + dt * float(i);
+    vec3 P = uEye + rd * t;
+    if (P.z <= hFast(P.xy)) {
+      float a = tp, b = t;
+      for (int k = 0; k < 6; k++) { float m = 0.5 * (a + b); vec3 Q = uEye + rd * m; if (Q.z <= hFast(Q.xy)) b = m; else a = m; }
+      th = b;
+      break;
+    }
+    tp = t;
+  }
+  vec3 P = uEye + rd * th;
+  Hit H = hFull(P.xy);
+  vec3 col;
+  float z = 0.0;
+  if (H.h > 2e-4) {
+    z = H.h;
+    vec2 d = P.xy - H.c;
+    vec3 nrm = normalize(vec3(H.sc * H.sc * d / max(z, 2e-3), 1.0));
+    float tN = log(H.n) / log(uNmax);
+    vec3 base = av_ramp(0.02 + 0.40 * pow(tN, 0.7));
+    base = mix(base, vec3(dot(base, vec3(0.3333))), 0.22);
+    float diff = max(dot(nrm, uLight), 0.0);
+    float rim = pow(1.0 - max(dot(nrm, -rd), 0.0), 3.0);
+    float spec = pow(max(dot(reflect(-uLight, nrm), -rd), 0.0), 36.0);
+    col = base * (0.2 + 0.92 * diff) + 0.14 * spec + 0.06 * rim * AV_INK;
+    col *= mix(0.16, 1.0, smoothstep(0.0, 0.42, z));              // creases and pits fall into shadow
+    float dotR = 0.028 * pow(H.r, 0.75);
+    col = mix(col, AV_INK, (1.0 - smoothstep(dotR * 0.62, dotR, length(d))) * mix(0.4, 0.9, smoothstep(0.2, 0.7, H.r)) * smoothstep(0.5, 1.0, H.sc));
+  } else {
+    col = vec3(0.010, 0.013, 0.022);                               // the bare plane at the bottom of a gap
+  }
+  vec2 Lp = lat(P.xy);
+  vec3 glow = beacons(uEye, rd, z);
+  for (int i = 0; i < 16; i++) {
+    if (i >= uNC) break;
+    vec2 dl = Lp - uCusp[i].xy;
+    dl -= floor(dl + 0.5);
+    vec2 dw = vec2(dl.x + dl.y * uW.x, dl.y * uW.y);
+    float on = (uSel < -0.5 || abs(uSel - uCusp[i].z) < 0.5) ? 1.0 : 0.25;
+    glow += pow(uCls[int(uCusp[i].z + 0.5)], vec3(1.5)) * on * 0.0030 / (dot(dw, dw) + 9.0 * z * z + 0.0010);
+  }
+  col = 1.0 - (1.0 - col) * exp(-glow * uAll);                     // embers at the bottom of the pits
+  return mix(col, AV_BG, smoothstep(uDist * 1.3, uDist * 2.5, th));
+}
+void main() {
+  vec2 px = uv * uRes;
+  vec3 col = vec3(0.0);
+  if (uAA > 1) {
+    for (int i = 0; i < 4; i++) col += shade(px + vec2(float(i & 1), float(i >> 1)) * 0.5 - 0.25);
+    col *= 0.25;
+  } else col = shade(px);
+  o = vec4(col, 1.0);
+}`;
+const BLIT = `#version 300 es
+precision highp float;
+in vec2 uv; out vec4 o; uniform sampler2D uTex;
+void main() { o = texture(uTex, uv); }`;
+
+const G = { prog: null, blit: null, quad: null, texA: null, texB: null, sph: null, sphW: 256, fbo: null, fboTex: null, fw: 0, fh: 0, key: '', pack: null };
+
+function newMapTex(gl) {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  for (const k of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, k, gl.NEAREST);
+  for (const k of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, k, gl.CLAMP_TO_EDGE);
+  return t;
+}
+function uploadMap(tex, F) {
+  const gl = app.gl, n = F.Gu * F.Gv;
+  if (!G.pack || G.pack.length !== 4 * n) G.pack = new Uint8Array(4 * n);
+  const b = G.pack, ids = F.ids, offs = F.offs;
+  for (let q = 0, p = 0; q < n; q++, p += 4) {
+    const id = ids[q];
+    if (id < 0) { b[p + 3] = 0; continue; }
+    b[p] = id & 255; b[p + 1] = id >> 8; b[p + 2] = offs[q]; b[p + 3] = 255;
+  }
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, F.Gu, F.Gv, 0, gl.RGBA, gl.UNSIGNED_BYTE, b);
+}
+function uploadSpheres(K) {
+  const gl = app.gl, rows = Math.max(1, Math.ceil(K.hems.length / G.sphW)), data = new Float32Array(G.sphW * rows * 4);
+  K.hems.forEach((h, k) => { data[4 * k] = h.x / h.N; data[4 * k + 1] = h.y / h.N; data[4 * k + 2] = h.r; data[4 * k + 3] = h.N; });
+  gl.bindTexture(gl.TEXTURE_2D, G.sph);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, G.sphW, rows, 0, gl.RGBA, gl.FLOAT, data);
+}
+
+// current map := finished transition
+function finishLevel() {
+  if (!scene.hasA) return;
+  if (scene.dir < 0) [G.texA, G.texB] = [G.texB, G.texA];
+  scene.hasA = false; scene.u = 1; scene.lo = scene.level; scene.ver++;
+}
+function setLevel(M) {
+  const K = scene.K, lvl = K.levelAt(M);
+  if (lvl === scene.level) return;
+  finishLevel();
+  if (marble && !marble.retry) clearMarble();
+  const from = scene.level, up = lvl > from;
+  scene.level = lvl;
+  if (up) {                                     // new domes inflate over the settled map
+    [G.texA, G.texB] = [G.texB, G.texA];
+    addDomes(scene.F, K.countAt(lvl));
+    uploadMap(G.texB, scene.F);
+    scene.lo = from;
+  } else {                                      // the smallest domes deflate onto the lower map
+    scene.F = addDomes(makeFloor(K, GU), K.countAt(lvl));
+    uploadMap(G.texA, scene.F);
+    scene.lo = lvl;
+  }
+  scene.dir = up ? 1 : -1; scene.hasA = true; scene.u = up ? 0 : 1; scene.ver++;
+  scene.stats = gapStats(scene.F);
+  glTween(up ? 620 : 380, t => { scene.u = up ? t : 1 - t; }, { key: 'level', ease: up ? 'out' : 'in' })
+    .then(done => { if (done) { finishLevel(); settled(); } });
+}
+function loadField(d, M, instantView) {
+  const K = fieldData(d);
+  clearMarble();
+  app.tween(1, () => {}, { key: 'level' });      // cancel a level transition of the old field
+  scene.K = K; scene.hasA = false; scene.u = 1; scene.dir = 1;
+  scene.level = K.levelAt(M); scene.lo = scene.level;
+  scene.F = addDomes(makeFloor(K, GU), K.countAt(scene.level));
+  scene.stats = gapStats(scene.F);
+  uploadSpheres(K);
+  uploadMap(G.texB, scene.F);
+  scene.ver++;
+  const v = defaultView(K), v0 = { Rw: cam.Rw, target: cam.target.slice() };
+  if (instantView) Object.assign(cam, v);
+  else glTween(800, t => { cam.Rw = AV.lerp(v0.Rw, v.Rw, t); cam.target = [AV.lerp(v0.target[0], v.target[0], t), AV.lerp(v0.target[1], v.target[1], t)]; }, { key: 'view' });
+}
+// Called by the two sliders: move the stage to the requested field and depth.
+function retarget() {
+  if (!app.gl) return;
+  const d = FIELDS[app.get('field')], M = app.get('depth');
+  if (scene.K && scene.K.d === d) { setLevel(M); return; }
+  clearMarble(); sel = -1;
+  const a0 = scene.all;
+  glTween(30 + 260 * a0, t => { scene.all = a0 * (1 - t); }, { key: 'field', ease: 'in' }).then(done => {
+    if (!done) return;
+    loadField(FIELDS[app.get('field')], app.get('depth'), false);
+    glTween(900, t => { scene.all = t; }, { key: 'field', ease: 'out' }).then(ok => { if (ok) settled(); });
+  });
+}
+function settled() {
+  if (queued && scene.K.d === queued.d) { const q = queued; queued = null; dropMarble(q.lam, q.mu); }
+  else if (marble && marble.retry) dropMarble(marble.lam0, marble.mu0);
+}
+// A tour step's marble: dropped now if its field is on stage, otherwise as soon as it has arrived.
+function dropFor(d, lam, mu) {
+  if (scene.K && scene.K.d === d && scene.all > 0.99 && !scene.hasA) dropMarble(lam, mu);
+  else queued = { d, lam, mu };
+}
+
+function view() {
+  const hx = Math.sin(cam.yaw), hy = Math.cos(cam.yaw), cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  const fwd = [hx * cp, hy * cp, -sp], right = [hy, -hx, 0], up = [hx * sp, hy * sp, cp];
+  const k = app.H / 2 / TAN, dist = k * cam.Rw / geom.r;
+  return { fwd, right, up, k, dist, cx: geom.x, cy: geom.y, eye: [cam.target[0] - fwd[0] * dist, cam.target[1] - fwd[1] * dist, -fwd[2] * dist] };
+}
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+function project(V, P) {
+  const v = [P[0] - V.eye[0], P[1] - V.eye[1], P[2] - V.eye[2]], zc = dot3(v, V.fwd);
+  return zc < 0.05 ? null : [V.cx + V.k * dot3(v, V.right) / zc, V.cy - V.k * dot3(v, V.up) / zc, zc];
+}
+
+function renderFloor(V) {
+  const gl = app.gl, K = scene.K;
+  if (!gl || !K) return;
+  const moving = motion > 0 || dragging || app.time - wheelT < 0.25;
+  const scale = moving ? (app.dpr >= 1.5 ? 0.5 : 0.75) : 1;
+  const key = [app.W, app.H, app.dpr, scale, cam.yaw, cam.pitch, cam.Rw, cam.target, geom.x, geom.y, geom.r, scene.u, scene.all, scene.ver, sel].join('|');
+  if (key === G.key) return;
+  G.key = key;
+  const cw = gl.drawingBufferWidth, ch = gl.drawingBufferHeight;
+  const w = Math.max(2, Math.round(cw * scale)), h = Math.max(2, Math.round(ch * scale));
+  if (scale < 1) {
+    if (G.fw !== w || G.fh !== h) {
+      gl.bindTexture(gl.TEXTURE_2D, G.fboTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      G.fw = w; G.fh = h;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, G.fbo);
+  } else gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.disable(gl.SCISSOR_TEST);
+  gl.viewport(0, 0, w, h);
+  const cusp = new Float32Array(48), cls = new Float32Array(24);
+  K.sing.slice(0, 16).forEach((s, i) => { cusp[3 * i] = s.x / s.N; cusp[3 * i + 1] = s.y / s.N; cusp[3 * i + 2] = s.cls; });
+  CLASS_COL.forEach((c, i) => { const [r, g, b] = AV.hexRgb(c); cls[3 * i] = r / 255; cls[3 * i + 1] = g / 255; cls[3 * i + 2] = b / 255; });
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.texA);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.texB);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.sph);
+  const sx = w / app.W, sy = h / app.H;
+  G.prog.set({
+    uRes: [w, h], uCenter: [V.cx * sx, (app.H - V.cy) * sy],
+    uEye: V.eye, uRight: V.right, uUp: V.up, uFwd: V.fwd, uLight: [-0.497, 0.447, 0.745],
+    uTan: TAN, uDist: V.dist, uStep: moving ? 0.022 : 0.012,
+    uW: [K.wRe, K.wIm], uGrid: [scene.F.Gu, scene.F.Gv], uSphW: { i: G.sphW }, uNC: { i: Math.min(16, K.sing.length) },
+    uAA: { i: !moving && app.dpr < 1.5 ? 2 : 1 },
+    uMapA: { i: 0 }, uMapB: { i: 1 }, uSph: { i: 2 },
+    uHasA: scene.hasA ? 1 : 0, uU: scene.u, uLo: scene.lo, uAll: scene.all, uNmax: MMAX, uSel: sel < K.h ? sel : -1,
+  });
+  gl.uniform3fv(G.prog.u('uCusp'), cusp);
+  gl.uniform3fv(G.prog.u('uCls'), cls);
+  G.quad.draw(G.prog);
+  if (scale < 1) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, cw, ch);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.fboTex);
+    G.blit.set({ uTex: { i: 0 } });
+    G.quad.draw(G.blit);
+  }
+}
+
+/* ---------- picking: the surface under a screen point (CPU copy of the shader's march) ---------- */
+
+function heightAt(p) {
+  const F = scene.F, K = F.K, L = K.lat(p);
+  const Tu = Math.floor(L[0] * F.Gu - 0.5), Tv = Math.floor(L[1] * F.Gv - 0.5);
+  let best = 0;
+  for (let e = 0; e < 4; e++) {
+    const i = Tu + (e & 1), j = Tv + (e >> 1);
+    const ci = Math.floor(i / F.Gu), cj = Math.floor(j / F.Gv), q = (j - cj * F.Gv) * F.Gu + (i - ci * F.Gu);
+    if (F.ids[q] < 0) continue;
+    const h = K.hems[F.ids[q]];
+    const c = K.toC([h.x / h.N + (F.offs[q] % 5) - 2 + ci, h.y / h.N + Math.floor(F.offs[q] / 5) - 2 + cj]);
+    const h2 = h.r * h.r - (p[0] - c[0]) ** 2 - (p[1] - c[1]) ** 2;
+    if (h2 > best * best) best = Math.sqrt(h2);
+  }
+  return best * scene.all;
+}
+function pick(V, sx, sy) {
+  const a = (sx - V.cx) / V.k, b = (V.cy - sy) / V.k;
+  const rd = [0, 1, 2].map(i => V.fwd[i] + a * V.right[i] + b * V.up[i]);
+  if (rd[2] >= -1e-6) return null;
+  const tBot = -V.eye[2] / rd[2], t0 = Math.max(0, (1 - V.eye[2]) / rd[2]), n = 400;
+  for (let i = 1; i <= n; i++) {
+    const t = t0 + (tBot - t0) * i / n, P = [V.eye[0] + rd[0] * t, V.eye[1] + rd[1] * t, V.eye[2] + rd[2] * t];
+    if (P[2] <= heightAt(P)) return [P[0], P[1]];
+  }
+  return [V.eye[0] + rd[0] * tBot, V.eye[1] + rd[1] * tBot];
+}
+// Visible copies of the singular points, as screen positions.
+function visiblePits(V) {
+  const K = scene.K, out = [];
+  if (!K.sing.length) return out;
+  const R = Math.min(3 * cam.Rw + 2, 16), L0 = K.lat(cam.target);
+  const nu = Math.ceil(R + R * K.wRe / K.wIm) + 1, nv = Math.ceil(R / K.wIm) + 1;
+  for (const s of K.sing) for (let a = -nu; a <= nu; a++) for (let b = -nv; b <= nv; b++) {
+    const ku = Math.floor(L0[0]) + a, kv = Math.floor(L0[1]) + b, w = K.toC([s.x / s.N + ku, s.y / s.N + kv]);
+    if (Math.hypot(w[0] - cam.target[0], w[1] - cam.target[1]) > R) continue;
+    const p = project(V, [w[0], w[1], 0]);
+    if (p && p[0] > -20 && p[0] < app.W + 20 && p[1] > -20 && p[1] < app.H + 20) out.push({ s, ku, kv, w, x: p[0], y: p[1], zc: p[2] });
+  }
+  return out;
+}
+
+/* ---------- the marble: Euclid's algorithm, animated ---------- */
+
+function clearMarble() { if (marble) { marble = null; app.tween(1, () => {}, { key: 'marble' }); } }
+function dropMarble(lam, mu) {
+  const K = scene.K, g = gcd(gcd(lam[0], lam[1]), gcd(mu[0], mu[1])) || 1;
+  lam = [lam[0] / g, lam[1] / g]; mu = [mu[0] / g, mu[1] / g];
+  const N = K.norm(mu), s = K.mul(lam, K.conj(mu)), pos = K.toC([s[0] / N, s[1] / N]);
+  const res = descend(scene.F, lam, mu, pos), cls = K.classOf(idealForm(K, lam, mu).form);
+  const pts = res.chain.map(c => [c.pos[0], c.pos[1], c.z]);
+  const segs = pts.length + (res.end === 'inf' ? 1 : 0);          // drop in, the hops, and the escape
+  marble = {
+    lam0: lam, mu0: mu, pts, end: res.end, pit: res.pit, cls, T: 0, segs,
+    norms: res.chain.map(c => c.N), tex: fracTex(K, lam, mu),
+    ok: res.end === 'inf' ? cls === 0 : res.end === 'pit' ? res.pit.cls === cls : false,
+    retry: res.end === 'gap',
+  };
+  if (res.end === 'pit') sel = res.pit.cls;
+  const m = marble;
+  app.tween(380 + 460 * (segs - 1), t => { m.T = t * segs; }, { key: 'marble', ease: 'linear' });
+}
+// Position of the marble at time T (in segments): fall in, hop along the chain, fly off to ∞.
+function marbleAt(m, T) {
+  const k = Math.min(Math.floor(T), m.segs - 1), f = AV.clamp(T - k, 0, 1), P = m.pts;
+  if (k === 0) { const e = f * f; return [P[0][0], P[0][1], P[0][2] + 1.4 * (1 - e)]; }
+  if (k >= P.length) { const e = f * f, q = P[P.length - 1]; return [q[0], q[1], q[2] + 3.2 * e]; }
+  const a = P[k - 1], b = P[k], hop = 0.22 + 0.3 * Math.hypot(b[0] - a[0], b[1] - a[1]);
+  return [AV.lerp(a[0], b[0], f), AV.lerp(a[1], b[1], f), AV.lerp(a[2], b[2], f) + 4 * hop * f * (1 - f)];
+}
+
+/* ---------- the modular surface: one point per ideal class ---------- */
+
+const modular = (() => {
+  const { mob } = AV, S3 = Math.sqrt(3) / 2;
+  const S = mob.of(0, -1, 1, 0), Tp = mob.of(1, 1, 0, 1), Tm = mob.of(1, -1, 0, 1);
+  const disk = z => { const w = AV.hyp.toDisk(z); return [-w[1], w[0]]; };      // ∞ at the top
+  const tri = [[-0.5, S3], [0.5, S3], null], edges = [], seen = new Set(), queue = [mob.id()];
+  while (queue.length && seen.size < 420) {
+    const g = queue.shift(), c = disk(mob.apply(g, [0, 2])), key = Math.round(c[0] * 1e4) + ',' + Math.round(c[1] * 1e4);
+    if (seen.has(key) || Math.hypot(c[0], c[1]) > 0.985) continue;
+    seen.add(key);
+    const v = tri.map(z => disk(mob.apply(g, z)));
+    edges.push([v[0], v[1]], [v[1], v[2]], [v[2], v[0]]);
+    for (const h of [S, Tp, Tm]) queue.push(mob.mul(g, h));
+  }
+  return { disk, edges, domain: tri.map(disk) };
+})();
+const classPoint = (K, f) => modular.disk([-f[1] / (2 * f[0]), Math.sqrt(-K.D) / (2 * f[0])]);
+
+let tessCache = null;
+function drawClasses(o, cs) {
+  const K = scene.K, { x, y, r } = inset;
+  o.save();
+  o.fillStyle = 'rgba(7,9,13,0.8)';
+  o.beginPath(); o.arc(x, y, r + 9, 0, 2 * Math.PI); o.fill();
+  o.restore();
+  const c2 = AV.camera().fit(-1, 1, -1, 1, { x: x - r, y: y - r, w: 2 * r, h: 2 * r });
+  if (!tessCache || tessCache.r !== r || tessCache.dpr !== app.dpr) {
+    const cv = document.createElement('canvas'), d = app.dpr, s = Math.ceil(2 * r + 4);
+    cv.width = cv.height = Math.ceil(s * d);
+    const c = cv.getContext('2d'), cm = AV.camera().fit(-1, 1, -1, 1, { x: 2, y: 2, w: 2 * r, h: 2 * r });
+    c.scale(d, d);
+    AV.hyp.drawDisk(c, cm, { color: 'rgba(236,235,230,0.32)', width: 1 });
+    c.save();
+    c.beginPath(); c.arc(cm.X(0), cm.Y(0), r, 0, 2 * Math.PI); c.clip();
+    c.strokeStyle = 'rgba(236,235,230,0.13)'; c.lineWidth = 0.7;
+    c.beginPath();
+    for (const [p, q] of modular.edges) AV.hyp.pathGeodesic(c, cm, p, q, 'disk');
+    c.stroke();
+    AV.hyp.drawPolygon(c, cm, modular.domain, { fill: AV.C.blue, fillAlpha: 0.1, color: 'rgba(134,170,255,0.4)', width: 1 });
+    c.restore();
+    tessCache = { cv, r, dpr: d, s };
+  }
+  o.drawImage(tessCache.cv, x - r - 2, y - r - 2, tessCache.s, tessCache.s);
+  AV.label(o, 'IDEAL CLASSES', x, y - r - 20, { size: 9.5, weight: 600, color: AV.C.muted });
+  const hot = marble && marble.T >= marble.segs - 0.02 && marble.end !== 'gap' ? marble.cls : -1;
+  K.forms.forEach((f, i) => {
+    const w = classPoint(K, f), px = c2.X(w[0]), py = c2.Y(w[1]), col = CLASS_COL[i % CLASS_COL.length];
+    const on = cs < 0 || cs === i || hot === i;
+    AV.dot(o, px, py, i === cs || i === hot ? 5 : 3.6, AV.rgba(col, on ? 1 : 0.4), { glow: i === cs || i === hot ? 4 : 0 });
+    if (i === cs || i === hot) AV.ring(o, px, py, 9, AV.rgba(col, 0.8), 1.2);
+  });
+  const w0 = classPoint(K, K.forms[0]);
+  return { key: 'inf', x: c2.X(w0[0]) + 9, y: c2.Y(w0[1]) - 1, tex: '\\infty', align: 'left', size: 11.5, color: AV.C.ink2 };
+}
+
+/* ---------- drawing ---------- */
+
+function draw(a) {
+  const K = scene.K, o = a.octx;
+  if (!K) return;
+  const cs = sel < K.h ? sel : -1;            // a class chosen for a field that is still on its way in
+  const V = view();
+  renderFloor(V);
+  const lab = [];
+
+  // a ring and a name on the nearest pit of the selected class
+  if (cs > 0 && scene.all > 0.5) {
+    let best = null, at = [geom.x, geom.y];
+    if (marble && marble.end === 'pit') { const q = project(V, marble.pts[marble.pts.length - 1]); if (q) at = q; }
+    for (const p of visiblePits(V)) {
+      if (p.s.cls !== cs) continue;
+      const dd = Math.hypot(p.x - at[0], p.y - at[1]);
+      if (!best || dd < best.dd) best = { dd, p };
+    }
+    if (best) {
+      const p = best.p, rad = AV.clamp(0.11 * V.k / p.zc, 8, 26);
+      o.save(); o.translate(p.x, p.y); o.scale(1, Math.max(0.35, Math.sin(cam.pitch)));
+      AV.ring(o, 0, 0, rad, AV.rgba(CLASS_COL[cs], 0.9), 1.4);
+      o.restore();
+      if (!marble) lab.push({ key: 'pit', x: p.x, y: p.y - rad - 9, valign: 'bottom', tex: big(fracTex(K, [p.s.x + p.s.N * p.ku, p.s.y + p.s.N * p.kv], [p.s.N, 0])), color: CLASS_COL[cs], size: 14 });
+    }
+  }
+
+  // the marble and its trail
+  if (marble && scene.all > 0.5) {
+    const m = marble, col = m.end === 'inf' ? AV.C.ink : m.end === 'pit' ? CLASS_COL[m.pit.cls] : AV.C.rose;
+    const trail = [];
+    for (let s = 0; s <= m.T + 1e-9; s += 1 / 14) { const p = project(V, marbleAt(m, Math.min(s, m.T))); if (p) trail.push([p[0], p[1]]); }
+    AV.polyline(o, trail, { color: AV.rgba(col, 0.8), width: 1.8 });
+    m.pts.forEach((P, i) => { if (m.T >= i + 1) { const p = project(V, P); if (p) AV.dot(o, p[0], p[1], 2.6, col); } });
+    const flown = m.end === 'inf' && m.T >= m.segs - 1 ? AV.clamp(m.T - (m.segs - 1), 0, 1) : 0;
+    const p = project(V, marbleAt(m, m.T));
+    if (p && flown < 1) { o.globalAlpha = 1 - flown; AV.dot(o, p[0], p[1], 5.5, col, { glow: 4 }); o.globalAlpha = 1; }
+    const p0 = project(V, [m.pts[0][0], m.pts[0][1], m.pts[0][2]]);
+    if (p0) lab.push({ key: 'start', x: p0[0], y: p0[1] + 11, valign: 'top', tex: big(m.tex), size: 13.5 });
+  }
+
+  lab.push(drawClasses(o, cs));
+  labels.set(lab);
+
+  // the live checks
+  const st = scene.stats;
+  let h = '<span class="big">' + T(fieldTex(K)) + '</span>' +
+    '<br><span class="k">pit classes</span> ' + K.pitClasses + ' <span class="k">+ 1 =</span> ' + T('h') + ' <span class="k">=</span> ' + K.h + ' ' + AV.ok(K.pitClasses + 1 === K.h) +
+    '<br><span class="k">gaps with no pit</span> ' + st.pitless + ' ' + AV.ok(st.pitless === 0);
+  if (marble) {
+    let ns = marble.norms.slice();
+    if (ns.length > 6) ns = [...ns.slice(0, 3), '\\cdots', ...ns.slice(-2)];
+    h += '<br><span class="k">remainders</span> ' + T(ns.join('\\to ') + (marble.end === 'inf' ? '\\to 0' : '')) +
+      '<br>' + (marble.end === 'inf' ? '<span class="k">a gcd: the ideal is principal</span> ' + AV.ok(marble.ok)
+        : marble.end === 'pit' ? '<span class="k">no gcd: a pit of its own class</span> ' + AV.ok(marble.ok)
+        : '<span class="k">stuck: no dome above</span> ' + AV.ok(false));
+  }
+  if (cs >= 0) {
+    const s = K.sing.find(q => q.cls === cs);
+    h += '<br>' + T((s ? '\\left(' + s.N + ',\\ ' + elemTex(K, [s.x, s.y]) + '\\right)' : '(1)') + '\\ \\leftrightarrow\\ ' + formTex(K.forms[cs]));
+  }
+  a.readout(h);
+}
+
+/* ---------- the page ---------- */
+
+const tx = AV.texify;
+function scene3(a, d, depth, tilt) {                       // a tour step's starting state
+  clearMarble(); queued = null; sel = -1; hands = false;
+  a.pause();
+  a.set('field', FIELDS.indexOf(d));
+  a.set('depth', depth);
+  a.set('tilt', tilt);
+}
+const wide = s => '<span style="display:inline-block;min-width:' + s + 'em">';
+
+app = AV.page({
+  title: "Where Euclid's Algorithm Gets Stuck",
+  hook: 'Domes over a ring of integers leave pits exactly where unique factorization fails.',
+  date: '2026-11-09',
+  credit: 'generated by Claude (Fable 5)',
+  hint: 'tap to drop a marble · drag to tilt',
+  stage: 'webgl2',
+  glOptions: { antialias: false, preserveDrawingBuffer: true },
+  edgeScrim: true,
+  autoplay: false,
+  posterStep: 2,
+  posterDelay: 5200,
+  controls: [
+    { type: 'play' },
+    { type: 'slider', id: 'field', label: '', min: 0, max: FIELDS.length - 1, step: 1, value: 0,
+      format: v => wide(4.9) + T(fieldTex({ d: FIELDS[v] })) + '</span>', onChange: () => retarget() },
+    { type: 'slider', id: 'depth', label: 'domes', min: 1, max: MMAX, step: 1, value: 1,
+      format: v => wide(4.3) + T('|\\mu|^2\\le ' + v) + '</span>', onChange: () => retarget() },
+    { type: 'toggle', id: 'tilt', label: 'tilt', value: true,
+      onChange: v => { const p0 = cam.pitch, y0 = cam.yaw, p1 = v ? 0.98 : Math.PI / 2, y1 = v ? 0.42 : 0;
+        glTween(900, t => { cam.pitch = AV.lerp(p0, p1, t); cam.yaw = AV.lerp(y0, y1, t); }, { key: 'angle' }); } },
+  ],
+  tour: [
+    { text: tx("Over the Gaussian integers, a unit dome on every lattice point roofs the plane. Tap anywhere: Euclid's algorithm hops out to $\\infty$."),
+      enter: a => { scene3(a, 1, 1, true); a.after(1500, () => dropFor(1, [1, 5], [12, 0])); } },
+    { text: tx('In $\\mathbb{Q}(\\sqrt{-19})$ unit domes leave gaps, and a marble dropped there is stuck. Smaller domes over fractions $\\lambda/\\mu$ plug every gap.'),
+      enter: a => { scene3(a, 19, 1, true); a.after(1500, () => dropFor(19, [1, 1], [2, 0])); a.after(3600, () => { a.pulse('depth'); a.set('depth', 7); }); } },
+    { text: tx('In $\\mathbb{Q}(\\sqrt{-5})$ one pit never fills, however small the domes. Marbles that roll in are stuck for good: the pit is a cusp.'),
+      enter: a => { scene3(a, 5, 21, true); a.after(1700, () => dropFor(5, [3, 5], [12, 0])); } },
+    { text: tx('A pit $\\lambda/\\mu$ is an ideal $(\\lambda,\\mu)$ that no single number generates. Its lattice shape is a point of the modular surface.'),
+      enter: a => { scene3(a, 23, 24, false); let k = 0; sel = 1; a.every(2200, () => { if (hands) return; k++; sel = 1 + k % 2; a.redraw(); }); } },
+    { text: tx('Pits, plus the cusp at $\\infty$, always count the class number. Slide through the fields; drag to tilt, tap to drop a marble.'),
+      enter: a => { scene3(a, 14, 1, true); a.pulse('field'); a.after(900, () => a.play()); } },
+  ],
+  math: tx(`<p>Let $\\mathcal{O}$ be the integers of $\\mathbb{Q}(\\sqrt{-d})$. Over each fraction $\\lambda/\\mu$ with $(\\lambda,\\mu)=\\mathcal{O}$ sits a hemisphere of radius $1/|\\mu|$,
+    an isometric sphere of the <b>Bianchi group</b> $\\mathrm{PSL}_2(\\mathcal{O})$ acting on $\\mathbb{H}^3$. A point under a dome moves to one with a smaller denominator: a step of Euclid's algorithm.
+    Unit domes alone roof the plane exactly for $d=1,2,3,7,11$.</p>
+    <p>The points under no dome are the <b>singular points</b>. With $\\infty$ they give the cusps of $\\mathbb{H}^3/\\mathrm{PSL}_2(\\mathcal{O})$, one for each ideal class.
+    A class is also a lattice shape: the root of its reduced form $ax^2+bxy+cy^2$ in the modular domain.</p>
+    <p class="ref">Bianchi 1892; Hurwitz 1892; Swan 1971; Gauss, <i>Disquisitiones</i> 1801.</p>`),
+  setup: a => {
+    const gl = a.gl;
+    app = a;
+    if (!gl) return;                                      // no WebGL2: the page stays dark but does not throw
+    G.prog = AV.gl.program(gl, null, FS);
+    G.blit = AV.gl.program(gl, null, BLIT);
+    G.quad = AV.gl.quad(gl);
+    G.texA = newMapTex(gl); G.texB = newMapTex(gl); G.sph = newMapTex(gl);
+    G.fboTex = AV.gl.texture(gl, 2, 2, null, { filter: 'linear' });
+    G.fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, G.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, G.fboTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    labels = AV.texLabels(a);
+    loadField(FIELDS[a.get('field')], a.get('depth'), true);
+    glTween(900, t => { scene.all = t; }, { key: 'field', ease: 'out' }).then(ok => { if (ok) settled(); });
+  },
+  // play: the domes arrive in order of size, hold, and start again
+  step: (dt, a) => {
+    if (motion > 0 || !scene.K || scene.K.d !== FIELDS[a.get('field')]) return;
+    playT += dt;
+    const K = scene.K, top = K.levels[K.levels.length - 1];
+    if (scene.level >= top) { if (playT > 3.2) { playT = 0; a.set('depth', 1); } return; }
+    if (playT > 0.5) { playT = 0; a.set('depth', K.levels[K.levels.indexOf(scene.level) + 1]); }
+  },
+  draw,
+});
+let playT = 0;
+
+app.onResize(a => {
+  G.key = '';                      // a resize clears the canvas, even at the same size: force the next GL draw
+  geom = a.mode === 'full' ? a.fitCircle(0) : { x: a.W / 2, y: a.H / 2, r: Math.min(a.W, a.H) * 0.42 };
+  const pad = a.W <= 760 ? 14 : 22;
+  let y0 = 0, y1 = a.H;
+  if (a.mode === 'full') { y0 = a.el.top.getBoundingClientRect().bottom; y1 = a.el.bottom.getBoundingClientRect().top; }
+  const r = AV.clamp(Math.min((y1 - y0) / 2 - 34, a.W * (a.mode === 'full' ? 0.11 : 0.085)), 30, 96);
+  inset = a.mode === 'full' ? { x: a.W - pad - r - 10, y: (y0 + y1) / 2 + 8, r } : { x: a.W - r - 22, y: a.H - r - 22, r };
+});
+
+let grab = null;
+app.pointer({
+  down: p => { hands = true; grab = Math.hypot(p.x - inset.x, p.y - inset.y) < inset.r + 10 ? null : { yaw: cam.yaw, pitch: cam.pitch }; },
+  drag: (p, d) => {
+    if (!grab) return;
+    dragging = true;
+    cam.yaw += d.dx * 0.006;
+    cam.pitch = AV.clamp(cam.pitch + d.dy * 0.005, 0.62, Math.PI / 2);
+  },
+  up: () => { dragging = false; },
+  wheel: (p, dy) => { cam.Rw = AV.clamp(cam.Rw * Math.exp(dy * 0.0012), 0.8, 7); wheelT = app.time; setTimeout(() => app.redraw(), 300); },
+  tap: p => {
+    const K = scene.K;
+    if (!K || scene.all < 0.99) return;
+    if (Math.hypot(p.x - inset.x, p.y - inset.y) < inset.r + 10) {            // pick an ideal class
+      const c2 = AV.camera().fit(-1, 1, -1, 1, { x: inset.x - inset.r, y: inset.y - inset.r, w: 2 * inset.r, h: 2 * inset.r });
+      let best = -1, bd = 26;
+      K.forms.forEach((f, i) => { const w = classPoint(K, f), dd = Math.hypot(c2.X(w[0]) - p.x, c2.Y(w[1]) - p.y); if (dd < bd) { bd = dd; best = i; } });
+      clearMarble();
+      sel = best === sel ? -1 : best;
+      return;
+    }
+    const V = view();
+    let pit = null, bd = 18;
+    for (const q of visiblePits(V)) { const dd = Math.hypot(q.x - p.x, q.y - p.y); if (dd < bd) { bd = dd; pit = q; } }
+    if (pit) { dropMarble([pit.s.x + pit.s.N * pit.ku, pit.s.y + pit.s.N * pit.kv], [pit.s.N, 0]); return; }
+    const w = pick(V, p.x, p.y);
+    if (!w) return;
+    const L = K.lat(w);
+    sel = -1;
+    dropMarble([Math.round(L[0] * 12), Math.round(L[1] * 12)], [12, 0]);     // the nearest twelfth
+  },
+});
+app.cursor('grab');
+
+/* ---------- self-checks ---------- */
+
+AV.test('class numbers by Gauss reduction match the table', () => {
+  for (const d of FIELDS) { const K = fieldData(d); if (K.h !== CLASS_NUMBER[d]) return 'h(' + K.D + ') = ' + K.h; }
+  return true;
+});
+AV.test('pit classes + 1 = class number, for all 21 fields', () => {
+  for (const d of FIELDS) { const K = fieldData(d); if (K.pitClasses + 1 !== K.h || K.sing.some(s => s.cls <= 0)) return 'fails for d = ' + d; }
+  return true;
+});
+AV.test('no dome with |μ|² ≤ 50 covers a pit (exact)', () => {
+  for (const d of FIELDS) {
+    const K = fieldData(d);
+    if (!K.sing.length) continue;
+    const F = makeFloor(K, 16); F.count = K.hems.length;                  // empty raster: forces the exhaustive exact scan
+    for (const s of K.sing) if (domeOver(F, s.x, s.y, s.N)) return 'covered pit for d = ' + d;
+  }
+  return true;
+});
+AV.test('unit domes roof the plane exactly for d = 1, 2, 3, 7, 11; d = 19 needs |μ|² ≤ 4', () => {
+  for (const d of FIELDS) {
+    const K = fieldData(d), F = addDomes(makeFloor(K, 96), K.countAt(1));
+    const open = F.ids.some(k => k < 0);
+    if (open === [1, 2, 3, 7, 11].includes(d)) return 'd = ' + d + (open ? ' has a gap' : ' is roofed');
+  }
+  const K = fieldData(19);
+  return !addDomes(makeFloor(K, 96), K.countAt(4)).ids.some(k => k < 0) || 'd = 19 still open';
+});
+AV.test("Euclid's descent finds the ideal class of every twelfth (d = 1, 5, 14, 19, 23)", () => {
+  for (const d of [1, 5, 14, 19, 23]) {
+    const K = fieldData(d), F = addDomes(makeFloor(K, 96), K.hems.length);
+    for (let x = 0; x < 12; x++) for (let y = 0; y < 12; y++) {
+      const g = gcd(gcd(x, y), 12), lam = [x / g, y / g], mu = [12 / g, 0];
+      const cls = K.classOf(idealForm(K, lam, mu).form), r = descend(F, lam, mu, K.toC([x / 12, y / 12]));
+      for (let i = 1; i < r.chain.length; i++) if (r.chain[i].N >= r.chain[i - 1].N) return 'remainders do not decrease';
+      if (r.end === 'gap' || (r.end === 'inf') !== (cls === 0) || (r.end === 'pit' && r.pit.cls !== cls)) return 'd = ' + d + ', s = (' + x + ' + ' + y + 'ω)/12: ' + r.end + ', class ' + cls;
+    }
+  }
+  return true;
+});
+</script>
+</body>
+</html>

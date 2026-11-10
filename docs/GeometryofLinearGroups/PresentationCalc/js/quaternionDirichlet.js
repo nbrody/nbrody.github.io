@@ -153,20 +153,31 @@ export function borelCovolume(K, kind, ramNorms) {
 /** LLL for a floating-point Gram matrix on the flat coordinates (the majorant). */
 export function lllFloat(E, Gflat) {
     const b = E.map((x) => x.v.slice()), den = E[0].d, D = b.length;
-    const gf = (u, w) => { let s = 0; for (let i = 0; i < D; i++) { if (!u[i]) continue; const ui = Number(u[i]); for (let j = 0; j < D; j++) if (w[j]) s += ui * Gflat[i][j] * Number(w[j]); } return s / Number(den) ** 2; };
+    const den2 = Number(den) ** 2;
+    // b as floats, kept in step with b (the same Number(…) values gf used to convert on each call)
+    const bf = b.map((v) => v.map(Number));
+    const gf = (u, w) => { let s = 0; for (let i = 0; i < D; i++) { const ui = u[i]; if (!ui) continue; const Gi = Gflat[i]; for (let j = 0; j < D; j++) if (w[j]) s += ui * Gi[j] * w[j]; } return s / den2; };
+    // The Gram matrix, updated only where b changes: row and column k after a size reduction,
+    // a swap of rows and columns after an exchange. Entries are exactly what a full rebuild gives.
+    const G = bf.map((x) => bf.map((y) => gf(x, y)));
+    const refresh = (k) => { for (let l = 0; l < D; l++) { G[k][l] = gf(bf[k], bf[l]); G[l][k] = gf(bf[l], bf[k]); } };
     let k = 1;
     for (let guard = 0; k < D && guard < 20000; guard++) {
         const mu = Array.from({ length: D }, () => new Array(D).fill(0)), Bs = [];
-        const G = b.map((x) => b.map((y) => gf(x, y)));
         for (let i = 0; i <= k; i++) {
             let s = G[i][i];
             for (let j = 0; j < i; j++) { let m = G[i][j]; for (let l = 0; l < j; l++) m -= mu[j][l] * mu[i][l] * Bs[l]; mu[i][j] = m / Bs[j]; s -= mu[i][j] * mu[i][j] * Bs[j]; }
             Bs.push(s);
         }
         let changed = false;
-        for (let j = k - 1; j >= 0; j--) { const r = Math.round(mu[k][j]); if (r) { const R = BigInt(r); b[k] = b[k].map((c, l) => c - R * b[j][l]); changed = true; break; } }
+        for (let j = k - 1; j >= 0; j--) { const r = Math.round(mu[k][j]); if (r) { const R = BigInt(r); b[k] = b[k].map((c, l) => c - R * b[j][l]); bf[k] = b[k].map(Number); refresh(k); changed = true; break; } }
         if (changed) continue;
-        if (Bs[k] < (0.99 - mu[k][k - 1] ** 2) * Bs[k - 1]) { [b[k], b[k - 1]] = [b[k - 1], b[k]]; k = Math.max(k - 1, 1); } else k++;
+        if (Bs[k] < (0.99 - mu[k][k - 1] ** 2) * Bs[k - 1]) {
+            [b[k], b[k - 1]] = [b[k - 1], b[k]]; [bf[k], bf[k - 1]] = [bf[k - 1], bf[k]];
+            [G[k], G[k - 1]] = [G[k - 1], G[k]];
+            for (const row of G) [row[k], row[k - 1]] = [row[k - 1], row[k]];
+            k = Math.max(k - 1, 1);
+        } else k++;
     }
     return b.map((v) => ({ v, d: den }));
 }

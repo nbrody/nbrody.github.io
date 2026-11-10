@@ -7,8 +7,10 @@ Node checks for the engine (no browser needed; run from this folder's parent):
     node tests/isotopy.mjs fig8    # no step moves a bead more than half the clearance before it
     node tests/coarsen.mjs         # exact build + guarded bead thinning keeps every example's invariants
     node tests/invariants.mjs      # knot determinants / linking numbers unchanged by relaxing
+    node tests/polynomials.mjs     # Alexander / Jones vs torus-knot formulas, Yamada vs brute-force skein
+    node tests/polyExamples.mjs    # every example: knot names, Yamada from several views, unchanged by relaxing
     node tests/settle.mjs k4,cube  # which point group each example settles into (slow for big graphs)
     node tests/explore.mjs theta-tangled 6   # basin hopping, as the Explore button does it
 
-Expected: examples, gradcheck, chol, isotopy, coarsen and invariants all pass; settle gives
+Expected: examples, gradcheck, chol, isotopy, coarsen, invariants, polynomials and polyExamples all pass; settle gives
 θ → D3h, K4 → Td, cube → Oh, dodecahedron → Ih, K3,3 → D3h, K5 → Td, trefoil → D3.

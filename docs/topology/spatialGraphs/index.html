@@ -10,6 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <script type="importmap">
     { "imports": {
@@ -250,23 +252,28 @@
         <div class="card-head">
             <span class="card-title">Diagram</span>
             <div class="seg-options" id="tool-options">
-                <button class="seg-opt active" data-tool="draw" title="Draw strands">Draw</button>
-                <button class="seg-opt" data-tool="move" title="Drag vertices and strands">Move</button>
-                <button class="seg-opt" data-tool="erase" title="Click a strand or vertex to remove it">Erase</button>
+                <button class="seg-opt active" data-tool="draw" title="Draw strands; hold Shift for a straight one (1)">Draw</button>
+                <button class="seg-opt" data-tool="move" title="Drag vertices and strands (2)">Move</button>
+                <button class="seg-opt" data-tool="erase" title="Click a strand or vertex to remove it (3)">Erase</button>
             </div>
             <button id="diagram-close" class="collapse-btn" title="Close (Esc)" aria-label="Close"><span class="collapse-icon">×</span></button>
         </div>
         <canvas id="diagram-canvas"></canvas>
         <div class="card-foot">
-            <div class="card-hint">Draw a stroke; end it on a strand to make a vertex there, or where it began to close a
-                loop. Click a crossing to flip it.</div>
+            <div class="card-hint">Draw a stroke (Shift for a straight one); end it on a strand to make a vertex there, or
+                where it began to close a loop. Click a crossing to flip it.</div>
             <div class="control-row">
                 <span id="diagram-stats" class="card-stats"></span>
             </div>
+            <div id="diagram-inv" class="diagram-inv"></div>
             <div class="control-row">
                 <button id="diagram-undo" class="btn btn-add-alt" title="Undo (⌘Z)">Undo</button>
                 <button id="diagram-clear" class="btn btn-add-alt">Clear</button>
                 <button id="diagram-lift" class="btn btn-primary" title="Lift the diagram into ℝ³ and let it settle">Relax in ℝ³ ▸</button>
+            </div>
+            <div class="control-row">
+                <button id="diagram-mirror" class="btn btn-add-alt" title="Flip every crossing: the mirror image">Mirror</button>
+                <button id="diagram-alt" class="btn btn-add-alt" title="Make the crossings alternate along every strand">Alternate</button>
             </div>
         </div>
     </section>
@@ -325,8 +332,11 @@
                         settle again — a good test of whether the nice picture is canonical.</li>
                     <li><b>Explore</b> hops between energy basins (kick, settle, keep the lowest): a settled shape is only a
                         local minimum.</li>
-                    <li><b>Invariants</b> (knot determinants of the cycles, linking numbers of disjoint cycles) are
-                        recomputed as it settles, as a check that nothing passed through anything.</li>
+                    <li><b>Invariants</b> are recomputed as it settles, as a check that nothing passed through anything:
+                        for every cycle its Alexander and Jones polynomials (which name it among the knots with at most
+                        7 crossings, and its sums of two, and detect chirality), linking numbers of disjoint cycles, and
+                        for the whole graph the Yamada polynomial, computed from the view with the fewest crossings.
+                        The diagram editor shows the same for the diagram as you draw it.</li>
                 </ul>
             </div>
         </div>

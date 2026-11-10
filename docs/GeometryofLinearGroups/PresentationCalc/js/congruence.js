@@ -117,6 +117,36 @@ export function kernelZero(gens, S) {
     return { gens: out, classes: reps.size, reps };
 }
 
+/**
+ * key → index for non-negative integer keys below 2⁵³ (open addressing on typed arrays). A Map
+ * stores such keys as heap numbers once they pass 2³¹, which made it most of productOrder's time.
+ */
+class NumIndex {
+    constructor() { this._alloc(1 << 12); this.size = 0; }
+    _alloc(cap) { this.keys = new Float64Array(cap).fill(-1); this.vals = new Int32Array(cap); this.mask = cap - 1; }
+    _slot(k) {
+        const lo = k % 4294967296, hi = (k - lo) / 4294967296;
+        let h = Math.imul(lo ^ Math.imul(hi, 0x9e3779b1), 0x85ebca6b);
+        h ^= h >>> 13;
+        let i = h & this.mask;
+        while (this.keys[i] !== -1 && this.keys[i] !== k) i = (i + 1) & this.mask;
+        return i;
+    }
+    get(k) { const i = this._slot(k); return this.keys[i] === -1 ? undefined : this.vals[i]; }
+    set(k, v) {
+        const i = this._slot(k);
+        if (this.keys[i] === -1) {
+            this.keys[i] = k; this.vals[i] = v;
+            if (++this.size * 2 > this.mask) this._grow();
+        } else this.vals[i] = v;
+    }
+    _grow() {
+        const { keys, vals } = this;
+        this._alloc(keys.length * 2);
+        for (let i = 0; i < keys.length; i++) if (keys[i] !== -1) { const j = this._slot(keys[i]); this.keys[j] = keys[i]; this.vals[j] = vals[i]; }
+    }
+}
+
 /** SL₂(ℤ/q) for one level: matrices as four residues, keyed by a number. */
 function levelOps(q) {
     const mul = (A, B) => [(A[0] * B[0] + A[1] * B[2]) % q, (A[0] * B[1] + A[1] * B[3]) % q, (A[2] * B[0] + A[3] * B[2]) % q, (A[2] * B[1] + A[3] * B[3]) % q];
@@ -127,43 +157,82 @@ function levelOps(q) {
 const slOrder = (q) => { if (q === 1) return 1; const p = primeOf(q); return (q / p) ** 3 * p * (p * p - 1); };
 
 /**
- * |⟨gens⟩| in ∏ SL₂(ℤ/q_i), level by level (Goursat): the image H₁ in the first level by
- * breadth-first search, with a transversal; the Schreier generators of the kernel of H → H₁ lie in
- * the other levels, and |H| = |H₁| · |kernel|, by recursion. Every search is the size of one
- * level's image. gens: arrays of per-level matrices. Returns the order, or null past the cap/deadline.
+ * |⟨gens⟩| in ∏ SL₂(ℤ/q_i), level by level (Goursat), by Schreier–Sims on the chain of levels:
+ * G_0 = ⟨gens⟩ ⊇ G_1 ⊇ … with G_l the elements trivial at the levels before l. Each level keeps
+ * the orbit of 1 under G_l there (G_l's image in SL₂(ℤ/q_l)) with a transversal, and |H| = ∏ of the
+ * orbit sizes. A Schreier generator t_x · s · t_{xs}⁻¹ is sifted down the chain and kept only when
+ * it is not already in it, so each level keeps about log₂|G_l| generators instead of every
+ * Schreier generator (a search over all of them was most of the congruence step's time).
+ * gens: arrays of per-level matrices. Returns the order, or null past the cap/deadline.
  */
 function productOrder(gens, ops, cap, deadline) {
-    if (!ops.length) return 1;
-    const [A, ...rest] = ops;
-    const seen = new Map();                   // key → index into states
-    const states = [A.one], trans = [rest.map((o) => o.one)];
-    seen.set(A.key(A.one), 0);
-    const kernel = new Map();                 // Schreier generators in the other levels, by key
-    const restKey = (xs) => xs.map((x, i) => rest[i].key(x)).join('|');
-    const isOne = (xs) => xs.every((x, j) => x[1] === 0 && x[2] === 0 && x[0] === rest[j].one[0] && x[3] === rest[j].one[3]);
-    for (let i = 0; i < states.length; i++) {
-        if ((i & 4095) === 4095 && Date.now() > deadline) return null;
-        for (const g of gens) {
-            const y = A.mul(states[i], g[0]);
-            const ty = trans[i].map((x, j) => rest[j].mul(x, g[j + 1]));
-            const k = A.key(y);
-            const at = seen.get(k);
-            if (at === undefined) {
-                if (states.length >= cap) return null;
-                seen.set(k, states.length); states.push(y); trans.push(ty);
-            } else if (rest.length) {
-                // Schreier: t_x · g · t_{xg}⁻¹ is trivial in the first level, and these generate the
-                // kernel (the conjugates t_{xg}⁻¹ · t_x g need not)
-                const s = trans[at].map((x, j) => rest[j].mul(ty[j], rest[j].inv(x)));
-                if (isOne(s)) continue;
-                const sk = restKey(s);
-                if (!kernel.has(sk)) { if (kernel.size >= cap) return null; kernel.set(sk, s); }
-            }
+    const R = ops.length;
+    if (!R) return 1;
+    const qs = ops.map((o) => o.q);
+    // an element: 4R residues, level by level
+    const flat = (g) => { const x = new Array(4 * R); for (let l = 0; l < R; l++) for (let t = 0; t < 4; t++) x[4 * l + t] = g[l][t]; return x; };
+    const ID = flat(ops.map((o) => o.one));
+    const mul = (x, y) => {
+        const z = new Array(4 * R);
+        for (let l = 0, o = 0; l < R; l++, o += 4) {
+            const q = qs[l];
+            z[o] = (x[o] * y[o] + x[o + 1] * y[o + 2]) % q; z[o + 1] = (x[o] * y[o + 1] + x[o + 1] * y[o + 3]) % q;
+            z[o + 2] = (x[o + 2] * y[o] + x[o + 3] * y[o + 2]) % q; z[o + 3] = (x[o + 2] * y[o + 1] + x[o + 3] * y[o + 3]) % q;
         }
+        return z;
+    };
+    // x · y⁻¹ (y ∈ SL₂ at every level: y⁻¹ = (y3, −y1; −y2, y0))
+    const mulInv = (x, y) => {
+        const z = new Array(4 * R);
+        for (let l = 0, o = 0; l < R; l++, o += 4) {
+            const q = qs[l], v0 = y[o + 3], v1 = (q - y[o + 1]) % q, v2 = (q - y[o + 2]) % q, v3 = y[o];
+            z[o] = (x[o] * v0 + x[o + 1] * v2) % q; z[o + 1] = (x[o] * v1 + x[o + 1] * v3) % q;
+            z[o + 2] = (x[o + 2] * v0 + x[o + 3] * v2) % q; z[o + 3] = (x[o + 2] * v1 + x[o + 3] * v3) % q;
+        }
+        return z;
+    };
+    const keyAt = (x, l) => { const q = qs[l], o = 4 * l; return ((x[o] * q + x[o + 1]) * q + x[o + 2]) * q + x[o + 3]; };
+    const lv = ops.map((_, l) => { const orbit = new NumIndex(); orbit.set(keyAt(ID, l), 0); return { orbit, trans: [ID], gens: [] }; });
+    class Stop extends Error { }
+    let ticks = 0;
+    /** x, trivial before level L, divided down the chain: null if it is in it, else the residue and its level */
+    const sift = (x, L) => {
+        for (let l = L; l < R; l++) {
+            const i = lv[l].orbit.get(keyAt(x, l));
+            if (i === undefined) return { x, l };
+            if (i) x = mulInv(x, lv[l].trans[i]);
+        }
+        return null;
+    };
+    // the residue joins every level from `from` down to its own (generators are nested: S_l ⊆ S_{l−1})
+    const addResidue = (r, from) => { for (let j = r.l; j >= from; j--) addGen(j, r.x); };
+    /** Add g to S_L and close level L's orbit under it, sifting each new Schreier generator. */
+    function addGen(L, g) {
+        const S = lv[L];
+        S.gens.push(g);
+        const edge = (i, s) => {
+            if ((++ticks & 4095) === 0 && Date.now() > deadline) throw new Stop();
+            const y = mul(S.trans[i], s), k = keyAt(y, L), j = S.orbit.get(k);
+            if (j === undefined) {
+                if (S.trans.length >= cap) throw new Stop();
+                S.orbit.set(k, S.trans.length); S.trans.push(y);
+            } else if (L + 1 < R) {
+                const r = sift(mulInv(y, S.trans[j]), L + 1);
+                if (r) addResidue(r, L + 1);
+            }
+        };
+        // the new generator on the old points, then every generator on the new points
+        const n0 = S.trans.length;
+        for (let i = 0; i < n0; i++) edge(i, g);
+        for (let i = n0; i < S.trans.length; i++) for (const s of S.gens) edge(i, s);
     }
-    if (!rest.length) return states.length;
-    const k = productOrder([...kernel.values()], rest, cap, deadline);
-    return k === null ? null : states.length * k;
+    try {
+        for (const g of gens) { const r = sift(flat(g), 0); if (r) addResidue(r, 0); }
+    } catch (e) {
+        if (e instanceof Stop) return null;
+        throw e;
+    }
+    return lv.reduce((s, l) => s * l.trans.length, 1);
 }
 
 /**

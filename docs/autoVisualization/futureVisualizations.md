@@ -1,122 +1,72 @@
-# Future visualizations — rolling queue
+# Future visualizations — the queue
 
-Maintained by the daily AutoViz run. Rules:
+Maintained by the daily AutoViz run: build the TOP entry, delete it, and keep **at least 5**
+entries below, in priority order. Consecutive entries should differ in topic *and* in form
+(single stage, panes + chart, 3D, shader). Root ideas in the site's world (see HARNESS.md,
+"Inspiration"); never queue something an existing site tool already does.
 
-- Keep **at least 5** upcoming entries, in priority order. The daily run builds the top
-  entry, removes it, and appends replacements the same day.
-- Every entry must name its **planned interactive/dynamic component** — an entry with no
-  interaction planned doesn't belong in the queue.
-- Root ideas in this site's existing mathematical world (see the Inspiration section of
-  `HARNESS.md`): linear groups, arithmetic subgroups, hyperbolic geometry, Kleinian and
-  Fuchsian groups, character varieties, knots and braids, Cayley graphs, tilings and
-  Coxeter groups, dynamics with exact arithmetic underneath.
-- Vary the area across consecutive days; never queue something an existing site tool
-  already does — build something adjacent that complements it.
+Every entry has the same shape — if a field is hard to fill, the idea is not ready:
 
-Entry format: title, area, the phenomenon and the honest theorem behind it, the planned
-interaction, and the connection to existing site content.
+```
+## Title (≤ 7 words)
+- topics: ids from AUTOVIZ_TOPICS · form: stage/panes/3D/shader + kit modules
+- idea: the one phenomenon, one sentence
+- gesture: the single direct interaction
+- aha: what the user sees happen that makes the theorem click
+- live check: the readout identity with ✓/✗
+- tour: 3–5 beats (see → do → surprise → why)
+- math: the exact theorem for the ⓘ sheet, with names
+- site tie: which existing page/tool it complements
+```
 
-## Queue
-1. **Hyperbolic Dehn Surgery on the Figure-Eight Knot** — 3-manifolds · Kleinian groups.
-   Thurston's hyperbolic Dehn surgery theorem: all but finitely many fillings of the
-   figure-eight knot complement are hyperbolic, and the gluing/completeness equations of its
-   two ideal tetrahedra deform in a one-complex-dimensional family, the shape z of a
-   tetrahedron moving off the regular value z = e^{iπ/3} as the cone angle changes; volume
-   is maximal exactly at the complete structure (Milnor's Lobachevsky function).
-   *Interaction:* drag the surgery coefficient (p, q) on a grid and watch Newton's method
-   solve the gluing equations live, with the two tetrahedron shapes plotted in the upper
-   half-plane, the volume 2Λ(π/3)-decreasing readout, and a flag when a shape degenerates.
-   *Site tie:* the Kleinian-groups section, GPS manifolds, and the knot-theory pages.
+---
 
-2. **Growth Series of Coxeter Groups and Salem Numbers** — Coxeter groups · exact arithmetic.
-   Steinberg's formula computes the growth series W(t) = Σ t^{ℓ(w)} of a Coxeter group as a
-   rational function assembled from the finite parabolic subgroups, 1/W(1/t) = Σ_{W_S finite}
-   (−1)^{|S|}/W_S(t); it is a rational function with integer coefficients, and for a cocompact
-   hyperbolic Coxeter group in rank 4 the reciprocal of its smallest positive root is a Salem
-   number — Cannon–Wagreich's growth of the (2,3,7)-triangle group being the classic example.
-   *Interaction:* edit the Coxeter diagram (drag edge labels m_ij) and watch the growth series
-   recomputed exactly over ℤ as the ball sizes in the Cayley graph enumerate alongside; the
-   roots animate in the complex plane, crossing onto the unit circle as the group leaves the
-   spherical/affine range.
-   *Site tie:* the triangle-group kaleidoscopes page and the space-groups tool — this is the
-   arithmetic invariant hiding inside those tilings.
+## Laminations on the Punctured Torus
+- topics: topology, linear · form: panes (ML plane | torus picture); `exact`, `linalg`
+- idea: measured laminations on the punctured torus are points of (ℝ² ∖ 0)/±1, and SL₂(ℤ) acts on them linearly.
+- gesture: drag a point in the lamination plane; the torus shows the weighted train track.
+- aha: rational rays are simple closed curves, irrational rays fill the surface densely, and an Anosov map pushes everything onto its unstable ray.
+- live check: intersection i(λ, μ) = |det(λ, μ)| ✓ for the two drawn laminations.
+- tour: the curve (1,0) → a slope-2/3 curve → an irrational ray, dense → apply the cat map repeatedly: convergence to the unstable direction.
+- math: Thurston; for the once-punctured torus PML = S¹ = ∂ℍ with Mod = SL₂(ℤ) acting projectively; invariant laminations of Anosov maps are quadratic irrationals.
+- site tie: continues the 2026-09-25 Dehn-twist page; the boundary the Riley slice's cusp rays are indexed by.
 
-3. **Thompson's Group F: Tree Pairs and Dyadic Rearrangements** — geometric group theory.
-   F is the group of piecewise-linear homeomorphisms of [0,1] with dyadic breakpoints and
-   slopes powers of 2; it is presented by ⟨x₀, x₁, … | x_k^{-1} x_n x_k = x_{n+1}, k < n⟩, is
-   torsion-free of infinite geometric dimension, and every element is a reduced tree pair
-   (T₋, T₊) with the same number of leaves — composition being the "common refinement" of the
-   two trees.
-   *Interaction:* build two binary trees by clicking to split leaves, see the resulting PL
-   graph of the homeomorphism and its action animated on a row of dyadic points; compose two
-   elements and watch the refinement/reduction cancel carets in real time.
-   *Site tie:* the Cayley-graph and amenability threads — F is the standing open question
-   those tools circle around.
+## The Three-Gap Theorem
+- topics: numbers, dynamics · form: single 2D stage (a circle of points + a strip of gap lengths); `exact`, `tex`
+- idea: the points 0, α, 2α, …, (N − 1)α on a circle cut it into gaps of at most three different lengths, whatever α and N are.
+- gesture: drag α around the circle; one slider for N.
+- aha: the gaps recolor constantly but never show a fourth length, and when there are three the longest is exactly the sum of the other two; at the denominators of the convergents of α only two lengths remain.
+- live check: number of distinct gap lengths ≤ 3 ✓ and longest = sum of the other two ✓ (exact, for rational α with BigInt).
+- tour: N = 5, three lengths → slide N: still three → N = a convergent denominator: two lengths → α = golden mean: the gaps are always in golden ratio.
+- math: Steinhaus's conjecture, proved by Sós 1957, Świerczkowski 1958 and Surányi 1958; the lengths are ‖q_nα‖-type quantities read off the continued fraction of α.
+- site tie: the cutting-sequence and Euclid pages: continued fractions seen as a rotation.
 
-4. **Lorenz Knots from the Geometric Model** — dynamics · knot theory.
-   Birman–Williams: periodic orbits of the Lorenz flow, collapsed along the stable foliation
-   onto the branched-surface template, are exactly the closures of *Lorenz braids* — positive
-   braids whose underlying permutation moves an initial block of strands rightwards past the
-   rest, order-preserving on each block. Every Lorenz knot is therefore fibered and prime, and
-   its genus is given by Bennequin's formula 2g = c − n + 1 for the positive braid; the trefoil
-   is the simplest one.
-   *Interaction:* integrate the Lorenz equations live, capture a near-periodic orbit, and watch
-   it project onto the template while the Lorenz permutation and its positive braid word are
-   read off; a slider on ρ moves through the parameter family and changes which knots appear.
-   *Site tie:* the knot-theory pages (mosaics, energies) and the dynamics thread — a bridge
-   between the two that no existing tool covers.
+## Dehn Surgery on the Figure-Eight Knot
+- topics: topology, hyperbolic · form: panes (surgery grid | shape plane); `complex`, `plot`
+- idea: almost every Dehn filling of the figure-eight knot complement is hyperbolic, with volume increasing to the complete structure's 2.0298…
+- gesture: tap a point (p, q) on the surgery grid.
+- aha: the two tetrahedron shapes slide off e^{iπ/3} as Newton solves the gluing equations, and the ten exceptional slopes are exactly where a shape degenerates.
+- live check: gluing equations satisfied (residual < 1e-12) ✓; volume ≤ 2.0298832 ✓.
+- tour: the complete structure → (5,1) filling → approach an exceptional slope: degeneration → volumes over the grid.
+- math: Thurston's hyperbolic Dehn surgery theorem; the figure-eight's exceptional slopes are 0, ±1, ±2, ±3, ±4, ∞.
+- site tie: the Kleinian-groups section and the knot pages.
 
-5. **Bianchi Groups: Cusps and Class Numbers** — arithmetic Kleinian groups · algebraic number theory.
-   PSL₂(O_d) acts on hyperbolic 3-space with finite covolume, and its cusps are in bijection
-   with the ideal class group of O_d = the ring of integers of ℚ(√−d) — so PSL₂(ℤ[i]) has one
-   cusp while PSL₂(O₅) has h(−20) = 2. The isometric spheres |cz + d| = 1 over the lattice O_d
-   cut out the Bianchi fundamental polyhedron, whose floor is exactly where no sphere covers.
-   *Interaction:* select d from the squarefree list, watch the isometric hemispheres accumulate
-   over the ℂ-plane as the (c,d) pairs enumerate in order of |c|, with the exposed floor shaded
-   live; cusp representatives (non-principal ideals) appear as marked points, and the counter
-   checks the count against the class number computed by exact ideal reduction.
-   *Site tie:* the Kleinian section, GPS manifolds, and the quaternion-algebra pages — this is
-   the arithmetic lattice those tools take for granted.
+## Hurwitz's Complex Continued Fractions
+- topics: numbers, dynamics · form: single 2D stage (Gaussian integer grid + orbit) ; `complex`, `exact`, `tex`
+- idea: rounding to the nearest Gaussian integer and inverting expands every complex number as a continued fraction, and the tails fill a square with an invariant density.
+- gesture: drag the point z; its convergents p_n/q_n hop toward it.
+- aha: the convergents land on z at a geometric rate for almost every z, the expansion stops exactly on ℚ(i), and the orbit of the Gauss map paints a fractal-edged invariant measure.
+- live check: |z − p_n/q_n| < 1/|q_n|² ✓ and |q_n| strictly increasing ✓ (exact Gaussian arithmetic).
+- tour: z = (1 + 5i)/12: the expansion stops → an irrational z: convergents spiral in → 20 000 iterates of the Gauss map: the invariant density → quadratic irrationals are periodic.
+- math: A. Hurwitz 1887 (nearest-integer complex continued fractions); |q_n| increases and convergence is geometric; Lagrange-type theorem for quadratic irrationals over ℚ(i).
+- site tie: the 2026-11-09 Euclid page — its marble is one step of this map, here iterated forever.
 
-6. **The Coxeter Plane and the Coxeter Number** — Coxeter groups · root systems.
-   Every finite Coxeter group W has a Coxeter element c (a product of all simple reflections)
-   of order the Coxeter number h, and it acts on a distinguished 2-plane — the Coxeter plane —
-   as rotation by exactly 2π/h; projecting the root system onto that plane gives the familiar
-   h-fold rosettes (h = 30 for E₈, its 240 roots landing in 8 concentric 30-gons). The exponents
-   m₁ ≤ ⋯ ≤ mₙ are the eigenvalue data, with Σmᵢ = number of positive roots.
-   *Interaction:* pick a root system (A_n, B_n, D_n, E₆, E₇, E₈, H₃, H₄) and watch c act, roots
-   stepping 2π/h per click or animating continuously; a slider reorders the simple reflections to
-   show every Coxeter element is conjugate, and a readout checks h, the exponents, and |Φ⁺| = Σmᵢ.
-   *Site tie:* the triangle-group kaleidoscopes and space-groups tool — the linear-algebraic
-   skeleton behind those reflection tilings.
-7. **Jørgensen's Inequality and the Shape of Discreteness** — Kleinian groups · discreteness.
-   If ⟨A, B⟩ ⊂ SL₂(ℂ) is discrete and non-elementary then |tr²A − 4| + |tr[A,B] − 2| ≥ 1, with
-   equality attained e.g. by the modular group and the figure-eight knot group; for A
-   parabolic this is Shimizu–Leutbecher's bound |c| ≥ 1 on the lower-left entry of B.
-   *Interaction:* drag (tr A, tr B, tr AB) in a slice of the character variety; the Jørgensen
-   quantity is shaded live, and a small orbit plot of the group acting on ℂ̂ turns chaotic as the
-   point crosses into the forbidden region; presets land on the extremal groups.
-   *Site tie:* the discreteness-certificate and Riley-slice tools — this is the universal
-   necessary condition those tools test against.
-8. **Hecke Groups and Discreteness at λ = 2cos(π/q)** — Fuchsian groups · number theory.
-   Hecke's theorem: the group generated by z ↦ −1/z and z ↦ z + λ (λ > 0) is discrete if and only
-   if λ ≥ 2 or λ = 2cos(π/q) for an integer q ≥ 3; at those values it is the (2, q, ∞) triangle
-   group, and its cusp set is the field of λ-continued fractions (Rosen), all of ℚ(λ) ∪ {∞} exactly
-   when q ∈ {3, 4, 6} (Leutbecher).
-   *Interaction:* a λ slider sweeps continuously; the orbit of a fundamental strip is drawn in the
-   upper half-plane and visibly tiles for the Hecke values while overlapping elsewhere; a readout
-   runs the Rosen continued-fraction algorithm on a chosen point with exact arithmetic in ℤ[λ].
-   *Site tie:* the Fuchsian discreteness calculator and cutting-sequence pages — the one-parameter
-   family where discreteness is decided by a single trigonometric number.
-9. **Measured Laminations on the Punctured Torus and Thurston's Circle at Infinity** — Teichmüller theory · piecewise-linear dynamics.
-   Measured laminations on the once-punctured torus are parametrised by ML ≅ (ℝ² ∖ 0)/±1 (Dehn–Thurston
-   / train-track coordinates), with the simple closed curves as the primitive integer points and
-   PML = S¹ compactifying Teichmüller space ℍ; Mod = SL₂(ℤ) acts *linearly* on these coordinates
-   (the punctured torus is special), so projective classes of Anosov invariant laminations are
-   quadratic irrationals, and intersection number i(λ, μ) = |det| extends continuously to ML.
-   *Interaction:* drag a point in the ML plane and see the lamination drawn as a fat train track
-   of weighted parallel strands on the punctured torus (integer points = curves, irrational rays =
-   minimal laminations filling densely); apply twists to watch the point move and a Farey-disc
-   inset show the same class on ∂ℍ, with a slider sampling rational approximants p/q → the ray.
-   *Site tie:* the natural continuation of the 2026-09-25 Dehn-twist page and the Farey / Riley-slice
-   pictures — the boundary that the Riley slice's cusp rays are indexed by.
+## The Volume of an Ideal Tetrahedron
+- topics: hyperbolic, topology · form: shader stage (the shape plane) + overlay tetrahedron; `gl`, `complex`, `tex`
+- idea: an ideal hyperbolic tetrahedron is one complex number z, and its volume is the Bloch–Wigner dilogarithm D(z).
+- gesture: drag the shape parameter z in the upper half-plane.
+- aha: the volume landscape has a single peak, at the regular tetrahedron z = e^{iπ/3}, and the six shapes z, 1/(1 − z), 1 − 1/z and their mirror images all carry the same volume up to sign.
+- live check: D(z) = Λ(α) + Λ(β) + Λ(γ) for the three dihedral angles ✓ (two independent series) and D(z) ≤ 1.0149416… ✓.
+- tour: a thin tetrahedron, small volume → drag toward the peak → the regular one: 1.01494 → two of them make the figure-eight knot complement: 2.02988.
+- math: Lobachevsky; Milnor 1982 (volume = sum of Lobachevsky functions of the dihedral angles); Bloch–Wigner D(z) = Im Li₂(z) + arg(1 − z) log|z|; the regular ideal tetrahedron is the unique maximum.
+- site tie: the Kleinian section and the knot pages; pairs with the Dehn surgery entry below.

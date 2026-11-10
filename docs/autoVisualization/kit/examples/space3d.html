@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Torus Knots · AutoViz kit example</title>
+<link rel="stylesheet" href="../av.css">
+</head>
+<body>
+<!-- Kit example: a 3D curve with the orbit camera (space3d.js), presets, drag-to-orbit, exact invariants. -->
+<script src="../av.js"></script>
+<script src="../draw.js"></script>
+<script src="../space3d.js"></script>
+<script src="../exact.js"></script>
+<script>
+'use strict';
+const KNOTS = { '2,3': [2, 3], '2,5': [2, 5], '3,4': [3, 4], '3,5': [3, 5], '2,7': [2, 7] };
+const cam = AV.orbit3d({ yaw: 0.5, pitch: 0.55, dist: 5 });
+let morph = 1;                        // tube radius factor: 1 = the knot on its torus, 0 = collapsed onto the core
+
+const point = (p, q, t, m = morph) => {
+  const R = 1.5 + 0.55 * m * Math.cos(q * t);
+  return [R * Math.cos(p * t), 0.55 * m * Math.sin(q * t), R * Math.sin(p * t)];
+};
+const curve = (p, q, m = morph, N = 720) => Array.from({ length: N }, (_, i) => point(p, q, 2 * Math.PI * i / N, m));
+let shown = '2,3';
+function torusGuides() {
+  const rings = [];
+  for (let k = 0; k < 24; k++) {
+    const th = 2 * Math.PI * k / 24, ring = [];
+    for (let i = 0; i <= 48; i++) {
+      const f = 2 * Math.PI * i / 48, R = 1.5 + 0.55 * morph * Math.cos(th);
+      ring.push([R * Math.cos(f), 0.55 * morph * Math.sin(th), R * Math.sin(f)]);
+    }
+    rings.push(ring);
+  }
+  return rings;
+}
+
+function draw(app) {
+  const ctx = app.ctx, [p, q] = KNOTS[app.get('knot')];
+  AV.clear(app);
+  const fit = app.fitCircle(10);
+  cam.fit({ x: fit.x - fit.r, y: fit.y - fit.r, w: 2 * fit.r, h: 2 * fit.r }, 2.1);
+  AV.curves3d(ctx, cam, torusGuides(), { color: AV.C.blue, alpha: 0.16, width: 0.8, depthCue: 0.9 });
+  AV.curves3d(ctx, cam, [curve(p, q)], { closed: true, width: 3, colorAt: (_, t) => AV.ramp(0.15 + 0.7 * Math.abs(2 * t - 1)), depthCue: 0.7 });
+  const g = (p - 1) * (q - 1) / 2, c = Math.min(p * (q - 1), q * (p - 1));
+  app.readout('<span class="big">T(' + p + ', ' + q + ')</span><br><span class="k">genus</span> ' + g +
+    ' &nbsp;<span class="k">crossings</span> ' + c + '<small>gcd(' + p + ', ' + q + ') = ' + AV.ex.gcd(p, q) + ' ' + AV.ok(AV.ex.gcd(p, q) === 1n) + '</small>');
+}
+
+const app = AV.page({
+  title: 'Torus Knots',
+  hook: 'Wind a string p times around a torus and q times through its hole.',
+  date: 'kit example',
+  hint: 'drag to orbit',
+  controls: [
+    { type: 'play' },
+    { type: 'segmented', id: 'knot', value: '2,3', label: 'Knot',
+      options: Object.keys(KNOTS).map(k => ({ value: k, label: '(' + k.replace(',', ', ') + ')' })),
+      onChange: v => { if (v !== shown) { shown = v; app.tween(900, u => { morph = u; }, { key: 'morph' }); } } },
+  ],
+  tour: [
+    { text: 'The trefoil is the (2, 3) torus knot: twice around the torus, three times through the hole.',
+      enter: a => { a.set('knot', '2,3'); morph = 1; a.play(); } },
+    { text: 'Shrink the torus and the knot collapses onto its core circle, wrapping around it <i>p</i> times.',
+      enter: a => { a.play(); a.tween(1400, u => { morph = 1 - u; }, { key: 'morph' }).then(() => a.after(600, () => a.tween(1400, u => { morph = u; }, { key: 'morph' }))); } },
+    { text: 'Try other coprime pairs: T(<i>p</i>, <i>q</i>) has genus (<i>p</i>−1)(<i>q</i>−1)/2.',
+      enter: a => { morph = 1; a.set('knot', '3,5'); a.pulse('knot'); a.play(); } },
+  ],
+  math: `<p>For coprime <i>p</i>, <i>q</i> the curve winding <i>p</i> times around the core of a standard torus and <i>q</i> times around its meridian
+    is the <b>torus knot</b> T(<i>p</i>, <i>q</i>). It is fibred of genus (<i>p</i>−1)(<i>q</i>−1)/2, its crossing number is
+    min(<i>p</i>(<i>q</i>−1), <i>q</i>(<i>p</i>−1)), and T(<i>p</i>, <i>q</i>) ≅ T(<i>q</i>, <i>p</i>).</p>
+    <p class="ref">A kit example: orbit camera, depth-cued curves, presets with a morph.</p>`,
+  step: dt => cam.spin(dt, 0.25),
+  draw,
+});
+app.pointer({ drag: (p, d) => cam.drag(d.dx, d.dy) });
+
+AV.test('every preset is a coprime pair', () => Object.values(KNOTS).every(([p, q]) => AV.ex.gcd(p, q) === 1n));
+AV.test('the curve closes up and lies on the torus', () => {
+  const a = point(3, 5, 0, 1), b = point(3, 5, 2 * Math.PI, 1);
+  const onTorus = curve(3, 5, 1).every(([x, y, z]) => Math.abs((Math.hypot(x, z) - 1.5) ** 2 + y * y - 0.3025) < 1e-9);
+  return (onTorus && Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-12) || 'not a closed curve on the torus';
+});
+</script>
+</body>
+</html>

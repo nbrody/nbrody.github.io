@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Arctic Circle of Domino Tilings · AutoViz</title>
+<link rel="stylesheet" href="../kit/av.css">
+<link rel="stylesheet" href="../kit/vendor/katex/katex.min.css">
+</head>
+<body>
+<script src="../kit/av.js"></script>
+<script src="../kit/draw.js"></script>
+<script src="../kit/gl.js"></script>
+<script src="../kit/vendor/katex/katex.min.js"></script>
+<script src="../kit/tex.js"></script>
+<script>
+'use strict';
+
+/*MATH-BEGIN*/
+/* ---------- mathematics: domino tilings of the Aztec diamond ----------
+   Cell (i, j) is the unit square [i, i+1] × [j, j+1], y up. The Aztec diamond AD(n) is the set of
+   cells with |i + ½| + |j + ½| ≤ n: 2n(n+1) cells, n(n+1) dominoes.
+   A tiling lives in a (2·cap)² byte grid; a cell holds where its partner is:
+   0 empty · 1 partner to the east · 2 west · 3 north · 4 south.
+   Two flag bits are used only by the animation: 8 = this pair was destroyed by the last step (set in
+   the old grid), 16 = this pair was created by the last step (set in the new grid). */
+
+const EAST = 1, WEST = 2, NORTH = 3, SOUTH = 4, GONE = 8, MADE = 16;
+
+const inDiamond = (i, j, n) => (i < 0 ? -i - 1 : i) + (j < 0 ? -j - 1 : j) < n;
+
+/* One step of domino shuffling (Elkies–Kuperberg–Larsen–Propp): AD(n) in src → AD(n+1) in dst.
+   The 2×2 blocks centered at the lattice points (x, y) with |x| + |y| ≤ n and x + y ≡ n (mod 2)
+   each contain 2, 1 or 0 whole dominoes of the tiling:
+     2 (a facing pair)  → destroyed;
+     1                  → slides across its block (one step north, south, east or west);
+     0                  → created: a fair coin fills the block with two horizontal or two vertical dominoes.
+   coin() returns 0 or 1. Returns [pairs created, pairs destroyed]. */
+function shuffleStep(src, dst, cap, n, coin) {
+  const S = 2 * cap;
+  let made = 0, gone = 0;
+  for (let y = -n; y <= n; y++) {
+    const w = n - (y < 0 ? -y : y);
+    for (let x = -w; x <= w; x += 2) {
+      const sw = (y - 1 + cap) * S + (x - 1 + cap), se = sw + 1, nw = sw + S, ne = nw + 1;
+      const a = src[sw] & 7, b = src[se] & 7, c = src[nw] & 7;
+      const bottom = a === EAST, top = c === EAST, left = a === NORTH, right = b === NORTH;
+      if (bottom) {
+        if (top) { src[sw] |= GONE; src[se] |= GONE; src[nw] |= GONE; src[ne] |= GONE; gone++; }
+        else { dst[nw] = EAST; dst[ne] = WEST; }                    // north-going
+      } else if (top) { dst[sw] = EAST; dst[se] = WEST; }           // south-going
+      else if (left) {
+        if (right) { src[sw] |= GONE; src[se] |= GONE; src[nw] |= GONE; src[ne] |= GONE; gone++; }
+        else { dst[se] = NORTH; dst[ne] = SOUTH; }                  // east-going
+      } else if (right) { dst[sw] = NORTH; dst[nw] = SOUTH; }       // west-going
+      else {
+        made++;
+        if (coin()) { dst[sw] = EAST | MADE; dst[se] = WEST | MADE; dst[nw] = EAST | MADE; dst[ne] = WEST | MADE; }
+        else { dst[sw] = NORTH | MADE; dst[nw] = SOUTH | MADE; dst[se] = NORTH | MADE; dst[ne] = SOUTH | MADE; }
+      }
+    }
+  }
+  return [made, gone];
+}
+
+/* The way a domino of a tiling of AD(n) slides at the next shuffle: 0 north, 1 south, 2 east, 3 west.
+   It depends only on the checkerboard color of the domino's cells. v = the partner code of cell (i, j). */
+function kindOf(i, j, v, n) {
+  const p = (i + j + n + (v === EAST || v === NORTH ? 1 : 0)) & 1;
+  return v <= WEST ? (p ? 0 : 1) : (p ? 2 : 3);
+}
+
+/* Structural check of a grid as a tiling of AD(n), recomputed from the bytes alone: every cell of the
+   diamond has a partner inside the diamond that points back, and the cells around it are empty (the
+   scan covers the bounding square of AD(n+2); a shuffle never writes farther out).
+   Also counts the four kinds, and the cells centered outside the circle x² + y² = (n/√2 + margin)² whose
+   domino has the kind of its corner (north-going in the north corner, …): the frozen pattern. */
+function inspect(grid, cap, n, margin = 0) {
+  const S = 2 * cap, kinds = [0, 0, 0, 0], lim = Math.min(cap, n + 2);
+  const DI = [0, 1, -1, 0, 0], DJ = [0, 0, 0, 1, -1], BACK = [0, WEST, EAST, SOUTH, NORTH];
+  const r2 = margin ? 4 * (n / Math.SQRT2 + margin) ** 2 : 2 * n * n;     // 4r², exact when margin = 0
+  let ok = true, cells = 0, outside = 0, frozen = 0;
+  for (let j = -lim; j < lim; j++) {
+    const h = j >= 0 ? n - j : n + j + 1, row = (j + cap) * S + cap;      // row j of AD(n): cells −h … h − 1
+    for (let i = -lim; i < lim; i++) {
+      const v = grid[row + i] & 7;
+      if (i < -h || i >= h) { if (v) ok = false; continue; }
+      cells++;
+      if (v < 1 || v > 4) { ok = false; continue; }
+      const i2 = i + DI[v], j2 = j + DJ[v];
+      if (!inDiamond(i2, j2, n) || (grid[(j2 + cap) * S + i2 + cap] & 7) !== BACK[v]) { ok = false; continue; }
+      const k = kindOf(i, j, v, n);
+      if (v === EAST || v === NORTH) kinds[k]++;
+      const x = 2 * i + 1, y = 2 * j + 1;                                 // twice the cell's center
+      if (x * x + y * y > r2) {
+        outside++;
+        if (k === (Math.abs(y) > Math.abs(x) ? (y > 0 ? 0 : 1) : (x > 0 ? 2 : 3))) frozen++;
+      }
+    }
+  }
+  const dominoes = kinds[0] + kinds[1] + kinds[2] + kinds[3];
+  if (cells !== 2 * n * (n + 1) || dominoes !== n * (n + 1)) ok = false;
+  return { ok, cells, dominoes, kinds, outside, frozen };
+}
+
+/* The number of domino tilings of AD(n), by a method that knows nothing about shuffling: a transfer
+   matrix over the rows, the state being the set of cells already covered from the row below. Exact (BigInt). */
+function countTilings(n) {
+  const half = j => (j >= 0 ? n - j : n + j + 1);
+  let states = new Map([[0, 1n]]);
+  for (let j = -n; j < n; j++) {
+    const lo = n - half(j), hi = n + half(j);
+    const h2 = j + 1 < n ? half(j + 1) : 0, lo2 = n - h2, hi2 = n + h2;
+    const next = new Map();
+    for (const [mask, cnt] of states) {
+      const fill = (c, up) => {
+        while (c < hi && (mask >> c) & 1) c++;
+        if (c >= hi) { next.set(up, (next.get(up) || 0n) + cnt); return; }
+        if (c >= lo2 && c < hi2) fill(c + 1, up | (1 << c));          // a vertical domino, reaching into the next row
+        if (c + 1 < hi && !((mask >> (c + 1)) & 1)) fill(c + 2, up);  // a horizontal domino
+      };
+      fill(lo, 0);
+    }
+    states = next;
+  }
+  return states.get(0) || 0n;
+}
+
+/* Seeded fair coins (mulberry32, one bit at a time). Every shuffle step gets its own stream, a function
+   of (seed, n) only, so the tiling of order n is a function of the seed and the slider can go back. */
+function coins(seed) {
+  let s = seed >>> 0, word = 0, left = 0;
+  return () => {
+    if (!left) {
+      s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      word = (t ^ (t >>> 14)) >>> 0; left = 32;
+    }
+    const b = word & 1; word >>>= 1; left--;
+    return b;
+  };
+}
+const stepSeed = (seed, n) => {
+  let h = (seed ^ Math.imul(n + 1, 0x9E3779B1)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85EBCA6B); h = Math.imul(h ^ (h >>> 13), 0xC2B2AE35);
+  return (h ^ (h >>> 16)) >>> 0;
+};
+
+/* A shuffler: the tiling of order n for a seed, with checkpoints so that the order can also decrease. */
+function makeShuffler(cap, seed = 1) {
+  const S = 2 * cap, EVERY = 16;
+  const sh = {
+    cap, S, seed: seed >>> 0, n: 0, cur: 0, ver: 0,
+    prev: false,                                                    // the other grid holds order n − 1, flagged
+    grids: [new Uint8Array(S * S), new Uint8Array(S * S)],
+    made: new Int32Array(cap + 1), gone: new Int32Array(cap + 1),   // cumulative over the steps 0 → n
+    saved: new Map(),
+    get grid() { return sh.grids[sh.cur]; },
+    get old() { return sh.grids[1 - sh.cur]; },
+    reseed(s) { sh.seed = s >>> 0; sh.saved.clear(); sh.restore(0); },
+    restore(m) {                                                    // jump to the nearest checkpoint ≤ m
+      const k = m - (m % EVERY), snap = k > 0 ? sh.saved.get(k) : null;
+      sh.grids[0].fill(0); sh.grids[1].fill(0);
+      sh.cur = 0; sh.n = 0; sh.prev = false; sh.ver++;
+      if (!snap) return;
+      const g = sh.grids[0];
+      for (let r = 0; r < 2 * k; r++) g.set(snap.subarray(r * 2 * k, (r + 1) * 2 * k), (cap - k + r) * S + cap - k);
+      sh.n = k;
+    },
+    step() {
+      const n = sh.n, [m, g] = shuffleStep(sh.grids[sh.cur], sh.grids[1 - sh.cur], cap, n, coins(stepSeed(sh.seed, n)));
+      sh.made[n + 1] = sh.made[n] + m; sh.gone[n + 1] = sh.gone[n] + g;
+      sh.cur = 1 - sh.cur; sh.n = n + 1; sh.prev = true; sh.ver++;
+      if (sh.n % EVERY === 0 && !sh.saved.has(sh.n)) {
+        const k = sh.n, snap = new Uint8Array(4 * k * k), gr = sh.grids[sh.cur];
+        for (let r = 0; r < 2 * k; r++) {
+          const row = (cap - k + r) * S + cap - k;
+          for (let c = 0; c < 2 * k; c++) snap[r * 2 * k + c] = gr[row + c] & 7;
+        }
+        sh.saved.set(k, snap);
+      }
+    },
+    // bring the tiling to order m; with slide = true, also make the other grid hold order m − 1 (flagged)
+    goTo(m, slide = false) {
+      m = Math.max(0, Math.min(cap, m));
+      if (slide && m > 0) {
+        if (sh.n === m && sh.prev) return;
+        if (sh.n >= m) sh.restore(m - 1);
+        while (sh.n < m) sh.step();
+        return;
+      }
+      if (sh.n > m) sh.restore(m);
+      while (sh.n < m) sh.step();
+    },
+  };
+  return sh;
+}
+/*MATH-END*/
+
+/* ---------- state ---------- */
+
+const NMAX = 400, SEED0 = 20261109, T = AV.tex;
+const KIND_COL = [AV.C.blue, AV.C.accent, AV.C.amber, AV.C.rose];       // north, south, east, west
+const sh = makeShuffler(NMAX, SEED0);
+const snap = new Uint8Array(sh.S * sh.S);     // the tiling before a reshuffle, for the crossfade
+let snapN = -1, snapSent = false;
+let nu = 1;                                   // the order on display; between integers a shuffle step is under way
+let phased = false;                           // show that step (destroy, slide, create) instead of jumping
+let driven = false, nuToken = 0;              // a slider or tour tween is moving nu
+let fade = 1, fadeToken = 0;                  // crossfade from snap to the reshuffled tiling
+let ring = 0;                                 // opacity of the arctic circle
+const view = { x: 0, y: 0, z: 1 };            // center (in units of the order) and zoom
+let geom = { x: 0, y: 0, r: 100 }, chrome = { top: 170, bottom: 150 };   // chrome: how far the kit's text reaches in
+let seedNo = 0, playState = 'grow', holdT = 0;
+let stats = null, statsVer = -1, laidOut = false;
+const exact = new Map();
+let app = null;
+
+const SEED1 = (() => {                        // the first other seed whose tiling of order 1 is the other one
+  const first = s => coins(stepSeed(s, 0))();
+  let s = SEED0 + 1;
+  while (first(s) === first(SEED0)) s++;
+  return s;
+})();
+
+const sstep = (a, b, x) => { const t = AV.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const order = () => AV.clamp(Math.floor(nu + 1e-9), 1, NMAX);
+const sliding = () => phased && nu - order() > 1e-4 && order() < NMAX;
+const shown = () => (sliding() ? order() + 1 : order());          // the order of the tiling in sh.grid
+const reach = n => Math.hypot(n, 1) + 0.45 / n;                     // farthest corner of AD(n), with air around a tiny diamond
+const perUnit = n => geom.r * n / reach(n);                        // px per unit of view at zoom 1
+
+/* ---------- moving the order ---------- */
+
+function stopNu() { nuToken++; driven = false; if (app) app.tween(1, () => {}, { key: 'nu' }); }
+// Move nu to a target; opt.path(u) may shape the way there. Slow moves (≤ 3 steps) show every step sliding.
+function tweenNu(target, ms, opt = {}) {
+  const from = nu, id = ++nuToken, slow = Math.abs(target - from) <= 3.001;
+  fadeToken++; fade = 1;
+  driven = true;
+  return app.tween(ms, u => {
+    if (id !== nuToken) return;
+    if (opt.path) opt.path(u); else { nu = from + (target - from) * u; phased = slow; }
+    if (opt.sync) app.set('n', shown(), { silent: true });
+  }, { key: 'nu', ease: opt.path || slow ? 'linear' : opt.ease || 'out' }).then(done => {
+    if (id !== nuToken) return;
+    driven = false;
+    if (done) { nu = target; phased = false; if (opt.sync) app.set('n', target, { silent: true }); }
+  });
+}
+
+function reshuffle(seed) {
+  if (seed === undefined) seed = (SEED0 + Math.imul(++seedNo, 0x9E3779B1)) >>> 0;
+  stopNu();
+  const n = shown();
+  sh.goTo(n);
+  snap.set(sh.grid); snapN = n; snapSent = false;
+  nu = n; phased = false;
+  sh.reseed(seed); sh.goTo(n);
+  const id = ++fadeToken;
+  fade = 0;
+  app.tween(520, u => { if (id === fadeToken) fade = u; }, { key: 'fade' });
+}
+
+function tweenView(to, ms) {
+  const from = { x: view.x, y: view.y, z: view.z };
+  return app.tween(ms, u => {
+    view.z = from.z * Math.pow(to.z / from.z, u);
+    // move the center in step with the zoom, so that the target stays put on screen
+    const w = to.z === from.z ? u : (1 / from.z - 1 / view.z) / (1 / from.z - 1 / to.z);
+    view.x = AV.lerp(from.x, to.x, w); view.y = AV.lerp(from.y, to.y, w);
+  }, { key: 'view' });
+}
+const stopView = () => app.tween(1, () => {}, { key: 'view' });
+const zoomMax = () => Math.max(1, 56 * reach(order()) / geom.r);
+function clampView() {
+  const m = 1 - 1 / view.z;
+  view.x = AV.clamp(view.x, -m, m); view.y = AV.clamp(view.y, -m, m);
+}
+function zoomAt(px, py, z) {
+  const k = perUnit(order());
+  z = AV.clamp(z, 1, Math.max(zoomMax(), view.z));
+  const ux = view.x + (px - geom.x) / (view.z * k), uy = view.y - (py - geom.y) / (view.z * k);
+  view.z = z;
+  view.x = ux - (px - geom.x) / (z * k); view.y = uy + (py - geom.y) / (z * k);
+  clampView();
+}
+
+/* ---------- the stage: the tiling as a data texture (WebGL2) ---------- */
+
+const FS = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp usampler2D;
+in vec2 uv; out vec4 o;
+uniform usampler2D uOld, uNew;
+uniform vec2 uOrigin, uCenter;
+uniform float uScale, uHair, uGap, uSoft, uOut, uSlide, uIn, uMix;
+uniform int uHalf, uNOld, uNNew, uMode;
+uniform vec3 uCol[4];
+//#AV
+const vec2 DIR[4] = vec2[4](vec2(0.0, 1.0), vec2(0.0, -1.0), vec2(1.0, 0.0), vec2(-1.0, 0.0));
+uint cell(usampler2D t, ivec2 c) {
+  ivec2 q = c + uHalf;
+  if (q.x < 0 || q.y < 0 || q.x >= 2 * uHalf || q.y >= 2 * uHalf) return 0u;
+  return texelFetch(t, q, 0).r;
+}
+// the way the domino on cell c (partner code v) of a tiling of order n slides: 0 N, 1 S, 2 E, 3 W
+int kind(ivec2 c, int v, int n) {
+  int p = (c.x + c.y + n + ((v == 1 || v == 3) ? 1 : 0) + 4096) & 1;
+  return v <= 2 ? (p == 1 ? 0 : 1) : (p == 1 ? 2 : 3);
+}
+// 1 inside the domino on cell c, 0 in the hairline gap around it (gaps fade out when zoomed out)
+float cover(vec2 w, ivec2 c, int v) {
+  vec2 ctr = vec2(c) + (v == 1 ? vec2(1.0, 0.5) : v == 2 ? vec2(0.0, 0.5) : v == 3 ? vec2(0.5, 1.0) : vec2(0.5, 0.0));
+  vec2 hs = v <= 2 ? vec2(1.0, 0.5) : vec2(0.5, 1.0);
+  const float R = 0.11;
+  vec2 d = abs(w - ctr) - hs + R;
+  float inside = R - length(max(d, 0.0)) - min(max(d.x, d.y), 0.0);
+  return mix(1.0, clamp(inside * uScale - uHair + 0.5, 0.0, 1.0), uGap);
+}
+vec3 still(usampler2D t, int n, vec2 w) {
+  ivec2 c = ivec2(floor(w));
+  int v = int(cell(t, c) & 7u);
+  return v == 0 ? AV_BG : mix(AV_BG, uCol[kind(c, v, n)], cover(w, c, v));
+}
+vec3 shade(vec2 w) {
+  if (uMode == 0) return still(uNew, uNNew, w);
+  if (uMode == 2) return mix(still(uOld, uNOld, w), still(uNew, uNNew, w), uMix);
+  // a shuffle step under way: created pairs fade in, destroyed pairs fade out, the rest slide
+  vec3 col = AV_BG;
+  ivec2 c = ivec2(floor(w));
+  uint rn = cell(uNew, c);
+  if ((rn & 16u) != 0u) { int v = int(rn & 7u); col = mix(col, uCol[kind(c, v, uNNew)], cover(w, c, v) * uIn); }
+  uint ro = cell(uOld, c);
+  if ((ro & 8u) != 0u) { int v = int(ro & 7u); col = mix(col, uCol[kind(c, v, uNOld)], cover(w, c, v) * (1.0 - uOut)); }
+  for (int k = 0; k < 4; k++) {
+    vec2 q = w - uSlide * DIR[k];
+    ivec2 cq = ivec2(floor(q));
+    uint r = cell(uOld, cq);
+    int v = int(r & 7u);
+    if (v != 0 && (r & 8u) == 0u && kind(cq, v, uNOld) == k) col = mix(col, uCol[k], cover(q, cq, v));
+  }
+  return col;
+}
+void main() {
+  vec2 w = uCenter + (gl_FragCoord.xy - uOrigin) / uScale;
+  vec3 col;
+  if (uSoft > 0.0) {                                    // zoomed out: average a rotated 4 × 4 grid of taps
+    col = vec3(0.0);
+    for (int a = 0; a < 4; a++) for (int b = 0; b < 4; b++) {
+      vec2 t = (vec2(float(a), float(b)) + 0.5) / 4.0 - 0.5;
+      col += shade(w + uSoft * vec2(0.894 * t.x - 0.447 * t.y, 0.447 * t.x + 0.894 * t.y));
+    }
+    col /= 16.0;
+  } else col = shade(w);
+  o = vec4(col, 1.0);
+}`;
+
+const G = { prog: null, quad: null, tex: [], sent: [-1, -1], key: '', cols: null };
+
+function send(k, data) {
+  const gl = app.gl;
+  gl.bindTexture(gl.TEXTURE_2D, G.tex[k]);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, sh.S, sh.S, gl.RED_INTEGER, gl.UNSIGNED_BYTE, data);
+}
+function render(a, mode, ph, scale, cx, cy) {
+  const gl = a.gl;
+  if (!gl || !G.prog) return;
+  const cur = sh.cur, old = 1 - cur;
+  let tOld = cur, nOld = sh.n;
+  if (mode === 2) { if (!snapSent) { send(2, snap); snapSent = true; } tOld = 2; nOld = snapN; }
+  if (mode === 1) { if (G.sent[old] !== sh.ver) { send(old, sh.grids[old]); G.sent[old] = sh.ver; } tOld = old; nOld = sh.n - 1; }
+  if (G.sent[cur] !== sh.ver) { send(cur, sh.grids[cur]); G.sent[cur] = sh.ver; }
+  const d = a.dpr, css = scale;
+  const key = [sh.ver, mode, tOld, snapN, ph.out, ph.slide, ph.in, fade, scale, cx, cy, geom.x, geom.y, a.W, a.H, d].join('|');
+  if (key === G.key) return;
+  G.key = key;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.disable(gl.SCISSOR_TEST);
+  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.tex[tOld]);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.tex[cur]);
+  G.prog.set({
+    uOld: { i: 0 }, uNew: { i: 1 },
+    uOrigin: [geom.x * d, (a.H - geom.y) * d], uCenter: [cx, cy], uScale: scale * d,
+    uHair: Math.min(1.5, 0.45 + 0.02 * css) * d, uGap: sstep(2.5, 7, css),
+    uSoft: css * d < 3 ? 1.3 / (css * d) : 0,              // cells smaller than 3 px: average over the pixel
+    uOut: ph.out, uSlide: ph.slide, uIn: ph.in, uMix: fade,
+    uHalf: { i: sh.cap }, uNOld: { i: nOld }, uNNew: { i: sh.n }, uMode: { i: mode },
+  });
+  gl.uniform3fv(G.prog.u('uCol[0]'), G.cols);
+  G.quad.draw(G.prog);
+}
+
+/* ---------- drawing ---------- */
+
+function draw(a) {
+  const o = a.octx, n0 = order(), f = nu - n0, slide = sliding();
+  sh.goTo(slide ? n0 + 1 : n0, slide);
+  const ph = slide ? { out: sstep(0, 0.3, f), slide: sstep(0.16, 0.84, f), in: sstep(0.66, 1, f) } : { out: 1, slide: 0, in: 1 };
+  const nEff = slide ? n0 + ph.slide : n0;
+  const scale = view.z * geom.r / reach(nEff);                    // CSS px per cell
+  const cx = view.x * nEff, cy = view.y * nEff;
+  const mode = slide ? 1 : fade < 1 && snapN === sh.n ? 2 : 0;
+  render(a, mode, ph, scale, cx, cy);
+
+  // the arctic circle x² + y² = n²/2, inscribed in the diamond |x| + |y| ≤ n
+  if (ring > 0.004) {
+    const X = geom.x - scale * cx, Y = geom.y + scale * cy, R = scale * nEff / Math.SQRT2;
+    AV.ring(o, X, Y, R, AV.rgba(AV.C.ink, 0.95 * ring), 1.2);
+  }
+  // zoomed in, the field runs under the chrome: darken the top and bottom edges behind it
+  const dim = a.mode === 'full' ? sstep(1.02, 1.6, view.z) : 0;
+  if (dim > 0) {
+    for (const [y0, y1] of [[0, chrome.top + 70], [a.H, a.H - chrome.bottom - 70]]) {
+      const g = o.createLinearGradient(0, y0, 0, y1);
+      g.addColorStop(0, 'rgba(7,9,13,' + 0.88 * dim + ')'); g.addColorStop(0.66, 'rgba(7,9,13,' + 0.62 * dim + ')'); g.addColorStop(1, 'rgba(7,9,13,0)');
+      o.fillStyle = g; o.fillRect(0, Math.min(y0, y1), a.W, Math.abs(y1 - y0));
+    }
+  }
+
+  // the live checks, recomputed from the grid on display
+  if (statsVer !== sh.ver) { stats = inspect(sh.grid, sh.cap, sh.n); statsVer = sh.ver; }
+  const n = sh.n, e = n * (n + 1) / 2, net = sh.made[n] - sh.gone[n];
+  let count = '';
+  if (n <= 7) {
+    if (!exact.has(n)) exact.set(n, countTilings(n));
+    count = ' ' + T('=') + ' ' + AV.int(exact.get(n)) + ' <span class="k">tilings</span> ' + AV.ok(exact.get(n) === 2n ** BigInt(e));
+  } else count = ' <span class="k">tilings</span>';
+  a.readout(
+    '<span class="big">' + T('n=' + n) + '</span> <span class="k">&nbsp;·&nbsp;</span> ' + T('2^{' + e + '}') + count +
+    '<br><span class="k">coins</span> ' + AV.int(sh.made[n]) + ' ' + T('-') + ' <span class="k">destroyed</span> ' + AV.int(sh.gone[n]) + ' ' + T('=') + ' ' + AV.int(net) + ' ' + AV.ok(net === e) +
+    '<br><span class="k">cells covered once</span> ' + AV.int(stats.cells) + ' ' + AV.ok(stats.ok) +
+    '<br><span class="k">frozen outside the circle</span> ' + (stats.outside ? AV.fmt(100 * stats.frozen / stats.outside, 1) + T('\\%') : '<span class="k">no cells yet</span>'));
+  a.cursor(view.z > 1.001 ? 'grab' : '');
+  if (!laidOut) { laidOut = true; a.relayout(); }                 // the readout now has its size: fit the stage around it
+}
+
+/* ---------- play: the shuffle grows the diamond, holds, rewinds and starts a new sample ---------- */
+
+function playStep(dt, a) {
+  if (driven || fade < 1) return;
+  if (playState === 'hold') { holdT += dt; if (holdT > 3) playState = 'rewind'; return; }
+  if (playState === 'rewind') {
+    phased = false;
+    nu = Math.max(1, nu - dt * (30 + 5 * nu));
+    if (nu <= 1) { nu = 1; playState = 'grow'; reshuffle(); }
+    a.set('n', order(), { silent: true });
+    return;
+  }
+  const n0 = order();
+  phased = n0 < 18;
+  nu = Math.min(NMAX, nu + (1.25 + 0.42 * n0) * dt);
+  if (nu >= NMAX) { nu = NMAX; phased = false; playState = 'hold'; holdT = 0; }
+  a.set('n', shown(), { silent: true });
+}
+
+/* ---------- the page ---------- */
+
+const tx = AV.texify;
+const num = v => '<span style="display:inline-block;min-width:1.9em;text-align:right">' + v + '</span>';
+// a tour step's starting state: paused, circle on or off, the whole diamond in view unless told otherwise
+function scene(a, circle, to) {
+  a.pause();
+  playState = 'grow';
+  a.set('circle', circle);
+  tweenView(to || { x: 0, y: 0, z: 1 }, to ? 1400 : 700);
+}
+const EDGE = { x: 0.1228, y: 0.6964 };        // a point of the circle x² + y² = ½, in units of the order
+
+app = AV.page({
+  title: 'The Arctic Circle of Domino Tilings',
+  hook: 'A random domino tiling freezes into brick walls outside a perfect circle.',
+  date: '2026-11-09',
+  credit: 'generated by Claude (Fable 5)',
+  hint: 'scroll or pinch to zoom · drag to pan',
+  stage: 'webgl2',
+  glOptions: { antialias: false, preserveDrawingBuffer: true },
+  autoplay: false,
+  posterStep: 2,
+  posterDelay: 2200,
+  controls: [
+    { type: 'play' },
+    { type: 'slider', id: 'n', label: T('n'), min: 1, max: NMAX, step: 1, value: 1, format: num,
+      onChange: v => { const d = Math.abs(v - nu); playState = 'grow'; tweenNu(v, d <= 3.001 ? Math.max(260, 420 * d) : AV.clamp(360 + 2 * d, 450, 950)); } },
+    { type: 'button', id: 'again', icon: 'shuffle', title: 'Reshuffle: a new sample', key: 'r', onClick: () => reshuffle() },
+    { type: 'toggle', id: 'circle', label: 'circle', value: false,
+      onChange: v => { const r0 = ring; app.tween(420, u => { ring = AV.lerp(r0, v ? 1 : 0, u); }, { key: 'ring' }); } },
+  ],
+  tour: [
+    { text: tx('The Aztec diamond of order $n=1$ is a square, and it has two domino tilings. A fair coin picks one.'),
+      enter: a => {
+        scene(a, false);
+        if (order() !== 1 || nu !== 1) tweenNu(1, 700, { sync: true });
+        a.every(1700, () => { if (!driven && !a.playing && nu === 1 && view.z < 1.01) reshuffle(sh.seed === SEED0 ? SEED1 : SEED0); });
+      } },
+    { text: tx('Domino shuffling grows it: facing pairs vanish, every domino slides one step its own way, and coin flips fill the holes.'),
+      enter: a => {
+        scene(a, false);
+        // rewind to order 1 if needed, then grow to 30: the first steps slowly, sliding
+        const from = nu, back = from > 1.01 ? 600 : 0, grow = 5600;
+        tweenNu(30, back + grow, { sync: true, path: u => {
+          const t = u * (back + grow);
+          if (t < back) { nu = 1 + (from - 1) * (1 - sstep(0, 1, t / back)); phased = false; }
+          else { nu = 1 + 29 * Math.pow((t - back) / grow, 2.6); phased = nu < 9; }
+        } });
+      } },
+    { text: tx('At $n=300$ the four corners have frozen into brick walls. Disorder survives only inside the inscribed circle.'),
+      enter: a => { scene(a, true); if (nu !== 300) tweenNu(300, 1500, { sync: true, ease: 'inOut' }); } },
+    { text: tx('Zoom in on the frozen edge: it is rough, wandering about $n^{1/3}$ dominoes from the circle.'),
+      enter: a => {
+        scene(a, true, { x: EDGE.x, y: EDGE.y, z: Math.max(2, 9 * reach(300) / geom.r) });
+        if (nu !== 300) tweenNu(300, 800, { sync: true });
+      } },
+    { text: tx('Reshuffle: every sample differs inside the circle, yet the same four walls freeze each time. The limit shape is certain.'),
+      enter: a => {
+        scene(a, true);
+        if (nu !== 300) tweenNu(300, 800, { sync: true });
+        const again = () => { if (!driven && nu === 300 && view.z < 1.01 && !a.playing) { a.pulse('again'); reshuffle(); } };
+        a.after(1000, again);
+        a.every(2600, again);
+      } },
+  ],
+  math: tx(`<p>The <b>Aztec diamond</b> of order $n$ is the union of the lattice squares inside $|x|+|y|\\le n+1$. It has exactly $2^{n(n+1)/2}$ domino tilings.
+    <b>Domino shuffling</b> (delete facing pairs, slide every domino one step, fill the empty $2\\times 2$ blocks by fair coins) turns a uniform tiling of order $n$ into a uniform one of order $n+1$.</p>
+    <p><b>Arctic circle theorem.</b> Fix $\\varepsilon>0$. With probability tending to $1$ as $n\\to\\infty$, the boundary of the frozen region (four brick walls) lies within distance $\\varepsilon n$ of the circle $x^2+y^2=n^2/2$.
+    The frozen edge fluctuates on the scale $n^{1/3}$, with the Airy process as its limit.</p>
+    <p class="ref">Elkies, Kuperberg, Larsen, Propp 1992; Jockusch, Propp, Shor 1995; Johansson 2005.</p>`),
+  setup: a => {
+    const gl = a.gl;
+    app = a;
+    a.legend([{ color: KIND_COL[0], label: 'north' }, { color: KIND_COL[1], label: 'south' }, { color: KIND_COL[2], label: 'east' }, { color: KIND_COL[3], label: 'west' }]);
+    if (!gl) return;                                        // no WebGL2: the checks still run, the stage stays dark
+    G.prog = AV.gl.program(gl, null, FS);
+    G.quad = AV.gl.quad(gl);
+    G.cols = new Float32Array(12);
+    KIND_COL.forEach((c, k) => AV.hexRgb(c).forEach((v, q) => { G.cols[3 * k + q] = v / 255; }));
+    for (let k = 0; k < 3; k++) {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, p, gl.NEAREST);
+      for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, p, gl.CLAMP_TO_EDGE);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.R8UI, sh.S, sh.S);
+      G.tex.push(t);
+    }
+  },
+  onPlay: on => {                                           // pausing in the middle of a step finishes that step
+    if (!on && sliding() && !driven) tweenNu(order() + 1, 320 * (order() + 1 - nu) + 60);
+  },
+  step: playStep,
+  draw,
+});
+
+app.onResize(a => {
+  geom = a.mode === 'full' ? a.fitCircle(a.W <= 760 ? 8 : 20) : { x: a.W / 2, y: a.H / 2, r: Math.min(a.W, a.H) * 0.46 };
+  G.key = '';                                               // a resize clears the canvas: draw it again
+  if (a.mode === 'full') chrome = { top: a.el.top.getBoundingClientRect().bottom, bottom: a.H - a.el.bottom.getBoundingClientRect().top };
+});
+
+/* ---------- zoom and pan ---------- */
+
+const fingers = new Map();
+let pinch = null;
+app.pointer({
+  drag: (p, d) => {
+    if (fingers.size > 1 || view.z <= 1.001) return;
+    stopView();
+    const k = view.z * perUnit(order());
+    view.x -= d.dx / k; view.y += d.dy / k;
+    clampView();
+  },
+  wheel: (p, dy) => { stopView(); zoomAt(p.x, p.y, view.z * Math.exp(-dy * 0.0016)); },
+  dbl: () => { tweenView({ x: 0, y: 0, z: 1 }, 600); },
+});
+const span = () => { const [a, b] = [...fingers.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+app.stage.addEventListener('pointerdown', e => {
+  fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (fingers.size === 2) { stopView(); pinch = { d: span().d, z: view.z }; }
+});
+app.stage.addEventListener('pointermove', e => {
+  if (!fingers.has(e.pointerId)) return;
+  fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (fingers.size === 2 && pinch) { const s = span(); zoomAt(s.x, s.y, pinch.z * s.d / Math.max(1, pinch.d)); app.redraw(); }
+});
+for (const ev of ['pointerup', 'pointercancel']) app.stage.addEventListener(ev, e => { fingers.delete(e.pointerId); pinch = null; });
+
+/* ---------- self-checks ---------- */
+
+AV.test('transfer-matrix count of the tilings of AD(n) is 2^(n(n+1)/2) for n ≤ 7 (BigInt)', () => {
+  for (let n = 1; n <= 7; n++) { const c = countTilings(n); if (c !== 2n ** BigInt(n * (n + 1) / 2)) return 'AD(' + n + ') has ' + c; }
+  return true;
+});
+AV.test('shuffling is exactly uniform for n ≤ 4: every coin sequence enumerated, every tiling reached equally', () => {
+  const cap = 4, S = 2 * cap, size = S * S;
+  let level = [{ g: new Uint8Array(size), w: 1 }];
+  for (let n = 0; n < 4; n++) {
+    const next = new Map();
+    for (const { g, w } of level) {
+      let c = 0;
+      shuffleStep(g.slice(), new Uint8Array(size), cap, n, () => { c++; return 0; });     // how many coins this tiling asks for
+      for (let bits = 0; bits < (1 << c); bits++) {
+        let k = 0;
+        const dst = new Uint8Array(size);
+        shuffleStep(g.slice(), dst, cap, n, () => (bits >> k++) & 1);
+        for (let q = 0; q < size; q++) dst[q] &= 7;
+        const key = String.fromCharCode.apply(null, dst), e = next.get(key);
+        if (e) e.w += w / (1 << c); else next.set(key, { g: dst, w: w / (1 << c) });
+      }
+    }
+    level = [...next.values()];
+    const want = 2 ** ((n + 1) * (n + 2) / 2);
+    if (level.length !== want) return 'order ' + (n + 1) + ': ' + level.length + ' tilings reached';
+    for (const { g, w } of level) if (w !== 1 / want || !inspect(g, cap, n + 1).ok) return 'order ' + (n + 1) + ' is not uniform';
+  }
+  return true;
+});
+AV.test('the seeded coins give uniform tilings: chi-square at n = 2 (8 tilings) and n = 3 (64 tilings)', () => {
+  for (const [n, runs, bound] of [[2, 4000, 30], [3, 6400, 125]]) {
+    const s = makeShuffler(4, 1), counts = new Map();
+    for (let k = 0; k < runs; k++) {
+      s.reseed(1000 + k); s.goTo(n);
+      const key = String.fromCharCode.apply(null, s.grid.map(v => v & 7));
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    const N = 2 ** (n * (n + 1) / 2), e = runs / N;
+    let chi = (N - counts.size) * e;
+    for (const c of counts.values()) chi += (c - e) ** 2 / e;
+    if (counts.size !== N || chi > bound) return 'n = ' + n + ': ' + counts.size + ' tilings, chi-square ' + chi.toFixed(1);
+  }
+  return true;
+});
+let probe = null;
+AV.test('the shuffled tiling is valid for n ≤ 200, with north = south, east = west and coins − destroyed = n(n+1)/2', () => {
+  probe = makeShuffler(200, 7);
+  for (let n = 1; n <= 200; n++) {
+    probe.step();
+    if (probe.made[n] - probe.gone[n] !== n * (n + 1) / 2) return 'coin count fails at n = ' + n;
+    if (n > 64 && n % 8) continue;
+    const r = inspect(probe.grid, 200, n);
+    if (!r.ok || r.kinds[0] !== r.kinds[1] || r.kinds[2] !== r.kinds[3]) return 'fails at n = ' + n;
+  }
+  return true;
+});
+AV.test('n = 200: beyond 3·n^(1/3) outside the circle over 99% is frozen; each kind is within 3% of n(n+1)/4', () => {
+  const r = inspect(probe.grid, 200, 200, 3 * Math.cbrt(200)), q = 200 * 201 / 4;
+  if (r.frozen < 0.99 * r.outside) return 'frozen fraction ' + (r.frozen / r.outside).toFixed(4);
+  return r.kinds.every(k => Math.abs(k - q) < 0.03 * q) || 'kinds ' + r.kinds.join(', ');
+});
+AV.test('sliding back down reproduces the same tilings (checkpoints + per-step seeds)', () => {
+  const fresh = makeShuffler(200, 7);
+  for (const n of [150, 97, 96, 33, 5]) {
+    probe.goTo(n); fresh.reseed(7); fresh.goTo(n);
+    for (let q = 0; q < fresh.grid.length; q++) if ((fresh.grid[q] & 7) !== (probe.grid[q] & 7)) return 'differs at n = ' + n;
+  }
+  return true;
+});
+</script>
+</body>
+</html>

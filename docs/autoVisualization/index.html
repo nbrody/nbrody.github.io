@@ -1,129 +1,264 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AutoViz — a daily mathematical visualization</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AutoViz · a daily mathematical visualization</title>
+<meta name="description" content="One interactive mathematical visualization every day: geometry, groups, topology, dynamics and number theory.">
+<link rel="stylesheet" href="kit/av.css">
 <style>
-  :root {
-    --bg: #0b0e14;
-    --panel: rgba(255, 255, 255, 0.045);
-    --panel-border: rgba(255, 255, 255, 0.09);
-    --ink: #e8e6e1;
-    --muted: #9a97a0;
-    --accent: #6ee7d8;
-    --accent-dim: rgba(110, 231, 216, 0.14);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; }
   body {
-    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    margin: 0;
     min-height: 100vh;
-    color: var(--ink);
-    font-family: Georgia, 'Times New Roman', serif;
-    line-height: 1.6;
-    padding: 3rem 1.5rem 4rem;
+    background: radial-gradient(1100px 620px at 78% -8%, #131a2c 0%, rgba(7, 9, 13, 0) 62%), var(--av-bg);
+    color: var(--av-ink);
+    font-family: var(--av-sans);
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1000px; margin: 0 auto; }
-  header h1 {
-    font-size: 2.4rem;
-    font-weight: normal;
-    letter-spacing: 0.01em;
-  }
-  header h1 .dot { color: var(--accent); }
-  header p.sub { color: var(--muted); font-style: italic; margin-top: 0.3rem; }
-  /* hero: latest entry */
-  .hero {
-    margin-top: 2.2rem;
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    border-radius: 14px;
-    overflow: hidden;
-    backdrop-filter: blur(8px);
-  }
-  .hero .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
-  .hero iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-  .hero .frame a.cover { position: absolute; inset: 0; }
-  .hero .meta { padding: 1.1rem 1.4rem 1.3rem; }
-  .hero .meta .date { color: var(--accent); font-size: 0.85rem; letter-spacing: 0.12em; }
-  .hero .meta h2 { font-weight: normal; font-size: 1.5rem; margin: 0.15rem 0 0.25rem; }
-  .hero .meta h2 a { color: var(--ink); text-decoration: none; }
-  .hero .meta h2 a:hover { color: var(--accent); }
-  .hero .meta .area { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.4rem; }
-  .hero .meta .blurb { font-size: 1rem; }
-  /* grid of past days */
-  .grid {
-    margin-top: 2rem;
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 44px 28px 60px; }
+  a { color: inherit; text-decoration: none; }
+
+  /* header */
+  .g-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .brand { font: 400 46px/1 var(--av-serif); letter-spacing: -0.005em; margin: 0; }
+  .brand span { color: var(--av-accent); }
+  .tagline { margin: 10px 0 0; color: var(--av-ink-2); font-size: 16px; }
+  .stats { color: var(--av-muted); font-size: 13px; letter-spacing: 0.02em; }
+  .stats a { color: var(--av-accent); }
+
+  /* featured */
+  .feature {
+    margin-top: 34px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid var(--av-line);
+    background: rgba(255, 255, 255, 0.025);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
   }
+  .feature[hidden] { display: none; }
+  .feature-frame { position: relative; aspect-ratio: 16 / 10; background: var(--av-bg); }
+  .feature-frame iframe, .feature-frame img { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; object-fit: cover; }
+  .live {
+    position: absolute; left: 14px; top: 14px; z-index: 2;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 10px; border-radius: 99px;
+    background: rgba(7, 9, 13, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    font: 600 10.5px/1 var(--av-sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--av-ink-2);
+    pointer-events: none;
+  }
+  .live i { width: 6px; height: 6px; border-radius: 50%; background: var(--av-green); box-shadow: 0 0 8px var(--av-green); }
+  .feature-info { padding: 34px 34px 30px; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+  .kicker { color: var(--av-accent); font: 600 11px/1 var(--av-sans); letter-spacing: 0.18em; text-transform: uppercase; }
+  .feature h2 { margin: 0; font: 400 34px/1.1 var(--av-serif); }
+  .feature .hook { margin: 0; color: var(--av-ink-2); font-size: 16.5px; line-height: 1.55; }
+  .open {
+    align-self: flex-start; margin-top: 6px;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 18px; border-radius: 99px;
+    background: var(--av-accent-soft); color: var(--av-accent);
+    font: 600 14px/1 var(--av-sans);
+    transition: background 0.2s, transform 0.2s;
+  }
+  .open:hover { background: rgba(110, 231, 216, 0.24); transform: translateX(2px); }
+  .open svg { width: 14px; height: 14px; }
+
+  /* tags */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font: 500 11.5px/1 var(--av-sans); color: var(--av-ink-2); white-space: nowrap; flex-shrink: 0;
+    padding: 5px 9px 5px 8px; border-radius: 99px; background: rgba(255, 255, 255, 0.05);
+  }
+  .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+
+  /* filters */
+  .filters {
+    position: sticky; top: 0; z-index: 5;
+    margin: 39px -28px 0; padding: 14px 28px;
+    display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+    transition: background 0.25s;
+  }
+  .filters.stuck {
+    background: rgba(7, 9, 13, 0.82);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    box-shadow: 0 1px 0 var(--av-line);
+  }
+  .sentinel { height: 1px; }
+  .filters::-webkit-scrollbar { display: none; }
+  @media (min-width: 700px) { .filters { flex-wrap: wrap; overflow: visible; } }
+  .chip {
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 34px; padding: 0 14px 0 12px; border-radius: 99px;
+    border: 1px solid var(--av-line); background: rgba(255, 255, 255, 0.03);
+    color: var(--av-ink-2); font: 500 13px/1 var(--av-sans); cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .chip:hover { color: var(--av-ink); border-color: rgba(255, 255, 255, 0.16); }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--av-ink-2)); }
+  .chip b { font-weight: 500; color: var(--av-muted); font-variant-numeric: tabular-nums; }
+  .chip[aria-pressed="true"] { background: rgba(255, 255, 255, 0.09); border-color: var(--c, var(--av-ink-2)); color: var(--av-ink); }
+  .chip:focus-visible { outline: 2px solid var(--av-accent); outline-offset: 2px; }
+
+  /* grid */
+  .month { margin: 30px 0 14px; color: var(--av-muted); font: 600 11px/1 var(--av-sans); letter-spacing: 0.18em; text-transform: uppercase; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(262px, 1fr)); gap: 18px; }
   .card {
-    display: block;
-    border: 1px solid var(--panel-border);
-    background: var(--panel);
-    border-radius: 12px;
-    padding: 1rem 1.1rem 1.1rem;
-    text-decoration: none;
-    color: var(--ink);
-    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+    display: flex; flex-direction: column;
+    border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--av-line); background: rgba(255, 255, 255, 0.025);
+    transition: transform 0.25s var(--av-ease), border-color 0.25s, background 0.25s;
+    animation: rise 0.45s var(--av-ease) both;
   }
-  .card:hover {
-    border-color: var(--accent);
-    background: var(--accent-dim);
-    transform: translateY(-2px);
+  .card:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.045); }
+  .thumb { aspect-ratio: 16 / 10; background: #0b0e14; overflow: hidden; position: relative; }
+  .thumb img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s var(--av-ease), opacity 0.4s; opacity: 0; }
+  .thumb img.loaded { opacity: 1; }
+  .card:hover .thumb img { transform: scale(1.035); }
+  .thumb .glyph { position: absolute; inset: 0; display: grid; place-items: center; font: 400 44px/1 var(--av-serif); color: rgba(255, 255, 255, 0.12); }
+  .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .card .tags { flex-wrap: nowrap; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+  .card h3 { margin: 2px 0 0; font: 400 19px/1.22 var(--av-serif); }
+  .card p { margin: 0; color: var(--av-ink-2); font-size: 13.5px; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card time { margin-top: auto; padding-top: 4px; color: var(--av-muted); font-size: 12px; }
+  .empty { color: var(--av-muted); padding: 40px 0; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--av-line); color: var(--av-muted); font-size: 12.5px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  footer a { color: var(--av-accent); }
+
+  @media (max-width: 860px) {
+    .feature { grid-template-columns: 1fr; }
+    .feature-info { padding: 22px 22px 24px; }
+    .feature h2 { font-size: 28px; }
   }
-  .card .date { color: var(--accent); font-size: 0.78rem; letter-spacing: 0.12em; }
-  .card h3 { font-weight: normal; font-size: 1.12rem; margin: 0.15rem 0 0.1rem; }
-  .card .area { color: var(--muted); font-size: 0.82rem; margin-bottom: 0.35rem; }
-  .card .blurb { font-size: 0.9rem; color: #c9c6cf; }
-  .empty { margin-top: 2.5rem; color: var(--muted); font-style: italic; }
-  footer { margin-top: 3.5rem; color: var(--muted); font-size: 0.85rem; text-align: center; }
-  footer a { color: var(--accent); text-decoration: none; }
+  @media (max-width: 560px) {
+    .wrap { padding: 28px 16px 44px; }
+    .brand { font-size: 38px; }
+    .filters { margin: 30px -16px 0; padding: 12px 16px; }
+    .cards { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { .card { animation: none; } * { transition: none !important; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>AutoViz<span class="dot">.</span></h1>
-    <p class="sub">One mathematical visualization per day — geometry, group theory, topology, and beyond. Generated each morning by Claude (Fable&nbsp;5).</p>
+  <header class="g-head">
+    <div>
+      <h1 class="brand">AutoViz<span>.</span></h1>
+      <p class="tagline">A new interactive piece of mathematics every morning.</p>
+    </div>
+    <div class="stats" id="stats"></div>
   </header>
-  <div id="content"></div>
-  <footer>Part of <a href="../index.html">nbrody.github.io</a> · harness spec in <span style="font-family: monospace;">HARNESS.md</span></footer>
+
+  <section class="feature" id="feature" hidden></section>
+  <div class="sentinel" id="sentinel"></div>
+  <nav class="filters" id="filters" aria-label="Filter by topic"></nav>
+  <main id="grid"></main>
+
+  <footer>
+    <span>Built each day by Claude on a shared kit · spec in <code>HARNESS.md</code></span>
+    <a href="../index.html">nbrody.github.io</a>
+  </footer>
 </div>
+
 <script src="manifest.js"></script>
 <script>
 (function () {
+  'use strict';
   const entries = (window.AUTOVIZ || []).slice();
-  const root = document.getElementById('content');
-  if (!entries.length) {
-    root.innerHTML = '<p class="empty">No visualizations yet — the first one arrives tomorrow at 8 am.</p>';
-    return;
-  }
+  const TOPICS = window.AUTOVIZ_TOPICS || [];
+  const topic = Object.fromEntries(TOPICS.map(t => [t.id, t]));
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const latest = entries[0];
   const href = e => 'days/' + encodeURIComponent(e.file);
-  const hero = document.createElement('section');
-  hero.className = 'hero';
-  hero.innerHTML =
-    '<div class="frame"><iframe src="' + href(latest) + '" title="' + esc(latest.title) + '" loading="lazy"></iframe>' +
-    '<a class="cover" href="' + href(latest) + '" aria-label="open ' + esc(latest.title) + '"></a></div>' +
-    '<div class="meta"><div class="date">' + esc(latest.date) + ' · today</div>' +
-    '<h2><a href="' + href(latest) + '">' + esc(latest.title) + '</a></h2>' +
-    '<div class="area">' + esc(latest.area) + '</div>' +
-    '<div class="blurb">' + esc(latest.blurb) + '</div></div>';
-  root.appendChild(hero);
-  const rest = entries.slice(1);
-  if (rest.length) {
-    const grid = document.createElement('div');
-    grid.className = 'grid';
-    grid.innerHTML = rest.map(e =>
-      '<a class="card" href="' + href(e) + '">' +
-      '<div class="date">' + esc(e.date) + '</div>' +
-      '<h3>' + esc(e.title) + '</h3>' +
-      '<div class="area">' + esc(e.area) + '</div>' +
-      '<div class="blurb">' + esc(e.blurb) + '</div></a>').join('');
-    root.appendChild(grid);
+  const thumb = e => 'thumbs/' + encodeURIComponent(e.file.replace(/\.html$/, '')) + '.webp';
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const day = d => { const [y, m, dd] = d.split('-').map(Number); return MONTHS[m - 1].slice(0, 3) + ' ' + dd; };
+  const tags = (e, max = 3) => '<div class="tags">' + (e.topics || []).filter(t => topic[t]).slice(0, max).map(t =>
+    '<span class="tag" style="--c:' + topic[t].color + '">' + esc(topic[t].label) + '</span>').join('') + '</div>';
+  const arrow = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
+
+  const grid = document.getElementById('grid');
+  if (!entries.length) { grid.innerHTML = '<p class="empty">The first visualization arrives tomorrow morning.</p>'; return; }
+
+  // header stats
+  const first = entries[entries.length - 1].date.split('-');
+  document.getElementById('stats').textContent =
+    entries.length + ' visualizations · since ' + MONTHS[+first[1] - 1] + ' ' + first[0];
+
+  // featured: the newest page, live if it is built on the kit
+  const latest = entries[0];
+  const feature = document.getElementById('feature');
+  const today = new Date().toISOString().slice(0, 10) === latest.date;
+  feature.innerHTML =
+    '<div class="feature-frame">' +
+      (latest.v === 2
+        ? '<span class="live"><i></i>live</span><iframe src="' + href(latest) + '?embed" title="' + esc(latest.title) + '" loading="lazy"></iframe>'
+        : '<a href="' + href(latest) + '"><img src="' + thumb(latest) + '" alt=""></a>') +
+    '</div>' +
+    '<div class="feature-info">' +
+      '<div class="kicker">' + (today ? 'Today' : 'Latest') + ' · ' + day(latest.date) + '</div>' +
+      '<h2><a href="' + href(latest) + '">' + esc(latest.title) + '</a></h2>' +
+      '<p class="hook">' + esc(latest.hook || '') + '</p>' +
+      tags(latest) +
+      '<a class="open" href="' + href(latest) + '">Explore' + arrow + '</a>' +
+    '</div>';
+
+  // filter chips (only topics that have pages), counts included
+  const counts = {};
+  entries.forEach(e => (e.topics || []).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+  const filters = document.getElementById('filters');
+  const chip = (id, label, n, color) =>
+    '<button class="chip" data-t="' + id + '" aria-pressed="false"' + (color ? ' style="--c:' + color + '"' : '') + '>' +
+    (color ? '<i></i>' : '') + esc(label) + ' <b>' + n + '</b></button>';
+  filters.innerHTML = chip('all', 'All', entries.length) +
+    TOPICS.filter(t => counts[t.id]).map(t => chip(t.id, t.label, counts[t.id], t.color)).join('');
+
+  function card(e, i) {
+    return '<a class="card" href="' + href(e) + '" style="animation-delay:' + Math.min(i, 12) * 35 + 'ms">' +
+      '<div class="thumb"><span class="glyph">∿</span><img src="' + thumb(e) + '" alt="" loading="lazy" onload="this.classList.add(\'loaded\')" onerror="this.remove()"></div>' +
+      '<div class="body">' + tags(e, 2) + '<h3>' + esc(e.title) + '</h3><p>' + esc(e.hook || '') + '</p>' +
+      '<time datetime="' + e.date + '">' + day(e.date) + ', ' + e.date.slice(0, 4) + '</time></div></a>';
   }
+
+  function render(t) {
+    const all = t === 'all';
+    feature.hidden = !all;
+    const list = all ? entries.slice(1) : entries.filter(e => (e.topics || []).includes(t));
+    filters.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.t === t)));
+    if (!list.length) { grid.innerHTML = '<p class="empty">Nothing here yet.</p>'; return; }
+    // group by month, newest first
+    const groups = [];
+    for (const e of list) {
+      const key = e.date.slice(0, 7);
+      if (!groups.length || groups[groups.length - 1].key !== key) groups.push({ key, items: [] });
+      groups[groups.length - 1].items.push(e);
+    }
+    let i = 0;
+    grid.innerHTML = groups.map(g => {
+      const [y, m] = g.key.split('-');
+      return '<h2 class="month">' + MONTHS[+m - 1] + ' ' + y + '</h2><div class="cards">' + g.items.map(e => card(e, i++)).join('') + '</div>';
+    }).join('');
+  }
+
+  const current = () => { const h = decodeURIComponent(location.hash.slice(1)); return topic[h] ? h : 'all'; };
+  filters.addEventListener('click', ev => {
+    const b = ev.target.closest('.chip');
+    if (!b) return;
+    const t = b.dataset.t === current() && b.dataset.t !== 'all' ? 'all' : b.dataset.t;
+    history.replaceState(null, '', t === 'all' ? location.pathname + location.search : '#' + t);
+    render(t);
+  });
+  addEventListener('hashchange', () => render(current()));
+  // the filter bar only gets a backdrop once it is stuck to the top
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => filters.classList.toggle('stuck', !e.isIntersecting)).observe(document.getElementById('sentinel'));
+  }
+  render(current());
 })();
 </script>
 </body>
