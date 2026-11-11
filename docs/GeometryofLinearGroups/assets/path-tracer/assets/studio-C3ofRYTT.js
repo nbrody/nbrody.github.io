@@ -11480,10 +11480,10 @@ ${aovs.map((p) => `    vec3 ${p.name}_sample;
 function generateMain(pictures) {
   const main2 = pictures[0];
   const lines = ["void main() {", cameraSample(pictures.filter((p) => p.role === "aov")), ""];
-  const history = pictures.filter((p) => p.previous !== null);
-  if (history.length > 0) {
+  const history2 = pictures.filter((p) => p.previous !== null);
+  if (history2.length > 0) {
     lines.push("    ivec2 coord = ivec2(gl_FragCoord.xy);");
-    for (const p of history) lines.push(`    vec3 ${p.name}_previous = texelFetch(${p.previous}, coord, 0).rgb;`);
+    for (const p of history2) lines.push(`    vec3 ${p.name}_previous = texelFetch(${p.previous}, coord, 0).rgb;`);
   }
   for (const p of pictures) {
     const sample = p.role === "aov" ? `${p.name}_sample` : "color";
@@ -14340,7 +14340,7 @@ class HDREnvironmentLoader {
         `Failed to create texture for '${path}'.`
       );
       this.textureRegistry.register(names.map, envTex);
-      const built = buildEnvironmentSampler(
+      const built2 = buildEnvironmentSampler(
         this.gl,
         this.textureRegistry,
         data,
@@ -14352,7 +14352,7 @@ class HDREnvironmentLoader {
       return {
         width,
         height,
-        totalWeight: built.totalWeight,
+        totalWeight: built2.totalWeight,
         data
         // kept for T5 variant-table builds (octahedral resample, compensation)
       };
@@ -17937,6 +17937,18 @@ function postedLighting(o, preferred = "studio") {
   const id = lightingOverride ?? o.lighting ?? (o.sky && o.sky !== "studio" ? o.sky : "auto");
   return LIGHTING[id] ? id : LIGHTING[preferred] ? preferred : "studio";
 }
+let postedLooks = null;
+let activeLook = null;
+let lookOverride = null;
+function setPostedLook(id) {
+  lookOverride = id;
+}
+function postedLook(looks, requested) {
+  postedLooks = looks;
+  const id = lookOverride && looks.some((l) => l.id === lookOverride) ? lookOverride : requested;
+  activeLook = id;
+  return id;
+}
 let postedStage = null;
 let activeLighting = "studio";
 const FLOOR_GAP = 0.18;
@@ -18011,8 +18023,17 @@ function postedEntry(name, build, exercises) {
   return Object.assign({ scene: () => build(strategies), name, strategies, exercises }, { posted: true });
 }
 let finalRenderStarted = false;
+const built = /* @__PURE__ */ new WeakSet();
 function usePostedView(strategies, view, maxBounces, o = {}, file = "posted") {
-  strategies.splice(0, strategies.length, ...postedStrategies(view, o.bounces && o.bounces > 0 ? Math.round(o.bounces) : maxBounces));
+  const fresh = postedStrategies(view, o.bounces && o.bounces > 0 ? Math.round(o.bounces) : maxBounces);
+  if (strategies.length === fresh.length && strategies.every((s, i) => s.id === fresh[i].id && built.has(s))) {
+    strategies.forEach((s, i) => {
+      s.measurement.maxBounces = fresh[i].measurement.maxBounces;
+    });
+  } else {
+    strategies.splice(0, strategies.length, ...fresh);
+    for (const s of fresh) built.add(s);
+  }
   if (o.samples && o.samples > 0 && !finalRenderStarted) {
     finalRenderStarted = true;
     finalRender(file, Math.round(o.samples), Math.round(o.width || 1600), Math.round(o.height || 1200));
@@ -18094,10 +18115,17 @@ async function readStoredScene(id) {
     db.close();
   }
 }
+const LOOKS = [
+  { id: "matte", label: "Matte", scene: "twoDimFields", blurb: "Matte balls in the app's palette." },
+  { id: "metal", label: "Metal", scene: "twoDimFields-metal", blurb: "Polished metal in the palette's colors: each ball mirrors its neighbors. Roughness is in the Balls card." },
+  { id: "glass", label: "Glass", scene: "twoDimFields-glass", blurb: "Glass beads, each lightly tinted by its palette color." },
+  { id: "bubble", label: "Soap bubble", scene: "twoDimFields-bubble", blurb: "Soap films colored by interference, thinner at the top. Film in the Balls card is the mean thickness in nanometers: thin films show bold golds and blues, thick ones pale pinks and greens. Bubbles want a dark room and a broad light, such as the Softbox." }
+];
 const GLASS_TINT = 0.3;
 const BOUNCES = { matte: 6, metal: 6, glass: 12, bubble: 32 };
 const PREVIEW_BALLS = 6e4;
-async function buildScene(id, look, strategies) {
+async function buildScene(id, requested, strategies) {
+  const look = postedLook(LOOKS, requested);
   const name = postedFile("twodim");
   const stored = new URLSearchParams(window.location.search).get("stored");
   let meta, table;
@@ -18136,7 +18164,7 @@ async function buildScene(id, look, strategies) {
     colors: (colors ?? new Float32Array(3 * table.count).fill(0.7)).subarray(0, 3 * shown2)
   }, clear);
   const paint = formula ? { kind: "glsl", source: formula } : void 0;
-  const ball = look === "metal" ? { model: "ggx", f0: paint ?? [0.9, 0.9, 0.9], roughness: o.roughness ?? 0.28 } : look === "glass" ? { model: "dielectric", ior: 1.5, transmittance: [0.95, 0.97, 0.98] } : look === "bubble" ? { model: "thin_film", ior: 1, film_ior: 1.33, film_thickness: o.filmThickness ?? 500 } : { model: "lambert", albedo: paint ?? [0.8, 0.8, 0.8] };
+  const ball = look === "metal" ? { model: "ggx", f0: paint ?? [0.9, 0.9, 0.9], roughness: { param: "balls.roughness", default: o.roughness ?? 0.28, min: 0.02, max: 1 } } : look === "glass" ? { model: "dielectric", ior: 1.5, transmittance: [0.95, 0.97, 0.98] } : look === "bubble" ? { model: "thin_film", ior: 1, film_ior: 1.33, film_thickness: { param: "balls.film", default: o.filmThickness ?? 900, min: 100, max: 2500 } } : { model: "lambert", albedo: paint ?? [0.8, 0.8, 0.8] };
   return {
     id,
     name: `2dimFields ${meta.settings.field === "i" ? "ℚ(i)" : "ℚ(ω)"} — ${table.count} balls (${look})`,
@@ -18167,7 +18195,7 @@ const twoDimFieldsScenes = {
   "twoDimFields-bubble": postedEntry(
     "2dimFields tree of balls (bubbles)",
     (s) => buildScene("twoDimFields-bubble", "bubble", s),
-    "DATA — 2dimFields, the same tree as soap bubbles: thin_film walls (film index 1.33, mean thickness from the options, 500 nm by default) with air inside, 32 bounces, under the Softbox (whose broad panel each bubble reflects) unless the options choose a lighting."
+    "DATA — 2dimFields, the same tree as soap bubbles: thin_film walls (film index 1.33, mean thickness a live slider, from the options or 900 nm) with air inside, 32 bounces, under the Softbox (whose broad panel each bubble reflects) unless the options choose a lighting."
   )
 };
 function isAsyncSceneEntry(e) {
@@ -37047,7 +37075,11 @@ async function main() {
     syncPictures();
   };
   const sceneUI = buildSceneParams(app, orbit);
-  if (entry.posted && isAsyncSceneEntry(entry)) buildLighting(app, () => entry.scene(), restartPreview);
+  if (entry.posted && isAsyncSceneEntry(entry)) buildLighting(app, () => entry.scene(), (scene2) => {
+    restartPreview();
+    sceneUI.rebuild();
+    named(scene2.name ?? entryName ?? id);
+  });
   const saveUI = buildSave(app, file, () => fit(), (p) => {
     production = p;
     fit();
@@ -37326,10 +37358,74 @@ function buildSceneParams(app, orbit) {
 }
 function buildLighting(app, rebuildScene, onRebuilt) {
   const root = $("scene-lighting");
+  const cards = [];
+  const rebuild = async (what, apply) => {
+    setChip("pending", `${what}…`);
+    const keep = {};
+    for (const path of ["camera.position", "camera.target", "stage.floor"]) {
+      const v = app.getParameter(path);
+      if (v !== void 0) keep[path] = v;
+    }
+    try {
+      apply();
+      const scene = await rebuildScene();
+      await app.recompile(scene);
+      const fresh = {};
+      for (const [path, m2] of app.getParameterMetadata()) if (path.startsWith("lights.")) fresh[path] = m2.default;
+      app.setParameters({ ...fresh, ...keep });
+      syncLighting();
+      onRebuilt(scene);
+      $("error-modal").hidden = true;
+      if (app.getRenderState() === "stopped") app.start();
+      return true;
+    } catch (e) {
+      showError(e, `${what} did not compile`);
+      return false;
+    }
+  };
+  const looks = postedLooks;
+  if (looks && activeLook) {
+    const select2 = el("select", { class: "select-input", id: "material-select" });
+    for (const l of looks) select2.add(new Option(l.label, l.id));
+    select2.value = activeLook;
+    const blurbOf = (id) => looks.find((l) => l.id === id)?.blurb ?? "";
+    const blurb2 = el("p", { class: "label-hint" }, blurbOf(activeLook));
+    cards.push(el(
+      "div",
+      { class: "control-group" },
+      el("span", { class: "control-label" }, "Material"),
+      el("div", { class: "control-row" }, select2),
+      blurb2
+    ));
+    select2.addEventListener("change", async () => {
+      const before = activeLook;
+      if (app.isLocked()) {
+        select2.value = before;
+        return;
+      }
+      const l = looks.find((x) => x.id === select2.value);
+      select2.disabled = true;
+      const ok = await rebuild(`Material: ${l.label}`, () => setPostedLook(l.id));
+      if (ok) {
+        const url = new URL(location.href);
+        url.searchParams.set("scene", l.scene);
+        history.replaceState(null, "", url);
+      } else {
+        setPostedLook(before);
+        select2.value = before;
+      }
+      blurb2.textContent = blurbOf(select2.value);
+      select2.disabled = false;
+    });
+  }
   const select = el("select", { class: "select-input", id: "lighting-select" });
   for (const [id, l] of Object.entries(LIGHTING)) select.add(new Option(l.label, id));
-  select.value = activeLighting;
-  const blurb = el("p", { class: "label-hint" }, LIGHTING[activeLighting].blurb);
+  const blurb = el("p", { class: "label-hint" });
+  const syncLighting = () => {
+    select.value = activeLighting;
+    blurb.textContent = LIGHTING[activeLighting].blurb;
+  };
+  syncLighting();
   const card = el(
     "div",
     { class: "control-group" },
@@ -37356,36 +37452,17 @@ function buildLighting(app, rebuildScene, onRebuilt) {
       gap
     ));
   }
-  root.replaceChildren(card);
+  cards.push(card);
+  root.replaceChildren(...cards);
   select.addEventListener("change", async () => {
     if (app.isLocked()) {
-      select.value = activeLighting;
+      syncLighting();
       return;
     }
     const id = select.value;
-    blurb.textContent = LIGHTING[id].blurb;
     select.disabled = true;
-    setChip("pending", `Lighting: ${LIGHTING[id].label}…`);
-    const keep = {};
-    for (const path of ["camera.position", "camera.target", "stage.floor"]) {
-      const v = app.getParameter(path);
-      if (v !== void 0) keep[path] = v;
-    }
-    try {
-      setPostedLighting(id);
-      const scene = await rebuildScene();
-      await app.recompile(scene);
-      const fresh = {};
-      for (const [path, m2] of app.getParameterMetadata()) if (path.startsWith("lights.")) fresh[path] = m2.default;
-      app.setParameters({ ...fresh, ...keep });
-      onRebuilt();
-      $("error-modal").hidden = true;
-      if (app.getRenderState() === "stopped") app.start();
-    } catch (e) {
-      showError(e, "That lighting did not compile");
-    } finally {
-      select.disabled = false;
-    }
+    if (!await rebuild(`Lighting: ${LIGHTING[id].label}`, () => setPostedLighting(id))) blurb.textContent = LIGHTING[id].blurb;
+    select.disabled = false;
   });
 }
 function buildSave(app, file, refit, setProduction) {

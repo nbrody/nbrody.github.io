@@ -1,15 +1,15 @@
 --- a/demos/twoDimFieldsScene.ts
 +++ b/demos/twoDimFieldsScene.ts
-@@ -9,7 +9,7 @@
+@@ -10,7 +10,7 @@
  
  import type { SceneDescription, RenderStrategy, Vec3 } from '../src/compiler/types.js';
  import type { AsyncSceneSuiteEntry } from '../tests/witnesses/types.js';
 -import { loadInstances } from '../src/authoring/loadInstances.js';
 +import { loadInstances, parseInstances } from '../src/authoring/loadInstances.js';
  import { instanceCloud } from '../src/authoring/instance.js';
- import { type PostedView, type PostedOptions, postedFile, fetchPosted, studio, surfaceFormula, postedEntry, usePostedView, setPostedPreview } from './posted.js';
+ import { type PostedView, type PostedOptions, type PostedLook, postedFile, fetchPosted, studio, surfaceFormula, postedEntry, usePostedView, setPostedPreview, postedLook } from './posted.js';
  
-@@ -20,6 +20,19 @@
+@@ -21,6 +21,19 @@
      options?: PostedOptions;
  }
  
@@ -28,10 +28,10 @@
 +
  type Look = 'matte' | 'metal' | 'glass' | 'bubble';
  
- /** How far a glass bead's tint goes from white toward its palette colour. */
-@@ -29,8 +42,10 @@
- 
- async function buildScene(id: string, look: Look, strategies: RenderStrategy[]): Promise<SceneDescription> {
+ /** The materials the studio's Material card offers (it rebuilds the scene with the one chosen). */
+@@ -41,8 +54,10 @@
+ async function buildScene(id: string, requested: Look, strategies: RenderStrategy[]): Promise<SceneDescription> {
+     const look = postedLook(LOOKS, requested);
      const name = postedFile('twodim');
 -    const meta = await fetchPosted<TwoDimMeta>(name, '2dimFields');      // first: it says plainly when nothing was sent
 -    const table = await loadInstances(`/test-data/${name}.inst`);

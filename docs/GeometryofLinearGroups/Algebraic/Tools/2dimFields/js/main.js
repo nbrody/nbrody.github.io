@@ -1848,12 +1848,9 @@ syncPathTrace();
 const traceOptions = mountPathTraceOptions($('path-trace-hint'), {
     app: '2dimFields',
     downloadHint: true,
-    looks: [['auto', 'As shown (matte)'], ['matte', 'Matte'], ['metal', 'Metal'], ['glass', 'Glass'], ['bubble', 'Bubble']],
+    looks: null,                    // the material (matte, metal, glass, soap bubble) is picked in the tracer
     extra: [
-        { id: 'filmThickness', label: 'Film', kind: 'range', min: 100, max: 1500, step: 10, value: 500,
-            show: (v) => v.look === 'bubble',
-            hint: 'The soap film\'s mean thickness in nanometers: thinner films show the bold first colors (gold, magenta, blue), thicker ones paler pinks and greens.' },
-        { id: 'shadeTheme', label: 'Colors', kind: 'select', value: 'trace', show: (v) => v.look !== 'bubble',
+        { id: 'shadeTheme', label: 'Colors', kind: 'select', value: 'trace',
             choices: [['trace', 'Deep (for path tracing)'], ['light', 'Pale (the light theme\'s)']],
             hint: 'Color the balls by Branch at v₀ in the View tab to give each branch of the tree its own color.' },
         { id: 'minR', label: 'Smallest', kind: 'number', min: 0.0005, max: 0.5, step: 0.001, value: 0.015,
@@ -1861,28 +1858,31 @@ const traceOptions = mountPathTraceOptions($('path-trace-hint'), {
         { id: 'cap', label: 'Most balls', kind: 'number', min: 1000, max: 1500000, step: 1000, value: 300000 },
     ],
 });
-// Presets: tested combinations of the coloring (rule and palette, in the View tab) and the
-// Advanced options. A preset sets them all; changing any one afterwards is fine.
+// Presets: tested combinations of the coloring (rule and palette, in the View tab), the Advanced
+// options, and the material the tracer opens with (its Scene tab changes it, with roughness or
+// film thickness as live sliders). A preset sets them all; changing any one afterwards is fine.
+// Without a preset the tracer opens with matte balls.
 const TRACE_BASE = { surface: 'app', floor: 'plain', skyBrightness: 1, keyLight: 1, bounces: '', samples: 0, shadeTheme: 'trace', cap: 300000 };
 const TRACE_PRESETS = [
     { id: 'jewels', name: 'Jewels', rule: 'branch', palette: 'ocean',
-        options: { look: 'metal', roughness: 0.25, lighting: 'autumn', minR: 0.015 },
+        look: 'metal', material: { roughness: 0.25 }, options: { lighting: 'autumn', minR: 0.015 },
         hint: 'Polished metal beads, one hue per branch of the tree, under a photographed sky.' },
     { id: 'rainbow', name: 'Rainbow jewels', rule: 'branch', palette: 'spectrum',
-        options: { look: 'metal', roughness: 0.25, lighting: 'autumn', minR: 0.015 },
+        look: 'metal', material: { roughness: 0.25 }, options: { lighting: 'autumn', minR: 0.015 },
         hint: 'The same beads with the full spectrum around the branches.' },
     { id: 'bubbles', name: 'Soap bubbles', rule: null, palette: null,
-        options: { look: 'bubble', filmThickness: 500, lighting: 'softbox', floor: 'none', skyBrightness: 0.35, keyLight: 1.6, minR: 0.04 },
+        look: 'bubble', material: { filmThickness: 900 }, options: { lighting: 'softbox', floor: 'none', skyBrightness: 0.35, keyLight: 1.6, minR: 0.04 },
         hint: 'Soap films colored by interference, thinner at the top, each reflecting the overhead panel against a dark room. No floor: the tracer\'s shadows treat a bubble as solid. Fewer, larger balls, since every film a path crosses costs a bounce.' },
 ];
-const presetSel = $('trace-preset');
-presetSel.add(new Option('Choose…', ''));
+const presetSel = $('trace-preset'), NO_PRESET_HINT = 'The tracer opens with matte balls; its Scene tab changes the material.';
+const tracePreset = () => TRACE_PRESETS.find((x) => x.id === presetSel.value);
+presetSel.add(new Option('None (matte)', ''));
 for (const p of TRACE_PRESETS) presetSel.add(new Option(p.name, p.id));
+$('trace-preset-hint').textContent = NO_PRESET_HINT;
 presetSel.onchange = () => {
-    const p = TRACE_PRESETS.find((x) => x.id === presetSel.value), hint = $('trace-preset-hint');
-    hint.hidden = !p;
+    const p = tracePreset(), hint = $('trace-preset-hint');
+    hint.textContent = p ? p.hint : NO_PRESET_HINT;
     if (!p) return;
-    hint.textContent = p.hint;
     traceOptions.set({ ...TRACE_BASE, ...p.options });
     if (p.rule || p.palette) {
         if (p.rule) st.rule = p.rule;
@@ -1893,10 +1893,11 @@ presetSel.onchange = () => {
 wirePathTrace($('path-trace'), {
     transport: pathTraceStored,
     prepare: () => {
-        const { minR, cap, shadeTheme, ...options } = traceOptions.values();
-        const { name, b, files } = tracerFiles({ minR, cap, shadeTheme, options });
+        const { minR, cap, shadeTheme, ...options } = traceOptions.values(), p = tracePreset();
+        const look = p?.look ?? 'matte';
+        const { name, b, files } = tracerFiles({ minR, cap, shadeTheme, options: { ...options, ...p?.material, look } });
         const summary = `Sent ${b.count.toLocaleString()} balls${b.settings.truncated ? ' (the smallest left out)' : ''} to the path tracer.`;
-        return { scene: options.look === 'matte' ? 'twoDimFields' : `twoDimFields-${options.look}`, file: name, files, summary };
+        return { scene: look === 'matte' ? 'twoDimFields' : `twoDimFields-${look}`, file: name, files, summary };
     },
     report: (kind, text) => { const hint = $('path-trace-hint'); hint.textContent = text; hint.hidden = false; },
     after: syncPathTrace,

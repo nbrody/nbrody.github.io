@@ -106,8 +106,9 @@ const LIGHTINGS = [['auto', 'Auto (suits the look)'], ['studio', 'Studio'], ['so
 // Stored options before this version saved the then-default 'studio' whether or not it was chosen.
 const OPTIONS_VERSION = 2;
 const FLOORS = [['plain', 'Plain'], ['checker', 'Checker'], ['none', 'None']];
-const SURFACES = [['app', 'App colours'], ['formula', 'Formula']];
-const painted = (look) => look === 'matte' || look === 'metal';
+const SURFACES = [['app', 'App colors'], ['formula', 'Formula']];
+// Without a look (the material is chosen in the tracer) the surface options always show.
+const painted = (look) => !look || look === 'matte' || look === 'metal';
 
 const OPTIONS_CSS = `
 .pt-options { margin-top: 2px; }
@@ -129,7 +130,8 @@ const OPTIONS_CSS = `
 `;
 
 /** Mount the Advanced options fold after `anchor`. `looks` lists [value, label] pairs, the first
- *  being 'auto' (what the app shows, `autoLook()`); `extra` adds app-only fields of the same
+ *  being 'auto' (what the app shows, `autoLook()`), or is null when the tracer's studio picks the
+ *  material (then there is no Look or Roughness field and values() has no look); `extra` adds app-only fields of the same
  *  shape as the ones below; `formulaHint` explains what a surface formula may read. Returns
  *  { values() } with numbers as numbers, the look resolved, and blank fields left out. */
 export function mountPathTraceOptions(anchor, { app, looks, autoLook = () => 'matte', formulaHint = '', extra = [], downloadHint = false }) {
@@ -139,14 +141,16 @@ export function mountPathTraceOptions(anchor, { app, looks, autoLook = () => 'ma
         css.textContent = OPTIONS_CSS;
         document.head.appendChild(css);
     }
-    const look = (v) => (v.look === 'auto' ? autoLook() : v.look);
+    const look = (v) => (!looks ? undefined : v.look === 'auto' ? autoLook() : v.look);
     const fields = [
-        { id: 'look', label: 'Look', kind: 'select', choices: looks, value: 'auto' },
-        { id: 'roughness', label: 'Roughness', kind: 'range', min: 0.02, max: 1, step: 0.01, value: 0.28, show: (v) => look(v) === 'metal' },
+        ...(looks ? [
+            { id: 'look', label: 'Look', kind: 'select', choices: looks, value: 'auto' },
+            { id: 'roughness', label: 'Roughness', kind: 'range', min: 0.02, max: 1, step: 0.01, value: 0.28, show: (v) => look(v) === 'metal' },
+        ] : []),
         { id: 'surface', label: 'Surface', kind: 'select', choices: SURFACES, value: 'app', show: (v) => painted(look(v)) },
         {
             id: 'formula', label: 'Formula', kind: 'text', value: '', placeholder: '0.5 + 0.5*cos(6.28*(3.0*p.y + vec3(0.0, 0.33, 0.67)))',
-            hint: `A colour as GLSL: an expression for a vec3 in the point p${formulaHint}. Numbers need a decimal point (3.0, not 3).`,
+            hint: `A color as GLSL: an expression for a vec3 in the point p${formulaHint}. Numbers need a decimal point (3.0, not 3).`,
             show: (v) => painted(look(v)) && v.surface === 'formula',
         },
         { id: 'floor', label: 'Floor', kind: 'select', choices: FLOORS, value: 'plain' },
@@ -170,7 +174,7 @@ export function mountPathTraceOptions(anchor, { app, looks, autoLook = () => 'ma
     if ((saved._v ?? 1) < OPTIONS_VERSION && saved.lighting === 'studio') saved.lighting = 'auto';
     for (const f of fields) if (f.id in saved) v[f.id] = saved[f.id];
     for (const f of fields) if (f.kind === 'select' && !f.choices.some(([x]) => x === v[f.id])) v[f.id] = f.value;
-    if (!looks.some(([x]) => x === v.look)) v.look = 'auto';
+    if (looks && !looks.some(([x]) => x === v.look)) v.look = 'auto';
 
     const box = document.createElement('details');
     box.className = 'pt-options';
@@ -244,7 +248,7 @@ export function mountPathTraceOptions(anchor, { app, looks, autoLook = () => 'ma
         values() {
             const out = {};
             for (const f of fields) if (v[f.id] !== '' && v[f.id] != null) out[f.id] = v[f.id];
-            out.look = look(v);
+            if (looks) out.look = look(v);
             return out;
         },
         /** Set some fields (by id; others keep their values), as a preset does. */
@@ -304,7 +308,7 @@ export function encodeInst({ positions, sizes, colors, scalars = {}, provenance 
     return buf;
 }
 
-/** An sRGB-encoded colour channel (0–1) as linear light. */
+/** An sRGB-encoded color channel (0–1) as linear light. */
 export const srgbToLinear = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
 
 export async function pathTraceStored({ scene, files }) {
