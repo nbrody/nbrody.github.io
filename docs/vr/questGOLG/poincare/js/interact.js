@@ -22,6 +22,10 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
         return st.get(p.id);
     };
     let grab = null;            // { ids: [...], start… }
+    // Released motion decays rapidly, as if the ball were moving in a viscous fluid.
+    const velocity = new THREE.Vector3(), angularVelocity = new THREE.Vector3();
+    let sample = null, moving = false, previousInside = inside();
+    const clearMotion = () => { velocity.set(0, 0, 0); angularVelocity.set(0, 0, 0); sample = null; moving = false; };
     const tmpM = new THREE.Matrix4(), tmpV = new THREE.Vector3(), tmpQ = new THREE.Quaternion();
 
     const poseMatrix = (p, out = new THREE.Matrix4()) => out.compose(p.pose.position, p.pose.quaternion, new THREE.Vector3(1, 1, 1));
@@ -37,6 +41,7 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
 
     function beginGrab(p, by) {
         const s = state(p);
+        clearMotion();
         s.mode = 'grab';
         s.grabBy = by;
         leavePanel(p, s);
@@ -45,9 +50,14 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
         callbacks.onGrab && callbacks.onGrab(true);
     }
 
-    function endGrab(p) {
+    function endGrab(p, now) {
         const s = state(p);
+        // Only a deliberate final release can throw. Transitions between one
+        // and two hands instead re-anchor and discard their motion history.
+        const throwBall = !inside() && grabbers().length === 1 && sample && now - sample.time < 100;
         s.mode = 'idle';
+        if (throwBall) { moving = true; sample = null; }
+        else clearMotion();
         restartGrab();
         if (!grabbers().length) callbacks.onGrab && callbacks.onGrab(false);
     }
@@ -71,7 +81,7 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
         }
     }
 
-    function updateGrab() {
+    function updateGrab(now, dt) {
         const G = grabbers();
         if (!G.length || !grab) return;
         if (G.map(p => p.id).join() !== grab.ids.join()) { restartGrab(); return; }
@@ -106,13 +116,44 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
         ballRoot.quaternion.slerp(quat, 0.6);
         const sc = THREE.MathUtils.lerp(ballRoot.scale.x, scl.x, 0.6);
         ballRoot.scale.setScalar(sc);
+        // Estimate motion from the actual smoothed object transform.  A
+        // short time constant suppresses hand jitter without losing a throw.
+        if (G.length === 1 && dt > 0 && dt < 0.1) {
+            if (sample && now - sample.time < 100) {
+                const measured = ballRoot.position.clone().sub(sample.position).multiplyScalar(1 / dt).clampLength(0, 1);
+                const dq = ballRoot.quaternion.clone().multiply(sample.quaternion.clone().invert()).normalize();
+                if (dq.w < 0) dq.set(-dq.x, -dq.y, -dq.z, -dq.w);
+                const sinHalf = Math.hypot(dq.x, dq.y, dq.z);
+                const angular = sinHalf > 1e-6
+                    ? new THREE.Vector3(dq.x, dq.y, dq.z).multiplyScalar(2 * Math.atan2(sinHalf, dq.w) / (sinHalf * dt)).clampLength(0, 3)
+                    : new THREE.Vector3();
+                const a = 1 - Math.exp(-dt / 0.05);
+                velocity.lerp(measured, a); angularVelocity.lerp(angular, a);
+            }
+            sample = { position: ballRoot.position.clone(), quaternion: ballRoot.quaternion.clone(), time: now };
+        } else { velocity.set(0, 0, 0); angularVelocity.set(0, 0, 0); sample = null; }
         callbacks.onBallMoved && callbacks.onBallMoved();
+    }
+
+    function updateReleasedMotion(dt) {
+        if (!moving || dt <= 0) return;
+        // Integrate exponential drag exactly, so behaviour is frame-rate independent.
+        const damping = Math.exp(-10 * dt), distance = (1 - damping) / 10;
+        ballRoot.position.addScaledVector(velocity, distance);
+        const speed = angularVelocity.length();
+        if (speed > 1e-5) ballRoot.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(angularVelocity.clone().normalize(), speed * distance));
+        velocity.multiplyScalar(damping); angularVelocity.multiplyScalar(damping);
+        callbacks.onBallMoved && callbacks.onBallMoved();
+        if (velocity.lengthSq() < 1e-5 && angularVelocity.lengthSq() < 1e-4) clearMotion();
     }
 
     // ---------------- per frame ----------------
 
     function update(now, dt) {
         const ps = input.all();
+        const currentInside = inside();
+        if (currentInside !== previousInside || !ps.some(p => p.kind === 'hand' || p.kind === 'controller')) clearMotion();
+        previousInside = currentInside;
         for (const p of ps) step(p, now);
         // Pointers that vanished: release whatever they held.
         for (const [id, s] of st) {
@@ -120,10 +161,11 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
             if (s.hoverPanel) { s.hoverPanel.pointerMove(id, null); s.hoverPanel = null; }
             if (s.pokePanel) { if (s.poked) s.pokePanel.pointerUp(id, null); s.pokePanel = null; s.poked = false; }
             if (s.mode === 'panelPress' && s.panel) s.panel.pointerUp(id, null);
-            if (s.mode === 'grab') { s.mode = 'idle'; restartGrab(); }
+            if (s.mode === 'grab') { s.mode = 'idle'; clearMotion(); restartGrab(); }
             s.mode = 'idle';
         }
-        updateGrab();
+        updateGrab(now, dt);
+        if (!grabbers().length && !currentInside) updateReleasedMotion(dt);
         sticks(ps, dt);
     }
 
@@ -172,7 +214,7 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
         // Controller grip grabs at once.
         if (p.squeezeStart && s.mode !== 'grab') { beginGrab(p, 'squeeze'); }
         if (s.mode === 'grab') {
-            if ((s.grabBy === 'squeeze' && p.squeezeEnd) || (s.grabBy === 'select' && p.selectEnd)) endGrab(p);
+            if ((s.grabBy === 'squeeze' && p.squeezeEnd) || (s.grabBy === 'select' && p.selectEnd)) endGrab(p, now);
             input.showRay(p, null);
             return;
         }
@@ -287,5 +329,5 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
         }
     }
 
-    return { update, get grabbing() { return grabbers().length > 0; } };
+    return { update, cancelMotion() { clearMotion(); restartGrab(); }, get grabbing() { return grabbers().length > 0; } };
 }

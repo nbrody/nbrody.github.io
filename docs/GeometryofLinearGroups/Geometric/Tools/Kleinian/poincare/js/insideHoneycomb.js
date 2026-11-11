@@ -1,8 +1,8 @@
 /** The Quest renderer's instanced, edge-only view of nearby domain tiles. */
 import * as THREE from 'three';
 import { lorentzMatrix } from './math.js';
-import { dirichletMeshes, mapMaterial, sharedUniforms } from '../../../../../../quest/questGOLG/poincare/js/meshes.js';
-import { tilesNear, lorentz4 } from '../../../../../../quest/questGOLG/poincare/js/hyper.js';
+import { dirichletMeshes, mapMaterial, sharedUniforms } from '../../../../../../vr/questGOLG/poincare/js/meshes.js';
+import { tilesNear, lorentz4 } from '../../../../../../vr/questGOLG/poincare/js/hyper.js';
 
 export function createInsideHoneycomb(scene) {
     const group = new THREE.Group();

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { tubeGeometry } from './tube.js';
-import { XRInput } from './hands.js';
+import { XRInput } from './hands.js?v=2';
 import { THEMES, renderInfo, renderProjection, renderMenu, projectionData } from './panels.js';
 import { P } from './poly.js';
 import { KNOT_TABLE } from './knotTable.js';
@@ -195,13 +195,23 @@ tipPanel.mesh.visible = false;
 panels.add(tipPanel.mesh);
 let tipText = '';
 
-// cursors at the pinch points
+// Paired curved jaws show the pinch location and close as the fingertips come together.
 const cursors = {};
 for (const side of ['left', 'right']) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(0.006, 16, 12), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.85 }));
-  m.visible = false;
-  scene.add(m);
-  cursors[side] = m;
+  const group = new THREE.Group();
+  const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.85, depthTest: false });
+  const jaws = [-1, 1].map(sign => {
+    const curve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(0, 0, 0), new THREE.Vector3(sign * 0.005, 0, -0.012),
+      new THREE.Vector3(sign * 0.014, 0, -0.015));
+    const jaw = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.0018, 6, false), material);
+    jaw.renderOrder = 10;
+    group.add(jaw);
+    return jaw;
+  });
+  group.visible = false;
+  scene.add(group);
+  cursors[side] = { group, jaws, material };
 }
 
 const xrInput = new XRInput(renderer, scene);
@@ -532,7 +542,7 @@ const actions = {
   prev: () => loadLibrary(S.lib - 1),
   next: () => loadLibrary(S.lib + 1),
   library: v => loadLibrary(+v),
-  recenter: () => { if (renderer.xr.isPresenting) recenterVR(); else { knotRoot.position.copy(HOME); knotRoot.quaternion.identity(); knotRoot.scale.setScalar(1); controls.target.copy(HOME); } },
+  recenter: () => { spin = null; if (renderer.xr.isPresenting) recenterVR(); else { knotRoot.position.copy(HOME); knotRoot.quaternion.identity(); knotRoot.scale.setScalar(1); controls.target.copy(HOME); } },
   theme: () => { S.theme = S.theme === 'light' ? 'dark' : 'light'; applyTheme(); },
   hand: () => { S.drawHand = S.drawHand === 'right' ? 'left' : 'right'; },
   crossMode: v => { S.crossMode = v; },
@@ -743,9 +753,10 @@ async function enterXR(mode) {
     else if (S.comps.length) tipUntil = performance.now() + 12000;
     session.addEventListener('end', () => {
       S.xrMode = null;
+      grab = null; spin = null;
       panels.visible = false;
       menuPanel.mesh.visible = false;
-      for (const c of Object.values(cursors)) c.visible = false;
+      for (const c of Object.values(cursors)) c.group.visible = false;
       knotRoot.position.copy(HOME); knotRoot.quaternion.identity(); knotRoot.scale.setScalar(1);
       controls.target.copy(HOME);
       applyTheme();
@@ -776,7 +787,7 @@ function recenterVR() {
 const strokes = { left: null, right: null };
 const pending = { left: null, right: null }; // a pinch that may become a stroke once it is held and moved
 let grab = null, spin = null;
-const prevQuat = new THREE.Quaternion();
+const prevQuat = new THREE.Quaternion(), prevPosition = new THREE.Vector3();
 let menuShown = false;
 const consumed = { left: false, right: false };
 
@@ -786,6 +797,7 @@ function handMatrix(h) { return new THREE.Matrix4().compose(h.grip, h.quat, new 
 // at that moment the baseline is captured again, so the knot doesn't jump.
 const GRAB_MOVE = 0.008, GRAB_TURN = 0.08;
 function startGrab(hands, engaged = false) {
+  spin = null;
   if (hands.length === 1) {
     const h = hands[0];
     grab = { hands, offset: handMatrix(h).invert().multiply(knotRoot.matrix.clone()) };
@@ -800,6 +812,7 @@ function startGrab(hands, engaged = false) {
   grab.start = hands.map(h => ({ p: h.grip.clone(), q: h.quat.clone() }));
   if (engaged) { rotAnim = null; spin = null; tipUntil = 0; }
   prevQuat.copy(knotRoot.quaternion);
+  prevPosition.copy(knotRoot.position);
 }
 function updateGrab(dt) {
   if (!grab) return;
@@ -822,23 +835,29 @@ function updateGrab(dt) {
     const mid = a.grip.clone().add(b.grip).multiplyScalar(0.5);
     knotRoot.position.copy(grab.pos0).sub(grab.mid0).multiplyScalar(s / grab.s0).applyQuaternion(dq).add(mid);
   }
-  // angular velocity for a spin on release
+  // Smooth both velocities while held, then continue with strong drag on release.
+  if (dt > 0) {
+    const velocity = knotRoot.position.clone().sub(prevPosition).divideScalar(dt).clampLength(0, 1.5);
+    grab.velocity = grab.velocity ? grab.velocity.lerp(velocity, 0.3) : velocity;
+  }
   const dq = knotRoot.quaternion.clone().multiply(prevQuat.clone().invert());
   const angle = 2 * Math.acos(Math.min(1, Math.abs(dq.w)));
   if (angle > 1e-5 && dt > 0) {
     const axis = new THREE.Vector3(dq.x, dq.y, dq.z).normalize().multiplyScalar(Math.sign(dq.w) || 1);
-    const w = axis.multiplyScalar(angle / dt);
+    const w = axis.multiplyScalar(angle / dt).clampLength(0, 4);
     grab.omega = grab.omega ? grab.omega.lerp(w, 0.3) : w;
   } else if (grab.omega) grab.omega.multiplyScalar(0.8);
   prevQuat.copy(knotRoot.quaternion);
+  prevPosition.copy(knotRoot.position);
 }
 function endGrab(h) {
   if (!grab) return;
   const rest = grab.hands.filter(x => x !== h);
-  const omega = grab.engaged ? grab.omega : null;
+  const omega = grab.engaged && h.present ? grab.omega : null;
+  const velocity = grab.engaged && h.present ? grab.velocity : null;
   grab = null;
   if (rest.length) startGrab(rest);
-  else if (omega && omega.length() > 0.8) spin = omega.clone();
+  else if (omega || velocity) spin = { omega: omega?.clone() || new THREE.Vector3(), velocity: velocity?.clone() || new THREE.Vector3() };
 }
 
 function panelHit(panel, h) {
@@ -953,11 +972,14 @@ function updateXR(dt) {
   updateGrab(dt);
   for (const side of ['left', 'right']) {
     const h = xrInput.hands[side], c = cursors[side];
-    c.visible = h.present && !near[side];
-    if (c.visible) {
-      c.position.copy(h.pos);
+    c.group.visible = h.present && !near[side];
+    if (c.group.visible) {
+      c.group.position.copy(h.pos);
+      c.group.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), h.pinchAxis);
+      const gap = THREE.MathUtils.clamp(h.pinchGap, 0.004, 0.05);
+      c.jaws[0].position.x = -gap / 2;
+      c.jaws[1].position.x = gap / 2;
       const drawing = h === dom && drawArmed();
-      c.scale.setScalar(h.pinching ? 1.5 : drawing ? 1 : 0.7);
       c.material.opacity = drawing ? 0.9 : 0.45;
     }
   }
@@ -1149,11 +1171,14 @@ function animate(dt) {
     if (rotAnim.t >= 1) rotAnim = null;
   }
   if (spin && !grab) {
-    const w = spin.length();
-    if (w < 0.05) spin = null;
+    const w = spin.omega.length(), speed = spin.velocity.length();
+    if (w < 0.03 && speed < 0.003) spin = null;
     else {
-      knotRoot.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(spin.clone().normalize(), w * dt));
-      spin.multiplyScalar(Math.exp(-1.6 * dt));
+      const decay = Math.exp(-5 * dt), travel = (1 - decay) / 5;
+      knotRoot.position.addScaledVector(spin.velocity, travel);
+      if (w > 1e-6) knotRoot.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(spin.omega.clone().normalize(), w * travel));
+      spin.velocity.multiplyScalar(decay);
+      spin.omega.multiplyScalar(decay);
     }
   }
   const target = S.flatten ? 1 : 0;

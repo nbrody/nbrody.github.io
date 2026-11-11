@@ -18,6 +18,7 @@ function makeState(side) {
   return {
     side, present: false, isHand: false, pinching: false, pinchStart: false, pinchEnd: false,
     pos: new THREE.Vector3(), quat: new THREE.Quaternion(), grip: new THREE.Vector3(), tip: new THREE.Vector3(), tipValid: false,
+    pinchAxis: new THREE.Vector3(1, 0, 0), pinchGap: 0.02,
     palmCenter: new THREE.Vector3(), palmNormal: new THREE.Vector3(), palmToward: 0,
     rayOrigin: null, rayDir: null, squeezeStart: false, _inited: false, _trigger: false, _squeeze: false,
   };
@@ -72,6 +73,8 @@ export class XRInput {
     st.isHand = true;
     st.rayOrigin = st.rayDir = null;
     const d = thumb.position.distanceTo(index.position);
+    if (d > 0.001) st.pinchAxis.copy(index.position).sub(thumb.position).normalize();
+    st.pinchGap = d;
     const was = st.pinching;
     if (!was) { st._on = d < PINCH_ON ? (st._on || 0) + 1 : 0; st.pinching = st._on >= ON_FRAMES; }
     else { st._off = d > PINCH_OFF ? (st._off || 0) + 1 : 0; st.pinching = st._off < OFF_FRAMES; }
@@ -112,6 +115,8 @@ export class XRInput {
     if (!st._inited || st.pinchStart) { st.pos.copy(target); st.quat.copy(c.quaternion); st._inited = true; }
     else { st.pos.lerp(target, 0.7); st.quat.slerp(c.quaternion, 0.6); }
     st.grip.copy(st.pos);
+    st.pinchAxis.set(1, 0, 0).applyQuaternion(c.quaternion);
+    st.pinchGap = st.pinching ? 0.006 : 0.025;
     st.tip.copy(c.position).addScaledVector(fwd, 0.07);
     st.tipValid = true;
     st.rayOrigin = (st.rayOrigin || new THREE.Vector3()).copy(c.position);

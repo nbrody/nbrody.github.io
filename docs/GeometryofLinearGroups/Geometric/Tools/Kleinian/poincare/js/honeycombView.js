@@ -2,8 +2,8 @@
 import * as THREE from 'three';
 import { lorentzMatrix } from './math.js';
 import { faceInradii } from './tessellation.js';
-import { dirichletMeshes, delaunayMeshes, mapMaterial, sharedUniforms } from '../../../../../../quest/questGOLG/poincare/js/meshes.js';
-import { tilesNear, lorentz4 } from '../../../../../../quest/questGOLG/poincare/js/hyper.js';
+import { dirichletMeshes, delaunayMeshes, mapMaterial, sharedUniforms } from '../../../../../../vr/questGOLG/poincare/js/meshes.js';
+import { tilesNear, lorentz4 } from '../../../../../../vr/questGOLG/poincare/js/hyper.js';
 
 /** Normalized distance to the edge of each home-frame Dirichlet face. */
 export function faceEdgeDistances(geometry, home) {

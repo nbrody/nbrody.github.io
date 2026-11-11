@@ -18,6 +18,8 @@ class Pointer {
         this.kind = 'none';         // hand | controller | mouse | none
         this.handedness = '';
         this.active = false;
+        this.tracked = false;
+        this._awaitSelectRelease = false; this._awaitSqueezeRelease = false;
         this.ray = new THREE.Ray();
         this.select = false;
         this.selectStart = false;
@@ -49,6 +51,7 @@ export function createInput({ renderer, scene, camera, dom }) {
     const handFactory = new XRHandModelFactory();
     const ctrlFactory = new XRControllerModelFactory();
     const rigs = [];
+    let handsVisible = true;
 
     for (let i = 0; i < 2; i++) {
         const P = pointers[i];
@@ -72,6 +75,15 @@ export function createInput({ renderer, scene, camera, dom }) {
         cursor.renderOrder = 51;
         cursor.visible = false;
         scene.add(cursor);
+        // Two opposing jaws follow the real index finger and thumb. They are
+        // independent of the target ray, so they remain visible while grabbing.
+        const pinch = new THREE.Group();
+        const jawMaterial = new THREE.MeshBasicMaterial({ color: 0x818cf8, depthTest: false });
+        const jawGeometry = new THREE.CapsuleGeometry(0.0018, 0.012, 3, 6);
+        const jaws = [new THREE.Mesh(jawGeometry, jawMaterial), new THREE.Mesh(jawGeometry, jawMaterial)];
+        for (const jaw of jaws) { jaw.renderOrder = 52; pinch.add(jaw); }
+        pinch.visible = false;
+        scene.add(pinch);
 
         ctrl.addEventListener('connected', (e) => {
             P.source = e.data;
@@ -86,7 +98,7 @@ export function createInput({ renderer, scene, camera, dom }) {
         ctrl.addEventListener('selectend', () => { P._sel = false; });
         ctrl.addEventListener('squeezestart', () => { P._sq = true; });
         ctrl.addEventListener('squeezeend', () => { P._sq = false; });
-        rigs.push({ P, ctrl, grip, hand, handModel, ctrlModel, rayMesh, cursor });
+        rigs.push({ P, ctrl, grip, hand, handModel, ctrlModel, rayMesh, cursor, pinch, jaws });
     }
 
     // ---- the mouse (desktop) ----
@@ -131,29 +143,66 @@ export function createInput({ renderer, scene, camera, dom }) {
         for (const R of rigs) {
             const P = R.P;
             if (!xr || !P.active) {
+                if (P.select || P._sel) P._awaitSelectRelease = true;
+                if (P.squeeze || P._sq) P._awaitSqueezeRelease = true;
+                P.tracked = false;
                 edges(P, false, false);
-                R.rayMesh.visible = R.cursor.visible = false;
+                R.rayMesh.visible = R.cursor.visible = R.pinch.visible = false;
                 continue;
             }
+            // A connected hand can temporarily lose its joint poses. Treat
+            // that as a vanished pointer, never as a grab at the ray origin.
+            const joints = R.hand.joints || {};
+            const tip = joints['index-finger-tip'], thumb = joints['thumb-tip'], wrist = joints['wrist'];
+            P.tracked = P.kind !== 'hand' || !!(tip && thumb && tip.visible && thumb.visible);
+            if (!P.tracked) {
+                if (P.select || P._sel) P._awaitSelectRelease = true;
+                if (P.squeeze || P._sq) P._awaitSqueezeRelease = true;
+                edges(P, false, false);
+                P.tip = null;
+                R.rayMesh.visible = R.cursor.visible = R.pinch.visible = false;
+                continue;
+            }
+            // A held pinch across a tracking gap must be released before it
+            // can start a new interaction.
+            if (!P._sel) P._awaitSelectRelease = false;
+            if (!P._sq) P._awaitSqueezeRelease = false;
             // The target ray (system hand ray for hands).
             R.ctrl.updateMatrixWorld(true);
             R.ctrl.getWorldPosition(P.ray.origin);
             R.ctrl.getWorldQuaternion(tmpQ);
             P.ray.direction.set(0, 0, -1).applyQuaternion(tmpQ).normalize();
-            edges(P, P._sel, P._sq);
+            edges(P, P._sel && !P._awaitSelectRelease, P._sq && !P._awaitSqueezeRelease);
             if (P.kind === 'hand') {
-                const j = R.hand.joints || {};
-                const tip = j['index-finger-tip'], thumb = j['thumb-tip'], wrist = j['wrist'];
-                P.tip = tip ? tip.getWorldPosition(P.tip || new THREE.Vector3()) : null;
-                if (tip && thumb) {
-                    P.pose.position.copy(tip.getWorldPosition(tmpV)).add(thumb.getWorldPosition(new THREE.Vector3())).multiplyScalar(0.5);
+                P.tip = tip && tip.visible ? tip.getWorldPosition(P.tip || new THREE.Vector3()) : null;
+                const tracked = tip && thumb && tip.visible && thumb.visible;
+                R.pinch.visible = !!tracked;
+                if (tracked) {
+                    const indexPosition = tip.getWorldPosition(new THREE.Vector3());
+                    const thumbPosition = thumb.getWorldPosition(new THREE.Vector3());
+                    P.pose.position.copy(indexPosition).add(thumbPosition).multiplyScalar(0.5);
+                    // Angle each jaw toward its opposite, giving clear open and
+                    // closed feedback without substituting for the tracked hand.
+                    const axis = indexPosition.clone().sub(thumbPosition).normalize();
+                    const view = camera.getWorldPosition(new THREE.Vector3()).sub(P.pose.position).normalize();
+                    let tangent = new THREE.Vector3().crossVectors(axis, view).normalize();
+                    if (tangent.lengthSq() < 1e-6) tangent.set(0, 1, 0);
+                    for (let j = 0; j < 2; j++) {
+                        const jaw = R.jaws[j], sign = j === 0 ? 1 : -1;
+                        jaw.position.copy(j === 0 ? indexPosition : thumbPosition);
+                        const direction = tangent.clone().addScaledVector(axis, -sign * 0.7).normalize();
+                        jaw.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+                        jaw.scale.setScalar(P.select ? 1.3 : 1);
+                    }
+                    jawMaterialColor(R, P.select);
                 } else {
                     P.pose.position.copy(P.ray.origin);
                 }
-                if (wrist) { wrist.getWorldQuaternion(P.pose.quaternion); wrist.getWorldPosition(P.anchor); }
+                if (wrist && wrist.visible) { wrist.getWorldQuaternion(P.pose.quaternion); wrist.getWorldPosition(P.anchor); }
                 else { P.pose.quaternion.copy(tmpQ); P.anchor.copy(P.ray.origin); }
-                R.handModel.visible = true;
+                R.handModel.visible = handsVisible;
             } else {
+                R.pinch.visible = false;
                 P.tip = null;
                 R.grip.updateMatrixWorld(true);
                 R.grip.getWorldPosition(P.pose.position);
@@ -184,6 +233,8 @@ export function createInput({ renderer, scene, camera, dom }) {
         mouse.wheel = wheel; wheel = 0;
     }
 
+    function jawMaterialColor(R, selected) { R.jaws[0].material.color.setHex(selected ? 0x34d399 : 0x818cf8); }
+
     /** Draw a pointer's ray up to `dist` (null hides it) with a cursor at the hit. */
     function showRay(P, dist, normal = null) {
         const R = rigs.find(r => r.P === P);
@@ -203,11 +254,12 @@ export function createInput({ renderer, scene, camera, dom }) {
     }
 
     function setHandsVisible(v) {
+        handsVisible = v;
         for (const R of rigs) R.handModel.visible = v;
     }
 
     return {
         pointers, mouse, update, showRay, setHandsVisible,
-        all() { return renderer.xr.isPresenting ? pointers.filter(p => p.active) : (mouse.active || mouse.select || mouse.selectEnd ? [mouse] : []); },
+        all() { return renderer.xr.isPresenting ? pointers.filter(p => p.active && p.tracked) : (mouse.active || mouse.select || mouse.selectEnd ? [mouse] : []); },
     };
 }

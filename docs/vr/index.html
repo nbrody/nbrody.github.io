@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematics in VR</title>
+    <meta name="description" content="Interactive geometry and topology for Meta Quest: open this page in the Quest Browser, pick an app, and press Enter VR.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,800;1,8..60,400&display=swap">
+    <style>
+        /* Homepage & index tokens from the taste guide (light), dim slate for dark. */
+        :root {
+            --bg: #ffffff;
+            --surface: #f4f6f8;
+            --surface-2: #eceff3;
+            --text: #3d3f44;
+            --strong: #16181e;
+            --muted: #71747c;
+            --accent: #2f6fde;
+            --accent-on: #ffffff;
+            --accent-soft: #e5eefd;
+            --accent-2: #008497;
+            --accent-3: #9c68dc;
+            --ok: #2e9d62;
+            --font: 'Source Serif 4', Georgia, serif;
+            --r: 15px;
+            --r-lg: 20px;
+            --spring: cubic-bezier(.34, 1.3, .64, 1);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #2b3138; --surface: #343b44; --surface-2: #3c444e; --text: #d9dde3; --strong: #f1f3f6;
+                --muted: #a5abb4; --accent: #6f9bff; --accent-on: #10141c; --accent-soft: #33405a;
+                --accent-2: #3cc3d6; --accent-3: #c39bf3; --ok: #4cc283;
+            }
+        }
+        :root[data-theme="dark"] {
+            --bg: #2b3138; --surface: #343b44; --surface-2: #3c444e; --text: #d9dde3; --strong: #f1f3f6;
+            --muted: #a5abb4; --accent: #6f9bff; --accent-on: #10141c; --accent-soft: #33405a;
+            --accent-2: #3cc3d6; --accent-3: #c39bf3; --ok: #4cc283;
+        }
+
+        * { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 18px/1.55 var(--font);
+        }
+        main { max-width: 980px; margin: 0 auto; padding: 28px 24px 64px; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 36px; }
+        .crumb { color: var(--muted); font-size: 16px; }
+        .theme {
+            font: inherit; font-size: 15px; color: var(--muted);
+            background: var(--surface); border: 0; border-radius: 999px;
+            padding: 10px 18px; min-height: 44px; cursor: pointer;
+        }
+
+        h1 { font-weight: 800; font-size: 40px; line-height: 1.12; color: var(--strong); margin: 0 0 14px; letter-spacing: -0.01em; }
+        .lede { font-size: 21px; max-width: 40em; margin: 0 0 22px; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: var(--surface); border-radius: 999px; padding: 9px 18px;
+            font-size: 16px; color: var(--muted);
+        }
+        .chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+        .chip[data-ok="yes"] .dot { background: var(--ok); }
+        .chip strong { color: var(--strong); font-weight: 600; }
+
+        section { margin-top: 44px; }
+        h2 { font-weight: 800; font-size: 26px; color: var(--strong); margin: 0 0 16px; }
+
+        /* The featured app. */
+        .feature {
+            display: grid; grid-template-columns: 300px 1fr; gap: 32px; align-items: center;
+            background: var(--surface); border-radius: var(--r-lg); padding: 30px;
+        }
+        .emblem { width: 100%; aspect-ratio: 1; display: block; }
+        .feature h2 { font-size: 34px; margin-bottom: 8px; }
+        .feature p { margin: 0 0 14px; }
+        .facts { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .facts li { background: var(--bg); border-radius: 999px; padding: 5px 14px; font-size: 15px; color: var(--muted); }
+
+        /* The rest, as a list. */
+        .list { display: grid; gap: 12px; }
+        .item {
+            display: grid; grid-template-columns: 112px 1fr auto; gap: 22px; align-items: center;
+            background: var(--surface); border-radius: var(--r-lg); padding: 18px 22px;
+        }
+        .item h3 { font-weight: 800; font-size: 23px; color: var(--strong); margin: 0 0 4px; }
+        .item p { margin: 0; }
+        .item .emblem { width: 112px; }
+
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-height: 56px; padding: 0 28px; border-radius: 999px;
+            font: 600 19px/1 var(--font); text-decoration: none;
+            background: var(--accent); color: var(--accent-on);
+            transition: transform .25s var(--spring), box-shadow .25s;
+        }
+        .btn:hover { text-decoration: none; transform: translateY(-2px); }
+        .btn.quiet { background: var(--accent-soft); color: var(--accent); }
+
+        .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+        .steps li {
+            counter-increment: step; position: relative;
+            background: var(--surface); border-radius: var(--r); padding: 14px 18px 14px 62px;
+        }
+        .steps li::before {
+            content: counter(step); position: absolute; left: 18px; top: 13px;
+            width: 30px; height: 30px; border-radius: 50%;
+            background: var(--accent-soft); color: var(--accent); font-weight: 800;
+            display: grid; place-items: center; font-size: 16px;
+        }
+        .steps code { font-family: inherit; font-weight: 600; color: var(--strong); }
+
+        footer { margin-top: 48px; color: var(--muted); font-size: 16px; }
+
+        @media (max-width: 720px) {
+            main { padding: 20px 16px 48px; }
+            h1 { font-size: 32px; }
+            .lede { font-size: 19px; }
+            .feature { grid-template-columns: 1fr; padding: 22px; gap: 18px; }
+            .feature .emblem { max-width: 220px; margin: 0 auto; }
+            .item { grid-template-columns: 72px 1fr; }
+            .item .emblem { width: 72px; }
+            .item .actions { grid-column: 1 / -1; }
+        }
+        @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+    </style>
+</head>
+<body>
+<main>
+    <div class="top">
+        <span class="crumb"><a href="../">nbrody.github.io</a> / vr</span>
+        <button class="theme" id="theme" type="button">Dark</button>
+    </div>
+
+    <h1>Mathematics in VR</h1>
+    <p class="lede">Geometry and topology you can hold in your hands. Open this page in the Quest Browser, pick an app, and press <strong>Enter VR</strong>. Hand tracking and controllers both work.</p>
+    <div class="chip" id="xr-status"><span class="dot"></span><span>Checking for VR…</span></div>
+
+    <section>
+        <div class="feature">
+            <svg class="emblem" id="emblem-disk" viewBox="-1.04 -1.04 2.08 2.08" role="img" aria-label="The Farey tessellation of the Poincaré disk"></svg>
+            <div>
+                <h2>Poincaré VR</h2>
+                <p>Fundamental domains of Kleinian groups, certified by the same engine as the desktop Poincaré tool. Hold the Poincaré ball, pass through its faces, and step inside the tiling of hyperbolic space by copies of the domain.</p>
+                <ul class="facts">
+                    <li>44 groups in the library</li>
+                    <li>Dirichlet and Delaunay domains</li>
+                    <li>Certificates and invariants</li>
+                    <li>Walk inside the honeycomb</li>
+                </ul>
+                <div class="actions">
+                    <a class="btn" href="questGOLG/poincare/">Open Poincaré VR</a>
+                    <a class="btn quiet" href="../GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare/">Desktop version</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>More apps</h2>
+        <div class="list">
+            <div class="item">
+                <svg class="emblem" id="emblem-knot" viewBox="-3.6 -3.6 7.2 7.2" role="img" aria-label="A trefoil knot"></svg>
+                <div>
+                    <h3>Knot Sculptor</h3>
+                    <p>Draw a knot in the air with a pinch, then take it apart: which knot it is, its invariants, its projections, and a Seifert surface it bounds.</p>
+                </div>
+                <div class="actions">
+                    <a class="btn" href="../topology/knotTheory/knotSculptor/">Open</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>On the headset</h2>
+        <ol class="steps">
+            <li>Open the Quest Browser and go to <code>nbrody.github.io/vr</code>.</li>
+            <li>Choose an app, then press <strong>Enter VR</strong>, or <strong>Passthrough</strong> to stay in your room.</li>
+            <li>With hands: pinch to press a button, pinch and hold to grab, use both hands to scale, or tap a panel with your index finger. With controllers: trigger to press, grip to grab.</li>
+        </ol>
+    </section>
+
+    <footer>
+        Every app also runs in a desktop browser with a mouse. More tools: <a href="../GeometryofLinearGroups/">Geometry of Linear Groups</a> · <a href="../topology/">Topology</a>
+    </footer>
+</main>
+
+<script>
+    // Theme: follow the system until the reader picks one.
+    (function () {
+        const root = document.documentElement, btn = document.getElementById('theme');
+        let saved = null;
+        try { saved = localStorage.getItem('quest.theme'); } catch (e) { /* private mode */ }
+        if (saved === 'light' || saved === 'dark') root.dataset.theme = saved;
+        const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+        const label = () => { btn.textContent = isDark() ? 'Light' : 'Dark'; };
+        label();
+        btn.addEventListener('click', () => {
+            root.dataset.theme = isDark() ? 'light' : 'dark';
+            try { localStorage.setItem('quest.theme', root.dataset.theme); } catch (e) { /* ignore */ }
+            label();
+            drawKnot();
+        });
+        matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { label(); drawKnot(); });
+    })();
+
+    // Can this browser enter VR?
+    (async function () {
+        const el = document.getElementById('xr-status'), txt = el.lastElementChild;
+        let ok = false;
+        try { ok = !!(navigator.xr && await navigator.xr.isSessionSupported('immersive-vr')); } catch (e) { ok = false; }
+        el.dataset.ok = ok ? 'yes' : 'no';
+        txt.innerHTML = ok
+            ? '<strong>This browser can enter VR.</strong> Pick an app below.'
+            : 'No VR headset here. On your Quest, open <strong>nbrody.github.io/vr</strong> in the Quest Browser.';
+    })();
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+    // The Farey tessellation in the Poincaré disk: geodesics between Farey neighbours.
+    (function () {
+        const svg = document.getElementById('emblem-disk');
+        const add = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); svg.appendChild(e); return e; };
+        // The rational p/q on the circle (Cayley transform), ∞ at the top.
+        const angle = (p, q) => -2 * Math.atan2(q, p) + Math.PI / 2;
+        const pt = (a) => [Math.cos(a), -Math.sin(a)];
+        const arc = (a, b) => {
+            let d = Math.abs(a - b) % (2 * Math.PI);
+            if (d > Math.PI) d = 2 * Math.PI - d;
+            const [x1, y1] = pt(a), [x2, y2] = pt(b);
+            if (Math.abs(d - Math.PI) < 1e-9) return `M${x1} ${y1}L${x2} ${y2}`;
+            const r = Math.tan(d / 2);
+            // Bulge toward the centre: of the two arcs of radius r, take the short one inside the disk.
+            const cross = x1 * y2 - y1 * x2;
+            return `M${x1} ${y1}A${r} ${r} 0 0 ${cross > 0 ? 0 : 1} ${x2} ${y2}`;
+        };
+        add('circle', { cx: 0, cy: 0, r: 1, fill: 'var(--bg)', stroke: 'none' });
+        // Level 0: the geodesic from 0 to ∞; then, level by level, the mediant of
+        // each pair of neighbours (∞ is 1/0 on one side and −1/0 on the other).
+        const levels = [[[[0, 1], [1, 0]]], [], [], [], [], [], []];
+        let frontier = [[[0, 1], [1, 0]], [[-1, 0], [0, 1]]];
+        for (let lev = 1; lev < levels.length; lev++) {
+            const next = [];
+            for (const [[a, b], [c, d]] of frontier) {
+                const m = [a + c, b + d];
+                levels[lev].push([[a, b], m], [m, [c, d]]);
+                next.push([[a, b], m], [m, [c, d]]);
+            }
+            frontier = next;
+        }
+        const colors = ['var(--accent)', 'var(--accent)', 'var(--accent)', 'var(--accent-2)', 'var(--accent-2)', 'var(--accent-3)', 'var(--muted)'];
+        const widths = [0.018, 0.016, 0.013, 0.010, 0.008, 0.006, 0.0045];
+        levels.forEach((L, i) => {
+            const d = L.map(([[a, b], [c, e]]) => arc(angle(a, b), angle(c, e))).join('');
+            add('path', { d, fill: 'none', stroke: colors[i], 'stroke-width': widths[i], 'stroke-linecap': 'round', opacity: i === 6 ? 0.55 : 1 });
+        });
+        add('circle', { cx: 0, cy: 0, r: 1, fill: 'none', stroke: 'var(--strong)', 'stroke-width': 0.018 });
+    })();
+
+    // A trefoil, drawn back to front so over-strands break the ones beneath; it turns slowly.
+    const knotSvg = document.getElementById('emblem-knot');
+    let knotTurn = 0.6;
+    function drawKnot() {
+        const N = 360, segs = [];
+        // Spin in the page plane with a gentle wobble out of it, so the crossings always read.
+        const w = 0.4 * Math.sin(knotTurn * 0.7), cw = Math.cos(w), sw = Math.sin(w);
+        const cp = Math.cos(knotTurn), sp = Math.sin(knotTurn);
+        const P = (t) => {
+            let x = Math.sin(t) + 2 * Math.sin(2 * t), y = Math.cos(t) - 2 * Math.cos(2 * t), z = -Math.sin(3 * t);
+            [x, z] = [cw * x + sw * z, -sw * x + cw * z];
+            [x, y] = [cp * x - sp * y, sp * x + cp * y];
+            return [x, -y, z];
+        };
+        for (let i = 0; i < N; i++) {
+            const a = P((i / N) * 2 * Math.PI), b = P(((i + 1) / N) * 2 * Math.PI);
+            segs.push({ a, b, z: (a[2] + b[2]) / 2 });
+        }
+        segs.sort((u, v) => u.z - v.z);
+        const halo = css('--surface') || '#f4f6f8';
+        let html = '';
+        for (const g of segs) {
+            const d = `M${g.a[0].toFixed(3)} ${g.a[1].toFixed(3)}L${g.b[0].toFixed(3)} ${g.b[1].toFixed(3)}`;
+            html += `<path d="${d}" stroke="${halo}" stroke-width="0.62" stroke-linecap="butt" fill="none"/>`
+                + `<path d="${d}" stroke="var(--accent-2)" stroke-width="0.32" stroke-linecap="round" fill="none"/>`;
+        }
+        knotSvg.innerHTML = html;
+    }
+    drawKnot();
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        let last = 0;
+        const spin = (now) => {
+            if (now - last > 50) { knotTurn += 0.012; drawKnot(); last = now; }
+            requestAnimationFrame(spin);
+        };
+        requestAnimationFrame(spin);
+    }
+</script>
+</body>
+</html>

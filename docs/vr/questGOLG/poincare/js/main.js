@@ -193,6 +193,7 @@ function recenter() {
     workbench.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir);
     if (app.inside) setInside(false);
     homeBall();
+    interaction.cancelMotion();
     if (!renderer.xr.isPresenting) desktopView();
 }
 
