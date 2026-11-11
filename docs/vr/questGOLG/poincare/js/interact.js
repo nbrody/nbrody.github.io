@@ -207,8 +207,13 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
 
         // A mouse double click goes through the face under it (whatever mode the press left us in).
         if (p.kind === 'mouse' && p.dblClick) {
-            const f = display.pick(raycaster);
-            if (f.tag >= 0) callbacks.onDoubleTap(f.tag);
+            // Inside, translucent faces do not occlude the workbench visually;
+            // they must not steal a double-click from a panel behind them.
+            const onInsidePanel = inside() && visiblePanels().some(P => raycaster.intersectObject(P.mesh, false).length > 0);
+            if (!onInsidePanel) {
+                const f = display.pick(raycaster);
+                if (f.tag >= 0) callbacks.onDoubleTap(f.tag);
+            }
         }
 
         // Controller grip grabs at once.
@@ -236,7 +241,9 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
             if (h && (!panelHit || h.distance < panelHit.h.distance)) panelHit = { P, h };
         }
         const face = display.pick(raycaster);
-        const faceFirst = face.tag >= 0 && (!panelHit || face.distance < panelHit.h.distance);
+        // The translucent inside cell is drawn behind the panels even when
+        // its surface is nearer to the ray. Match that visual precedence.
+        const faceFirst = face.tag >= 0 && (!panelHit || (!inside() && face.distance < panelHit.h.distance));
 
         if (s.mode === 'press') {
             const moved = p.anchor.distanceTo(s.pressPos);
@@ -329,5 +336,21 @@ export function createInteraction({ input, display, ballRoot, panels, camera, co
         }
     }
 
-    return { update, cancelMotion() { clearMotion(); restartGrab(); }, get grabbing() { return grabbers().length > 0; } };
+    /** End active grabs and pending presses on a change of interaction mode.
+     * Held buttons have no new down edge until released, so they cannot
+     * immediately start a grab with the previous mode's baseline.
+     */
+    function cancelGestures() {
+        const wasGrabbing = grabbers().length > 0;
+        for (const s of st.values()) {
+            if (s.mode === 'grab' || s.mode === 'press') s.mode = 'idle';
+            s.lastTap = { t: 0, tag: -9 };
+        }
+        grab = null;
+        clearMotion();
+        if (controls) controls.enabled = true;
+        if (wasGrabbing && callbacks.onGrab) callbacks.onGrab(false);
+    }
+
+    return { update, cancelMotion() { clearMotion(); restartGrab(); }, cancelGestures, get grabbing() { return grabbers().length > 0; } };
 }

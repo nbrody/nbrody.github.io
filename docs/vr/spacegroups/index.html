@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Space Groups VR</title>
+<meta name="description" content="Explore Euclidean space-group domains with your hands in VR.">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+<script type="importmap">{"imports":{"three":"../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/three/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<header><div><h1>Space Groups VR</h1><span>Fundamental domains in Euclidean space</span></div><div id="status" role="status">Loading…</div><nav><a href="../">VR hub</a><a href="../../GeometryofLinearGroups/Geometric/Tools/Euclidean/spacegroups/">Desktop viewer</a><button id="vr" disabled>Enter VR</button><button id="ar" hidden>Passthrough</button></nav></header>
+<div id="help"><strong>Desktop:</strong> drag to orbit; click a face or use the panels. <strong>Quest:</strong> pinch to press or grab, use both hands to scale; controllers use trigger and grip.</div>
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>

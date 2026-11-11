@@ -108,6 +108,11 @@ export function createDisplay(root) {
 
     /** What is shown: 'plane' (Fuchsian polygon), 'delaunay' or 'dirichlet'. */
     function kind() {
+        // Inside navigation and re-anchoring use the canonical Dirichlet
+        // walls, even if a tabletop Delaunay or planar view is selected.
+        if (app.inside) return 'dirichlet';
+        // The flat polygon is useful on the tabletop, but has no enclosing
+        // faces to point at from inside. Show its 3D domain in that view.
         if (app.planar && app.settings.plane) return 'plane';
         if (app.settings.domain === 'delaunay' && app.delaunay && app.delaunay.ok) return 'delaunay';
         return 'dirichlet';
@@ -252,7 +257,9 @@ export function createDisplay(root) {
         }
         const centre = H.q0 || new THREE.Vector3();
         const tiles = tilesNear(gens, { centre, eye: centre, radius, max });
-        const els = app.inside ? tiles : tiles.slice(1);    // outside: D itself is drawn opaque
+        // The current domain is drawn separately so that its faces remain
+        // pickable and can show pairing highlights from inside.
+        const els = tiles.slice(1);
         if (!els.length) return;
         const mats = els.map(t => lorentz4(t.M));
         const inst = (geo, mat, order) => {
@@ -422,8 +429,8 @@ export function createDisplay(root) {
         const s = app.settings;
         const insideHide = app.inside;
         if (built.faces) {
-            built.faces.visible = s.faces && !insideHide;
-            const op = built.kind === 'plane' ? Math.min(s.opacity, 0.9) : s.opacity;
+            built.faces.visible = insideHide || s.faces;
+            const op = insideHide ? (s.honeycomb ? 0.06 : 0.20) : built.kind === 'plane' ? Math.min(s.opacity, 0.9) : s.opacity;
             faceMat.uniforms.u_opacity.value = op;
             faceMat.transparent = op < 1;
             faceMat.depthWrite = op >= 1;
@@ -476,6 +483,7 @@ export function createDisplay(root) {
 
     return {
         root, rebuild, rebuildTiles, rebuildExtras, syncVisibility, syncSelection, setTheme, frame, pick,
+        faceCentre(i) { return built && built.kind === 'dirichlet' && built.centres[i] ? built.centres[i].clone() : null; },
         get kind() { return built ? built.kind : null; },
         get tileCount() { return tilesFor ? tilesFor.count : 0; },
         shell,

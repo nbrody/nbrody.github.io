@@ -8,7 +8,7 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { applyMatrixToBall, DESKTOP_URL } from './engine.js';
+import { applyMatrixToBall, ballToKlein, kleinToBall, DESKTOP_URL } from './engine.js';
 import {
     app, on, emit, loadPreset, loadFromURL, setGroup, stepAnimation, fly, reanchor, setSetting,
     statusSummary, desktopState, goThroughFace, goThroughSide, resetView, namePlain
@@ -37,7 +37,7 @@ camera.position.set(0, 1.42, 0.92);
 // This listener is added before OrbitControls', so it runs first.
 const pressRay = new THREE.Raycaster();
 canvas.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || renderer.xr.isPresenting || app.inside) return;
+    if (e.button !== 0 || renderer.xr.isPresenting) return;
     const r = canvas.getBoundingClientRect();
     pressRay.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
     const onPanel = screens.panels.some(P => P.mesh.visible && pressRay.intersectObject(P.mesh, false).length);
@@ -106,7 +106,7 @@ const actions = {
     recenter: () => recenter(),
     setInside: (v) => setInside(v),
     setTheme: (t) => setTheme(t),
-    select: (i) => { app.selected = i; display.syncSelection(); emit('selection'); },
+    select: (i) => { app.insideFaceError = ''; app.selected = i; display.syncSelection(); emit('selection'); },
 };
 const screens = createScreens({ actions, workbench });
 
@@ -127,6 +127,7 @@ const interaction = createInteraction({
 
 function throughFace(tag) {
     if (tag < 0) return;
+    if (app.inside) { crossInsideFace(tag); return; }
     if (display.kind === 'delaunay') goThroughSide(tag); else goThroughFace(tag);
 }
 
@@ -136,8 +137,27 @@ const INSIDE_RADIUS = 2.6;     // ball radius (m) when you stand inside it
 const headPos = new THREE.Vector3(), lastHead = new THREE.Vector3();
 let saved = null;
 
+/** Find the cell around the eye, allowing a bounded number of face crossings. */
+function anchorInsideEye() {
+    if (!app.home) return true;
+    const outside = () => {
+        const eye = applyMatrixToBall(app.S.inv().normalized(), new THREE.Vector3());
+        if (![eye.x, eye.y, eye.z].every(Number.isFinite) || eye.lengthSq() >= 1 - 1e-12) return true;
+        return violatedWall(app.home.walls, ballToHyp(eye), 1e-7) >= 0;
+    };
+    try {
+        for (let pass = 0; pass < 12 && outside(); pass++) reanchor(violatedWall, ballToHyp, applyMatrixToBall);
+        return !outside();
+    } catch (e) {
+        console.warn('Could not locate the cell around the eye:', e);
+        return false;
+    }
+}
+
 function setInside(on) {
     if (on === app.inside) return;
+    interaction.cancelGestures();
+    app.insideNotice = '';
     app.inside = on;
     if (on) {
         saved = { pos: ballRoot.position.clone(), quat: ballRoot.quaternion.clone(), scale: ballRoot.scale.x };
@@ -146,6 +166,19 @@ function setInside(on) {
         workbench.getWorldQuaternion(ballRoot.quaternion);
         headWorld(lastHead);
         ballRoot.position.copy(lastHead);
+        // Pick the current Dirichlet cell around the eye even when the
+        // tabletop view had already been moved by a group element.
+        if (!anchorInsideEye()) {
+            resetView();
+            app.insideNotice = 'The previous view was too far away to locate its cell, so the view returned to the basepoint.';
+            if (!anchorInsideEye()) {
+                app.inside = false;
+                ballRoot.position.copy(saved.pos); ballRoot.quaternion.copy(saved.quat); ballRoot.scale.setScalar(saved.scale);
+                app.insideNotice = 'Could not locate the inside cell for this domain.';
+                emit('inside');
+                return;
+            }
+        }
         if (!renderer.xr.isPresenting) {
             controls.target.copy(lastHead).add(new THREE.Vector3(0, 0, -0.01).applyQuaternion(camera.quaternion));
             controls.enableZoom = false;
@@ -154,8 +187,12 @@ function setInside(on) {
         if (saved) { ballRoot.position.copy(saved.pos); ballRoot.quaternion.copy(saved.quat); ballRoot.scale.setScalar(saved.scale); }
         if (!renderer.xr.isPresenting) { controls.enableZoom = true; desktopView(); }
     }
-    display.syncVisibility();
-    display.rebuildTiles();
+    // The inside view uses the Dirichlet cell, whose walls are also the
+    // ones used for re-anchoring during flight.
+    app.selected = -1;
+    app.insideFaceError = '';
+    display.rebuild();
+    emit('selection');
     emit('inside');
 }
 
@@ -172,6 +209,37 @@ function flyWorld(d) {
     if (local.lengthSq() < 1e-14) return;
     fly(translationBy(local.clampLength(0, 0.2)));
     reanchor(violatedWall, ballToHyp, applyMatrixToBall);
+}
+
+/** Teleport just across the selected face, then use its pairing to re-anchor.
+ * In the Klein model a segment from the eye through a point in a face is a
+ * geodesic; a small extension crosses that face without a moving-camera glide.
+ */
+function crossInsideFace(i) {
+    if (app.anim || !app.home || !app.home.walls[i]?.pairing) return;
+    const fail = () => { app.insideFaceError = 'Could not find a safe point across this face. Try walking closer or choose another face.'; emit('selection'); };
+    const centre = display.faceCentre(i);
+    if (!centre) { fail(); return; }
+    const eye = ballToKlein(applyMatrixToBall(app.S.inv().normalized(), new THREE.Vector3()));
+    const face = ballToKlein(centre);
+    const direction = face.clone().sub(eye);
+    if (direction.lengthSq() < 1e-12) { fail(); return; }
+    direction.normalize();
+    let target = null;
+    for (const step of [0.01, 0.003, 0.001, 0.0003]) {
+        const k = face.clone().addScaledVector(direction, step);
+        if (k.lengthSq() >= 0.999999) continue;
+        const p = kleinToBall(k), X = ballToHyp(p);
+        // Avoid teleporting through a different face near an edge.
+        const otherWalls = app.home.walls.filter((_, j) => j !== i);
+        if (violatedWall(app.home.walls, X, 1e-8) === i && violatedWall(otherWalls, X, 1e-8) < 0) { target = p; break; }
+    }
+    if (!target) { fail(); return; }
+    const scenePoint = applyMatrixToBall(app.S, target);
+    fly(translationBy(scenePoint.negate()));
+    reanchor(violatedWall, ballToHyp, applyMatrixToBall);
+    actions.select(-1);
+    emit('view');
 }
 
 // ---------------- placing the workbench ----------------
@@ -286,7 +354,7 @@ on('status', showStatus);
 on('domain', () => { display.rebuild(); display.rebuildExtras(); showStatus(); });
 on('settings', (key) => {
     if (['domain', 'plane', 'palette'].includes(key)) display.rebuild();
-    else if (['tiling', 'tilingRadius', 'honeycomb'].includes(key)) display.rebuildTiles();
+    else if (['tiling', 'tilingRadius', 'honeycomb'].includes(key)) { display.rebuildTiles(); if (key === 'honeycomb') display.syncVisibility(); }
     else if (['cayley', 'limit'].includes(key)) display.rebuildExtras();
     else if (key === 'ballRadius') { if (!app.inside) { ballRoot.scale.setScalar(app.settings.ballRadius); } }
     else display.syncVisibility();

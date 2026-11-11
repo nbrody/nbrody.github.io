@@ -143,10 +143,12 @@ export function createScreens({ actions, workbench }) {
             }
             u.divider();
             u.label('Inside the manifold');
-            u.toggle('inside', 'Step inside the tiling', app.inside);
+            u.toggle('inside', 'Step inside the tiling', app.inside, { disabled: !!app.anim });
+            if (app.insideNotice) u.text(app.insideNotice, { color: u.theme.warn, size: 22 * u.s });
             u.text(app.inside
-                ? 'Walk, pull the world with a pinch, or push the thumbstick to fly. The domain’s copies fill hyperbolic space around you.'
+                ? 'Walk, pull the world with a pinch, or push the thumbstick to fly. Point at the translucent Dirichlet cell and tap a face to inspect its pairing; tap twice or use the Face panel to cross it.'
                 : 'Stand inside the tiling of hyperbolic space by copies of the domain.', { muted: true, size: 22 * u.s });
+            if (app.inside) u.text('Inside uses the Dirichlet cell. Crossing a selected face is an instant teleport.', { muted: true, size: 22 * u.s });
             if (app.inside) u.toggle('honeycomb', 'Edges only (honeycomb)', app.settings.honeycomb);
             u.space(6 * u.s);
             u.button('recenter', 'Bring the workbench to me', { icon: 'back' });
@@ -252,10 +254,10 @@ export function createScreens({ actions, workbench }) {
     function faceTab(ui) {
         const i = app.selected;
         if (i < 0 || !app.home) {
-            ui.text('Tap a face of the domain to inspect it. Tap it twice to go through it: the tile behind it comes to the middle.', { muted: true });
+            ui.text(app.inside ? 'Point at a face of the translucent cell and tap to inspect its pairing. Tap twice or use the button to teleport just across it.' : 'Tap a face of the domain to inspect it. Tap it twice to go through it: the tile behind it comes to the middle.', { muted: true });
             return;
         }
-        if (app.settings.domain === 'delaunay' && app.delaunay && app.delaunay.ok && !(app.planar && app.settings.plane)) {
+        if (!app.inside && app.settings.domain === 'delaunay' && app.delaunay && app.delaunay.ok && !(app.planar && app.settings.plane)) {
             const R = app.delaunay, S = R.sides[i];
             if (!S) return;
             const P = R.pairs[S.pair];
@@ -281,7 +283,8 @@ export function createScreens({ actions, workbench }) {
         }
         ui.richLine(['Wall of ', { tex: wordTex(w.word || [], 16) }, w.kind === 'cone' ? ' (a stabilizer wall through the basepoint)' : '', w.isParabolic ? ' (parabolic)' : ''], { size: 24 * ui.s, muted: true });
         ui.space(8 * ui.s);
-        ui.button('through', 'Go through this face', { accent: true, disabled: !!app.anim });
+        if (app.insideFaceError) ui.text(app.insideFaceError, { color: ui.theme.warn, size: 22 * ui.s });
+        ui.button('through', app.inside ? 'Teleport across this face' : 'Go through this face', { accent: true, disabled: !!app.anim || (app.inside && !w.pairing) });
         ui.button('deselect', 'Deselect');
     }
 
