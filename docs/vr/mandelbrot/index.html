@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mandelbrot &amp; Julia VR</title>
+<meta name="description" content="Explore the Mandelbrot set and its Julia sets in VR.">
+<link rel="stylesheet" href="../shared/chrome.css">
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']]},svg:{fontCache:'local'},startup:{typeset:false}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>
+<script type="importmap">{"imports":{"three":"../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/three/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<canvas id="scene" aria-label="Mandelbrot and Julia sets"></canvas>
+<header><div><h1>Mandelbrot &amp; Julia VR</h1><span>Choose a parameter to explore its Julia set</span></div><div id="status" role="status">Loading…</div><nav><a href="../">VR hub</a><a href="../../GeometryofLinearGroups/Geometric/Tools/Kleinian/mandelbrot.html">Desktop explorer</a><button id="home" type="button">Recenter</button><button id="vr" disabled>Enter VR</button><button id="ar" hidden>Passthrough</button></nav></header>
+<div id="help"><strong>Desktop:</strong> click the Mandelbrot image to select <em>c</em>; use the panel to zoom. <strong>Quest:</strong> point and pinch or use the trigger to select. Grip to move; press A or X to recenter.</div>
+<script type="module" src="main.js?v=2026-11-12a"></script>
+</body>
+</html>

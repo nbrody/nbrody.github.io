@@ -5,6 +5,8 @@ import { createInput } from '../../questGOLG/poincare/js/xrInput.js';
 import { createInteraction } from '../../questGOLG/poincare/js/interact.js';
 import { createPanel } from '../../questGOLG/poincare/js/ui/panel.js?v=2026-11-12a';
 import { B, baseDiskSet, diskSet, labelText, applyAction, getFrame, buildTree } from './tree.js';
+import { buildBallTree, getBallFrame, ballEngine } from './ballTree.js';
+import { createBallScene } from './ballRender.js';
 
 const canvas=document.querySelector('#scene'), status=document.querySelector('#status');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
@@ -20,8 +22,10 @@ const light=new THREE.DirectionalLight(0xffffff,1.3);light.position.set(1,3,2);s
 const workbench=new THREE.Group();workbench.position.set(0,1.3,0);scene.add(workbench);
 const modelRoot=new THREE.Group(),treeGroup=new THREE.Group(),markGroup=new THREE.Group();scene.add(modelRoot);modelRoot.add(treeGroup,markGroup);
 const input=createInput({renderer,scene,camera,dom:canvas});
-const settings={base:'disk',lam:1,h:-.75,edges:'q',N:3,depth:2};
-let recs=[],selected=[],showFarey=true,truncated=false,lastAction='Choose a plane, then apply a matrix.';
+const settings={field:'Q',base:'disk',lam:1,h:-.75,edges:'q',N:3,depth:2};
+let recs=[],selected=[],showFarey=true,truncated=false,ballScene=null,lastAction='Choose a plane, then apply a matrix.';
+const isBall = () => settings.field !== 'Q';
+const selectedName = () => isBall() ? (selected.length ? selected.map(ballEngine(settings.field).name).join(' → ') : 'v₀') : labelText(selected);
 const fillGeo=new THREE.CircleGeometry(1,48).rotateX(-Math.PI/2);
 const fills=[0xbdd6ef,0xc4e7dc,0xd9c7ed,0xf0d2b3];
 const fillsMat=fills.map(color=>new THREE.MeshBasicMaterial({color,side:THREE.DoubleSide,transparent:true,opacity:.87}));
@@ -45,7 +49,13 @@ function geodesic(out,F,A,C){
     arc(out,F,s=>[x+r*Math.cos(a+delta*s),y+r*Math.sin(a+delta*s)],n);
 }
 function rebuild(){
-    clear(treeGroup);const result=buildTree(settings);recs=result.recs;truncated=result.truncated;
+    if(ballScene){ballScene.dispose();ballScene=null;}
+    clear(treeGroup);const result=isBall()?buildBallTree(settings):buildTree(settings);recs=result.recs;truncated=result.truncated;
+    if(isBall()){
+        ballScene=createBallScene({recs,field:settings.field,showCircles:showFarey});treeGroup.add(ballScene.group);
+        status.textContent=`${recs.length} balls · finite ${settings.field==='i'?'ℚ(i)':'ℚ(ω)'} patch${truncated?' · display limit reached':''}`;
+        drawMarker();refresh();return;
+    }
     const boundary=[],links=[],farey=[];
     recs.forEach((rec,i)=>{
         const F=rec.F,m=new THREE.Mesh(fillGeo,fillsMat[rec.depth%fillsMat.length]);m.position.set(F.cx,F.z,-F.cy);m.scale.setScalar(F.R);m.userData.vertex=i;treeGroup.add(m);
@@ -59,45 +69,69 @@ function rebuild(){
     drawMarker();refresh();
 }
 function drawMarker(from=null){
-    clear(markGroup);const F=getFrame(selected,settings),v=[];
+    clear(markGroup);
+    if(isBall()){
+        const F=getBallFrame(selected,settings).F, sphere=new THREE.SphereGeometry(F.R*1.02,24,16);
+        const outline=new THREE.LineSegments(new THREE.WireframeGeometry(sphere),markerMat);sphere.dispose();outline.position.set(...F.c);markGroup.add(outline);
+        if(from){const A=getBallFrame(from,settings).F;markGroup.add(new THREE.Line(lineGeo([...A.c,...F.c]),markerMat));}
+        return;
+    }
+    const F=getFrame(selected,settings),v=[];
     arc(v,F,s=>[Math.cos(2*Math.PI*s),Math.sin(2*Math.PI*s)],64,.009);
     markGroup.add(new THREE.LineSegments(lineGeo(v),markerMat));
     if(from){const A=getFrame(from,settings),a=[A.cx,A.z+.01,-A.cy],b=[F.cx,F.z+.01,-F.cy];markGroup.add(new THREE.Line(lineGeo([...a,...b]),markerMat));}
 }
 function act(which){
-    const next=applyAction(which,selected);
+    let next;
+    if(isBall()){
+        const E=ballEngine(settings.field), entries={S:['0','-1','1','0'],T:['1','1','0','1'],U:['1','t','0','1'],Theta:['1',settings.field==='i'?'i':'\\omega','0','1']};
+        next=E.tree.localMap(E.matrixOf(entries[which].map(E.parse)),selected).labels;
+    }else next=applyAction(which,selected);
     if(next.length>8){lastAction='Image is beyond eight edges; reset or choose another plane.';refresh();return;}
-    const from=selected;selected=next;lastAction=`${which} maps the selected vertex to ${labelText(next)}.`;drawMarker(from);refresh();
+    const from=selected;selected=next;lastAction=`${which} maps the selected vertex to ${selectedName()}.`;drawMarker(from);refresh();
 }
-const left=createPanel({name:'tree-view',widthM:.43,heightM:.43,build(ui){
-    ui.subheading('Tree of planes');ui.text('Finite patch over ℚ((1/t))',{muted:true,size:23*ui.s});ui.space(6*ui.s);
-    ui.text(`Depth: ${settings.depth}   ·   max denominator: ${settings.N}`);
-    ui.button('depth','Change depth (1–3)');ui.button('den','Change max q (2–4)');
-    ui.button('edges',`Edges: ${settings.edges==='q'?'length 1/q':settings.edges==='levels'?'equal levels':'zero'}`);
-    ui.toggle('farey','Farey geodesics',showFarey);ui.text('The 3D layout illustrates the tree; it is not an intrinsic embedding.',{muted:true,size:21*ui.s});
+const left=createPanel({name:'tree-view',widthM:.43,heightM:.51,build(ui){
+    ui.subheading('Tree of hyperbolic spaces');
+    ui.segmented('field',[{value:'Q',tex:'\\mathbb{Q}'},{value:'i',tex:'\\mathbb{Q}(i)'},{value:'omega',tex:'\\mathbb{Q}(\\omega)'}],settings.field);
+    ui.richLine(['Finite patch over ',{tex:settings.field==='Q'?'\\mathbb{Q}((1/t))':settings.field==='i'?'\\mathbb{Q}(i)((1/t))':'\\mathbb{Q}(\\omega)((1/t))'}],{muted:true,size:23*ui.s});ui.space(4*ui.s);
+    ui.text(`Depth: ${settings.depth}   ·   max height: ${settings.N}`);
+    ui.button('depth','Change depth (1–3)');ui.button('den','Change max height (2–4)');
+    ui.button('edges',`Edges: ${settings.edges==='q'?'by cusp size':settings.edges==='levels'?'equal levels':'zero'}`);
+    ui.toggle('farey',isBall()?'Boundary circles':'Farey geodesics',showFarey);
+    ui.text(isBall()?'Each ball represents hyperbolic 3-space. This is a finite patch.':'The 3D layout illustrates the tree; it is not an intrinsic embedding.',{muted:true,size:21*ui.s});
 }});
 const right=createPanel({name:'tree-action',widthM:.43,heightM:.48,build(ui){
-    ui.subheading('Selected vertex');ui.text(labelText(selected),{size:25*ui.s});ui.text(`${selected.length} edge${selected.length===1?'':'s'} from v₀`,{muted:true});
-    ui.text('Apply a matrix to this vertex. S and T fix v₀; U moves it.',{muted:true,size:23*ui.s});
-    ui.button('S','S: z ↦ −1/z');ui.button('T','T: z ↦ z + 1');ui.button('U','U: z ↦ z + t');
-    ui.text(lastAction,{muted:true,size:21*ui.s});ui.text('Orange links the before and after; it is not the tree path.',{muted:true,size:21*ui.s});ui.button('base','Select v₀');ui.button('home','Bring model back');
+    ui.subheading('Selected vertex');ui.text(selectedName(),{size:25*ui.s});ui.richLine([`${selected.length} edge${selected.length===1?'':'s'} from `,{tex:'v_0'}],{muted:true});
+    if(isBall()){
+        ui.richLine(['This vertex carries ',{tex:'\\mathbb{H}^3'},'. The boundary circles come from the selected field.'],{muted:true,size:23*ui.s});
+        ui.text('Tap a ball, then apply a matrix to its vertex.',{muted:true,size:23*ui.s});
+        ui.button('S',{tex:'S: z \\mapsto -1/z'});ui.button('T',{tex:'T: z \\mapsto z+1'});ui.button('U',{tex:'U: z \\mapsto z+t'});
+        ui.button('Theta',{tex:settings.field==='i'?'V: z \\mapsto z+i':'V: z \\mapsto z+\\omega'});
+        ui.text(lastAction,{muted:true,size:21*ui.s});ui.text('Orange links the selected vertex to its image.',{muted:true,size:21*ui.s});
+    }else{
+        ui.richLine(['Apply a matrix to this vertex. ',{tex:'S'},' and ',{tex:'T'},' fix ',{tex:'v_0'},'; ',{tex:'U'},' moves it.'],{muted:true,size:23*ui.s});
+        ui.button('S',{tex:'S: z \\mapsto -1/z'});ui.button('T',{tex:'T: z \\mapsto z+1'});ui.button('U',{tex:'U: z \\mapsto z+t'});
+        ui.text(lastAction,{muted:true,size:21*ui.s});ui.text('Orange links the before and after; it is not the tree path.',{muted:true,size:21*ui.s});
+    }
+    ui.button('base',{tex:'\\text{Select }v_0'});ui.button('home','Bring model back');
 }});
 left.mesh.position.set(-.48,0,.06);left.mesh.rotation.y=.5;right.mesh.position.set(.48,0,.06);right.mesh.rotation.y=-.5;workbench.add(left.mesh,right.mesh);
 const panels=[left,right];function refresh(){panels.forEach(p=>p.invalidate());}
-function home(){workbench.updateMatrixWorld(true);workbench.getWorldPosition(modelRoot.position);workbench.getWorldQuaternion(modelRoot.quaternion);modelRoot.scale.setScalar(.19);}
+function home(){workbench.updateMatrixWorld(true);workbench.getWorldPosition(modelRoot.position);workbench.getWorldQuaternion(modelRoot.quaternion);modelRoot.scale.setScalar(isBall()?.12:.19);}
 function recenter(){const c=renderer.xr.isPresenting?renderer.xr.getCamera():camera,p=c.getWorldPosition(new THREE.Vector3()),d=new THREE.Vector3(0,0,-1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()));d.y=0;if(d.lengthSq()<1e-6)d.set(0,0,-1);d.normalize();if(renderer.xr.isPresenting){workbench.position.copy(p).addScaledVector(d,.68);workbench.position.y=Math.max(.8,p.y-.22);}else{workbench.position.set(0,1.3,0);d.set(0,0,-1);}workbench.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,-1),d);home();interaction.cancelMotion();}
 for(const p of panels)p.onAction((id,value)=>{
-    if(id==='depth')settings.depth=settings.depth%3+1;
+    if(id==='field'){const enteringBalls=settings.field==='Q'&&value!=='Q';settings.field=value;if(enteringBalls){settings.depth=1;settings.N=2;}selected=[];modelRoot.scale.setScalar(isBall()?.12:.19);lastAction='Choose a plane, then apply a matrix.';}
+    else if(id==='depth')settings.depth=settings.depth%3+1;
     else if(id==='den')settings.N=settings.N===4?2:settings.N+1;
     else if(id==='edges')settings.edges=settings.edges==='q'?'levels':settings.edges==='levels'?'zero':'q';
     else if(id==='farey')showFarey=value;
     else if(id==='base'){selected=[];lastAction='Selected the base vertex v₀.';drawMarker();refresh();return;}
     else if(id==='home'){recenter();return;}
-    else if(['S','T','U'].includes(id)){act(id);return;}
+    else if(['S','T','U','Theta'].includes(id)){act(id);return;}
     rebuild();
 });
-const display={pick(ray){const hits=ray.intersectObjects(treeGroup.children.filter(x=>x.isMesh),false);return hits.length?{tag:hits[0].object.userData.vertex,distance:hits[0].distance}:{tag:-1,distance:Infinity};}};
-const interaction=createInteraction({input,display,ballRoot:modelRoot,camera,controls,panels:()=>panels,inside:()=>false,callbacks:{onHover:()=>{},onTap:i=>{selected=recs[i].labels;lastAction='Plane selected. Apply a matrix to follow its image.';drawMarker();refresh();},onTapEmpty:()=>{},onDoubleTap:()=>{},onFly:()=>{},onBallMoved:()=>{},onGrab:()=>{}}});
+const display={pick(ray){const hits=ray.intersectObjects(isBall()?(ballScene?.meshes||[]):treeGroup.children.filter(x=>x.isMesh),false);return hits.length?{tag:isBall()?ballScene.vertexOfHit(hits[0]):hits[0].object.userData.vertex,distance:hits[0].distance}:{tag:-1,distance:Infinity};}};
+const interaction=createInteraction({input,display,ballRoot:modelRoot,camera,controls,panels:()=>panels,inside:()=>false,callbacks:{onHover:()=>{},onTap:i=>{selected=recs[i].labels;lastAction=isBall()?'Ball selected.':'Plane selected. Apply a matrix to follow its image.';drawMarker();refresh();},onTapEmpty:()=>{},onDoubleTap:()=>{},onFly:()=>{},onBallMoved:()=>{},onGrab:()=>{}}});
 canvas.addEventListener('pointerdown',e=>{if(renderer.xr.isPresenting||e.button!==0)return;const r=canvas.getBoundingClientRect(),ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),camera);if(panels.some(p=>ray.intersectObject(p.mesh,false).length)||display.pick(ray).tag>=0)controls.enabled=false;},true);
 window.addEventListener('pointerup',()=>{if(!interaction.grabbing)controls.enabled=true;});
 const vr=document.querySelector('#vr'),ar=document.querySelector('#ar');let place=false;

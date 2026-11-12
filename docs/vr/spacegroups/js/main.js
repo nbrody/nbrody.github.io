@@ -100,9 +100,9 @@ function loadPreset(i){
         rebuild(); status.textContent=exampleLibrary[i].name+' · '+domain.count+' faces'+(clipped?' · display clipped at ±3':'');
     }catch(e){console.error(e);domain=null;disposeGroup(domainGroup);disposeGroup(tilesGroup);status.textContent='Could not compute this domain: '+e.message;refresh();}},40);
 }
-function word(w){return w?.length?w.map(i=>'g'+Math.abs(i)+(i<0?'⁻¹':'')).join(' '):'identity';}
+function wordTex(w){return w?.length?w.map(i=>`g_{${Math.abs(i)}}${i<0?'^{-1}':''}`).join('\\,'):'e';}
 const left=createPanel({name:'library',widthM:.43,heightM:.47,build(ui){
-    ui.subheading('Space groups');ui.text('Choose a group', {muted:true});ui.space(8*ui.s);
+    ui.subheading('Space groups');ui.richLine(['Choose a group acting on ',{tex:'\\mathbb{R}^3'},'.'], {muted:true});ui.space(8*ui.s);
     ui.scrollArea('library',null,u=>{exampleLibrary.forEach((e,i)=>{u.button('preset:'+i,e.name,{value:i,active:preset===i,align:'left',size:24*ui.s,height:58*ui.s});u.space(5*ui.s);});});
 }});
 const right=createPanel({name:'details',widthM:.4,heightM:.39,build(ui){
@@ -111,13 +111,14 @@ const right=createPanel({name:'details',widthM:.4,heightM:.39,build(ui){
     ui.text(`Canonical domain candidate · ${domain.count} faces`);
     ui.text(`Basepoint stabilizer: order ${domain.stabilizer.order}`,{muted:true});
     ui.text('Numerical search; discreteness is not certified here.',{muted:true,size:21*ui.s});
-    if(clipped)ui.text('Display clipped to the cube ±3; some faces extend beyond it.',{color:ui.theme.warn,size:23*ui.s});
+    if(clipped)ui.richLine(['Display clipped to the cube ',{tex:'[-3,3]^3'},'; some faces extend beyond it.'],{color:ui.theme.warn,size:23*ui.s});
     ui.space(12*ui.s);ui.toggle('tiles','Show neighboring copies',showTiles);
     ui.text('Tap a colored face to inspect its pairing.',{muted:true,size:23*ui.s});ui.space(8*ui.s);
     if(selected>=0){const w=domain.walls[selected],p=w.pairing;
         ui.label(`Face ${selected+1} · ${w.kind==='cone'?'stabilizer':'domain'} wall`);
-        ui.text(`Orbit word: ${word(w.word)}`,{size:23*ui.s});
-        ui.text(p?`Pairs with face ${p.partner+1} via ${word(p.word)}`:'Pairing not resolved by the numerical search.',{size:23*ui.s});
+        ui.richLine(['Orbit word: ',{tex:wordTex(w.word)}],{size:23*ui.s});
+        if(p)ui.richLine([`Pairs with face ${p.partner+1} via `,{tex:wordTex(p.word)}],{size:23*ui.s});
+        else ui.text('Pairing not resolved by the numerical search.',{size:23*ui.s});
     }
     ui.space(12*ui.s);ui.button('recenter','Bring model back');
 }});
