@@ -1,7 +1,7 @@
 /* Returns one array of absolute pen points per line; lift is after the point. */
 window.generateHandwriting = function generateHandwriting(text, options = {}) {
   return new Promise((resolve, reject) => {
-    const worker = new Worker('inference-worker.js?v=4');
+    const worker = new Worker('inference-worker.js?v=5');
     worker.onmessage = ({data}) => {
       if (data.type === 'done') { worker.terminate(); resolve(data.lines); }
       else if (data.type === 'error') { worker.terminate(); reject(new Error(data.message)); }

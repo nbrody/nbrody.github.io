@@ -17,9 +17,9 @@ test('model client forwards the selection and preserves the original default', a
   const context = {window: {}, Worker};
   vm.runInNewContext(source('model-client.js'), context);
   let repair;
-  const focused = context.window.generateHandwriting('Example', {model: 'focused', bias: 1.2, repairLeadingE: true, onRepair: result => {repair = result;} });
-  assert.equal(workers[0].url, 'inference-worker.js?v=4');
-  assert.deepEqual(JSON.parse(JSON.stringify(workers[0].message)), {text: 'Example', bias: 1.2, model: 'focused', repairLeadingE: true});
+  const focused = context.window.generateHandwriting('Example', {model: 'natural', bias: 1.2, repairLeadingE: true, onRepair: result => {repair = result;} });
+  assert.equal(workers[0].url, 'inference-worker.js?v=5');
+  assert.deepEqual(JSON.parse(JSON.stringify(workers[0].message)), {text: 'Example', bias: 1.2, model: 'natural', repairLeadingE: true});
   workers[0].onmessage({data: {type: 'repair', applied: true}});
   assert.equal(repair.applied, true);
   workers[0].onmessage({data: {type: 'done', lines: []}});
@@ -40,17 +40,17 @@ test('worker loads only the selected allowlisted model and can switch models', a
     postMessage: data => messages.push(data),
   };
   vm.runInNewContext(source('inference-worker.js'), context);
-  for (const model of ['original', 'general', 'focused']) await context.onmessage({data: {text: '', model}});
-  assert.deepEqual(fetched, ['model/config.json', 'models/general/config.json', 'models/focused/config.json']);
-  assert.deepEqual(loaded, ['model/step.onnx', 'models/general/step.onnx', 'models/focused/step.onnx']);
-  assert.equal(messages.filter(m => m.type === 'done').length, 3);
+  for (const model of ['original', 'general', 'focused', 'natural']) await context.onmessage({data: {text: '', model}});
+  assert.deepEqual(fetched, ['model/config.json', 'models/general/config.json', 'models/focused/config.json', 'models/natural/config.json']);
+  assert.deepEqual(loaded, ['model/step.onnx', 'models/general/step.onnx', 'models/focused/step.onnx', 'models/natural/step.onnx']);
+  assert.equal(messages.filter(m => m.type === 'done').length, 4);
   await context.onmessage({data: {text: '', model: '../private'}});
   assert.equal(messages.at(-1).type, 'error');
   assert.equal(messages.at(-1).message, 'Unknown handwriting model.');
-  assert.equal(fetched.length, 3);
+  assert.equal(fetched.length, 4);
   await context.onmessage({data: {text: '', model: 'toString'}});
   assert.equal(messages.at(-1).type, 'error');
-  assert.equal(fetched.length, 3);
+  assert.equal(fetched.length, 4);
 });
 
 test('the page submits the selected model and locks it during generation', async () => {
@@ -63,7 +63,7 @@ test('the page submits the selected model and locks it during generation', async
     querySelector() { return this.buttonLabel ||= {}; }, setAttribute() {},
   }]));
   Object.assign(elements['text-input'], {value: 'Hello'});
-  Object.assign(elements['model-select'], {value: 'focused'});
+  Object.assign(elements['model-select'], {value: 'natural'});
   Object.assign(elements['repair-leading-e'], {checked: true});
   Object.assign(elements.bias, {value: '1.5'});
   Object.assign(elements.thickness, {value: '1.8'});
@@ -79,7 +79,7 @@ test('the page submits the selected model and locks it during generation', async
   vm.runInNewContext(source('app.js'), context);
   const run = elements.generate.listeners.click();
   assert.equal(call.text, 'Hello');
-  assert.equal(call.options.model, 'focused');
+  assert.equal(call.options.model, 'natural');
   assert.equal(call.options.repairLeadingE, true);
   assert.equal(elements['model-select'].disabled, true);
   assert.equal(elements['repair-leading-e'].disabled, true);

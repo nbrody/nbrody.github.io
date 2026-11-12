@@ -81,6 +81,16 @@ test('worker repairs supported input and preserves separate pen lifts', async ()
   assert.ok(line[74].x > Math.max(...line.slice(0, 74).map(p => p.x)));
 });
 
+test('natural model supports the same opt-in leading E repair', async () => {
+  const w = makeWorker({points: fixture.remainder, loX: .1, hiX: 1.1});
+  await w.context.onmessage({data: {text: 'Every day', model: 'natural', repairLeadingE: true}});
+  assert.deepEqual(w.calls, ['very day']);
+  assert.equal(w.messages.at(-2).type, 'repair');
+  assert.equal(w.messages.at(-2).applied, true);
+  assert.equal(w.messages.at(-1).type, 'done');
+  assert.equal(w.messages.at(-1).lines[0].length, 80);
+});
+
 test('only the first chunk of a supported long line is spliced', async () => {
   const w = makeWorker({points: fixture.remainder, loX: .1, hiX: 1.1});
   await w.context.onmessage({data: {text: 'Every kind of function is equal', repairLeadingE: true}});

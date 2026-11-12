@@ -3,7 +3,7 @@ importScripts('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.
 importScripts('leading-e.js?v=1');
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
-const modelDirectories = Object.freeze({original: 'model', general: 'models/general', focused: 'models/focused'});
+const modelDirectories = Object.freeze({original: 'model', general: 'models/general', focused: 'models/focused', natural: 'models/natural'});
 let session, config, loadedModel;
 const tensor = (a, n) => new ort.Tensor('float32', a instanceof Float32Array ? a : (a.length ? new Float32Array(a) : new Float32Array(n)), [1, n]);
 function normalPair() {
