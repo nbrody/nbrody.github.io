@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>GPU perturbation oracle</title>
+<p id="result">Running 5 GPU perturbation samples…</p>
+<pre id="details"></pre>
+<script type="module">
+import {createDeepZoom} from '../deepzoom.js';
+import {parseFx} from '../fixed.js';
+const result=document.querySelector('#result'),details=document.querySelector('#details');
+let state='';
+const engine=createDeepZoom({size:5,debug:true,fixedIterations:25000,onStatus:s=>{state=s;}});
+engine.setView([parseFx('-0.743643887037158704752191506114774'),parseFx('0.131825904205311970493132056385139')],4e-24);
+const expected=[13086,17034,16777215,17034,13085], coords=[[0,0],[1,3],[2,2],[3,1],[4,4]];
+function frame(t){engine.update(t);if(engine.busy){requestAnimationFrame(frame);return;}
+ const samples=coords.map(([x,y])=>{const p=engine.readPixel(x,y);return {count:p[0]+256*p[1]+65536*p[2],alpha:p[3]};});
+ const pass=samples.every((s,i)=>s.alpha===255&&(expected[i]===16777215?s.count===expected[i]:Math.abs(s.count-expected[i])<=3));
+ result.textContent=pass?'PASS: deep GPU escape counts agree within 3 iterations of the high-precision oracle':`FAIL: ${state}`;
+ details.textContent=JSON.stringify({samples,expected,status:state},null,2);engine.dispose();
+}
+requestAnimationFrame(frame);
+</script>
