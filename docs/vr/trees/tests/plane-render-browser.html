@@ -1,0 +1,35 @@
+<!doctype html><meta charset="utf-8"><title>Plane renderer animation check</title>
+<p id="result">Running plane renderer checks…</p><pre id="details"></pre>
+<script type="importmap">{"imports":{"three":"../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/three/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {createPlaneScene} from '../js/planeRender.js';
+const result=document.querySelector('#result'),details=document.querySelector('#details');
+try {
+ const settings={N:2},F={cx:0,cy:0,z:0,R:.6,ux:0,uy:1,base:true};
+ const other={...F,cx:3,base:false};
+ const records=[{F,gap:0,depth:0,labels:[]},{F:other,gap:0,depth:1,labels:[]}];
+ const view=createPlaneScene({recs:records,settings,capacity:4});
+ const mesh=view.meshes[0],ray=new THREE.Raycaster(new THREE.Vector3(0,2,0),new THREE.Vector3(0,-1,0));
+ const picked=()=>{view.group.updateMatrixWorld(true);return view.vertexOfHit(ray.intersectObjects(view.meshes,false)[0]);};
+ const before=picked();
+ const lines=view.group.children.filter(x=>x.isLineSegments)[0].geometry;
+ const original=Array.from(lines.getAttribute('position').array.slice(0,lines.drawRange.count*3));
+ // Only the first plane's decoration changes: unchanged coordinates isolate the Möbius update.
+ view.update([{...records[0],C:[1,1,0,1]},records[1]]);
+ const changedData=lines.getAttribute('position').array;
+ const decorationChanged=original.some((v,i)=>Math.abs(v-changedData[i])>1e-6);
+ const from=new THREE.Color();mesh.getColorAt(0,from);
+ const moved={...F,cx:3},replaced={...other,cx:0};
+ view.update([{...records[0],F:moved,targetDepth:1,colorMix:.5},{...records[1],F:replaced}]);
+ const after=picked(),middle=new THREE.Color(),position=new THREE.Vector3(),mat=new THREE.Matrix4();
+ mesh.getColorAt(0,middle);mesh.getMatrixAt(0,mat);position.setFromMatrixPosition(mat);
+ view.update([{...records[0],F:moved,targetDepth:1,colorMix:1},{...records[1],F:replaced}]);
+ const to=new THREE.Color();mesh.getColorAt(0,to);
+ const colorContinuous=['r','g','b'].every(k=>Math.abs(middle[k]-(from[k]+to[k])/2)<1e-6);
+ const geometryMoved=Math.abs(position.x-3)<1e-6;
+ const pass=before===0&&after===1&&decorationChanged&&geometryMoved&&colorContinuous;
+ result.textContent=pass?'PASS: plane picking, moving Farey geometry and color continuity':'FAIL: plane renderer update';
+ details.textContent=JSON.stringify({before,after,decorationChanged,geometryMoved,colorContinuous},null,2);view.dispose();
+}catch(e){result.textContent='FAIL: '+e.message;details.textContent=e.stack;}
+</script>

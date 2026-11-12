@@ -55,3 +55,12 @@ for (const field of ['i','omega']) {
     });
 }
 test('rejects unsupported ball fields', () => assert.throws(() => ballEngine('Q')));
+for (const field of ['i','omega']) {
+    test(`${field}: the default patch includes many levels while retaining its budget`, () => {
+        const {recs,truncated}=buildBallTree({field,N:3,depth:3,lam:1,h:-.75,edges:'q'});
+        assert.ok(recs.length>160 && recs.length<=1200);
+        assert.ok(recs.some(rec=>rec.depth>=2));
+        assert.equal(typeof truncated,'boolean');
+        for(let i=2;i<recs.length;i++)assert.ok(recs[i].F.R<=recs[i-1].F.R+1e-12);
+    });
+}

@@ -1,85 +1,87 @@
-/**
- * A bounded tree of hyperbolic 3-spaces, rendered as spheres in the workbench.
- * Frames and cusp locations come from the desktop 2dimFields construction; the
- * scene here is deliberately independent of camera and input handling.
+/** Instanced, bounded 3D tree of hyperbolic spaces.
+ * The movable boundary circles use the desktop viewer's Möbius geometry.
+ * Updating a frame reuses the meshes and line buffers during animation.
  */
 import * as THREE from 'three';
 import { FIELDS, circles } from '../../../GeometryofLinearGroups/Algebraic/Tools/2dimFields/js/fieldK.js';
+import { mapBoundaryCircle, appendBoundaryCircle } from './ballCircles.js';
 
 const COLORS = [0xa8c8f3, 0x94d7c6, 0xd5b8ec, 0xf2c89c, 0x9ecbd8];
-const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const scale = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const normalize = a => scale(a, 1 / Math.hypot(...a));
-const direction = (F, d) => add(add(scale(F.e1, d[0]), scale(F.e2, d[1])), scale(F.u, d[2]));
-const point = (F, d) => add(F.c, scale(direction(F, d), F.R * 1.004));
-const segment = (vertices, a, b) => vertices.push(...a, ...b);
+const add = (a,b) => [a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const scale = (a,s) => [a[0]*s,a[1]*s,a[2]*s];
 
 /**
- * Create a disposable Three.js group for the precomputed finite tree.
- * @param {{recs: Array, field: 'i'|'omega', showCircles?: boolean}} options
- * @returns {{group: THREE.Group, meshes: THREE.InstancedMesh[], vertexOfHit: function, dispose: function}}
+ * Create a Three.js view. `update(recs)` accepts animated records with F, gap,
+ * depth and optional complex Möbius matrix C for the sphere's decoration.
+ * For headset performance, small spheres use low-poly instancing and the circle
+ * line budget is bounded. `vertexOfHit` maps either instanced mesh back to recs.
  */
-export function createBallScene({ recs, field, showCircles = true }) {
-  const K = FIELDS[field];
+export function createBallScene({recs,field,showCircles=true,maxCircleSegments=48000}) {
+  const K=FIELDS[field];
   if (!K) throw new Error(`Unknown ball field: ${field}`);
-  const group = new THREE.Group();
-  const geometry = new THREE.SphereGeometry(1, 24, 16);
-  const material = new THREE.MeshLambertMaterial({ transparent: true, opacity: .42, depthWrite: false });
-  const balls = new THREE.InstancedMesh(geometry, material, recs.length);
-  balls.name = 'hyperbolic-balls';
-  const matrix = new THREE.Matrix4();
-  const color = new THREE.Color();
-  const edges = [], decoration = [];
-  // Circle enumeration is cached by the desktop field engine. Use the largest
-  // circles and only decorate visible-sized spheres to keep Quest draw cost low.
-  const decorations = showCircles ? circles(K, 2).slice(0, 30) : [];
-  for (let i = 0; i < recs.length; i++) {
-    const rec = recs[i], F = rec.F;
-    balls.setMatrixAt(i, matrix.makeScale(F.R, F.R, F.R).setPosition(...F.c));
-    balls.setColorAt(i, color.setHex(COLORS[rec.depth % COLORS.length]));
-    if (rec.gap > 0) {
-      const near = add(F.c, scale(F.u, F.R));
-      segment(edges, near, add(near, scale(F.u, rec.gap)));
+  const group=new THREE.Group(), meshes=[], highGeo=new THREE.SphereGeometry(1,24,16),lowGeo=new THREE.SphereGeometry(1,10,7);
+  // Opaque spheres make the front and back distinguishable, as in the desktop viewer.
+  const material=new THREE.MeshLambertMaterial(), color=new THREE.Color(), targetColor=new THREE.Color(), matrix=new THREE.Matrix4();
+  const resources=[highGeo,lowGeo,material], indexMaps=[[],[]];
+  let capacity=0,disposed=false;
+  function ensureCapacity(count) {
+    if(count<=capacity)return;
+    capacity=Math.max(1024,Math.ceil(count*2)+64);
+    for(const m of meshes){group.remove(m);m.dispose();}
+    meshes.length=0;
+    for(const geo of [highGeo,lowGeo]) {
+      const m=new THREE.InstancedMesh(geo,material,capacity);
+      m.name='hyperbolic-balls';m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.frustumCulled=false;
+      group.add(m);meshes.push(m);
     }
-    if (F.R < .1) continue;
-    for (const { n, d, r } of decorations) {
-      const axis = Math.abs(n[2]) < .9 ? [0, 0, 1] : [1, 0, 0];
-      const a = normalize(cross(n, axis)), b = cross(n, a);
-      let previous = null;
-      for (let j = 0; j <= 32; j++) {
-        const t = 2 * Math.PI * j / 32;
-        const local = add(scale(n, d), add(scale(a, r * Math.cos(t)), scale(b, r * Math.sin(t))));
-        const next = point(F, local);
-        if (previous) segment(decoration, previous, next);
-        previous = next;
+  }
+  function dynamicLines(hex,opacity) {
+    const geo=new THREE.BufferGeometry(),mat=new THREE.LineBasicMaterial({color:hex,transparent:true,opacity,depthWrite:false});
+    const lines=new THREE.LineSegments(geo,mat);lines.frustumCulled=false;group.add(lines);resources.push(geo,mat);
+    let capacity=0;
+    return data=>{
+      if(data.length>capacity){capacity=Math.max(1024,2**Math.ceil(Math.log2(data.length)));const attr=new THREE.BufferAttribute(new Float32Array(capacity),3);attr.setUsage(THREE.DynamicDrawUsage);geo.setAttribute('position',attr);}
+      const attr=geo.getAttribute('position');
+      if(attr){attr.array.set(data);attr.needsUpdate=true;}
+      geo.setDrawRange(0,data.length/3);
+    };
+  }
+  const updateEdges=dynamicLines(0x765f55,.8), updateCircles=dynamicLines(0x405773,.72);
+  // Desktop circles() is memoized. Cache only the three detail levels actually used.
+  const byDetail=showCircles?{2:circles(K,2),3:circles(K,3),4:circles(K,4)}:{};
+  function update(nextRecs, {animating=false}={}) {
+    if(disposed)return;
+    const budget=animating?Math.min(maxCircleSegments,9000):maxCircleSegments;
+    ensureCapacity(nextRecs.length);
+    const count=[0,0], edges=[], detail=[];
+    indexMaps[0].length=0;indexMaps[1].length=0;
+    // Ball trees are built largest-first. Animation retains record ordering,
+    // spending the decoration budget on large, readable spheres first.
+    for(let i=0;i<nextRecs.length;i++) {
+      const rec=nextRecs[i],F=rec.F;
+      if(!F || !Number.isFinite(F.R) || F.R<=0 || !F.c.every(Number.isFinite))continue;
+      const tier=F.R>=.14?0:1, n=count[tier]++,m=meshes[tier];
+      indexMaps[tier][n]=i;m.setMatrixAt(n,matrix.makeScale(F.R,F.R,F.R).setPosition(...F.c));
+      color.setHex(COLORS[(rec.depth||0)%COLORS.length]);
+      if(Number.isInteger(rec.targetDepth)&&Number.isFinite(rec.colorMix))color.lerp(targetColor.setHex(COLORS[rec.targetDepth%COLORS.length]),Math.max(0,Math.min(1,rec.colorMix)));
+      m.setColorAt(n,color);
+      if(rec.gap>0){const near=add(F.c,scale(F.u,F.R));edges.push(...near,...add(near,scale(F.u,rec.gap)));}
+      if(!showCircles || F.R<(animating?.15:.09) || detail.length/6>=budget)continue;
+      const level=animating?(F.R>=.5?3:2):(F.R>=.5?4:F.R>=.20?3:2);
+      const segments=animating?(F.R>=.5?20:12):(F.R>=.5?32:F.R>=.20?20:12);
+      for(const ci of byDetail[level]) {
+        if(detail.length/6+segments>budget)break;
+        const mapped=mapBoundaryCircle(ci,rec.C);
+        if(mapped)appendBoundaryCircle(detail,F,mapped,segments);
       }
     }
+    for(let tier=0;tier<2;tier++){meshes[tier].count=count[tier];meshes[tier].instanceMatrix.needsUpdate=true;meshes[tier].boundingSphere=null;if(meshes[tier].instanceColor)meshes[tier].instanceColor.needsUpdate=true;}
+    updateEdges(edges);updateCircles(detail);
   }
-  balls.instanceMatrix.needsUpdate = true;
-  if (balls.instanceColor) balls.instanceColor.needsUpdate = true;
-  group.add(balls);
-  const resources = [geometry, material];
-  function addLines(vertices, color, opacity) {
-    if (!vertices.length) return;
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    const m = new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false });
-    group.add(new THREE.LineSegments(g, m));
-    resources.push(g, m);
-  }
-  addLines(edges, 0x765f55, .78);
-  addLines(decoration, 0x405773, .68);
-  let disposed = false;
+  update(recs);
   return {
-    group,
-    meshes: [balls],
-    vertexOfHit: hit => hit?.object === balls && Number.isInteger(hit.instanceId) ? hit.instanceId : -1,
-    dispose() {
-      if (disposed) return;
-      disposed = true;
-      group.removeFromParent();
-      for (const resource of resources) resource.dispose();
-    },
+    group,meshes,update,
+    vertexOfHit(hit){const tier=meshes.indexOf(hit?.object);return tier>=0&&Number.isInteger(hit.instanceId)?(indexMaps[tier][hit.instanceId]??-1):-1;},
+    dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const m of meshes)m.dispose();for(const r of resources)r.dispose();},
   };
 }
