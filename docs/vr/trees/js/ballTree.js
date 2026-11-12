@@ -38,7 +38,7 @@ export function getBallFrame(labels, settings) {
 }
 
 /** Build largest balls first to spend the finite rendering budget on visible geometry. */
-export function buildBallTree(settings, cap = 160, minRadius = .025) {
+export function buildBallTree(settings, cap = 1200, minRadius = .01) {
     const engine = ballEngine(settings.field), K = FIELDS[settings.field];
     const rootCusps = cusps(K, settings.N, true), childCusps = cusps(K, settings.N, false);
     const recs = [{ F: baseBall(), labels: [], parent: -1, gap: 0, depth: 0 }];
