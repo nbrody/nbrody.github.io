@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><title>GPU progressive view check</title>
+<p id="result">Running progressive view checks…</p><pre id="details"></pre>
+<script type="module">
+import {createDeepZoom} from '../deepzoom.js';
+import {parseFx} from '../fixed.js';
+const result=document.querySelector('#result'),details=document.querySelector('#details');
+let sawPreview=false,invalidated=false,states=[];
+const a=createDeepZoom({size:7,previewSize:3,debug:true,fixedIterations:100,onStatus:s=>states.push(s)});
+const b=createDeepZoom({size:7,debug:true,fixedIterations:100});
+const target=[parseFx('-0.765'),0n];
+a.setView([parseFx('0.3'),parseFx('0.2')],3);a.setView(target,2.62);invalidated=!a.ready;
+b.setView(target,2.62);
+function draw(t){a.update(t);b.update(t);if(a.ready&&a.busy)sawPreview=true;
+ if(a.busy||b.busy){requestAnimationFrame(draw);return;}
+ let diffs=0;for(let y=0;y<7;y++)for(let x=0;x<7;x++){const x1=a.readPixel(x,y),x2=b.readPixel(x,y);if(x1.some((v,i)=>v!==x2[i]))diffs++;}
+ const pass=invalidated&&sawPreview&&diffs===0;
+ result.textContent=pass?'PASS: preview, detail and latest view':'FAIL: preview or final image mismatch';
+ details.textContent=JSON.stringify({invalidated,sawPreview,diffs,states},null,2);a.dispose();b.dispose();
+}
+requestAnimationFrame(draw);
+</script>

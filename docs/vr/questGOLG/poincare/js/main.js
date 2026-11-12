@@ -472,8 +472,8 @@ window.addEventListener('resize', () => {
 // ---------------- start ----------------
 
 desktopView();
-const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-setTheme(prefersDark ? 'dark' : 'light');
+// Start with the Poincaré workbench palette; the View panel can switch to light.
+setTheme('dark');
 if (!loadFromURL()) {
     // Start with the figure-eight knot complement if the library has it, else the first preset.
     const { exampleLibrary } = await import('./engine.js');
