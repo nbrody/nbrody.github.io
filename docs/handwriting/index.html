@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2">
-  <script src="model-client.js" defer></script>
-  <script src="app.js?v=2" defer></script>
+  <link rel="stylesheet" href="style.css?v=3">
+  <script src="model-client.js?v=3" defer></script>
+  <script src="app.js?v=3" defer></script>
 </head>
 <body>
   <div class="page-shell">
@@ -27,6 +27,15 @@
             <div class="field-heading"><label for="text-input">Text</label><span id="character-count">0 / 200</span></div>
             <textarea id="text-input" maxlength="200" placeholder="Type here" spellcheck="true">Hello world.</textarea>
             <p class="field-hint">English letters, numbers, and punctuation.</p>
+            <div class="model-choice">
+              <label for="model-select">Handwriting model</label>
+              <select id="model-select" aria-describedby="model-hint">
+                <option value="original">Original</option>
+                <option value="general">Retrained</option>
+                <option value="focused">Retrained — E/q focus</option>
+              </select>
+              <p id="model-hint">Compare versions; letter shapes and legibility can vary.</p>
+            </div>
             <div class="control-heading"><label for="bias">Neatness</label><output id="bias-value" for="bias">1.5</output></div>
             <input id="bias" type="range" min="0" max="3" step="0.1" value="1.5">
             <button id="generate" type="button"><span>Generate</span><span class="button-arrow" aria-hidden="true">↗</span></button>

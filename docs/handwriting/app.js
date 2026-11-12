@@ -3,6 +3,7 @@
   const count = document.getElementById('character-count');
   const button = document.getElementById('generate');
   const bias = document.getElementById('bias');
+  const modelSelect = document.getElementById('model-select');
   const biasValue = document.getElementById('bias-value');
   bias.addEventListener('input', () => { biasValue.value = Number(bias.value).toFixed(1); });
   const result = document.getElementById('result');
@@ -96,6 +97,7 @@
       return;
     }
     button.disabled = true;
+    modelSelect.disabled = true;
     button.querySelector('span').textContent = 'Generating…';
     paper.setAttribute('aria-busy', 'true');
     state.textContent = 'GENERATING';
@@ -103,6 +105,7 @@
     try {
       const lines = await window.generateHandwriting(text, {
         bias: Number(bias.value),
+        model: modelSelect.value,
         onProgress: ({completed, total}) => {
           if (Number.isFinite(completed) && Number.isFinite(total)) {
             setStatus(`Generated ${completed} of ${total} parts…`);
@@ -120,6 +123,7 @@
     } finally {
       paper.setAttribute('aria-busy', 'false');
       button.disabled = false;
+      modelSelect.disabled = false;
       button.querySelector('span').textContent = 'Generate';
     }
   });

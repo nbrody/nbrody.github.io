@@ -2,7 +2,8 @@
 importScripts('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js');
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
-let session, config;
+const modelDirectories = Object.freeze({original: 'model', general: 'models/general', focused: 'models/focused'});
+let session, config, loadedModel;
 const tensor = (a, n) => new ort.Tensor('float32', a instanceof Float32Array ? a : (a.length ? new Float32Array(a) : new Float32Array(n)), [1, n]);
 function normalPair() {
   const u = Math.max(Number.MIN_VALUE, Math.random());
@@ -57,12 +58,16 @@ async function generatePiece(text, selectedBias) {
 }
 onmessage = async ({data}) => {
   try {
-    if (!session) {
+    const model = data.model ?? 'original';
+    if (!Object.hasOwn(modelDirectories, model)) throw new Error('Unknown handwriting model.');
+    if (!session || loadedModel !== model) {
       postMessage({type:'loading'});
-      const response=await fetch('model/config.json');
+      const directory = modelDirectories[model];
+      const response=await fetch(`${directory}/config.json`);
       if (!response.ok) throw new Error('Could not load model configuration.');
-      config=await response.json();
-      session=await ort.InferenceSession.create('model/step.onnx', {executionProviders:['wasm'], graphOptimizationLevel:'all'});
+      const nextConfig=await response.json();
+      const nextSession=await ort.InferenceSession.create(`${directory}/step.onnx`, {executionProviders:['wasm'], graphOptimizationLevel:'all'});
+      config=nextConfig; session=nextSession; loadedModel=model;
     }
     const groups=data.text.split('\n').map(chunks);
     const total=groups.reduce((n,g)=>n+g.length,0);
