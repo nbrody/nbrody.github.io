@@ -22,8 +22,8 @@ import { texImage, onTexReady, drawTex, texEngineReady } from './tex.js';
 const BASE_PX_PER_M = 2400;
 const MAX_CANVAS = 2048;
 
-const FONT_BODY = '"Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif';
-const FONT_HEAD = '"Source Serif 4", Georgia, "Times New Roman", serif';
+const FONT_BODY = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+const FONT_HEAD = FONT_BODY;
 const FONT_MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
 
 // ---------------------------------------------------------------- colors
@@ -67,23 +67,23 @@ function makeTheme(name, t) {
   };
 }
 
-/** Color themes. Dark is a dim slate (never near-black). */
+/** Poincaré workbench colors, adapted to opaque canvas panels for XR legibility. */
 export const THEMES = {
   light: makeTheme('light', {
-    bg: '#ffffff', surface: '#f4f6f8', field: '#e7e9ec', text: '#16181e', muted: '#5f636c',
-    border: '#dadce0', accent: '#818cf8', accentInk: '#5f67cf', accentOn: '#141414',
-    accentSoft: '#eff2ff', accent2: '#00a7da', accent3: '#d38ae7',
-    ok: '#2e9d62', warn: '#c98a14', fail: '#d14d41',
-    track: '#e1e4e8', switchOff: '#d2d5db', knob: '#ffffff',
-    hoverOverlay: 'rgba(22,24,30,0.045)', scrollThumb: 'rgba(95,99,108,0.38)', scrollThumbActive: 'rgba(95,99,108,0.7)',
+    bg: '#f5f6fc', surface: '#edf0f8', field: '#e4e8f3', text: '#171c2b', muted: '#545d75',
+    border: '#ccd1e0', accent: '#6366f1', accentInk: '#393db4', accentOn: '#ffffff',
+    accentSoft: '#dedffd', accent2: '#0891b2', accent3: '#a852bf',
+    ok: '#15803d', warn: '#a95d08', fail: '#c51b40',
+    track: '#d4d9e7', switchOff: '#c3c9d9', knob: '#ffffff',
+    hoverOverlay: 'rgba(23,28,43,0.07)', scrollThumb: 'rgba(84,93,117,0.42)', scrollThumbActive: 'rgba(84,93,117,0.78)',
   }),
   dark: makeTheme('dark', {
-    bg: '#2b3138', surface: '#373e47', field: '#3f464d', text: '#e8ebef', muted: '#a5abb4',
-    border: '#4c535d', accent: '#818cf8', accentInk: '#a5b0ff', accentOn: '#141414',
-    accentSoft: '#3a4166', accent2: '#3cc3ec', accent3: '#dc9cf0',
-    ok: '#4cc283', warn: '#e2aa3c', fail: '#ec6e62',
-    track: '#4a525c', switchOff: '#58606b', knob: '#f4f6f8',
-    hoverOverlay: 'rgba(255,255,255,0.06)', scrollThumb: 'rgba(165,171,180,0.4)', scrollThumbActive: 'rgba(165,171,180,0.75)',
+    bg: '#101524', surface: '#1b2030', field: '#222838', text: '#eef1f8', muted: '#9aa5bd',
+    border: '#454c60', accent: '#818cf8', accentInk: '#c4cbff', accentOn: '#101322',
+    accentSoft: '#292f51', accent2: '#22d3ee', accent3: '#df9df1',
+    ok: '#4ade80', warn: '#fbbf24', fail: '#fb7185',
+    track: '#343b4f', switchOff: '#4a5265', knob: '#eef1f8',
+    hoverOverlay: 'rgba(255,255,255,0.08)', scrollThumb: 'rgba(154,165,189,0.42)', scrollThumbActive: 'rgba(154,165,189,0.8)',
   }),
 };
 
@@ -176,12 +176,12 @@ function fontsChanged() {
 onTexReady(invalidateAll);
 
 const FONT_SPECS = [
-  `400 30px "Atkinson Hyperlegible"`, `700 30px "Atkinson Hyperlegible"`,
-  `500 40px "Source Serif 4"`, `400 30px "JetBrains Mono"`,
+  `400 30px "Inter"`, `500 30px "Inter"`, `700 30px "Inter"`,
+  `400 30px "JetBrains Mono"`,
 ];
 let fontsAreReady = false;
 
-/** Resolves when the three web fonts are loaded (or after a 15 s timeout). */
+/** Resolves when the web fonts are loaded (or after a 15 s timeout). */
 export const fontsReady = (async () => {
   if (!document.fonts || !document.fonts.load) { fontsAreReady = true; return; }
   document.fonts.addEventListener?.('loadingdone', fontsChanged);
@@ -272,7 +272,7 @@ const isTexLabel = (l) => l && typeof l === 'object' && !Array.isArray(l) && l.t
  * @property {number} widthM  width in meters
  * @property {number} heightM height in meters
  * @property {number} [pxPerM=2400] canvas resolution (the longer side is capped at 2048 px)
- * @property {'light'|'dark'|Object} [theme='light']
+ * @property {'light'|'dark'|Object} [theme='dark']
  * @property {(ui: UI, state: Object) => void} [build]
  * @property {Object} [state] initial state passed to build
  * @property {boolean} [autoState=false] write toggle/slider/segmented/tabs values into state[id] before onAction fires
@@ -285,7 +285,7 @@ const isTexLabel = (l) => l && typeof l === 'object' && !Array.isArray(l) && l.t
  * @param {PanelOptions} opts
  */
 export function createPanel({
-  name = 'panel', widthM, heightM, pxPerM = BASE_PX_PER_M, theme = 'light', build = null,
+  name = 'panel', widthM, heightM, pxPerM = BASE_PX_PER_M, theme = 'dark', build = null,
   state = {}, autoState = false, anisotropy = 8, renderOrder = 10,
 } = {}) {
   if (!(widthM > 0 && heightM > 0)) throw new Error('createPanel: widthM and heightM are required');
@@ -329,7 +329,7 @@ export function createPanel({
     drift: 8 * s, scrollSlop: 14 * s, hoverBleed: 14 * s,
   };
 
-  let themeObj = typeof theme === 'string' ? (THEMES[theme] || THEMES.light) : theme;
+  let themeObj = typeof theme === 'string' ? (THEMES[theme] || THEMES.dark) : theme;
   let buildFn = build;
   let dirty = true;
   let frame = 0, lastDraw = 0, dt = 1 / 60, needsAnim = false;
@@ -912,17 +912,19 @@ export function createPanel({
       const hov = anim('h:' + key, hovered ? 1 : 0);
       const pr = anim('p:' + key, pressed ? 1 : 0, 0.04);
       if (o.disabled) { bg = T.field; fg = T.muted; }
-      else if (o.active || pressed || o.accent === true) {
-        bg = mix(T.accent, T.accentHover, Math.max(hov, pr) * (o.active || o.accent === true ? 1 : 0));
-        if (pressed && !o.active && o.accent !== true) bg = T.accent;
+      else if (o.accent === true) {
+        bg = mix(T.accent, T.accentHover, Math.max(hov, pr));
         fg = T.accentOn;
+      } else if (o.active || pressed) {
+        bg = mix(T.accentSoft, T.accent, 0.08 + hov * 0.08 + pr * 0.08);
+        fg = T.text;
       } else if (hue) {
         const k = T.name === 'dark' ? 0.24 : 0.14;
         bg = mix(T.bg, hue, k + hov * 0.1);
         fg = mix(hue, T.text, T.name === 'dark' ? 0.25 : 0.3);
       } else {
-        bg = mix(T.accentSoft, T.accentSoftHover, hov);
-        fg = T.accentInk;
+        bg = mix(T.surface, T.field, hov);
+        fg = hovered ? T.text : T.muted;
       }
       const info = this._labelInfo(label, font, size, fg, o.tex);
       const iconSize = 0.86 * size;
@@ -939,8 +941,11 @@ export function createPanel({
         const inset = 2.5 * s * pr;
         ctx.globalAlpha = o.disabled ? 0.6 : 1;
         ctx.fillStyle = bg;
-        rr(ctx, x + inset, y + inset, bw - 2 * inset, bh - 2 * inset, (bh - 2 * inset) / 2);
+        rr(ctx, x + inset, y + inset, bw - 2 * inset, bh - 2 * inset, Math.min(20 * s, (bh - 2 * inset) / 2));
         ctx.fill();
+        ctx.strokeStyle = o.active ? T.accent : T.border;
+        ctx.lineWidth = Math.max(1, 1.5 * s);
+        ctx.stroke();
         const avail = bw - 2 * M.btnPadX - iconW - (hasIcon && info.w ? M.iconGap : 0);
         const cw = hasIcon && !info.w ? iconW : Math.min(contentW, bw - 2 * M.btnPadX);
         let cx = x + (bw - cw) / 2;
@@ -1113,7 +1118,7 @@ export function createPanel({
     }
 
     /**
-     * Top tabs: text labels with a sliding accent underline. Fires onAction(id, option.value).
+     * Top tabs: text labels with a sliding highlighted selection. Fires onAction(id, option.value).
      */
     tabs(id, options, value, o = {}) {
       this._blockOnly('tabs');
@@ -1138,6 +1143,15 @@ export function createPanel({
       this._item(this.width, h, (x, y, bw, bh) => {
         ctx.fillStyle = T.border;
         ctx.fillRect(x, y + bh - 2 * s, bw, 2 * s);
+        if (sel >= 0) {
+          const left = x + ux + 4 * s, top = y + 5 * s;
+          const width = Math.max(0, uw - 8 * s), height = Math.max(0, bh - 12 * s);
+          ctx.fillStyle = T.accentSoft;
+          rr(ctx, left, top, width, height, Math.min(18 * s, height / 2)); ctx.fill();
+          ctx.strokeStyle = T.accent;
+          ctx.lineWidth = Math.max(1, 1.5 * s);
+          ctx.stroke();
+        }
         opts.forEach((op, i) => {
           const k = id + '#' + i;
           const tx = x + lefts[i], tw = widths[i];
@@ -1146,7 +1160,7 @@ export function createPanel({
           if (hv > 0.01) {
             ctx.globalAlpha = hv;
             ctx.fillStyle = T.hoverOverlay;
-            rr(ctx, tx + 4 * s, y + 6 * s, tw - 8 * s, bh - 14 * s, (bh - 14 * s) / 2); ctx.fill();
+            rr(ctx, tx + 4 * s, y + 6 * s, tw - 8 * s, bh - 14 * s, 18 * s); ctx.fill();
             ctx.globalAlpha = 1;
           }
           const col = i === sel ? T.text : op.disabled ? mix(T.muted, T.bg, 0.4) : mix(T.muted, T.text, hv);
@@ -1155,11 +1169,6 @@ export function createPanel({
           const lw = Math.min(inf.w, tw - 2 * padX * 0.5);
           this._drawLabel(inf, font, size, tx + (tw - lw) / 2, y + bh / 2 - 2 * s, col, tw - padX);
         });
-        if (sel >= 0) {
-          const bar = 5 * s;
-          ctx.fillStyle = T.accent;
-          rr(ctx, x + ux + padX * 0.6, y + bh - bar - 0.5 * s, uw - padX * 1.2, bar, bar / 2); ctx.fill();
-        }
       }, { gap: o.gap });
     }
 
@@ -1221,8 +1230,22 @@ export function createPanel({
     ctx.fillStyle = '#000';
     rr(ctx, 0, 0, W, H, M.panelR); ctx.fill();
     ctx.globalCompositeOperation = 'destination-over';
-    ctx.fillStyle = themeObj.bg;
+    // Canvas cannot blur the live 3D scene behind it. A subtle opaque wash
+    // preserves Poincaré's glass palette while keeping small text readable.
+    const wash = ctx.createLinearGradient(0, 0, W, H);
+    wash.addColorStop(0, mix(themeObj.bg, themeObj.surface, 0.18));
+    wash.addColorStop(1, themeObj.bg);
+    ctx.fillStyle = wash;
     rr(ctx, 0, 0, W, H, M.panelR); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    const edge = ctx.createLinearGradient(0, 0, W, H);
+    edge.addColorStop(0, themeObj.name === 'light' ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.26)');
+    edge.addColorStop(0.45, themeObj.name === 'light' ? 'rgba(23,28,43,0.08)' : 'rgba(255,255,255,0.08)');
+    edge.addColorStop(1, themeObj.name === 'light' ? 'rgba(99,102,241,0.35)' : 'rgba(129,140,248,0.38)');
+    const inset = Math.max(1, 1.5 * s);
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = inset;
+    rr(ctx, inset / 2, inset / 2, W - inset, H - inset, M.panelR); ctx.stroke();
     ctx.restore(); resetFontTracking();
 
     regions = next; byKey = nextByKey;
@@ -1502,7 +1525,7 @@ export function createPanel({
     invalidate() { dirty = true; },
     /** Redraw if needed. Call every frame; cheap when nothing changed. Returns true if redrawn. */
     update() { if (!dirty) return false; redraw(); return true; },
-    setTheme(t) { themeObj = typeof t === 'string' ? (THEMES[t] || THEMES.light) : t; dirty = true; },
+    setTheme(t) { themeObj = typeof t === 'string' ? (THEMES[t] || THEMES.dark) : t; dirty = true; },
     setState(obj) { Object.assign(state, obj); dirty = true; },
     /** cb(id, value, info) for clicks, toggles, slider moves. Returns an unsubscribe function. */
     onAction(cb) { actionCbs.add(cb); return () => actionCbs.delete(cb); },

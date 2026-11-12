@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createInput } from '../../questGOLG/poincare/js/xrInput.js';
 import { createInteraction } from '../../questGOLG/poincare/js/interact.js';
-import { createPanel } from '../../questGOLG/poincare/js/ui/panel.js';
+import { createPanel } from '../../questGOLG/poincare/js/ui/panel.js?v=2026-11-12a';
 import { B, baseDiskSet, diskSet, labelText, applyAction, getFrame, buildTree } from './tree.js';
 
 const canvas=document.querySelector('#scene'), status=document.querySelector('#status');
