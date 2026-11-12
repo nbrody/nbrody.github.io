@@ -11,7 +11,23 @@
   const state = document.getElementById('preview-state');
   const paper = document.getElementById('paper');
   const download = document.getElementById('download');
+  const thickness = document.getElementById('thickness');
+  const thicknessValue = document.getElementById('thickness-value');
+  const texture = document.getElementById('texture');
+  const inkColor = document.getElementById('ink-color');
+  const backgroundColor = document.getElementById('background-color');
   let resultUrl = null;
+  let lastLines = null;
+
+  function updateAppearance() {
+    thicknessValue.value = Number(thickness.value).toFixed(1);
+    paper.style.backgroundColor = backgroundColor.value;
+    if (lastLines) render(lastLines);
+  }
+  for (const control of [thickness, texture, inkColor, backgroundColor]) {
+    control.addEventListener('input', updateAppearance);
+    if (control.tagName === 'SELECT') control.addEventListener('change', updateAppearance);
+  }
 
   function setStatus(message, error = false) {
     status.textContent = message;
@@ -47,7 +63,27 @@
       yOffset += Math.max((maxY - minY) * scale, scale) + lineGap;
     }
     const width = Math.ceil(maxWidth + 2 * margin), height = Math.ceil(yOffset - lineGap + margin);
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><g fill="none" stroke="#344b3e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths.join('')}</g></svg>`;
+    const ink = /^#[0-9a-f]{6}$/i.test(inkColor.value) ? inkColor.value : '#344b3e';
+    const background = /^#[0-9a-f]{6}$/i.test(backgroundColor.value) ? backgroundColor.value : '#fffefa';
+    const strokeWidth = Math.max(0.5, Math.min(5, Number(thickness.value) || 1.8));
+    const grain = texture.value === 'pencil' ? {frequency: '0.72', values: '0.08 0.35 0.72 1'}
+      : texture.value === 'dry' ? {frequency: '0.30', values: '0 0.10 0.65 1'} : null;
+    // The filter clips the colored strokes with a deterministic noise alpha, so the
+    // texture travels with the SVG and doesn't change when the image is redrawn.
+    const defs = grain ? `<defs><filter id="grain" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="${grain.frequency}" numOctaves="3" seed="4" result="noise"/><feColorMatrix in="noise" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1 0 0 0 0" result="alphaNoise"/><feComponentTransfer in="alphaNoise" result="grain"><feFuncA type="discrete" tableValues="${grain.values}"/></feComponentTransfer><feComposite in="SourceGraphic" in2="grain" operator="in"/></filter></defs>` : '';
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${defs}<rect width="100%" height="100%" fill="${background}"/><g fill="none" stroke="${ink}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${grain ? ' filter="url(#grain)"' : ''}>${paths.join('')}</g></svg>`;
+  }
+
+  function render(lines) {
+    const svg = strokesToSvg(lines);
+    const nextUrl = URL.createObjectURL(new Blob([svg], {type: 'image/svg+xml'}));
+    if (resultUrl) URL.revokeObjectURL(resultUrl);
+    resultUrl = nextUrl;
+    result.src = resultUrl;
+    result.hidden = false;
+    empty.hidden = true;
+    download.href = resultUrl;
+    download.hidden = false;
   }
 
   button.addEventListener('click', async () => {
@@ -60,30 +96,23 @@
       return;
     }
     button.disabled = true;
-    button.querySelector('span').textContent = 'Writing…';
+    button.querySelector('span').textContent = 'Generating…';
     paper.setAttribute('aria-busy', 'true');
-    state.textContent = 'WORKING ON IT';
-    setStatus('Preparing the model. The first download may take a little while.');
+    state.textContent = 'GENERATING';
+    setStatus('Loading model…');
     try {
       const lines = await window.generateHandwriting(text, {
         bias: Number(bias.value),
         onProgress: ({completed, total}) => {
           if (Number.isFinite(completed) && Number.isFinite(total)) {
-            setStatus(`Writing: ${completed} of ${total} parts complete…`);
+            setStatus(`Generated ${completed} of ${total} parts…`);
           }
         }
       });
-      const svg = strokesToSvg(lines);
-      const nextUrl = URL.createObjectURL(new Blob([svg], {type: 'image/svg+xml'}));
-      if (resultUrl) URL.revokeObjectURL(resultUrl);
-      resultUrl = nextUrl;
-      result.src = resultUrl;
-      result.hidden = false;
-      empty.hidden = true;
-      download.href = resultUrl;
-      download.hidden = false;
-      state.textContent = 'FRESHLY WRITTEN';
-      setStatus('Every sample is different. Check the result for missing or changed characters.');
+      render(lines);
+      lastLines = lines;
+      state.textContent = 'DONE';
+      setStatus('Check for missing or changed characters.');
     } catch (error) {
       console.error(error);
       state.textContent = 'PLEASE TRY AGAIN';
@@ -91,7 +120,7 @@
     } finally {
       paper.setAttribute('aria-busy', 'false');
       button.disabled = false;
-      button.querySelector('span').textContent = 'Write it out';
+      button.querySelector('span').textContent = 'Generate';
     }
   });
 })();

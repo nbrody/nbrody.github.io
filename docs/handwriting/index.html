@@ -4,66 +4,56 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f3ec">
-  <meta name="description" content="Turn a few words into handwriting with an experimental model trained on real pen strokes.">
-  <title>Handwriting — a little experiment in ink</title>
+  <meta name="description" content="Generate handwriting from text.">
+  <title>Handwriting</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
   <script src="model-client.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=2" defer></script>
 </head>
 <body>
   <div class="page-shell">
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="Handwriting, home"><span class="brand-mark" aria-hidden="true">h<span>.</span></span><span>HANDWRITING <i>/</i> AN EXPERIMENT</span></a>
+      <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">h<span>.</span></span><span>HANDWRITING</span></a>
       <a class="header-link" href="#make-your-own">Make your own <span aria-hidden="true">↗</span></a>
     </header>
-
     <main id="top">
-      <section class="intro" aria-labelledby="title">
-        <div class="intro-copy">
-          <p class="eyebrow"><span class="dot"></span> A STUDY IN PERSONAL STYLE</p>
-          <h1 id="title">A little more<br><em>human</em> than type.</h1>
-          <p class="intro-description">A handwriting model, trained on real pen strokes. Give it a few words and see what comes out.</p>
-        </div>
-        <div class="intro-note" aria-hidden="true"><span class="note-line"></span><span>Words have a way<br>of finding their form.</span><span class="note-star">✳</span></div>
-      </section>
-
+      <section class="intro"><h1>Handwriting</h1><p class="intro-description">Type something. Generate handwriting.</p></section>
       <section class="studio" aria-label="Handwriting generator">
-        <div class="studio-top"><div><span class="section-number">01 / THE STUDIO</span><h2>Put pen to paper.</h2></div><span class="studio-label">TEXT IN &nbsp; ↗ &nbsp; INK OUT</span></div>
         <div class="studio-grid">
           <div class="input-panel">
-            <div class="field-heading"><label for="text-input">Your words</label><span id="character-count">0 / 200</span></div>
-            <textarea id="text-input" maxlength="200" placeholder="Write something worth writing down…" spellcheck="true">The best ideas begin with a little ink.</textarea>
-            <p class="field-hint">Use basic English letters, numbers, and punctuation. A short sentence works best.</p>
-            <div class="control-heading"><div><label for="bias">Neatness</label><p>Looser <span aria-hidden="true">↔</span> more consistent</p></div><output id="bias-value" for="bias">1.5</output></div>
+            <div class="field-heading"><label for="text-input">Text</label><span id="character-count">0 / 200</span></div>
+            <textarea id="text-input" maxlength="200" placeholder="Type here" spellcheck="true">Hello world.</textarea>
+            <p class="field-hint">English letters, numbers, and punctuation.</p>
+            <div class="control-heading"><label for="bias">Neatness</label><output id="bias-value" for="bias">1.5</output></div>
             <input id="bias" type="range" min="0" max="3" step="0.1" value="1.5">
-            <button id="generate" type="button"><span>Write it out</span><span class="button-arrow" aria-hidden="true">↗</span></button>
-            <p class="privacy-note"><span aria-hidden="true">✳</span> Experimental: output varies and may miss or change characters. The first run downloads about 16 MB and can take a little while.</p>
+            <button id="generate" type="button"><span>Generate</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+            <p class="privacy-note">Experimental: check the output for errors. First run downloads about 16 MB.</p>
+            <fieldset class="appearance-controls">
+              <legend>Appearance</legend>
+              <div class="control-heading"><label for="thickness">Line thickness</label><output id="thickness-value" for="thickness">1.8</output></div>
+              <input id="thickness" type="range" min="0.5" max="5" step="0.1" value="1.8">
+              <div class="appearance-grid">
+                <div class="appearance-field texture-field"><label for="texture">Texture</label><select id="texture"><option value="smooth">Smooth</option><option value="pencil">Pencil</option><option value="dry">Dry ink</option></select></div>
+                <div class="appearance-field"><label for="ink-color">Ink</label><input id="ink-color" type="color" value="#344b3e"></div>
+                <div class="appearance-field"><label for="background-color">Background</label><input id="background-color" type="color" value="#fffefa"></div>
+              </div>
+            </fieldset>
           </div>
           <div class="preview-panel">
-            <div class="preview-top"><span>THE PAGE</span><span id="preview-state">READY WHEN YOU ARE</span></div>
+            <div class="preview-top"><span>PREVIEW</span><span id="preview-state">READY</span></div>
             <div class="paper" id="paper" aria-live="polite" aria-busy="false">
-              <div class="paper-margin" aria-hidden="true"></div>
-              <div class="empty-state" id="empty-state"><span class="empty-icon" aria-hidden="true">✳</span><p>Your words will<br><em>appear here.</em></p><small>A FRESH PAGE, JUST FOR YOU</small></div>
+              <div class="empty-state" id="empty-state"><p>Handwriting will appear here.</p></div>
               <img id="result" alt="Generated handwriting" hidden>
             </div>
-            <div class="preview-bottom"><p id="status" role="status">Type a little something and press “Write it out.”</p><a id="download" download="handwriting.svg" hidden>Download <span aria-hidden="true">↓</span></a></div>
+            <div class="preview-bottom"><p id="status" role="status">Enter text and select Generate.</p><a id="download" download="handwriting.svg" hidden>Download SVG <span aria-hidden="true">↓</span></a></div>
           </div>
         </div>
       </section>
-
-      <section class="about" id="make-your-own">
-        <div class="about-heading"><span class="section-number">02 / THE PROCESS</span><h2>A hand of<br><em>your own.</em></h2><p>Handwriting is full of tiny decisions. This experiment tries to learn them from the way a pen moves.</p></div>
-        <div class="about-content"><p class="about-lede">Want to make one in your own style?</p><div class="steps">
-          <div class="step"><span>01</span><div><h3>Gather your writing</h3><p>Collect digital handwritten notes that preserve the pen strokes, along with the text they say.</p></div></div>
-          <div class="step"><span>02</span><div><h3>Prepare the examples</h3><p>Pair clean, legible lines with their transcriptions. More varied and accurate examples give the model more to learn from.</p></div></div>
-          <div class="step"><span>03</span><div><h3>Train &amp; experiment</h3><p>Train or fine-tune a text-conditioned stroke model on a GPU, for example in Google Colab. Sample and review the results, then export it for inference to use it on a page like this one.</p></div></div>
-        </div><p class="about-footnote">A work in progress, made one stroke at a time.</p></div>
-      </section>
+      <section class="about" id="make-your-own"><h2>Make your own</h2><p>Collect digital pen strokes and transcriptions, then train or fine-tune a text-conditioned model in Google Colab.</p></section>
     </main>
-    <footer><a class="footer-brand" href="#top">h<span>.</span></a><p>AN EXPERIMENT IN HUMAN MARK-MAKING</p><a href="#top">BACK TO TOP ↑</a></footer>
   </div>
 </body>
 </html>
