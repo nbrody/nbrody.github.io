@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>Specialization renderer check</title>
+<p id="result">Running specialization renderer checks…</p><pre id="details"></pre>
+<script type="importmap">{"imports":{"three":"../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/three/three.module.js"}}</script>
+<script type="module">
+import {createSpecializationScene} from '../js/specializationRender.js';
+import {baseBall} from '../js/ballTree.js';
+import {rootFrame} from '../../../GeometryofLinearGroups/Algebraic/Tools/2dimFields/js/layout.js';
+const result=document.querySelector('#result'),details=document.querySelector('#details');
+try {
+  const checks=[];
+  for(const field of ['Q','i','omega']){
+    const settings={field,base:'disk',lam:1,h:-.75,edges:'q',N:2,depth:2};
+    const F=field==='Q'?rootFrame(settings):baseBall();
+    const I=field==='Q'?[1,0,0,1]:[[1,0],[0,0],[0,0],[1,0]];
+    const T=field==='Q'?[1,1,0,1]:[[1,0],[1,0],[0,0],[1,0]];
+    const shifted=field==='Q'?{...F,cx:F.cx+1,R:F.R*.5}:{...F,c:[1,0,0],R:.5};
+    const r0={F,C:I,root:true,overlay:true,colorIndex:0,depth:0,gap:0},r1={F:shifted,C:T,root:false,overlay:true,colorIndex:1,depth:1,gap:.2},r2={F:shifted,C:I,root:false,overlay:false,colorIndex:2,depth:1,gap:.2};
+    const renderer=createSpecializationScene({recs:[r0,r1,r2],settings});
+    const [root,ghost,retained,fading]=renderer.group.children;
+    const startsWithGhosts=root.count===1&&ghost.count===2&&ghost.material.opacity>0;
+    renderer.update([r0],{progress:1});const rootLineCount=retained.geometry.drawRange.count;
+    renderer.update([r0,{...r1,F},{...r2,F}],{progress:1});
+    const landed=root.count===1&&ghost.count===0&&ghost.material.opacity===0;
+    const overlaysRemain=retained.geometry.drawRange.count>rootLineCount&&fading.geometry.drawRange.count===0;
+    const finite=Array.from(retained.geometry.getAttribute('position').array.slice(0,retained.geometry.drawRange.count*3)).every(Number.isFinite);
+    checks.push({field,startsWithGhosts,landed,overlaysRemain,finite});renderer.dispose();
+  }
+  const pass=checks.every(c=>c.startsWithGhosts&&c.landed&&c.overlaysRemain&&c.finite);
+  result.textContent=pass?'PASS: one base surface and retained patterns in all fields':'FAIL: specialization renderer';
+  details.textContent=JSON.stringify(checks,null,2);
+}catch(error){result.textContent='FAIL: '+error.message;details.textContent=error.stack;}
+</script>

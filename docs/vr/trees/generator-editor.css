@@ -1,0 +1,24 @@
+/* Native keyboard entry on the flat browser page; the XR editor is a spatial panel. */
+.generator-editor {
+  position:fixed; z-index:30; right:12px; top:82px; bottom:12px;
+  width:min(430px,calc(100vw - 24px)); overflow:auto;
+  padding:18px; border:1px solid rgba(129,140,248,.32); border-radius:18px;
+  background:rgba(10,14,26,.97); color:#eef1f8; box-shadow:0 20px 60px #0008;
+  font:14px/1.45 var(--vr-font,Inter,sans-serif);
+}
+.generator-editor[hidden] {display:none}
+.generator-editor-head,.generator-editor-row,.generator-editor-actions {display:flex;align-items:center;gap:8px}
+.generator-editor-head,.generator-editor-row {justify-content:space-between}
+.generator-editor h2 {margin:0;font-size:18px}
+.generator-editor p {color:#b3bbd0;font-size:13px}
+.generator-editor button {border:1px solid #596185;border-radius:9px;padding:8px 11px;background:#20263b;color:#eef1f8;font:inherit;cursor:pointer}
+.generator-editor button:disabled {opacity:.45;cursor:default}
+.generator-editor button:focus-visible,.generator-editor input:focus-visible {outline:2px solid #a5b0ff;outline-offset:2px}
+.generator-editor-card {padding:10px;margin:10px 0;background:#ffffff0c;border:1px solid #ffffff14;border-radius:10px}
+.generator-editor-grid {display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.generator-editor-grid label span {position:absolute;clip:rect(0,0,0,0);width:1px;height:1px;overflow:hidden}
+.generator-editor-grid input {width:100%;box-sizing:border-box;padding:9px;border:1px solid #596185;border-radius:8px;background:#080c18;color:#eef1f8;font:14px/1.3 var(--vr-mono,monospace)}
+.generator-editor-actions {flex-wrap:wrap}
+.generator-editor .generator-editor-error {color:#fb7185;white-space:pre-wrap}
+@media(max-width:760px){.generator-editor{top:92px}}
+.specialization-value-input {display:block;width:100%;box-sizing:border-box;margin:8px 0 12px;padding:10px;border:1px solid #596185;border-radius:8px;background:#080c18;color:#eef1f8;font:14px/1.3 var(--vr-mono,monospace)}

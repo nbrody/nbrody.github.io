@@ -1,0 +1,44 @@
+<!doctype html><meta charset="utf-8"><title>Generator and value editors</title>
+<script type="importmap">{"imports":{"three":"../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/three/three.module.js"}}</script>
+<p id="result">Running editor checks…</p><pre id="details"></pre>
+<script type="module">
+import { createGeneratorEditor } from '../js/generatorEditor.js';
+import { createValueEditor } from '../js/valueEditor.js';
+const out=document.querySelector('#result'),details=document.querySelector('#details');
+const check=(x,msg)=>{if(!x)throw new Error(msg);};
+let saved=null,closed=0;
+const editor=createGeneratorEditor({onApply:x=>{saved=x;},onClose:()=>closed++});
+function fire(el,value){el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}));}
+function nativeButton(aside,text){const b=[...aside.querySelectorAll('button')].find(x=>x.textContent===text);check(b,`Missing native ${text}`);b.click();}
+function clickPanel(panel,scrollId,id,value){
+  for(let scroll=0;scroll<=4200;scroll+=180){
+    panel.setScroll(scrollId,scroll);panel.invalidate();panel.update();
+    for(let y=.01;y<.99;y+=.012)for(let x=.01;x<.99;x+=.012){
+      const p={x,y},h=panel.hitInfo(p);
+      if(h?.id===id&&(value===undefined||h.value===value)){
+        panel.pointerMove('test',p);panel.pointerDown('test',p);panel.pointerUp('test',p);panel.update();return;
+      }
+    }
+  }
+  throw new Error(`Spatial control ${id} ${value??''} not found`);
+}
+try{
+  editor.open({field:'Q',generators:[['1','0','0','1']],immersive:false});
+  const aside=document.querySelector('[aria-label="Custom matrix generators"]');check(!aside.hidden&&!editor.panel.mesh.visible,'Desktop visibility');
+  const inputs=aside.querySelectorAll('input');fire(inputs[3],'0');nativeButton(aside,'Apply');check(!saved&&aside.textContent.includes('singular'),'Singular input must not apply');
+  fire(inputs[3],'1');fire(inputs[1],'(t+1)/2');nativeButton(aside,'Apply');check(saved?.generators[0][1]==='(t+1)/2'&&aside.hidden&&closed===1,'Native form apply');
+  saved=null;editor.open({field:'omega',generators:[['1','0','0','1']],immersive:true});const p=editor.panel;p.update();check(aside.hidden&&p.mesh.visible,'XR visibility');
+  clickPanel(p,'ge:scroll','ge:cell',1);clickPanel(p,'ge:scroll','ge:key','Clear');clickPanel(p,'ge:scroll','ge:key','ω');clickPanel(p,'ge:scroll','ge:key','t');
+  clickPanel(p,'ge:scroll','ge:cell',3);clickPanel(p,'ge:scroll','ge:key','Clear');clickPanel(p,'ge:scroll','ge:key','0');clickPanel(p,'ge:scroll','ge:apply');
+  check(!saved&&editor.isOpen,'XR singular input must leave editor open');
+  clickPanel(p,'ge:scroll','ge:key','Clear');clickPanel(p,'ge:scroll','ge:key','1');clickPanel(p,'ge:scroll','ge:apply');
+  check(saved?.generators[0][1]==='ωt'&&!p.mesh.visible,'XR matrix keypad apply');
+  let spec=null;const v=createValueEditor({onApply:text=>{if(text==='0')throw new Error('t must be nonzero');spec=text;}});
+  v.open({field:'i',value:'0',immersive:false});const vAside=document.querySelector('[aria-label="Specialization value"]');nativeButton(vAside,'Apply');check(vAside.textContent.includes('nonzero')&&!spec,'Value error display');
+  v.close();v.open({field:'i',value:'0',immersive:true});v.panel.update();
+  clickPanel(v.panel,'ve:scroll','ve:apply');check(v.isOpen&&!spec,'XR invalid value must leave editor open');
+  clickPanel(v.panel,'ve:scroll','ve:key','Clear');clickPanel(v.panel,'ve:scroll','ve:key','2');clickPanel(v.panel,'ve:scroll','ve:key','+');clickPanel(v.panel,'ve:scroll','ve:key','i');clickPanel(v.panel,'ve:scroll','ve:apply');
+  check(spec==='2+i','XR complex-value keypad apply');v.dispose();editor.dispose();
+  out.textContent='PASS: native forms, validation, and spatial keypads';details.textContent=JSON.stringify({matrix:saved.generators,specialization:spec});
+}catch(e){out.textContent='FAIL: '+e.message;details.textContent=e.stack;}
+</script>

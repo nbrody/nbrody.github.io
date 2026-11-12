@@ -9,9 +9,11 @@ export function fieldExamples(field) {
   return EXAMPLES.filter(example => field === 'Q' ? !example.field : example.field === field);
 }
 export function presetMatrix(field, entries, inverse = false) {
-  const M = field === 'Q'
-    ? polyMatrix(entries.map(entry => parseRat(entry))).map(fromPoly)
-    : ballEngine(field).matrixOf(entries.map(entry => ballEngine(field).parse(entry)));
+  const parsed = field === 'Q'
+    ? entries.map(entry => parseRat(entry))
+    : entries.map(entry => ballEngine(field).parse(entry));
+  if (parsed.every(entry => entry.num.length === 0)) throw new Error('This generator is the zero matrix.');
+  const M = field === 'Q' ? polyMatrix(parsed).map(fromPoly) : ballEngine(field).matrixOf(parsed);
   if (det(M).isZero()) throw new Error('This generator is singular.');
   return inverse ? adj(M) : M;
 }
