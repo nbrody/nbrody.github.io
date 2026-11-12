@@ -4,6 +4,7 @@
   const button = document.getElementById('generate');
   const bias = document.getElementById('bias');
   const modelSelect = document.getElementById('model-select');
+  const repairLeadingE = document.getElementById('repair-leading-e');
   const biasValue = document.getElementById('bias-value');
   bias.addEventListener('input', () => { biasValue.value = Number(bias.value).toFixed(1); });
   const result = document.getElementById('result');
@@ -98,14 +99,18 @@
     }
     button.disabled = true;
     modelSelect.disabled = true;
+    repairLeadingE.disabled = true;
     button.querySelector('span').textContent = 'Generating…';
     paper.setAttribute('aria-busy', 'true');
     state.textContent = 'GENERATING';
     setStatus('Loading model…');
     try {
+      let repairResult = null;
       const lines = await window.generateHandwriting(text, {
         bias: Number(bias.value),
         model: modelSelect.value,
+        repairLeadingE: repairLeadingE.checked,
+        onRepair: result => { repairResult = result; },
         onProgress: ({completed, total}) => {
           if (Number.isFinite(completed) && Number.isFinite(total)) {
             setStatus(`Generated ${completed} of ${total} parts…`);
@@ -115,7 +120,10 @@
       render(lines);
       lastLines = lines;
       state.textContent = 'DONE';
-      setStatus('Check for missing or changed characters.');
+      setStatus(repairResult ? (repairResult.applied
+        ? 'Leading E repaired. Check the remaining characters.'
+        : 'Leading E repair was not applied. Check the output for errors.')
+        : 'Check for missing or changed characters.');
     } catch (error) {
       console.error(error);
       state.textContent = 'PLEASE TRY AGAIN';
@@ -124,6 +132,7 @@
       paper.setAttribute('aria-busy', 'false');
       button.disabled = false;
       modelSelect.disabled = false;
+      repairLeadingE.disabled = false;
       button.querySelector('span').textContent = 'Generate';
     }
   });

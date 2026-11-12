@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3">
-  <script src="model-client.js?v=3" defer></script>
-  <script src="app.js?v=3" defer></script>
+  <link rel="stylesheet" href="style.css?v=4">
+  <script src="model-client.js?v=4" defer></script>
+  <script src="app.js?v=4" defer></script>
 </head>
 <body>
   <div class="page-shell">
@@ -35,6 +35,10 @@
                 <option value="focused">Retrained — E/q focus</option>
               </select>
               <p id="model-hint">Compare versions; letter shapes and legibility can vary.</p>
+            </div>
+            <div class="leading-e-choice">
+              <label><input id="repair-leading-e" type="checkbox" aria-describedby="repair-leading-e-hint"> Repair leading E (experimental)</label>
+              <p id="repair-leading-e-hint">Reuses one handwritten E at the start of a single line, when E is alone or begins a lowercase word and no later E appears. Other inputs use normal generation.</p>
             </div>
             <div class="control-heading"><label for="bias">Neatness</label><output id="bias-value" for="bias">1.5</output></div>
             <input id="bias" type="range" min="0" max="3" step="0.1" value="1.5">

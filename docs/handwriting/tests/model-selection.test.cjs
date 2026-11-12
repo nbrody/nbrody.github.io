@@ -16,9 +16,12 @@ test('model client forwards the selection and preserves the original default', a
   }
   const context = {window: {}, Worker};
   vm.runInNewContext(source('model-client.js'), context);
-  const focused = context.window.generateHandwriting('Example', {model: 'focused', bias: 1.2});
-  assert.equal(workers[0].url, 'inference-worker.js?v=3');
-  assert.deepEqual(JSON.parse(JSON.stringify(workers[0].message)), {text: 'Example', bias: 1.2, model: 'focused'});
+  let repair;
+  const focused = context.window.generateHandwriting('Example', {model: 'focused', bias: 1.2, repairLeadingE: true, onRepair: result => {repair = result;} });
+  assert.equal(workers[0].url, 'inference-worker.js?v=4');
+  assert.deepEqual(JSON.parse(JSON.stringify(workers[0].message)), {text: 'Example', bias: 1.2, model: 'focused', repairLeadingE: true});
+  workers[0].onmessage({data: {type: 'repair', applied: true}});
+  assert.equal(repair.applied, true);
   workers[0].onmessage({data: {type: 'done', lines: []}});
   assert.deepEqual(await focused, []);
   assert.equal(workers[0].terminated, true);
@@ -51,7 +54,7 @@ test('worker loads only the selected allowlisted model and can switch models', a
 });
 
 test('the page submits the selected model and locks it during generation', async () => {
-  const ids = ['text-input','character-count','generate','bias','bias-value','model-select',
+  const ids = ['text-input','character-count','generate','bias','bias-value','model-select','repair-leading-e',
     'result','empty-state','status','preview-state','paper','download','thickness',
     'thickness-value','texture','ink-color','background-color'];
   const elements = Object.fromEntries(ids.map(id => [id, {
@@ -61,6 +64,7 @@ test('the page submits the selected model and locks it during generation', async
   }]));
   Object.assign(elements['text-input'], {value: 'Hello'});
   Object.assign(elements['model-select'], {value: 'focused'});
+  Object.assign(elements['repair-leading-e'], {checked: true});
   Object.assign(elements.bias, {value: '1.5'});
   Object.assign(elements.thickness, {value: '1.8'});
   Object.assign(elements.texture, {value: 'smooth'});
@@ -76,9 +80,14 @@ test('the page submits the selected model and locks it during generation', async
   const run = elements.generate.listeners.click();
   assert.equal(call.text, 'Hello');
   assert.equal(call.options.model, 'focused');
+  assert.equal(call.options.repairLeadingE, true);
   assert.equal(elements['model-select'].disabled, true);
+  assert.equal(elements['repair-leading-e'].disabled, true);
+  call.options.onRepair({type:'repair', applied:true});
   resolve([[{x: 0, y: 0, lift: true}, {x: 1, y: 1, lift: true}]]);
   await run;
   assert.equal(elements['model-select'].disabled, false);
+  assert.equal(elements['repair-leading-e'].disabled, false);
+  assert.match(elements.status.textContent, /Leading E repaired/);
   assert.equal(elements['preview-state'].textContent, 'DONE');
 });

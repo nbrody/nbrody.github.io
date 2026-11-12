@@ -1,5 +1,6 @@
 /* The ONNX graph is one recurrent step of the trained stroke model. */
 importScripts('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js');
+importScripts('leading-e.js?v=1');
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
 const modelDirectories = Object.freeze({original: 'model', general: 'models/general', focused: 'models/focused'});
@@ -71,11 +72,24 @@ onmessage = async ({data}) => {
     }
     const groups=data.text.split('\n').map(chunks);
     const total=groups.reduce((n,g)=>n+g.length,0);
-    let completed=0; const lines=[];
+    const wantsRepair = data.repairLeadingE === true;
+    const eligible = wantsRepair && HandwritingLeadingE.supportsLeadingE(data.text);
+    let completed=0, repairApplied=false; const lines=[];
     for (const group of groups) {
       let cursor=0; const line=[];
       for (const text of group) {
-        const piece=await generatePiece(text, data.bias);
+        let piece;
+        if (eligible && completed === 0) {
+          if (text === 'E') {
+            piece = HandwritingLeadingE.standaloneE();
+            repairApplied = true;
+          } else {
+            const remainder = await generatePiece(text.slice(1), data.bias);
+            piece = HandwritingLeadingE.prependE(remainder);
+            repairApplied = Boolean(piece);
+          }
+        }
+        if (!piece) piece=await generatePiece(text, data.bias);
         for (const p of piece.points) line.push({...p, x:p.x + cursor - piece.loX});
         if (line.length) line[line.length-1].lift=true;
         cursor += piece.hiX-piece.loX+0.83;
@@ -83,6 +97,7 @@ onmessage = async ({data}) => {
       }
       lines.push(line);
     }
+    if (wantsRepair) postMessage({type:'repair', applied:repairApplied});
     postMessage({type:'done',lines});
   } catch (error) { postMessage({type:'error',message:error?.message || String(error)}); }
 };
