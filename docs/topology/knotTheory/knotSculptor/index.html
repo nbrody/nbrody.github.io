@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme-key="knotSculptor.theme">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,11 +7,16 @@
 <meta name="description" content="Draw a knot in the air with hand tracking on a Meta Quest (or with a mouse), then see its invariants, its projections and a Seifert surface.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Source+Serif+4:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=1">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/poincare-ui.css?v=6">
+<link rel="stylesheet" href="style.css?v=3">
 <script>
-  // follow the system setting until the page's own toggle runs
-  document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  // Dark is the Poincaré workbench default; follow a saved theme or light system setting before first paint.
+  try {
+    const saved = localStorage.getItem('knotSculptor.theme');
+    const light = saved ? saved === 'light' : matchMedia('(prefers-color-scheme: light)').matches;
+    document.documentElement.classList.toggle('light', light);
+  } catch { /* storage blocked */ }
   window.MathJax = {
     tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
     svg: { fontCache: 'local' },
@@ -42,99 +47,219 @@
 </script>
 </head>
 <body>
-<main id="app">
-  <div id="stage">
-    <canvas id="view" aria-label="3D view of the knot"></canvas>
+<div id="stage" class="stage">
+  <canvas id="view" aria-label="3D view of the knot"></canvas>
+</div>
+
+<!-- Title & invariant status chip (top-left, /poincare/ style) -->
+<div id="status-banner" class="status-banner accent" role="status" aria-live="polite">
+  <div class="status-banner-text">
+    <span class="kicker">Knot Sculptor</span>
+    <span id="status-title" class="headline">Knot Sculptor</span>
+    <div id="status-detail" class="status-detail">Loading…</div>
+  </div>
+  <button id="banner-close" class="status-banner-close" type="button" title="Collapse" aria-label="Collapse status banner">×</button>
+</div>
+
+<!-- Viewing-direction crossing sphere caption (bottom-right of free viewport) -->
+<div id="globe-caption" class="globe-caption glass-chip" hidden>
+  <span class="globe-dot" aria-hidden="true"></span>
+  <span id="globe-caption-text">Viewing sphere</span>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<div id="control-panel">
+  <div class="tab-navigation">
+    <div class="panel-tabs" role="tablist" aria-label="Panels">
+      <button class="tab-btn active" data-tab="knot" role="tab" aria-selected="true">Knot</button>
+      <button class="tab-btn" data-tab="diagram" role="tab" aria-selected="false">Diagram</button>
+      <button class="tab-btn" data-tab="surface" role="tab" aria-selected="false">Surface</button>
+      <button class="tab-btn" data-tab="info" role="tab" aria-selected="false">Info</button>
+    </div>
+    <button id="theme-btn" class="collapse-btn" data-action="theme" title="Light / dark (T)" aria-label="Switch between light and dark">
+      <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+    </button>
+    <button id="collapse-btn" class="collapse-btn" title="Collapse panel (H)" aria-label="Collapse panel">
+      <span class="collapse-icon">×</span>
+    </button>
   </div>
 
-  <aside id="sidebar">
-    <header class="top">
+  <div class="panel-content">
+    <!-- ───────── Knot ───────── -->
+    <div id="tab-knot" class="tab-content active">
       <div>
-        <h1>Knot Sculptor</h1>
-        <p class="lede">Draw a knot in the air, then take it apart: its invariants, its projections and a surface it bounds.</p>
+        <h1 class="panel-title">Knot Sculptor</h1>
+        <p class="panel-subtitle">Draw a knot in the air, then take it apart: its invariants, its projections and a surface it bounds.</p>
       </div>
-      <button class="icon-btn" data-action="theme" aria-label="Switch between light and dark" title="Light / dark">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg>
-      </button>
-    </header>
 
-    <section class="panel xr">
-      <div class="row two">
-        <button id="enter-vr" class="primary" disabled>Enter VR</button>
-        <button id="enter-ar" class="primary soft" disabled>Passthrough</button>
+      <div class="control-group">
+        <label class="control-label" for="library">Library</label>
+        <div class="control-row">
+          <button class="icon-btn" data-action="prev" title="Previous knot ([)" aria-label="Previous knot">‹</button>
+          <select id="library" class="select-input" name="library" aria-label="Knot library"></select>
+          <button class="icon-btn" data-action="next" title="Next knot (])" aria-label="Next knot">›</button>
+        </div>
+        <button class="btn btn-add-alt" data-action="random" title="A random braid closure, relaxed (N)"><svg class="btn-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3"/><circle cx="15.5" cy="8.5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="8.5" cy="15.5" r="1.3"/><circle cx="15.5" cy="15.5" r="1.3"/></svg>Random knot</button>
       </div>
-      <p id="xr-status" class="muted small">Checking for a headset…</p>
-    </section>
 
-    <section class="panel">
-      <h2>Knot</h2>
-      <label class="field">
-        <span>Library</span>
-        <select id="library"></select>
-      </label>
-      <div class="seg" role="group" aria-label="What dragging does">
-        <button data-action="mode" data-value="draw">Draw</button>
-        <button data-action="mode" data-value="move">Orbit</button>
+      <div class="control-group">
+        <div class="seg-selector">
+          <span class="seg-label">Drag to</span>
+          <div class="seg-options" role="group" aria-label="What dragging does">
+            <button class="seg-opt" data-action="mode" data-value="draw" title="Draw (D)">Draw</button>
+            <button class="seg-opt" data-action="mode" data-value="move" title="Orbit (O)">Orbit</button>
+          </div>
+        </div>
+        <div class="control-row">
+          <label class="control-label" for="cross-mode">Crossings</label>
+          <select id="cross-mode" class="select-input" name="cross-mode">
+            <option value="alternate">Alternate over / under</option>
+            <option value="over">New strand goes over</option>
+            <option value="under">New strand goes under</option>
+          </select>
+        </div>
+        <div class="toggle-row three">
+          <button class="toggle-btn" data-action="undo" title="Undo (Z)">Undo</button>
+          <button class="toggle-btn" data-action="clear">Clear</button>
+          <button class="toggle-btn" data-toggle="addStrand" data-action="addStrand" title="Your next drawing adds a strand to the link instead of replacing the knot">+ Strand</button>
+        </div>
+        <div class="toggle-row three">
+          <button class="toggle-btn" data-toggle="relax" data-action="relax" title="Relax (R)">Relax</button>
+          <button class="toggle-btn" data-toggle="flatten" data-action="flatten" title="Flatten (F)">Flatten</button>
+          <button class="toggle-btn" data-toggle="spin" data-action="spin" title="Turntable (Space)">Spin</button>
+        </div>
       </div>
-      <label class="field">
-        <span>Crossings while drawing</span>
-        <select id="cross-mode">
-          <option value="alternate">Alternate over and under</option>
-          <option value="over">New strand goes over</option>
-          <option value="under">New strand goes under</option>
-        </select>
-      </label>
-      <div class="row three">
-        <button data-action="undo">Undo</button>
-        <button data-action="clear">Clear</button>
-        <button data-toggle="addStrand" data-action="addStrand" title="Your next drawing adds a strand to the link instead of replacing the knot">Add strand</button>
-      </div>
-      <div class="row two">
-        <button data-toggle="relax" data-action="relax">Relax</button>
-        <button data-toggle="flatten" data-action="flatten">Flatten</button>
-      </div>
-    </section>
 
-    <section class="panel">
-      <h2>Seifert surface</h2>
-      <div class="row two">
-        <button data-toggle="surface" data-action="surface">Show surface</button>
-        <button data-toggle="sweep" data-action="sweep">Sweep</button>
+      <div class="control-group">
+        <div class="control-row spread">
+          <label class="control-label" for="palette">Palette</label>
+          <div class="sparks-inline">
+            <span class="sparks-label">Sparks</span>
+            <button class="switch" data-toggle="sparks" data-action="sparks" aria-label="Fly sparks while sculpting"></button>
+          </div>
+        </div>
+        <div class="control-row palette-row">
+          <span id="palette-swatch" class="palette-preview" aria-hidden="true"></span>
+          <select id="palette" class="select-input palette-select" name="palette" aria-label="Rope color gradient palette"></select>
+        </div>
+        <div class="range-row">
+          <div class="range-head">
+            <label class="range-name" for="tube">Tube thickness</label>
+            <output id="tube-value" class="range-value">1.0×</output>
+          </div>
+          <input id="tube" class="range" type="range" min="0.5" max="2.5" step="0.05" value="1">
+        </div>
       </div>
-      <label class="field slider">
-        <span>Level <output id="level-value">2π</output></span>
-        <input id="level" type="range" min="0" max="12.566370614359172" step="0.39269908169872414" value="6.283185307179586">
-      </label>
-      <p class="muted small">The surface is a level set of the solid angle $\Omega$ the knot subtends. Its two sides get two colors: it is orientable. Sweep runs through every level.</p>
-    </section>
 
-    <section class="panel">
-      <h2>Invariants</h2>
-      <div id="invariants" aria-live="polite"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Projection</h2>
-      <canvas id="proj-canvas" aria-label="Knot diagram of the current view"></canvas>
-      <div class="row three">
-        <button data-toggle="circles" data-action="circles">Seifert circles</button>
-        <button data-toggle="globe" data-action="globe">Globe</button>
-        <button data-action="best">Best view</button>
+      <div class="control-group">
+        <span class="control-label">Share &amp; export</span>
+        <div class="toggle-row three">
+          <button class="toggle-btn" data-action="share" title="Copy a link to this exact knot">Copy link</button>
+          <button class="toggle-btn" data-action="png" title="Save the 3D view as an image">PNG</button>
+          <button class="toggle-btn" data-action="stl" title="The tube (and the surface, if shown) as a 3D-printable STL, in millimetres">STL</button>
+        </div>
       </div>
-      <p class="muted small">The globe colors each viewing direction by how many crossings that projection has; the simplest views are teal. Click it to look from there.</p>
-    </section>
 
-    <section class="panel help">
-      <h2>On a Quest</h2>
-      <ul>
-        <li><b>Draw:</b> with nothing on screen, pinch with your right hand and move. Let go and the loop closes.</li>
-        <li><b>Turn it:</b> once there is a knot, pinch and drag with either hand. Two hands scale it. A quick pinch without moving does nothing.</li>
-        <li><b>Menu:</b> turn your left palm toward your face and poke the buttons with your right index finger. <i>New knot</i> or <i>Add strand</i> lets your next pinch draw.</li>
-        <li><b>Globe:</b> poke a color on the globe to see the knot from that direction.</li>
-      </ul>
-    </section>
-  </aside>
-</main>
-<script type="module" src="js/main.js?v=2"></script>
+      <div class="control-group">
+        <span class="control-label">Headset</span>
+        <div class="toggle-row">
+          <button id="enter-vr" class="btn btn-primary" disabled>Enter VR</button>
+          <button id="enter-ar" class="btn btn-add-alt" disabled>Passthrough</button>
+        </div>
+        <p id="xr-status" class="label-hint">Checking for a headset…</p>
+      </div>
+
+      <details class="info-section">
+        <summary class="info-title">Keys &amp; Quest gestures</summary>
+        <dl class="keys">
+          <dt>D / O</dt><dd>draw / orbit</dd>
+          <dt>Z</dt><dd>undo</dd>
+          <dt>R · F</dt><dd>relax · flatten</dd>
+          <dt>P</dt><dd>next color palette</dd>
+          <dt>S · W</dt><dd>surface · sweep</dd>
+          <dt>C · G · B</dt><dd>circles · globe · best view</dd>
+          <dt>[ ] · N</dt><dd>library · random knot</dd>
+          <dt>Space</dt><dd>turntable spin</dd>
+          <dt>1–4 · H</dt><dd>switch tabs · hide the panel</dd>
+        </dl>
+        <p><b>Draw:</b> with nothing on screen, pinch with your right hand and move. Sparks fly and the rope cycles through the palette; let go and the loop closes and smooths its color period.</p>
+        <p><b>Turn it:</b> pinch and drag with either hand; two hands scale it.</p>
+        <p><b>Menu:</b> turn your left palm toward your face and poke the buttons with your right index finger.</p>
+        <p><b>Viewing sphere:</b> each chamber shows how many crossings the knot has from that direction (teal = fewest). Click or poke to view from there.</p>
+      </details>
+    </div>
+
+    <!-- ───────── Diagram ───────── -->
+    <div id="tab-diagram" class="tab-content">
+      <div>
+        <h2 class="panel-title">Projection</h2>
+        <p class="panel-subtitle">The knot diagram you see from where you stand. The viewing sphere colors each direction by its crossing count; teal is simplest.</p>
+      </div>
+      <div class="control-group">
+        <canvas id="proj-canvas" aria-label="Knot diagram of the current view"></canvas>
+        <div class="toggle-row three">
+          <button class="toggle-btn" data-toggle="circles" data-action="circles" title="Seifert circles (C)">Circles</button>
+          <button class="toggle-btn" data-toggle="globe" data-action="globe" title="Viewing sphere (G)">Sphere</button>
+          <button class="toggle-btn" data-action="best" title="Best view (B)">Best view</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="control-row spread">
+          <span class="control-label">Reidemeister moves</span>
+          <button class="switch" data-toggle="moves" data-action="moves" aria-label="Show Reidemeister moves"></button>
+        </div>
+        <div class="seg-options seg-4" role="group" aria-label="Kind of move">
+          <button class="seg-opt" data-action="moveKind" data-value="reduce" title="Remove crossings with moves I and II">I/II −</button>
+          <button class="seg-opt" data-action="moveKind" data-value="r3" title="Slide a strand across a crossing (III)">III</button>
+          <button class="seg-opt" data-action="moveKind" data-value="add1" title="Add a kink (I)">I +</button>
+          <button class="seg-opt" data-action="moveKind" data-value="add2" title="Add a pair of crossings (II)">II +</button>
+        </div>
+        <p id="move-status" class="label-hint" aria-live="polite">Looking for moves in this view.</p>
+        <div id="move-list" class="move-list" aria-label="Available Reidemeister moves"></div>
+      </div>
+    </div>
+
+    <!-- ───────── Surface ───────── -->
+    <div id="tab-surface" class="tab-content">
+      <div>
+        <h2 class="panel-title">Seifert surface</h2>
+        <p class="panel-subtitle">A level set of the solid angle $\Omega$ the knot subtends. Its two sides get two colors: it is orientable.</p>
+      </div>
+      <div class="control-group">
+        <div class="toggle-row">
+          <button class="toggle-btn" data-toggle="surface" data-action="surface" title="Seifert surface (S)">Show surface</button>
+          <button class="toggle-btn" data-toggle="sweep" data-action="sweep" title="Sweep through every level (W)">Sweep</button>
+        </div>
+        <div class="range-row">
+          <div class="range-head">
+            <label class="range-name" for="level">Level $\Omega$</label>
+            <output id="level-value" class="range-value">2π</output>
+          </div>
+          <input id="level" class="range" type="range" min="0" max="12.566370614359172" step="0.39269908169872414" value="6.283185307179586">
+        </div>
+        <div class="range-row">
+          <div class="range-head">
+            <label class="range-name" for="surf-opacity">Opacity</label>
+            <output id="surf-opacity-value" class="range-value">100%</output>
+          </div>
+          <input id="surf-opacity" class="range" type="range" min="0.2" max="1" step="0.05" value="1">
+        </div>
+      </div>
+      <div class="info-section">
+        <p>Each level $0 < \Omega < 4\pi$ gives a surface bounded by the knot. Sweep plays them in turn: together they fill the space around the knot.</p>
+      </div>
+    </div>
+
+    <!-- ───────── Info ───────── -->
+    <div id="tab-info" class="tab-content">
+      <div class="control-group">
+        <div id="invariants" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/main.js?v=3"></script>
 </body>
 </html>

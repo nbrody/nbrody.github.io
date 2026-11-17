@@ -1,26 +1,80 @@
 // Canvas drawing for the panels: the invariants card, the projection diagram and the VR hand menu.
-// Used for VR canvas textures; the projection drawing is also used for the desktop sidebar canvas.
+// Styled after the Poincaré workbench (Kleinian/poincare/style.css & topology/assets/poincare-ui.css).
 import { texImage, splitMath } from './mathTex.js';
 import { projectDiagram, seifertCircles } from './diagram.js';
+import { PALETTES, samplePaletteHex } from './palettes.js';
 
 export const THEMES = {
   light: {
-    bg: '#f3f4f7', panel: '#ffffff', surface: '#f4f6f8', text: '#16181e', muted: '#5f636c', field: '#e7e9ec',
-    accent: '#818cf8', accentInk: '#5f67cf', accentOn: '#141414', accentSoft: '#eff2ff', hover: '#e1e5ff',
-    comps: ['#5f67cf', '#e0803a', '#2f9e6e', '#c0507a'], surfaceFront: '#00a7da', surfaceBack: '#d38ae7',
-    floor: '#e6e8ee',
+    name: 'light',
+    bg: '#eef1f8',
+    panelTop: '#fbfcff',
+    panel: '#f1f4fb',
+    headerBg: 'rgba(255, 255, 255, 0.62)',
+    surface: 'rgba(23, 28, 43, 0.035)',
+    wellBg: 'rgba(255, 255, 255, 0.56)',
+    text: '#171c2b',
+    muted: '#545d75',
+    faint: '#8b93a8',
+    field: 'rgba(255, 255, 255, 0.78)',
+    w03: 'rgba(23, 28, 43, 0.03)',
+    w05: 'rgba(23, 28, 43, 0.05)',
+    w08: 'rgba(23, 28, 43, 0.08)',
+    hairline: 'rgba(23, 28, 43, 0.10)',
+    hairlineStrong: 'rgba(23, 28, 43, 0.18)',
+    accent: '#6366f1',
+    accent2: '#0891b2',
+    accentInk: '#4f46e5',
+    accentOn: '#ffffff',
+    accentSoft: 'rgba(99, 102, 241, 0.15)',
+    accentSoftBot: 'rgba(99, 102, 241, 0.06)',
+    accentLine: 'rgba(99, 102, 241, 0.48)',
+    accentGlow: 'rgba(99, 102, 241, 0.24)',
+    hover: 'rgba(99, 102, 241, 0.10)',
+    edgeStops: ['rgba(255, 255, 255, 0.94)', 'rgba(23, 28, 43, 0.08)', 'rgba(99, 102, 241, 0.34)'],
+    comps: ['#5f63e6', '#e0803a', '#14a37f', '#c0507a'],
+    surfaceFront: '#0891b2',
+    surfaceBack: '#c77ddb',
+    floor: '#dde2ee',
   },
   dark: {
-    bg: '#15171c', panel: '#22252c', surface: '#2b2f37', text: '#e8ebef', muted: '#a5abb4', field: '#363a43',
-    accent: '#818cf8', accentInk: '#a5b4fc', accentOn: '#141414', accentSoft: '#2e3350', hover: '#3a4066',
-    comps: ['#8b93f0', '#f0a060', '#4fc08d', '#e07aa0'], surfaceFront: '#22b8e6', surfaceBack: '#d996ea',
-    floor: '#1d2027',
+    name: 'dark',
+    bg: '#05070f',
+    panelTop: '#10162a',
+    panel: '#0a0e1b',
+    headerBg: 'rgba(0, 0, 0, 0.28)',
+    surface: 'rgba(255, 255, 255, 0.035)',
+    wellBg: 'rgba(0, 0, 0, 0.24)',
+    text: '#eef1f8',
+    muted: '#9aa5bd',
+    faint: '#5e6880',
+    field: 'rgba(8, 12, 24, 0.65)',
+    w03: 'rgba(255, 255, 255, 0.03)',
+    w05: 'rgba(255, 255, 255, 0.055)',
+    w08: 'rgba(255, 255, 255, 0.09)',
+    hairline: 'rgba(255, 255, 255, 0.08)',
+    hairlineStrong: 'rgba(255, 255, 255, 0.16)',
+    accent: '#818cf8',
+    accent2: '#22d3ee',
+    accentInk: '#a5b4fc',
+    accentOn: '#05070f',
+    accentSoft: 'rgba(129, 140, 248, 0.20)',
+    accentSoftBot: 'rgba(129, 140, 248, 0.08)',
+    accentLine: 'rgba(129, 140, 248, 0.50)',
+    accentGlow: 'rgba(129, 140, 248, 0.32)',
+    hover: 'rgba(255, 255, 255, 0.09)',
+    edgeStops: ['rgba(255, 255, 255, 0.24)', 'rgba(255, 255, 255, 0.06)', 'rgba(129, 140, 248, 0.36)'],
+    comps: ['#8b93f8', '#f0a060', '#4fd1a5', '#f07aa8'],
+    surfaceFront: '#22d3ee',
+    surfaceBack: '#d996ea',
+    floor: '#121a30',
   },
 };
 export const CIRCLE_COLORS = ['#5f67cf', '#00a7da', '#d38ae7', '#e0803a', '#2f9e6e', '#c0507a', '#b59a2a', '#6a7a8c'];
 
-const FONT_BODY = '"Atkinson Hyperlegible", system-ui, sans-serif';
-const FONT_HEAD = '"Source Serif 4", Georgia, serif';
+export const FONT_BODY = 'Inter, system-ui, sans-serif';
+export const FONT_HEAD = 'Inter, system-ui, sans-serif';
+export const FONT_MONO = '"JetBrains Mono", ui-monospace, monospace';
 
 export function roundRect(ctx, x, y, w, h, r) {
   r = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -32,6 +86,69 @@ export function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+/**
+ * Draw the signature /poincare/ glass panel card (opaque wash for 3D canvas legibility,
+ * optional top header bar, and 165° diagonal gradient hairline border).
+ */
+export function drawPoincareCard(ctx, W, H, th, { radius = 40, headerH = 0, borderW = 2.5 } = {}) {
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  roundRect(ctx, 0, 0, W, H, radius);
+  ctx.clip();
+
+  const body = ctx.createLinearGradient(0, 0, W * 0.4, H);
+  body.addColorStop(0, th.panelTop);
+  body.addColorStop(1, th.panel);
+  ctx.fillStyle = body;
+  ctx.fillRect(0, 0, W, H);
+
+  if (headerH > 0) {
+    ctx.fillStyle = th.headerBg;
+    ctx.fillRect(0, 0, W, headerH);
+    ctx.fillStyle = th.hairline;
+    ctx.fillRect(0, headerH - 1.5, W, 1.5);
+  }
+  ctx.restore();
+
+  ctx.save();
+  const edge = ctx.createLinearGradient(0, 0, W * 0.55, H);
+  edge.addColorStop(0, th.edgeStops[0]);
+  edge.addColorStop(0.32, th.edgeStops[1]);
+  edge.addColorStop(0.92, th.edgeStops[2]);
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = borderW;
+  roundRect(ctx, borderW / 2, borderW / 2, W - borderW, H - borderW, radius - borderW / 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Draw an inner `.control-group` card inside a panel. */
+export function drawGroupBox(ctx, x, y, w, h, th, r = 26) {
+  ctx.save();
+  ctx.fillStyle = th.w03;
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fill();
+  ctx.strokeStyle = th.hairline;
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Draw `.panel-title` text with /poincare/'s ink → indigo → cyan gradient fill. */
+export function drawTitleGradient(ctx, text, x, y, px, th) {
+  ctx.save();
+  ctx.font = `650 ${px}px ${FONT_HEAD}`;
+  ctx.textBaseline = 'alphabetic';
+  const tw = ctx.measureText(text).width || 200;
+  const grad = ctx.createLinearGradient(x, y - px * 0.8, x + tw * 1.05, y + px * 0.2);
+  grad.addColorStop(0.25, th.text);
+  grad.addColorStop(0.82, th.accent);
+  grad.addColorStop(1, th.accent2);
+  ctx.fillStyle = grad;
+  ctx.fillText(text, x, y);
+  ctx.restore();
 }
 
 // Rich text (plain text with $…$ math). prepareRich loads the math images; drawRich is synchronous.
@@ -66,68 +183,72 @@ export function drawRich(ctx, R, x, y, { maxW = Infinity, align = 'left' } = {})
 }
 
 // ───────────────────────────── invariants card ─────────────────────────────
-// model: { title: { tex, nick, detail, note }, rows: [{ label, value (rich string) }], hint }
 export async function renderInfo(ctx, W, H, model, th) {
-  const pad = 56;
-  const big = model.title?.tex ? await texImage(model.title.tex, { color: th.text, px: 120 }) : null;
-  const nick = await prepareRich(model.title?.nick || '', { px: 54, color: th.text, font: FONT_HEAD, weight: 500 });
-  const detail = await prepareRich(model.title?.detail || '', { px: 30, color: th.muted });
-  const note = model.title?.note ? await prepareRich(model.title.note, { px: 26, color: th.muted }) : null;
+  const pad = 48, headerH = 78;
+  const big = model.title?.tex ? await texImage(model.title.tex, { color: th.text, px: 112 }) : null;
+  const nick = await prepareRich(model.title?.nick || '', { px: 50, color: th.text, font: FONT_HEAD, weight: 650 });
+  const detail = await prepareRich(model.title?.detail || '', { px: 28, color: th.muted });
+  const note = model.title?.note ? await prepareRich(model.title.note, { px: 25, color: th.muted }) : null;
   const rows = [];
   for (const r of model.rows || []) {
     rows.push({
-      label: await prepareRich(r.label, { px: 28, color: th.muted }),
-      value: await prepareRich(r.value, { px: 34, color: th.text }),
-      sub: r.sub ? await prepareRich(r.sub, { px: 22, color: th.muted }) : null,
+      label: await prepareRich(r.label.toUpperCase(), { px: 22, color: th.muted, weight: 600 }),
+      value: await prepareRich(r.value, { px: 33, color: th.text }),
+      sub: r.sub ? await prepareRich(r.sub, { px: 21, color: th.faint }) : null,
     });
   }
-  const hint = model.hint ? await Promise.all(model.hint.map(h => prepareRich(h, { px: 32, color: th.text }))) : null;
+  const hint = model.hint ? await Promise.all(model.hint.map(h => prepareRich(h, { px: 30, color: th.text }))) : null;
 
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = th.panel;
-  roundRect(ctx, 0, 0, W, H, 44);
-  ctx.fill();
-  ctx.font = `700 24px ${FONT_BODY}`;
-  ctx.fillStyle = th.accentInk;
-  ctx.fillText(model.kicker || 'THE KNOT', pad, pad + 10);
-  let y = pad + 30;
+  drawPoincareCard(ctx, W, H, th, { radius: 40, headerH });
+
+  // Header kicker + accent status dot
+  ctx.save();
+  ctx.fillStyle = th.accent;
+  ctx.shadowColor = th.accentGlow;
+  ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.arc(pad, headerH / 2, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.font = `600 22px ${FONT_BODY}`;
+  ctx.fillStyle = th.muted;
+  ctx.fillText((model.kicker || 'INVARIANTS').toUpperCase(), pad + 20, headerH / 2 + 8);
+
+  let y = headerH + 26;
   let x = pad;
   if (big) {
-    const s = Math.min(1, 220 / big.w);
-    ctx.drawImage(big.img, x, y + 6, big.w * s, big.h * s);
-    x += big.w * s + 34;
+    const s = Math.min(1, 210 / big.w);
+    ctx.drawImage(big.img, x, y + 4, big.w * s, big.h * s);
+    x += big.w * s + 32;
   }
-  drawRich(ctx, nick, x, y + 66, { maxW: W - x - pad });
-  drawRich(ctx, detail, x, y + 112, { maxW: W - x - pad });
-  y += big ? Math.max(150, big.h + 24) : 150;
-  if (note) { drawRich(ctx, note, pad, y, { maxW: W - 2 * pad }); y += 40; }
+  drawRich(ctx, nick, x, y + 60, { maxW: W - x - pad });
+  drawRich(ctx, detail, x, y + 102, { maxW: W - x - pad });
+  y += big ? Math.max(138, big.h + 18) : 134;
+  if (note) { drawRich(ctx, note, pad, y, { maxW: W - 2 * pad }); y += 38; }
   if (hint) {
-    ctx.fillStyle = th.surface;
-    roundRect(ctx, pad - 16, y, W - 2 * pad + 32, hint.length * 54 + 40, 28);
-    ctx.fill();
-    hint.forEach((h, i) => drawRich(ctx, h, pad + 8, y + 62 + i * 54, { maxW: W - 2 * pad - 16 }));
+    drawGroupBox(ctx, pad - 12, y, W - 2 * pad + 24, hint.length * 52 + 36, th, 26);
+    hint.forEach((h, i) => drawRich(ctx, h, pad + 12, y + 56 + i * 52, { maxW: W - 2 * pad - 24 }));
     return;
   }
   if (!rows.length) return;
-  const rowH = 70;
-  ctx.fillStyle = th.surface;
-  const blockH = rows.reduce((s, r) => s + rowH + (r.sub ? 26 : 0), 0) + 24;
-  roundRect(ctx, pad - 16, y, W - 2 * pad + 32, Math.min(blockH, H - y - 24), 28);
-  ctx.fill();
-  y += 12;
-  const labelW = 290;
-  for (const r of rows) {
-    if (y + rowH > H - 24) break;
-    drawRich(ctx, r.label, pad + 8, y + 45, { maxW: labelW - 20 });
-    drawRich(ctx, r.value, pad + labelW, y + 47, { maxW: W - 2 * pad - labelW });
+  const rowH = 68;
+  const blockH = Math.min(rows.reduce((s, r) => s + rowH + (r.sub ? 24 : 0), 0) + 22, H - y - 28);
+  drawGroupBox(ctx, pad - 12, y, W - 2 * pad + 24, blockH, th, 26);
+  y += 10;
+  const labelW = 285;
+  rows.forEach((r, idx) => {
+    if (y + rowH > H - 24) return;
+    if (idx > 0) {
+      ctx.fillStyle = th.hairline;
+      ctx.fillRect(pad + 6, y + 6, W - 2 * pad - 12, 1.2);
+    }
+    drawRich(ctx, r.label, pad + 10, y + 44, { maxW: labelW - 22 });
+    drawRich(ctx, r.value, pad + labelW, y + 46, { maxW: W - 2 * pad - labelW });
     y += rowH;
-    if (r.sub) { drawRich(ctx, r.sub, pad + labelW, y + 4, { maxW: W - 2 * pad - labelW }); y += 26; }
-  }
+    if (r.sub) { drawRich(ctx, r.sub, pad + labelW, y + 2, { maxW: W - 2 * pad - labelW }); y += 24; }
+  });
 }
 
 // ───────────────────────────── projection diagram ─────────────────────────────
 
-// Diagram of the link seen along `dir` (from the knot toward the eye), with `up` as screen up.
 export function projectionData(comps, dir, up) {
   const D = projectDiagram(comps, dir, up);
   const arcs = D.proj.map(P => {
@@ -155,12 +276,10 @@ function pointAt(P, cum, a) {
   return [P.x[lo] + t * (P.x[j] - P.x[lo]), P.y[lo] + t * (P.y[j] - P.y[lo])];
 }
 
-// stroke the part of a closed projected polyline between arc lengths a0 < a1 (may exceed L: wraps)
 function strokeRange(ctx, P, cum, a0, a1, map) {
   const L = cum[P.N];
   if (a1 - a0 >= L - 1e-12) { a0 = 0; a1 = L; }
   const pts = [pointAt(P, cum, a0)];
-  // vertices strictly inside (a0, a1)
   const startTurn = Math.floor(a0 / L);
   let i = 0;
   {
@@ -183,7 +302,6 @@ function strokeRange(ctx, P, cum, a0, a1, map) {
   ctx.stroke();
 }
 
-// Draws the diagram into the rectangle (x, y, w, h). opts: { R (knot radius), center2 [x,y], th, seifert }
 export function drawDiagram(ctx, data, x, y, w, h, opts) {
   const { D, arcs, sc } = data;
   const { th, seifert } = opts;
@@ -195,7 +313,7 @@ export function drawDiagram(ctx, data, x, y, w, h, opts) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.lineWidth = lw;
-  const gap = (lw * 2.6) / scale; // half-gap at under-crossings, in diagram units
+  const gap = (lw * 2.6) / scale;
   if (!seifert) {
     D.proj.forEach((P, c) => {
       const cum = arcs[c], L = cum[P.N];
@@ -210,10 +328,9 @@ export function drawDiagram(ctx, data, x, y, w, h, opts) {
     });
     return;
   }
-  // Seifert circles: color every edge by its circle and replace each crossing by its oriented smoothing
   const rho = (lw * 4.6) / scale;
   let freeIdx = sc.count - 1;
-  const ends = new Map(); // crossing id → { uI, uO, oI, oO } points
+  const ends = new Map();
   D.proj.forEach((P, c) => {
     const cum = arcs[c], L = cum[P.N];
     const ev = D.gauss.comps[c];
@@ -230,7 +347,6 @@ export function drawDiagram(ctx, data, x, y, w, h, opts) {
       const circ = sc.circleOfEdge.get(labels[m]);
       ctx.strokeStyle = CIRCLE_COLORS[circ % CIRCLE_COLORS.length];
       if (a1 > a0) strokeRange(ctx, P, cum, a0, a1, map);
-      // endpoints near the crossings at both ends of this edge
       const e1 = ev[(m + 1) % ev.length];
       const out = ends.get(e.x) || {}; ends.set(e.x, out);
       out[e.over ? 'oO' : 'uO'] = { p: pointAt(P, cum, as[m] + rho), circ };
@@ -250,8 +366,6 @@ export function drawDiagram(ctx, data, x, y, w, h, opts) {
       ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(qx, qy, bx, by); ctx.stroke();
       mids.push([0.25 * ax + 0.5 * qx + 0.25 * bx, 0.25 * ay + 0.5 * qy + 0.25 * by]);
     }
-    // the half-twisted band that Seifert's algorithm glues in at this crossing: a short strip
-    // between the two smoothed arcs, with the twist drawn as an X
     ctx.save();
     const [m0, m1] = mids;
     const dx = m1[0] - m0[0], dy = m1[1] - m0[1], len = Math.hypot(dx, dy) || 1;
@@ -276,8 +390,7 @@ export function drawDiagram(ctx, data, x, y, w, h, opts) {
 export async function renderProjection(ctx, W, H, data, opts) {
   const { th } = opts;
   const pad = 48;
-  const title = await prepareRich('Projection', { px: 46, color: th.text, font: FONT_HEAD, weight: 500 });
-  const sub = await prepareRich(opts.subtitle || 'the diagram you see from where you stand', { px: 26, color: th.muted });
+  const sub = await prepareRich(opts.subtitle || 'the diagram you see from where you stand', { px: 25, color: th.muted });
   const c = data.crossings, s = data.sc.count, mu = data.D.proj.length;
   const g = (c - s - mu + 2) / 2;
   const stats = await prepareRich(
@@ -286,101 +399,286 @@ export async function renderProjection(ctx, W, H, data, opts) {
       : `${c} crossing${c === 1 ? '' : 's'} · writhe $${data.writhe}$`,
     { px: opts.compact ? 46 : 30, color: th.text });
   ctx.clearRect(0, 0, W, H);
-  if (!opts.transparent) {
-    ctx.fillStyle = th.panel;
-    roundRect(ctx, 0, 0, W, H, 44);
-    ctx.fill();
-  }
   let top = 16;
-  if (!opts.compact) {
-    drawRich(ctx, title, pad, pad + 34);
+  if (!opts.transparent) {
+    drawPoincareCard(ctx, W, H, th, { radius: 40, headerH: 118 });
+    drawTitleGradient(ctx, 'Projection', pad, 56, 42, th);
+    drawRich(ctx, sub, pad, 94, { maxW: W - 2 * pad });
+    top = 136;
+  } else if (!opts.compact) {
+    drawTitleGradient(ctx, 'Projection', pad, pad + 34, 44, th);
     drawRich(ctx, sub, pad, pad + 74, { maxW: W - 2 * pad });
     top = pad + 100;
   }
-  ctx.fillStyle = th.surface;
-  const bottom = H - pad - 60;
-  if (!opts.compact) { roundRect(ctx, pad - 16, top, W - 2 * pad + 32, bottom - top, 28); ctx.fill(); }
-  drawDiagram(ctx, data, pad, top + 10, W - 2 * pad, bottom - top - 20, opts);
-  drawRich(ctx, stats, pad, H - pad + 6, { maxW: W - 2 * pad });
+  const bottom = H - pad - 56;
+  if (!opts.compact) {
+    ctx.save();
+    ctx.fillStyle = th.field;
+    roundRect(ctx, pad - 14, top, W - 2 * pad + 28, bottom - top, 24);
+    ctx.fill();
+    ctx.strokeStyle = th.hairline;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.restore();
+  }
+  const dx = pad, dy = top + 10, dw = W - 2 * pad, dh = bottom - top - 20;
+  drawDiagram(ctx, data, dx, dy, dw, dh, opts);
+  const scale = Math.min(dw, dh) / (2.25 * (opts.R || 1));
+  const [mx, my] = opts.center2 || [0, 0];
+  const regions = (opts.moves || []).map((move, i) => {
+    const anchorX = dx + dw / 2 + (move.x - mx) * scale;
+    const anchorY = dy + dh / 2 - (move.y - my) * scale;
+    const siblings = (opts.moves || []).map((m, j) => ({ m, j })).filter(({ m }) =>
+      Math.hypot((m.x - move.x) * scale, (m.y - move.y) * scale) < 1);
+    const slot = siblings.findIndex(({ j }) => j === i);
+    const big = opts.compact ? 1.7 : 1;
+    const px = anchorX + (slot - (siblings.length - 1) / 2) * 62 * big;
+    const py = anchorY;
+    const radius = 27 * big;
+    ctx.save();
+    if (siblings.length > 1) {
+      ctx.strokeStyle = th.accentInk; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(anchorX, anchorY); ctx.lineTo(px, py); ctx.stroke();
+    }
+    ctx.fillStyle = th.panel;
+    ctx.strokeStyle = th.accent;
+    ctx.shadowColor = th.accentGlow;
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 4.5;
+    ctx.beginPath(); ctx.arc(px, py, radius, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = th.text;
+    ctx.font = `700 ${Math.round(24 * big)}px ${FONT_BODY}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), px, py + 1);
+    ctx.restore();
+    return { id: 'reidemeister', kind: 'move', value: i, x: px - radius, y: py - radius, w: 2 * radius, h: 2 * radius };
+  });
+  drawRich(ctx, stats, pad, H - pad + 8, { maxW: W - 2 * pad });
+  return regions;
 }
 
-// ───────────────────────────── VR hand menu ─────────────────────────────
-// items: rows of { id, kind: 'button'|'toggle'|'seg'|'slider'|'label', label, active, options, value, weight }
+export function renderMovingProjection(ctx, W, H, data, opts) {
+  const { th } = opts, pad = 48;
+  ctx.clearRect(0, 0, W, H);
+  if (!opts.transparent) {
+    drawPoincareCard(ctx, W, H, th, { radius: 40, headerH: 118 });
+  }
+  const top = opts.compact ? 16 : 136, bottom = H - pad - 56;
+  if (!opts.compact) {
+    drawTitleGradient(ctx, 'Projection', pad, 56, 42, th);
+    ctx.fillStyle = th.muted; ctx.font = `25px ${FONT_BODY}`;
+    ctx.fillText('Reidemeister move in progress', pad, 94);
+    ctx.fillStyle = th.field;
+    roundRect(ctx, pad - 14, top, W - 2 * pad + 28, bottom - top, 24);
+    ctx.fill();
+    ctx.strokeStyle = th.hairline; ctx.lineWidth = 1.6; ctx.stroke();
+  }
+  drawDiagram(ctx, data, pad, top + 10, W - 2 * pad, bottom - top - 20, opts);
+  ctx.fillStyle = th.text;
+  ctx.font = `${opts.compact ? 46 : 30}px ${FONT_BODY}`;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(`${data.crossings} crossing${data.crossings === 1 ? '' : 's'} · writhe ${data.writhe}`, pad, H - pad + 8);
+}
+
+// ───────────────────────────── VR hand menu (/poincare/ glass styling) ─────────────────────────────
+function drawPoincareButton(ctx, x, y, w, h, th, { active = false, hov = false, prs = false, accentAlt = false, disabled = false, r = 20 } = {}) {
+  ctx.save();
+  if (disabled) ctx.globalAlpha = 0.4;
+  const inset = prs ? 2 : 0;
+  roundRect(ctx, x + inset, y + inset, w - 2 * inset, h - 2 * inset, r);
+  if (active || prs) {
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, th.accentSoft);
+    g.addColorStop(1, th.accentSoftBot);
+    ctx.fillStyle = g;
+    ctx.shadowColor = th.accentGlow;
+    ctx.shadowBlur = 18;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = th.accentLine;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  } else if (accentAlt) {
+    ctx.fillStyle = hov ? 'rgba(34, 211, 238, 0.18)' : 'rgba(34, 211, 238, 0.09)';
+    ctx.fill();
+    ctx.strokeStyle = hov ? 'rgba(34, 211, 238, 0.52)' : 'rgba(34, 211, 238, 0.30)';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = hov ? th.w08 : th.w05;
+    ctx.fill();
+    ctx.strokeStyle = hov ? th.hairlineStrong : th.hairline;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawPaletteSwatchBar(ctx, x, y, w, h, paletteId, fallbackHex) {
+  const pal = PALETTES[paletteId];
+  ctx.save();
+  roundRect(ctx, x, y, w, h, h / 2);
+  if (!pal || pal.solid) {
+    ctx.fillStyle = fallbackHex || '#818cf8';
+    ctx.fill();
+  } else {
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    const n = 8;
+    for (let i = 0; i <= n; i++) g.addColorStop(i / n, samplePaletteHex(paletteId, i / n, fallbackHex));
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// items: rows of { id, kind: 'button'|'toggle'|'seg'|'slider'|'label'|'palette'|'title', group, label, active, options, value, weight }
 export async function renderMenu(ctx, W, H, rows, th, hoverId, pressId) {
-  const pad = 40, gapX = 18, rowH = 92, gapY = 18;
+  const outerPad = 28, cardPad = 16, gapX = 12, rowH = 74, gapY = 12, groupGap = 14;
+  const headerH = 82;
   const prepared = [];
+  let titleLabel = 'Knot Sculptor';
   for (const row of rows) {
+    if (row.length === 1 && row[0].kind === 'title') {
+      titleLabel = row[0].label;
+      continue;
+    }
     const pr = [];
     for (const it of row) {
       const p = { ...it };
-      if (it.kind === 'seg') p.opts = await Promise.all(it.options.map(o => prepareRich(o.label, { px: 32, color: th.text, weight: 700 })));
-      else if (it.kind === 'title') p.rich = await prepareRich(it.label, { px: 44, color: th.text, font: FONT_HEAD, weight: 500 });
-      else p.rich = await prepareRich(it.label, { px: it.kind === 'label' ? 30 : 32, color: it.active ? th.accentOn : th.text, weight: it.kind === 'label' ? 400 : 700 });
-      if (it.kind === 'slider') p.valueRich = await prepareRich(it.valueLabel || '', { px: 30, color: th.text });
+      if (it.kind === 'seg') {
+        p.opts = await Promise.all(it.options.map(o => prepareRich(o.label, { px: 26, color: th.text, weight: 600 })));
+      } else if (it.kind === 'palette') {
+        p.rich = await prepareRich(it.label, { px: 27, color: th.text, weight: 600 });
+      } else {
+        p.rich = await prepareRich(it.label, {
+          px: it.kind === 'label' ? 27 : 28,
+          color: th.text,
+          weight: it.kind === 'label' ? 500 : 550,
+        });
+      }
+      if (it.kind === 'slider') p.valueRich = await prepareRich(it.valueLabel || '', { px: 26, color: th.text, font: FONT_MONO });
       pr.push(p);
     }
     prepared.push(pr);
   }
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = th.panel;
-  roundRect(ctx, 0, 0, W, H, 48);
-  ctx.fill();
-  const regions = [];
-  let y = pad;
+
+  drawPoincareCard(ctx, W, H, th, { radius: 38, headerH });
+  drawTitleGradient(ctx, titleLabel, outerPad + 8, 54, 38, th);
+
+  // Group consecutive rows that share a `group` id into /poincare/ `.control-group` cards.
+  const groups = [];
   for (const row of prepared) {
-    const h = row[0].kind === 'title' ? 70 : row[0].kind === 'slider' ? 120 : rowH;
-    const total = row.reduce((s, it) => s + (it.weight || 1), 0);
-    const avail = W - 2 * pad - gapX * (row.length - 1);
-    let x = pad;
-    for (const it of row) {
-      const w = (avail * (it.weight || 1)) / total;
-      const hov = hoverId === it.id, prs = pressId === it.id;
-      if (it.kind === 'title') {
-        drawRich(ctx, it.rich, x, y + 50, { maxW: w });
-      } else if (it.kind === 'label') {
-        drawRich(ctx, it.rich, x + w / 2, y + h / 2 + 11, { maxW: w, align: 'center' });
-      } else if (it.kind === 'seg') {
-        ctx.fillStyle = th.field;
-        roundRect(ctx, x, y, w, h, h / 2); ctx.fill();
-        const n = it.options.length, sw = w / n;
-        it.options.forEach((o, k) => {
-          const on = o.value === it.value;
-          if (on || (hov && it.hoverValue === o.value)) {
-            ctx.fillStyle = on ? th.accent : th.hover;
-            roundRect(ctx, x + k * sw + 6, y + 6, sw - 12, h - 12, (h - 12) / 2); ctx.fill();
-          }
-          const r = it.opts[k];
-          r.color = on ? th.accentOn : th.text;
-          drawRich(ctx, r, x + k * sw + sw / 2, y + h / 2 + 11, { maxW: sw - 24, align: 'center' });
-          regions.push({ id: it.id, value: o.value, x: x + k * sw, y, w: sw, h, kind: 'seg' });
-        });
-      } else if (it.kind === 'slider') {
-        drawRich(ctx, it.rich, x + 8, y + 34, { maxW: w * 0.6 });
-        drawRich(ctx, it.valueRich, x + w - 8, y + 34, { maxW: w * 0.4, align: 'right' });
-        const ty = y + 82, tx0 = x + 24, tx1 = x + w - 24;
-        ctx.fillStyle = th.field;
-        roundRect(ctx, tx0 - 12, ty - 12, tx1 - tx0 + 24, 24, 12); ctx.fill();
-        const f = (it.value - it.min) / (it.max - it.min);
-        ctx.fillStyle = th.accent;
-        roundRect(ctx, tx0 - 12, ty - 12, (tx1 - tx0) * f + 24, 24, 12); ctx.fill();
-        ctx.fillStyle = th.panel;
-        ctx.beginPath(); ctx.arc(tx0 + (tx1 - tx0) * f, ty, hov || prs ? 22 : 18, 0, 2 * Math.PI); ctx.fill();
-        ctx.fillStyle = th.accentInk;
-        ctx.beginPath(); ctx.arc(tx0 + (tx1 - tx0) * f, ty, 10, 0, 2 * Math.PI); ctx.fill();
-        regions.push({ id: it.id, x, y: y + 50, w, h: 64, kind: 'slider', tx0, tx1, min: it.min, max: it.max });
-      } else {
-        const on = it.kind === 'toggle' && it.active;
-        ctx.fillStyle = prs ? th.accentInk : on ? th.accent : hov ? th.hover : th.accentSoft;
-        roundRect(ctx, x, y, w, h, h / 2); ctx.fill();
-        it.rich.color = prs ? '#ffffff' : on ? th.accentOn : th.accentInk;
-        if (it.disabled) { ctx.globalAlpha = 0.4; }
-        drawRich(ctx, it.rich, x + w / 2, y + h / 2 + 11, { maxW: w - 32, align: 'center' });
-        ctx.globalAlpha = 1;
-        if (!it.disabled) regions.push({ id: it.id, x, y, w, h, kind: it.kind });
+    const gid = row[0]?.group ?? groups.length;
+    const last = groups[groups.length - 1];
+    if (last && last.gid === gid) last.rows.push(row);
+    else groups.push({ gid, rows: [row] });
+  }
+
+  const regions = [];
+  let gy = headerH + 18;
+  const innerX = outerPad + cardPad;
+  const innerW = W - 2 * (outerPad + cardPad);
+
+  for (const grp of groups) {
+    const heights = grp.rows.map(r => (r[0].kind === 'slider' ? 102 : rowH));
+    const cardH = heights.reduce((a, b) => a + b, 0) + gapY * (grp.rows.length - 1) + 2 * cardPad;
+    drawGroupBox(ctx, outerPad, gy, W - 2 * outerPad, cardH, th, 24);
+
+    let y = gy + cardPad;
+    grp.rows.forEach((row, rIdx) => {
+      const h = heights[rIdx];
+      const total = row.reduce((s, it) => s + (it.weight || 1), 0);
+      const avail = innerW - gapX * (row.length - 1);
+      let x = innerX;
+
+      for (const it of row) {
+        const w = (avail * (it.weight || 1)) / total;
+        const hov = hoverId === it.id, prs = pressId === it.id;
+
+        if (it.kind === 'label') {
+          it.rich.color = th.text;
+          drawRich(ctx, it.rich, x + w / 2, y + h / 2 + 10, { maxW: w - 12, align: 'center' });
+        } else if (it.kind === 'seg') {
+          ctx.save();
+          ctx.fillStyle = th.field;
+          roundRect(ctx, x, y, w, h, 18);
+          ctx.fill();
+          ctx.strokeStyle = th.hairline;
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+          ctx.restore();
+
+          const padS = 5;
+          const n = it.options.length, sw = (w - 2 * padS) / n, sh = h - 2 * padS;
+          it.options.forEach((o, k) => {
+            const sx = x + padS + k * sw, sy = y + padS;
+            const on = o.value === it.value;
+            const segHov = hov && it.hoverValue === o.value;
+            if (on) {
+              drawPoincareButton(ctx, sx, sy, sw, sh, th, { active: true, r: 13 });
+            } else if (segHov) {
+              ctx.fillStyle = th.w05;
+              roundRect(ctx, sx, sy, sw, sh, 13);
+              ctx.fill();
+            }
+            const r = it.opts[k];
+            r.color = on ? th.text : segHov ? th.text : th.muted;
+            drawRich(ctx, r, sx + sw / 2, y + h / 2 + 9, { maxW: sw - 16, align: 'center' });
+            regions.push({ id: it.id, value: o.value, x: sx, y, w: sw, h, kind: 'seg' });
+          });
+        } else if (it.kind === 'slider') {
+          it.rich.color = th.muted;
+          drawRich(ctx, it.rich, x + 4, y + 30, { maxW: w * 0.62 });
+          it.valueRich.color = th.text;
+          drawRich(ctx, it.valueRich, x + w - 4, y + 30, { maxW: w * 0.36, align: 'right' });
+          const ty = y + 72, tx0 = x + 18, tx1 = x + w - 18;
+          ctx.save();
+          ctx.fillStyle = th.field;
+          roundRect(ctx, tx0 - 8, ty - 7, tx1 - tx0 + 16, 14, 7);
+          ctx.fill();
+          ctx.strokeStyle = th.hairline;
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          const f = Math.min(1, Math.max(0, (it.value - it.min) / (it.max - it.min)));
+          ctx.fillStyle = th.accent;
+          roundRect(ctx, tx0 - 8, ty - 7, (tx1 - tx0) * f + 16, 14, 7);
+          ctx.fill();
+          const cx = tx0 + (tx1 - tx0) * f;
+          ctx.shadowColor = th.accentGlow;
+          ctx.shadowBlur = 16;
+          ctx.fillStyle = th.accent;
+          ctx.beginPath(); ctx.arc(cx, ty, hov || prs ? 19 : 16, 0, 2 * Math.PI); ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.restore();
+          regions.push({ id: it.id, x, y: y + 42, w, h: 58, kind: 'slider', tx0, tx1, min: it.min, max: it.max });
+        } else if (it.kind === 'palette') {
+          drawPoincareButton(ctx, x, y, w, h, th, { hov, prs, r: 18 });
+          const swW = Math.min(130, w * 0.34), swH = 22;
+          drawPaletteSwatchBar(ctx, x + 18, y + (h - swH) / 2, swW, swH, it.paletteId, th.comps[0]);
+          it.rich.color = th.text;
+          drawRich(ctx, it.rich, x + 18 + swW + 16, y + h / 2 + 10, { maxW: w - swW - 50 });
+          regions.push({ id: it.id, x, y, w, h, kind: 'button' });
+        } else {
+          const on = it.kind === 'toggle' && it.active;
+          drawPoincareButton(ctx, x, y, w, h, th, { active: on, hov, prs, accentAlt: !!it.accentAlt, disabled: !!it.disabled, r: 18 });
+          it.rich.color = it.accentAlt ? th.accent2 : (on || prs || hov ? th.text : th.muted);
+          if (it.disabled) ctx.globalAlpha = 0.4;
+          drawRich(ctx, it.rich, x + w / 2, y + h / 2 + 10, { maxW: w - 24, align: 'center' });
+          ctx.globalAlpha = 1;
+          if (!it.disabled) regions.push({ id: it.id, x, y, w, h, kind: it.kind });
+        }
+        x += w + gapX;
       }
-      x += w + gapX;
-    }
-    y += h + gapY;
+      y += h + gapY;
+    });
+    gy += cardH + groupGap;
   }
   return regions;
 }

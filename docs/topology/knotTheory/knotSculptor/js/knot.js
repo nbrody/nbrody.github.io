@@ -169,7 +169,11 @@ export function liftPlanarCurve(pts2, mode = 'alternate', h = 0.02) {
     cum[i + 1] = cum[i] + Math.hypot(pts2[2 * j] - pts2[2 * i], pts2[2 * j + 1] - pts2[2 * i + 1]);
   }
   const L = cum[N];
-  const sAt = s => { const i = Math.floor(s), t = s - i; return cum[i] + t * (cum[i + 1] - cum[i]); };
+  const sAt = s => {
+    const i = Math.min(N - 1, Math.max(0, Math.floor(s)));
+    const t = Math.min(1, Math.max(0, s - i));
+    return cum[i] + t * (cum[i + 1] - cum[i]);
+  };
   const ev = events.map(e => ({ s: sAt(e.s), sgn: e.sgn }));
   const zAt = (s0, w) => {
     let z = 0;

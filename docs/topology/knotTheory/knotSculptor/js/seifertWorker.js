@@ -88,10 +88,10 @@ self.onmessage = (e) => {
       runSweep(msg, ++sweepToken);
     } else if (type === 'globe') {
       const t0 = now();
-      const r = crossingGlobe(msg.components, { count: msg.count || 1500 });
+      const r = crossingGlobe(msg.components, { count: msg.count || 2800 });
       self.postMessage(
-        { type: 'globe', id, dirs: r.dirs, counts: r.counts, best: r.best, min: r.min, max: r.max, ms: now() - t0 },
-        [r.dirs.buffer, r.counts.buffer],
+        { type: 'globe', id, dirs: r.dirs, counts: r.counts, open: r.open, best: r.best, min: r.min, max: r.max, ms: now() - t0 },
+        [r.dirs.buffer, r.counts.buffer, r.open.buffer],
       );
     } else {
       throw new Error(`unknown message type ${type}`);

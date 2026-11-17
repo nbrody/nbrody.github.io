@@ -2,18 +2,19 @@
 // spread evenly so the seam doesn't twist). Geometries are updated in place when the point count matches.
 import * as THREE from 'three';
 
-export function tubeGeometry(pts, radius, { closed = true, radial = 10, geometry = null } = {}) {
+export function tubeGeometry(pts, radius, { closed = true, radial = 10, geometry = null, ringColors = null } = {}) {
   const N = pts.length / 3;
   if (N < 2) return geometry || new THREE.BufferGeometry();
   const R = radial;
   const rings = closed ? N : N;
   const nVerts = rings * R;
   let g = geometry;
-  if (!g || g.userData.nVerts !== nVerts || g.userData.closed !== closed) {
+  if (!g || g.userData.nVerts !== nVerts || g.userData.closed !== closed || !g.attributes.color) {
     g?.dispose();
     g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * nVerts), 3));
     g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(3 * nVerts), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(3 * nVerts), 3));
     const segs = closed ? N : N - 1;
     const idx = new (nVerts > 65535 ? Uint32Array : Uint16Array)(segs * R * 6);
     let k = 0;
@@ -76,21 +77,27 @@ export function tubeGeometry(pts, radius, { closed = true, radial = 10, geometry
       Nn[3 * i] = c * n[0] + s * b[0]; Nn[3 * i + 1] = c * n[1] + s * b[1]; Nn[3 * i + 2] = c * n[2] + s * b[2];
     }
   }
-  const P = g.attributes.position.array, NR = g.attributes.normal.array;
+  const P = g.attributes.position.array, NR = g.attributes.normal.array, C = g.attributes.color.array;
+  const hasColors = ringColors && ringColors.length >= 3 * N;
   for (let i = 0; i < N; i++) {
     const t = [T[3 * i], T[3 * i + 1], T[3 * i + 2]];
     const n = [Nn[3 * i], Nn[3 * i + 1], Nn[3 * i + 2]];
     const b = [t[1] * n[2] - t[2] * n[1], t[2] * n[0] - t[0] * n[2], t[0] * n[1] - t[1] * n[0]];
+    const cr = hasColors ? ringColors[3 * i] : 1;
+    const cg = hasColors ? ringColors[3 * i + 1] : 1;
+    const cb = hasColors ? ringColors[3 * i + 2] : 1;
     for (let j = 0; j < R; j++) {
       const ph = (2 * Math.PI * j) / R, c = Math.cos(ph), s = Math.sin(ph);
       const ox = c * n[0] + s * b[0], oy = c * n[1] + s * b[1], oz = c * n[2] + s * b[2];
       const v = 3 * (i * R + j);
       P[v] = pts[3 * i] + radius * ox; P[v + 1] = pts[3 * i + 1] + radius * oy; P[v + 2] = pts[3 * i + 2] + radius * oz;
       NR[v] = ox; NR[v + 1] = oy; NR[v + 2] = oz;
+      C[v] = cr; C[v + 1] = cg; C[v + 2] = cb;
     }
   }
   g.attributes.position.needsUpdate = true;
   g.attributes.normal.needsUpdate = true;
+  g.attributes.color.needsUpdate = true;
   g.computeBoundingSphere();
   return g;
 }

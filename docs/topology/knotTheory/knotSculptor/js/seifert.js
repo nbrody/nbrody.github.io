@@ -857,6 +857,7 @@ export function crossingGlobe(components, { count = 1500, maxPoints = 100 } = {}
   const M = Math.max(1, count | 0);
   const dirs = new Float32Array(3 * M);
   const counts = new Uint16Array(M);
+  const open = new Float32Array(M);
   const golden = Math.PI * (3 - Math.sqrt(5));
   const phi0 = 0.5 * golden; // irrational azimuth offset
   let min = Infinity, max = -Infinity;
@@ -867,6 +868,7 @@ export function crossingGlobe(components, { count = 1500, maxPoints = 100 } = {}
     const phi = phi0 + di * golden;
     const dx = rr * Math.cos(phi), dy = rr * Math.sin(phi);
     dirs[3 * di] = dx; dirs[3 * di + 1] = dy; dirs[3 * di + 2] = dz;
+    open[di] = openness(dx, dy, dz);
     let r = counter(dx, dy, dz);
     for (let attempt = 1; r.degenerate && attempt <= 4; attempt++) {
       // Nudge d by 1e-3 rad in a few different tangent directions.
@@ -910,6 +912,7 @@ export function crossingGlobe(components, { count = 1500, maxPoints = 100 } = {}
   return {
     dirs,
     counts,
+    open,
     best: [dirs[3 * best], dirs[3 * best + 1], dirs[3 * best + 2]],
     min: M ? min : 0,
     max: M ? max : 0,
