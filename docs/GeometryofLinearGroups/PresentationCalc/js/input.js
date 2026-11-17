@@ -9,7 +9,7 @@
  * and a line saying which field the entries generate ("over ℚ(w)"). The state
  * is poincare's own input state { mats, anti, consts }.
  */
-const $ = (id) => document.getElementById(id);
+const $ = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
 const MQ_CONFIG = {
     spaceBehavesLikeTab: true,
     leftRightIntoCmdGoes: 'up',
@@ -44,6 +44,98 @@ export function fromZariskiStyle(st) {
 }
 
 /**
+ * Parse pasted 2×2 matrix text into an array of [a, b, c, d] string rows, or null if `raw` does not
+ * look like one or more 2×2 matrices (so ordinary single-entry expressions paste normally).
+ *
+ * Accepts:
+ *   · database keys:          "0,1,1,-2|0,2,3,0" or "1, 2, 0, 1"
+ *   · LaTeX environments:     \begin{pmatrix} a & b \\ c & d \end{pmatrix}, smallmatrix, bmatrix, matrix
+ *   · Python / Sage / JSON:   [[1, 2], [3, 4]], [[[1,2],[3,4]], [[0,1],[-1,0]]], {{a,b},{c,d}}, Matrix([[...]])
+ *   · whitespace 2×2 blocks:  2k non-empty lines of 2 entries each
+ */
+export function parsePastedMatrices(raw) {
+    const s = String(raw ?? '').trim();
+    if (!s) return null;
+    const cleanCell = (x) => String(x).trim().replace(/^['"]|['"]$/g, '').trim();
+
+    // 1. LaTeX matrix environments
+    const envRe = /\\begin\{(?:p|b|B|v|V|small)?matrix\}([\s\S]*?)\\end\{(?:p|b|B|v|V|small)?matrix\}/g;
+    const latexMats = [];
+    let m;
+    while ((m = envRe.exec(s)) !== null) {
+        const rows = m[1].trim().replace(/\\\\\s*$/, '').split(/\\\\/).map((r) => r.split('&').map(cleanCell));
+        if (rows.length === 2 && rows[0].length === 2 && rows[1].length === 2) {
+            latexMats.push([rows[0][0], rows[0][1], rows[1][0], rows[1][1]]);
+        } else return null;
+    }
+    if (latexMats.length) return latexMats;
+
+    // 2. Pipe-separated database keys: a,b,c,d|e,f,g,h
+    if (s.includes('|') && !s.includes('\\')) {
+        const parts = s.split('|').map((p) => p.trim()).filter(Boolean);
+        if (parts.length >= 1) {
+            const out = [];
+            let ok = true;
+            for (const p of parts) {
+                const cells = p.split(',').map(cleanCell);
+                if (cells.length !== 4 || cells.some((c) => !c)) { ok = false; break; }
+                out.push(cells);
+            }
+            if (ok && out.length) return out;
+        }
+    }
+
+    // 3. Nested bracket/brace lists: [[a,b],[c,d]] or {{a,b},{c,d}} or [a,b,c,d]
+    const stripped = s.replace(/\b(?:Matrix|matrix)\s*\(/g, '(');
+    if (/^[\[\(\{]/.test(stripped)) {
+        // Normalize { } and ( ) wrapper brackets only when balanced as list delimiters: match 2-row or 4-entry blocks
+        const rowPairRe = /[\[\{]\s*[\[\{]\s*([^\]\[\{\},;]+?)\s*,\s*([^\]\[\{\},;]+?)\s*[\]\}]\s*,\s*[\[\{]\s*([^\]\[\{\},;]+?)\s*,\s*([^\]\[\{\},;]+?)\s*[\]\}]\s*[\]\}]/g;
+        const pairs = [];
+        while ((m = rowPairRe.exec(stripped)) !== null) {
+            pairs.push([cleanCell(m[1]), cleanCell(m[2]), cleanCell(m[3]), cleanCell(m[4])]);
+        }
+        if (pairs.length) return pairs;
+
+        // Flat [a, b, c, d]
+        const flatMatch = /^[\[\{]\s*([^\]\[\{\},;]+?)\s*,\s*([^\]\[\{\},;]+?)\s*,\s*([^\]\[\{\},;]+?)\s*,\s*([^\]\[\{\},;]+?)\s*[\]\}]$/.exec(stripped);
+        if (flatMatch) return [[cleanCell(flatMatch[1]), cleanCell(flatMatch[2]), cleanCell(flatMatch[3]), cleanCell(flatMatch[4])]];
+
+        // Semicolon-separated 2×2 blocks: [a b; c d] or (a, b; c, d)
+        const semiRe = /[\[\(\{]\s*([^\]\[\(\)\{\};]+?)\s*;\s*([^\]\[\(\)\{\};]+?)\s*[\]\)\}]/g;
+        const semiMats = [];
+        while ((m = semiRe.exec(stripped)) !== null) {
+            const r0 = (m[1].includes(',') ? m[1].split(',') : m[1].trim().split(/\s+/)).map(cleanCell).filter(Boolean);
+            const r1 = (m[2].includes(',') ? m[2].split(',') : m[2].trim().split(/\s+/)).map(cleanCell).filter(Boolean);
+            if (r0.length === 2 && r1.length === 2) semiMats.push([r0[0], r0[1], r1[0], r1[1]]);
+        }
+        if (semiMats.length) return semiMats;
+    }
+
+    // 4. Single comma-separated 4-tuple: a, b, c, d (without unbalanced parens)
+    if (!s.includes('\n')) {
+        const commaCells = s.split(',').map(cleanCell);
+        if (commaCells.length === 4 && commaCells.every((c) => c && !/[()\[\]{}]/.test(c))) {
+            return [commaCells];
+        }
+        return null;
+    }
+
+    // 5. Multi-line 2×2 whitespace/comma blocks (2k lines, 2 entries per line)
+    const lines = s.split(/\r?\n/).map((l) => l.trim().replace(/^[\[\(\|]+|[\]\)\|]+$/g, '').trim()).filter(Boolean);
+    if (lines.length >= 2 && lines.length % 2 === 0) {
+        const rows = lines.map((l) => (l.includes(',') ? l.split(',') : l.split(/\s+/)).map(cleanCell).filter(Boolean));
+        if (rows.every((r) => r.length === 2)) {
+            const out = [];
+            for (let i = 0; i < rows.length; i += 2) {
+                out.push([rows[i][0], rows[i][1], rows[i + 1][0], rows[i + 1][1]]);
+            }
+            return out;
+        }
+    }
+    return null;
+}
+
+/**
  * Build the input on the page's elements. onEdit() after every change,
  * onEnter() for Enter in an entry.
  */
@@ -57,7 +149,7 @@ export function createInput({ onEdit = () => { }, onEnter = () => { }, tex = (t)
             host.classList.add(cls);
             const mf = MQ.MathField(host, Object.assign({}, MQ_CONFIG, { handlers: { edit: edited, enter: () => onEnter() } }));
             mf.latex(asLatex(latex));
-            return { get: () => mf.latex(), el: host, focus: () => mf.focus() };
+            return { get: () => mf.latex(), set: (v) => mf.latex(asLatex(v)), el: host, focus: () => mf.focus() };
         }
         const input = document.createElement('input');
         input.className = cls; input.spellcheck = false; input.autocomplete = 'off';
@@ -65,7 +157,7 @@ export function createInput({ onEdit = () => { }, onEnter = () => { }, tex = (t)
         input.addEventListener('input', edited);
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter') onEnter(); });
         host.replaceWith(input);
-        return { get: () => input.value, el: input, focus: () => input.focus() };
+        return { get: () => input.value, set: (v) => { input.value = String(v ?? ''); }, el: input, focus: () => input.focus() };
     }
 
     // ── generators ──
@@ -165,9 +257,46 @@ export function createInput({ onEdit = () => { }, onEnter = () => { }, tex = (t)
         });
     }
 
+    function applyPasted(parsed, targetBlock = null) {
+        if (!parsed || !parsed.length) return false;
+        loading = true;
+        if (parsed.length === 1 && targetBlock && targetBlock._cells) {
+            parsed[0].forEach((val, k) => targetBlock._cells[k].set(val));
+        } else {
+            mats.innerHTML = '';
+            parsed.forEach((g) => addMatrix(g));
+        }
+        loading = false;
+        edited();
+        return true;
+    }
+
+    mats.addEventListener('paste', (e) => {
+        const text = e.clipboardData && e.clipboardData.getData('text/plain');
+        const parsed = parsePastedMatrices(text);
+        if (!parsed) return;
+        e.preventDefault();
+        e.stopPropagation();
+        applyPasted(parsed, e.target.closest('.mat-block'));
+    }, true);
+
     $('add-mat').addEventListener('click', () => { addMatrix(BLANK, true); edited(); });
+    const pasteBtn = $('paste-mat');
+    if (pasteBtn) pasteBtn.addEventListener('click', async () => {
+        let text = '';
+        try { text = await navigator.clipboard.readText(); } catch (e) { text = window.prompt('Paste matrices (LaTeX, [[a,b],[c,d]], or a,b,c,d|e,f,g,h):') || ''; }
+        const parsed = parsePastedMatrices(text);
+        if (parsed) {
+            applyPasted(parsed, null);
+            pasteBtn.textContent = 'pasted';
+            setTimeout(() => { pasteBtn.textContent = 'paste'; }, 1400);
+        } else if (text.trim()) {
+            pasteBtn.textContent = 'unrecognized format';
+            setTimeout(() => { pasteBtn.textContent = 'paste'; }, 1800);
+        }
+    });
     $('add-root').addEventListener('click', () => { addDef('root', freshName(ROOT_NAMES), '', null, true); edited(); });
     $('add-value').addEventListener('click', () => { addDef('value', freshName(VALUE_NAMES), '', null, true); edited(); });
 
-    return { getState, setState, showRoots, rootRows, showTones, markErrors, isBlank, entryErrors: () => [] };
+    return { getState, setState, showRoots, rootRows, showTones, markErrors, isBlank, applyPasted, entryErrors: () => [] };
 }

@@ -20,6 +20,7 @@ import { reidemeisterSchreier, tietze, abelianInvariants, findWords } from './pr
 import { graphOfGroups, wordsInGiven, eliminateByWords, restateFromGraph, stripTree, GRAPH_MAX_COSETS } from './graphOfGroups.js';
 import { flashWords, log2Big } from './wordSearch.js';
 import { subgroupPresentation } from './felsch.js';
+import { prunePresentation } from './rewriting.js';
 
 const { O, mm, adj, det, projEq, units, pglMats } = ringOps;
 const invWord = (w) => w.slice().reverse().map((x) => -x);
@@ -202,13 +203,16 @@ export function presentationOverBianchi(d, mats, { seconds = 10, maxCosets = 200
         } catch (e) { /* keep the h's */ }
     }
     delete F._gens;
-    return {
+    const res = {
         _core: core,
         ring: d, index: r.index, tableFrom: 'coset enumeration', kernelIndex: 1, S: S.map(primeText), conjugatedAt: [],
         ...F,
         rs: { generators: m, relators: RS.relators.length },
         ms: Date.now() - t0,
     };
+    prunePresentation(res);
+    res.ms = Date.now() - t0;
+    return res;
 }
 
 /** The report for the page and the database (as sarithPresentation.js presentationReport). */
@@ -220,7 +224,9 @@ export function presentationReportBianchi(d, mats, opts = {}) {
     if (out.pres._core) {
         if (graph && out.pres.index) {
             try { out.graph = graphReportBianchi(d, out.pres._core, { seconds: graphSeconds, longWords }); } catch (e) { out.graph = { error: e.message || String(e) }; }
+            const before = out.pres.hFrom;
             restateFromGraph(out.pres, out.graph);
+            if (out.pres.hFrom === 'graph' && before !== 'graph') { delete out.pres.pruned; prunePresentation(out.pres); }
         }
         delete out.pres._core;
     }

@@ -104,3 +104,29 @@ test('Laurent expansions in the multipliers give the module elements', () => {
     }
     assert.equal(num * 6n, den);
 });
+
+test('irrational Borel multipliers over ℚ(√2): unit polycyclic, ascending HNN, and Gauss minimal-polynomial module', () => {
+    // 1. Unit multiplier λ = 1 + √2 ∈ O_{ℚ(√2)}^×: Γ ≅ ℤ² ⋊ ℤ, complete finite presentation
+    const U = run('borel', '1+w,0,0,1|1,1,0,1', r2);
+    assert.equal(U.complete, true);
+    assert.equal(U.finitelyPresented, true);
+    assert.equal(U.structure, '\\mathbb{Z}^{2} \\rtimes \\mathbb{Z}');
+    assert.ok(U.ordinary && U.ordinary.finite && U.ordinary.relators.length === 3);
+
+    // 2. Algebraic-integer multiplier λ = √2 ∈ O_{ℚ(√2)}: ascending HNN extension of ℤ², complete finite presentation
+    const H = run('borel', 'w,0,0,1|1,1,0,1', r2);
+    assert.equal(H.complete, true);
+    assert.equal(H.finitelyPresented, true);
+    assert.ok(H.ordinary && H.ordinary.finite && H.relations.length === 3);
+
+    // 3. Inverse algebraic-integer multiplier λ = (1 + √2)/3 (λ⁻¹ = 3(√2 − 1) ∈ O_F): also ascending HNN!
+    const Hinv = run('borel', '1+w,0,0,3|1,1,0,1', r2);
+    assert.equal(Hinv.complete, true);
+    assert.equal(Hinv.finitelyPresented, true);
+
+    // 4. Fractional irrational multiplier λ = (2 + √2)/3 (minpoly 9λ² − 12λ + 2 = 0): cyclic ℤ[t, t⁻¹]/(P(t)) module
+    const M = run('borel', '2+w,0,0,3|1,1,0,1', r2);
+    assert.equal(M.complete, true);
+    assert.ok(M.relations.some((s) => s.includes('9') && s.includes('-12') && s.includes('2')));
+    assert.equal(M.given.length, 2);
+});

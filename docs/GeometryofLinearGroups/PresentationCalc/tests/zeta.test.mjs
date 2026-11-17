@@ -1,10 +1,8 @@
 // node tests/zeta.test.mjs — ζ_k(2) (zeta.js) against closed forms and Sage/PARI's values, and rational recognition.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-const Z = require('../js/zeta.js');
+import '../../Algebraic/Tools/numberRings/ringEngine.js';
+import * as Z from '../js/zeta.js';
 const close = (x, y, rel) => assert.ok(Math.abs(x - y) <= rel * Math.abs(y), `${x} vs ${y}`);
 
 test('ζ(2) and the quadratic fields, by L(2, χ_D)', () => {

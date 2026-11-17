@@ -9,11 +9,34 @@
  */
 import '../../Algebraic/Tools/numberRings/ringEngine.js';
 import { definiteIndex } from './quaternionIndex.js';
+import { quaternionPresentation } from './quaternionPresentation.js';
+
+let cached = null;
 
 self.onmessage = (ev) => {
-    const { id, rows, poly, S, opts } = ev.data;
+    const { id, cmd, rows, poly, S, opts } = ev.data;
+    if (cmd === 'presentation') {
+        try {
+            const pres = quaternionPresentation(rows, poly.map(BigInt), S, { ...(opts || {}), precomputed: cached });
+            self.postMessage({ id, result: JSON.parse(JSON.stringify({ kind: 'quaternion', pres }, (k, v) => (typeof v === 'bigint' ? String(v) : v))) });
+        } catch (e) {
+            self.postMessage({ id, error: e.message || String(e) });
+        }
+        return;
+    }
     let result;
-    try { result = definiteIndex(rows, poly.map(BigInt), S, opts || {}); }
-    catch (e) { result = { index: null, error: e.message || String(e) }; }
-    self.postMessage({ id, result: result ? JSON.parse(JSON.stringify(result)) : null });
+    try {
+        const full = definiteIndex(rows, poly.map(BigInt), S, { ...(opts || {}), debug: true });
+        cached = full && full.debug ? full : null;
+        if (full && full.debug) {
+            const { debug, ...rest } = full;
+            result = rest;
+        } else {
+            result = full;
+        }
+    } catch (e) {
+        cached = null;
+        result = { index: null, error: e.message || String(e) };
+    }
+    self.postMessage({ id, result: result ? JSON.parse(JSON.stringify(result, (k, v) => (typeof v === 'bigint' ? String(v) : v))) : null });
 };

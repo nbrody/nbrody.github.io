@@ -22,6 +22,7 @@ import { wordFor, evalWord } from '../../Arithmetic/Tools/numberRingGroups/js/br
 import { reidemeisterSchreier, tietze, abelianInvariants, powerReduce, findWords } from './presentation.js';
 import { eliminateByWords } from './graphOfGroups.js';
 import { enumerateFelsch, enumerateFelschAugmented } from './felsch.js';
+import { prunePresentation } from './rewriting.js';
 
 const invWord = (w) => w.slice().reverse().map((x) => -x);
 const freeReduce = (w) => { const o = []; for (const x of w) { if (o.length && o[o.length - 1] === -x) o.pop(); else o.push(x); } return o; };
@@ -234,12 +235,15 @@ export function presentationInPGL2O(polySrc, genSrc, opts = {}) {
         } catch (e) { /* a word too long: the h's stay */ }
     }
     delete F._kept;
-    return {
+    const res = {
         index: E.index, tableFrom: 'coset enumeration', kernelIndex: evenIndex, conjugated: !!(conj && !conj.trivial), conjugatedAt: [],
         ...F, ...(hFrom ? { hFrom } : {}),
         rs: { generators: m, relators: RS.relators.length },
         ms: Date.now() - t0,
     };
+    if (opts.prune !== false) prunePresentation(res, { work: opts.pruneWork ?? 2e7 });
+    res.ms = Date.now() - t0;
+    return res;
 }
 
 /**

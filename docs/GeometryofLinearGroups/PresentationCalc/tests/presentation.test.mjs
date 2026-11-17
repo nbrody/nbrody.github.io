@@ -130,3 +130,25 @@ test('Bianchi rings: Λ on w, T, U, units and D_π; Γ on its given generators',
     assert.ok(P.onGiven);
     assert.deepEqual(P.abelian, { rank: 0, torsion: ['6'] });
 });
+
+test('Tietze shortening works above 400 relators (no shortenLimit cliff) and preserves H₁', () => {
+    // 3 preferred generators: g₁⁴ = 1, g₂⁶ = 1, [g₁, g₃] = 1, plus > 420 redundant conjugate/product relators
+    const core = [
+        [1, 1, 1, 1],
+        [2, 2, 2, 2, 2, 2],
+        [1, 3, -1, -3],
+    ];
+    const rels = core.slice();
+    for (let k = 0; k < 430; k++) {
+        const conj = k % 2 === 0 ? [2, 3] : [3, -2];
+        const invC = conj.slice().reverse().map((x) => -x);
+        const r = core[k % core.length];
+        rels.push(conj.concat(r, invC));
+    }
+    assert.ok(rels.length > 430);
+    const before = abelianInvariants(3, core);
+    const T = tietze(3, rels, { prefer: new Set([1, 2, 3]), keepPreferred: true, seconds: 4 });
+    assert.deepEqual(T.keep, [1, 2, 3]);
+    assert.deepEqual(abelianInvariants(3, T.relators), before);
+    assert.ok(T.relators.length <= 10, `expected >430 redundant relators to collapse, got ${T.relators.length}`);
+});

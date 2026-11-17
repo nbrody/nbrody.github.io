@@ -181,8 +181,14 @@ export function fastPlace(F, place) {
         if (f[f.length - 1] !== 1n) return null;
         const ev = (x, m) => { let r = 0n; for (let i = f.length - 1; i >= 0; i--) r = (r * x + f[i]) % m; return (r + m) % m; };
         const evd = (x, m) => { let r = 0n; for (let i = f.length - 1; i >= 1; i--) r = (r * x + BigInt(i) * f[i]) % m; return (r + m) % m; };
+        // the root of f at 𝔭: w's residue (f = 1, so the residue field is 𝔽_p and digit i is i), checked;
+        // a scan only if that fails (it once stopped at 200000, so primes beyond had no fast model)
         let a0 = -1n;
-        for (let r = 0n; r < p && r < 200000n; r++) {
+        try {
+            const r = BigInt(place.residueIndex(w));
+            if (place.val(F.sub(w, F.fromInt(r))) > 0) a0 = r;
+        } catch (e) { /* scan below */ }
+        for (let r = 0n; a0 < 0n && r < p && r < 200000n; r++) {
             if (place.val(F.sub(w, F.fromInt(r))) > 0) { a0 = r; break; }
         }
         if (a0 < 0n || evd(a0, p) === 0n) return null;
@@ -427,7 +433,8 @@ export function choosePlaces(deps, F, mats, S, sameField) {
         const prs = F.primesAbove(BigInt(p));
         const cands = [];
         prs.forEach((pr, i) => {
-            const P = new Place(F, BigInt(p), i);
+            // (no cap on the residue field: the search lists the neighbours of a vertex only in the small trees)
+            const P = new Place(F, BigInt(p), i, { maxResidue: Infinity });
             const val = valuationAt(F, P);
             const t = minTau(R, val, words);
             if (t < 0) cands.push({ P, pr, ef: pr.e * pr.f });
@@ -451,6 +458,8 @@ const L_WEIGHT = 0.0005;      // per letter, after the adelic height
 // next; past MAX_WORD letters a product is not formed (FlashBeam skips it), which bounds the memory
 const MAX_WORD = 512;
 const NB_SCAN = 64;           // neighbours of an image looked up for collisions, per tree
+// a tree with more neighbours than this is "large": its neighbours are never listed
+export const BIG_VALENCE = 2000;
 
 export class CoveringProblem {
     /**
@@ -510,8 +519,13 @@ export class CoveringProblem {
         this.archive = [];         // nodes with small displacement, for new representatives
         this.newCover = 0;
 
+        // large trees: no neighbour is ever listed there, so there is no covering to find (no targets, no parity
+        // representatives, no promotions). The search still collects elements fixing o: one of infinite order
+        // settles the vertex orbits of every tree at once (the page's autoCovering: the closure of Γ is open)
+        this.big = places.map((P) => P.q + 1 > BIG_VALENCE);
+        this.bigMode = this.big.some(Boolean);
         this._addRep(this.o);
-        for (const t of this.parityReps()) this._addRep(t);
+        if (!this.bigMode) for (const t of this.parityReps()) this._addRep(t);
     }
 
     /** normalizeM, with the common powers of the principal primes of S divided out. */
@@ -532,11 +546,117 @@ export class CoveringProblem {
     // ── vertices ──
     tupleId(t) { return t.map((vt, j) => this.places[j].id(vt)).join('|'); }
     distO(t) { return t.reduce((s, vt, j) => s + this.places[j].dist(this.o[j], vt), 0); }
+    /** Act on a single tree j's vertex vt using fast[j] when available, else exact Place. */
+    actSingle(M, j, vt, prepJ = null) {
+        const fp = this.fast[j];
+        if (fp) {
+            const pf = prepJ || fp.prepare(M);
+            if (pf) { const r = fp.act(pf, vt); if (r) return r; }
+        }
+        const ex = this.places[j].prepare({ a: elemOf(M[0]), b: elemOf(M[1]), c: elemOf(M[2]), d: elemOf(M[3]) });
+        return this.places[j].act(ex, vt);
+    }
+
     /**
-     * g·t for a matrix g (integral coordinates), one tree at a time: by the fast
-     * local model where it applies, else by trees' exact Place. `prep` caches
-     * the prepared matrices across calls for one g.
+     * Prime-by-prime cycle/birthday alignment on large trees (q ≥ 29):
+     * At each prime j (descending by q), elements fixing o_j rotate the sphere around o_j;
+     * finding x₁, x₂ ∈ ⟨fixers⟩ with x₁·(m₁·o_j) = x₂·(m₂·o_j) on T_j alone (using fast local models
+     * without forming full BigInt matrices until a collision hits) yields h = m₂⁻¹ x₂⁻¹ x₁ m₁ fixing o_j
+     * and every already-cleared larger prime.
      */
+    alignLargePrimes(beam, budgetMs = 400) {
+        const bigIdx = this.places
+            .map((P, j) => ({ j, q: Number(P.q) }))
+            .filter((x) => x.q >= 29)
+            .sort((a, b) => b.q - a.q)
+            .map((x) => x.j);
+        if (!bigIdx.length) return 0;
+
+        const deadline = Math.min(this.deadline, Date.now() + budgetMs);
+        let pool = beam.generators.filter((n) => !this.isIdentity(n));
+        const cleared = [];
+        const injected = [];
+
+        for (const j of bigIdx) {
+            if (Date.now() > deadline) break;
+            const Pj = this.places[j];
+            const active = pool.filter((n) => cleared.every((c) => n.disp[c] === 0) && !this.isIdentity(n));
+            const fixers = active.filter((n) => n.disp[j] === 0).slice(0, 8);
+            const moversAll = active.filter((n) => n.disp[j] > 0);
+            cleared.push(j);
+            if (!moversAll.length || !fixers.length) continue;
+
+            const rMin = Math.min(...moversAll.map((n) => n.disp[j]));
+            const movers = moversAll
+                .filter((n) => n.disp[j] === rMin)
+                .sort((a, b) => a.word.length - b.word.length)
+                .slice(0, 4);
+
+            // Prepare fixer letters (with local fast model prep on tree j)
+            const letters = [];
+            fixers.forEach((f, fi) => {
+                const invM = normalizeM(adjM(this.R, f.state));
+                letters.push({ M: f.state, word: f.word, prepJ: this.fast[j] ? this.fast[j].prepare(f.state) : null, pair: 2 * fi });
+                letters.push({ M: invM, word: invertWord(f.word), prepJ: this.fast[j] ? this.fast[j].prepare(invM) : null, pair: 2 * fi + 1 });
+            });
+
+            // Build reduced rotation words on tree j only (acting on each mover's image m·o_j)
+            const mBase = movers.map((m) => ({
+                m,
+                vt0: this.actSingle(m.state, j, this.o[j]),
+            }));
+            const seenVertex = new Map(); // vertexId → { wordX, moverIdx }
+            const rotCap = Math.min(900, Math.max(200, Math.ceil(2.5 * Math.sqrt(Number(Pj.q) + 1))));
+            const rotQueue = mBase.map((mb, mi) => ({ vt: mb.vt0, wordX: [], lastPair: -1, mi }));
+            const foundHere = [];
+
+            for (let head = 0; head < rotQueue.length && rotQueue.length <= rotCap * mBase.length && foundHere.length < 10; head++) {
+                if ((head & 63) === 0 && Date.now() > deadline) break;
+                const cur = rotQueue[head];
+                const vid = Pj.id(cur.vt);
+                const prev = seenVertex.get(vid);
+                if (prev) {
+                    const m1 = mBase[cur.mi].m, m2 = mBase[prev.mi].m;
+                    const w = concatWords(
+                        concatWords(invertWord(m2.word), invertWord(prev.wordX)),
+                        concatWords(cur.wordX, m1.word),
+                    );
+                    if (w.length > 0 && w.length <= MAX_WORD) {
+                        const M = this.norm(wordMatrix(this.R, this.gens, w, this.one));
+                        if (!isScalarM(this.R, M)) {
+                            const node = this._node(M, w);
+                            if (beam._see(node)) {
+                                foundHere.push(node);
+                                injected.push(node);
+                                const invNode = this._node(normalizeM(adjM(this.R, M)), invertWord(w));
+                                if (beam._see(invNode)) foundHere.push(invNode);
+                            }
+                        }
+                    }
+                    if (foundHere.length >= 10) break;
+                } else {
+                    seenVertex.set(vid, { wordX: cur.wordX, mi: cur.mi });
+                }
+
+                if (rotQueue.length >= rotCap * mBase.length) continue;
+                for (let li = 0; li < letters.length; li++) {
+                    const L = letters[li];
+                    if (cur.lastPair >= 0 && (cur.lastPair ^ 1) === L.pair) continue;
+                    const nextWord = concatWords(L.word, cur.wordX);
+                    if (nextWord.length + 2 * mBase[cur.mi].m.word.length > MAX_WORD) continue;
+                    const nextVt = this.actSingle(L.M, j, cur.vt, L.prepJ);
+                    rotQueue.push({ vt: nextVt, wordX: nextWord, lastPair: L.pair, mi: cur.mi });
+                }
+            }
+            if (foundHere.length) pool = pool.concat(foundHere);
+        }
+
+        if (injected.length) {
+            beam.beam.push(...injected);
+            beam._updateFlash();
+        }
+        return injected.length;
+    }
     act(M, t, prep = null) {
         prep = prep || this.prepare(M);
         return t.map((vt, j) => {
@@ -595,8 +715,8 @@ export class CoveringProblem {
         this.repIndex.set(id, i);
         this.repStab.push([]);
         if (!this.orbit.has(id)) this.orbit.set(id, { word: [], rep: i, state: this.one, tuple });
-        // its neighbours become targets
-        tuple.forEach((vt, j) => {
+        // its neighbours become targets (none with a large tree)
+        if (!this.bigMode) tuple.forEach((vt, j) => {
             for (const u of this.places[j].neighbors(vt)) {
                 const t = tuple.slice(); t[j] = u;
                 const tid = this.tupleId(t);
@@ -702,6 +822,7 @@ export class CoveringProblem {
      * every neighbour in the orbits of those already reached. Returns the number of new targets.
      */
     closeUnderStabilizers(maxGens = 24) {
+        if (this.bigMode) return 0;
         if (!this.closureSeen) this.closureSeen = [];
         let added = 0;
         for (let i = 0; i < this.reps.length; i++) {
@@ -740,11 +861,15 @@ export class CoveringProblem {
         }
         return added;
     }
-    complete() { for (const id of this.targets.keys()) if (!this.orbit.has(id)) return false; return true; }
+    complete() {
+        if (this.bigMode) return false;
+        for (const id of this.targets.keys()) if (!this.orbit.has(id)) return false;
+        return true;
+    }
 
     /** Make the nearest uncovered neighbour a representative. Returns it, or null at the cap. */
     promote() {
-        if (this.reps.length >= this.maxReps) return null;
+        if (this.bigMode || this.reps.length >= this.maxReps) return null;
         const un = this.uncovered().filter((t) => t.dist <= this.repRadius);
         if (!un.length) return null;
         un.sort((a, b) => a.dist - b.dist || a.place - b.place || (a.id < b.id ? -1 : 1));
@@ -943,6 +1068,10 @@ export function runCovering(problem, opts = {}, onProgress = () => { }) {
     let stall = 0, status = noTrees ? 'none' : 'budget', after = 0;
     beam.start();
     problem.exploring = true;
+    if (!noTrees && opts.align !== false) {
+        problem.alignLargePrimes(beam, Math.min(450, budgetMs * 0.15));
+        if (closure) problem.closeUnderStabilizers();
+    }
     if (!noTrees && problem.complete()) status = 'covered';
     for (;;) {
         if (status === 'covered' || noTrees) {

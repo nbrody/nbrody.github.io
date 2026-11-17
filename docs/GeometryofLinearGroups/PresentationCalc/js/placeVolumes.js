@@ -167,11 +167,15 @@ function hullFaces(P, tol = 1e-9) {
 // ───────────────────────── the cycle, from the domain ─────────────────────────
 
 /**
- * The fundamental cycle of a compact Dirichlet domain, from poincare's serialized walls (cov, elem, word).
- * The domain is { X : ⟨cov, X⟩ ≤ 0 } for ⟨c, X⟩ = c₀X₀ + c₁X₁ + c₂X₂ − c₃X₃, with o = (0, 0, 0, 1).
- * Returns { ok: true, words, simplices: [{ w, pos }], vertices, simple } with pos four lists of indices into
- * words (a list of length > 1 is the formal average of its points) and w the signed weight; or
- * { ok: false, reason: 'ideal' | 'euler' | 'cell' | 'few', … }.
+ * The fundamental cycle of a finite-volume Dirichlet domain (compact or cusped), from poincare's serialized
+ * walls (cov, elem, word). The domain is { X : ⟨cov, X⟩ ≤ 0 } for ⟨c, X⟩ = c₀X₀ + c₁X₁ + c₂X₂ − c₃X₃, with
+ * o = (0, 0, 0, 1). Finite vertices contribute (1/m_v)·C_v; each directed edge (u → c) ending at an ideal
+ * vertex c contributes (1/m_e)·Cone(c, Π_e), where c ∈ ∂ℍ³ is represented algebraically at every embedding by
+ * a parabolic word in Stab_Γ(c).
+ *
+ * Returns { ok: true, words, cusps, simplices: [{ w, pos }], vertices, idealVertices, simple } where indices
+ * 0 .. words.length−1 in `pos` index `words` (orbit points γ·z) and words.length + k index `cusps[k]`
+ * (parabolic fixed points in ℙ¹(F)); or { ok: false, reason, … }.
  */
 export function dirichletCycle(walls, { tol = 1e-8 } = {}) {
     const n = walls.length;
@@ -182,8 +186,8 @@ export function dirichletCycle(walls, { tol = 1e-8 } = {}) {
         return [x / s, y / s, z / s, -t / s];
     });
     const dot = (f, X) => f[0] * X[0] + f[1] * X[1] + f[2] * X[2] + f[3] * X[3];
-    const verts = [];
-    let ideal = 0;
+    const normIdeal = (X) => [X[0] / X[3], X[1] / X[3], X[2] / X[3], 1];
+    const verts = [], idealVerts = [];
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) for (let k = j + 1; k < n; k++) {
         let X = kernel3(F[i], F[j], F[k]);
         const e = Math.hypot(...X);
@@ -197,19 +201,29 @@ export function dirichletCycle(walls, { tol = 1e-8 } = {}) {
         }
         if (!inside) continue;
         const q = X[0] * X[0] + X[1] * X[1] + X[2] * X[2] - X[3] * X[3];
-        if (q > -1e-9) { ideal++; continue; }         // on or beyond the sphere at ∞: D is not compact
+        if (q > 1e-7) return { ok: false, reason: 'ideal', vertices: verts.length }; // beyond ∂ℍ³: infinite volume
+        if (q >= -1e-7) {
+            if (!(X[3] > 1e-9)) return { ok: false, reason: 'ideal', vertices: verts.length };
+            const Y = normIdeal(X);
+            if (idealVerts.some((v) => near(v.X, Y, 1e-6))) continue;
+            const on = [];
+            for (let m = 0; m < n; m++) if (Math.abs(dot(F[m], Y)) <= 10 * tol) on.push(m);
+            idealVerts.push({ X: Y, on, ideal: true });
+            continue;
+        }
         const s = Math.sqrt(-q);
         X = X.map((x) => x / s);
         if (verts.some((v) => near(v.X, X, 1e-7))) continue;
         const on = [];
         for (let m = 0; m < n; m++) if (Math.abs(dot(F[m], X)) <= tol * Math.max(1, X[3])) on.push(m);
-        verts.push({ X, on });
+        verts.push({ X, on, ideal: false });
     }
-    if (ideal) return { ok: false, reason: 'ideal', vertices: verts.length };
-    // Euler's formula for D: V − E + F = 2, each vertex on |on| edges
-    const faceCount = new Set(verts.flatMap((v) => v.on)).size;
-    const edges = verts.reduce((s, v) => s + v.on.length, 0) / 2;
-    if (verts.length - edges + faceCount !== 2) return { ok: false, reason: 'euler', vertices: verts.length };
+    const allVerts = verts.concat(idealVerts);
+    if (allVerts.length < 4) return { ok: false, reason: 'few' };
+    // Euler's formula for D (in Klein model D ⊂ B̄³ is a compact convex polyhedron): V − E + F = 2
+    const faceCount = new Set(allVerts.flatMap((v) => v.on)).size;
+    const edges = allVerts.reduce((s, v) => s + v.on.length, 0) / 2;
+    if (allVerts.length - edges + faceCount !== 2) return { ok: false, reason: 'euler', vertices: allVerts.length };
 
     const elems = walls.map((w) => mscale(arrMat(w.elem)));
     const P = elems.map((g) => act(g, O));
@@ -266,7 +280,129 @@ export function dirichletCycle(walls, { tol = 1e-8 } = {}) {
             }
         }
     }
-    return { ok: true, words, simplices, vertices: verts.length, simple };
+
+    // Ideal vertices (cusps): find a parabolic word fixing each ideal vertex c, then add (1/m_e)·Cone(c, Π_e)
+    // for every directed edge (u → c) of D ending at c.
+    const cusps = [];
+    const cuspWords = [];
+    const isParabolic = (g) => {
+        const t = add(g[0], g[3]), tr2 = mul(t, t), dt = mdet(g);
+        if (abs(dt) < 1e-24) return false;
+        const r = div(tr2, dt);
+        return Math.hypot(r.re - 4, r.im) < 1e-4;
+    };
+    for (const iv of idealVerts) {
+        const walk = [{ g: [cx(1), cx(0), cx(0), cx(1)], word: [], p: O }];
+        let pWord = null;
+        for (let idx = 0; idx < walk.length && walk.length <= 256 && !pWord; idx++) {
+            const { g, word } = walk[idx];
+            const y = normIdeal(act(madj(g), iv.X));
+            const u = idealVerts.find((x) => near(x.X, y, 1e-5));
+            if (!u) return { ok: false, reason: 'cusp-cell', vertices: verts.length };
+            for (const j of u.on) {
+                const h = mscale(mmul(g, elems[j]));
+                const p = act(h, O);
+                const wNext = [...word, ...walls[j].word];
+                if (!near(p, O, 1e-6)) {
+                    const yNext = normIdeal(act(madj(h), iv.X));
+                    if (near(yNext, iv.X, 1e-5) && isParabolic(h)) {
+                        pWord = wNext;
+                        break;
+                    }
+                }
+                if (walk.some((x) => near(x.p, p, 1e-6))) continue;
+                walk.push({ g: h, word: wNext, p });
+            }
+        }
+        if (!pWord) return { ok: false, reason: 'cusp-parabolic', vertices: verts.length };
+        cuspWords.push(pWord);
+    }
+
+    // Precompute cusp indices at the end of `words` once all edge cells have been appended: collect cones first
+    const cuspCones = [];
+    const matchVert = (Y) => {
+        const q = Y[0] * Y[0] + Y[1] * Y[1] + Y[2] * Y[2] - Y[3] * Y[3];
+        if (q >= -1e-6) {
+            const yn = normIdeal(Y);
+            return idealVerts.find((x) => near(x.X, yn, 1e-5)) || null;
+        }
+        return verts.find((x) => near(x.X, Y, 1e-5)) || null;
+    };
+    const d3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+    for (let ci = 0; ci < idealVerts.length; ci++) {
+        const iv = idealVerts[ci];
+        for (const u0 of allVerts) {
+            if (u0 === iv) continue;
+            const shared0 = iv.on.filter((m) => u0.on.includes(m));
+            if (shared0.length < 2) continue;
+            // Walk the m_e cells around the edge [u0, iv]
+            const eCells = [{ g: [cx(1), cx(0), cx(0), cx(1)], word: [], p: O }];
+            for (let idx = 0; idx < eCells.length && eCells.length <= 64; idx++) {
+                const { g, word } = eCells[idx];
+                const gi = madj(g);
+                const cBack = matchVert(act(gi, iv.X));
+                const uBack = matchVert(act(gi, u0.X));
+                if (!cBack || !uBack) return { ok: false, reason: 'cusp-edge', vertices: verts.length };
+                const sh = cBack.on.filter((m) => uBack.on.includes(m));
+                if (sh.length < 2) return { ok: false, reason: 'cusp-edge', vertices: verts.length };
+                for (const j of sh) {
+                    const h = mscale(mmul(g, elems[j]));
+                    const p = act(h, O);
+                    if (eCells.some((x) => near(x.p, p, 1e-6))) continue;
+                    eCells.push({ g: h, word: [...word, ...walls[j].word], p });
+                }
+            }
+            if (eCells.length < 3 || eCells.length > 64) return { ok: false, reason: 'cusp-edge', vertices: verts.length };
+            // Sort eCells cyclically around the circle in Klein coordinates when m_e > 3
+            if (eCells.length > 3) {
+                const K = eCells.map((x) => [x.p[0] / x.p[3], x.p[1] / x.p[3], x.p[2] / x.p[3]]);
+                const cen = [0, 1, 2].map((j) => K.reduce((s, p) => s + p[j], 0) / K.length);
+                const axis = d3([iv.X[0], iv.X[1], iv.X[2]], [u0.X[0] / u0.X[3], u0.X[1] / u0.X[3], u0.X[2] / u0.X[3]]);
+                const al = Math.hypot(...axis) || 1;
+                const nrm = axis.map((t) => t / al);
+                const e1 = d3(K[0], cen), l1 = Math.hypot(...e1) || 1;
+                const x1 = e1.map((t) => t / l1), y1 = cross3(nrm, x1);
+                const order = eCells.map((_, i) => i).sort((a, b) => {
+                    const va = d3(K[a], cen), vb = d3(K[b], cen);
+                    return Math.atan2(dot3(va, y1), dot3(va, x1)) - Math.atan2(dot3(vb, y1), dot3(vb, x1));
+                });
+                const sorted = order.map((i) => eCells[i]);
+                for (let i = 0; i < sorted.length; i++) eCells[i] = sorted[i];
+            }
+            const base = words.length;
+            for (const x of eCells) words.push(x.word);
+            cuspCones.push({ ci, eCells, base });
+        }
+    }
+
+    const cuspBase = words.length;
+    for (const pw of cuspWords) cusps.push(pw);
+    for (const { ci, eCells, base } of cuspCones) {
+        const cIdx = cuspBase + ci;
+        const iv = idealVerts[ci];
+        if (eCells.length === 3) {
+            simplices.push({
+                w: orient([iv.X, eCells[0].p, eCells[1].p, eCells[2].p]) / 3,
+                pos: [[cIdx], [base], [base + 1], [base + 2]],
+            });
+            continue;
+        }
+        const cF = vsum(eCells.map((x) => x.p));
+        const fIdx = eCells.map((_, i) => base + i);
+        const wt = 1 / eCells.length;
+        for (let s = 0; s < eCells.length; s++) {
+            const b = (s + 1) % eCells.length;
+            simplices.push({
+                w: orient([iv.X, cF, eCells[s].p, eCells[b].p]) * wt,
+                pos: [[cIdx], fIdx, [base + s], [base + b]],
+            });
+        }
+    }
+
+    return { ok: true, words, cusps, simplices, vertices: verts.length, idealVertices: idealVerts.length, simple };
 }
 
 // ───────────────────────── the sum, at an embedding ─────────────────────────
@@ -290,6 +426,16 @@ export function cycleSum(cycle, gens, z) {
         const s = Math.max(abs(v[0]), abs(v[1])) || 1;
         return v.map((x) => cx(x.re / s, x.im / s));
     });
+    for (const pw of cycle.cusps || []) {
+        const M = wordMatrix(pw, gens);
+        // Parabolic fixed point in ℙ¹(ℂ): [a − d : 2c] = [−2b : a − d] since (a − d)² + 4bc = 0
+        const ad = sub(M[0], M[3]);
+        const v = abs(M[2]) >= abs(M[1])
+            ? [ad, cx(2 * M[2].re, 2 * M[2].im)]
+            : [cx(-2 * M[1].re, -2 * M[1].im), ad];
+        const s = Math.max(abs(v[0]), abs(v[1])) || 1;
+        pts.push(v.map((x) => cx(x.re / s, x.im / s)));
+    }
     const br = (u, v) => sub(mul(u[0], v[1]), mul(u[1], v[0]));
     // cr(z₀, z₁, z₂, z₃) = (z₃ − z₁)(z₂ − z₀) / ((z₃ − z₀)(z₂ − z₁)), in homogeneous coordinates
     const D4 = (v0, v1, v2, v3) => {

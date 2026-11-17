@@ -28,7 +28,7 @@
  *               opposite characters v_p: D → ℤ.
  */
 import { numberField, multRelations, rootOrder, factorInt, ratTex, cabs } from './numfield.js';
-import { babs, bgcd, blcm, egcd, hnf, quotient, unimodularInverse } from './intlin.js';
+import { babs, bgcd, blcm, egcd, hnf, leftKernel, quotient, unimodularInverse } from './intlin.js';
 
 // ───────────────────────── words ─────────────────────────
 
@@ -709,7 +709,12 @@ function reducibleCase(ctx, kind) {
     const N = [];
     if (rational) for (const l of freeL) for (const p of [...factorInt(l.n[0]).keys(), ...factorInt(l.q).keys()]) if (!N.includes(p)) N.push(p);
     N.sort((a, b) => (a < b ? -1 : 1));
-    if (!rational) return partialBorel(ctx, { kind, Q, lifts, gens, r, m, rel });
+    if (!rational) {
+        return irrationalBorel(ctx, {
+            kind, F, A, G, Q, lifts, liftNames, gens, kernel, commPairs, kernelOf,
+            r, m, tIdx, freeIdx, freeL, zeta, evalAff, evalS, shiftBy, fixedPt, fixer, rel,
+        });
+    }
     // ℤ-span of ζ^a·b over the generators (a < m when ζ ∉ ℚ)
     const reps = zetaRational ? 1 : m;
     const vecs = [];
@@ -1046,15 +1051,342 @@ function laurentMulti(c, lams) {
     return P;
 }
 
-/** multipliers that are not rational over a number field: the structure, without the module relations */
-function partialBorel(ctx, { kind, Q, lifts, gens, r, m }) {
+/** Primitive integer minimal polynomial [c₀, c₁, …, c_δ] (c_δ > 0) of λ ∈ F over ℚ. */
+function minPolyZ(F, lam) {
+    const d = F.d;
+    const powers = [F.one];
+    for (let e = 1; e <= d; e++) {
+        powers.push(F.mul(powers[e - 1], lam));
+        const den = powers.reduce((l, x) => blcm(l, x.q), 1n);
+        const rows = powers.map((x) => x.n.map((c) => c * (den / x.q)));
+        const ker = leftKernel(rows);
+        if (ker.length) {
+            let row = ker[0].slice();
+            let g = row.reduce((a, b) => bgcd(a, b), 0n) || 1n;
+            if (row[row.length - 1] < 0n) g = -g;
+            return row.map((x) => x / g);
+        }
+    }
+    throw new Error('internal: minimal polynomial not found in degree d');
+}
+
+/** ∏ u_l^{a_l} for integer exponents a_l ∈ ℤ */
+function intVecTex(names, coords) {
+    const parts = [];
+    coords.forEach((c, l) => {
+        if (!c) return;
+        parts.push(c === 1n ? names[l] : `${names[l]}^{${c}}`);
+    });
+    return parts.join('\\, ') || '1';
+}
+
+/**
+ * Irrational algebraic multipliers over F:
+ *   1. If all free multipliers λⱼ ∈ O_F^× are algebraic units (or r = 1 and λ^{±1} ∈ O_F is an algebraic integer),
+ *      M_0 ≅ ℤ^s (s ≤ [F:ℚ]) is closed under the positive semi-group of multipliers, giving a complete finite
+ *      presentation (polycyclic ℤ^s . D when units, or ascending HNN extension of ℤ^s when r = 1, λ^{±1} ∈ O_F).
+ *   2. Otherwise, computes exact ℤ[D]-module annihilator relations from Gauss's Lemma on the minimal polynomials
+ *      Pⱼ(tⱼ) of λⱼ over ℚ, reduces redundant module generators over ℤ[D], and verifies every relation on Aff(F).
+ */
+function irrationalBorel(ctx, st) {
+    const { kind, F, A, G, Q, lifts, liftNames, gens, r, m, tIdx, freeIdx, freeL, zeta, evalAff, rel } = st;
+    let { kernel, commPairs, evalS } = st;
     const Dtex = abelianTex(Q.orders);
-    const us = gens.map((g, l) => niceGen(ctx, sym('m', l, gens.length), g.expr));
+    const Dp = Dtex.includes('\\times') ? `(${Dtex})` : Dtex;
+    const minPolys = freeL.map((l) => minPolyZ(F, l));
+    const isAlgInt = (poly) => poly[poly.length - 1] === 1n;
+    const isAlgUnit = (poly) => poly[poly.length - 1] === 1n && babs(poly[0]) === 1n;
+
+    const allUnits = minPolys.every(isAlgUnit);
+    let hnnSign = 0; // +1 if λ ∈ O_F, −1 if λ⁻¹ ∈ O_F (when r === 1 and not unit)
+    let hnnPoly = null;
+    if (!allUnits && r === 1) {
+        if (isAlgInt(minPolys[0])) { hnnSign = 1; hnnPoly = minPolys[0]; }
+        else {
+            const invPoly = minPolyZ(F, F.inv(freeL[0]));
+            if (isAlgInt(invPoly)) { hnnSign = -1; hnnPoly = invPoly; }
+        }
+    }
+
+    // ── Case 1: Finite presentation on a free ℤ-lattice basis u₁, …, u_s (all units, or r = 1 ascending HNN) ──
+    if (allUnits || hnnSign !== 0) {
+        const zReps = F.isRat(zeta) ? 1 : m;
+        let vecs = [];
+        for (const g of gens) for (let a = 0; a < zReps; a++) {
+            const zExp = tIdx >= 0 && a ? E.pow(lifts[tIdx].expr, a) : [];
+            vecs.push({ v: F.mul(F.pow(zeta, a), g.b), expr: a ? E.conj(zExp, g.expr) : g.expr });
+        }
+        // Close vecs under each multiplier operator (t_j^{±1} when allUnits; T = t_1^{hnnSign} up to deg-1 when HNN)
+        const ops = [];
+        if (allUnits) {
+            freeIdx.forEach((j, t) => {
+                const deg = minPolys[t].length - 1;
+                ops.push({ lam: freeL[t], liftExpr: lifts[j].expr, maxPow: deg - 1 });
+                ops.push({ lam: F.inv(freeL[t]), liftExpr: E.inv(lifts[j].expr), maxPow: deg - 1 });
+            });
+        } else {
+            const j = freeIdx[0];
+            const mu = hnnSign === 1 ? freeL[0] : F.inv(freeL[0]);
+            const tExpr = hnnSign === 1 ? lifts[j].expr : E.inv(lifts[j].expr);
+            ops.push({ lam: mu, liftExpr: tExpr, maxPow: hnnPoly.length - 2 });
+        }
+        for (const op of ops) {
+            const cur = vecs.slice();
+            for (const x of cur) {
+                let v = x.v, ex = x.expr;
+                for (let e = 1; e <= op.maxPow; e++) {
+                    v = F.mul(op.lam, v);
+                    ex = E.conj(op.liftExpr, ex);
+                    vecs.push({ v, expr: tidy(ex) });
+                }
+            }
+        }
+        const den = vecs.reduce((l, x) => blcm(l, x.v.q), 1n);
+        const B = vecs.map((x) => x.v.n.map((c) => c * (den / x.v.q)));
+        const H = hnf(B);
+        const s = H.rank;
+        let basis = H.H.slice(0, s).map((row, l) => ({
+            v: F.el(row, den),
+            expr: tidy(H.U[l].flatMap((c, t) => (c ? E.pow(vecs[t].expr, c) : []))),
+        }));
+        basis = basis.map((bv) => {
+            let best = bv;
+            for (const x of vecs) {
+                const e = F.eq(x.v, bv.v) ? x.expr : F.eq(x.v, F.neg(bv.v)) ? E.inv(x.expr) : null;
+                if (e && exprLength(e) < exprLength(best.expr)) best = { v: bv.v, expr: e };
+            }
+            return best;
+        });
+
+        const uNames = basis.map((_, l) => sym('u', l, s));
+        const us = basis.map((x, l) => niceGen(ctx, uNames[l], x.expr));
+        us.forEach((u, l) => {
+            if (!F.eq(evalS(u.expr).b, basis[l].v) || !F.eq(evalS(u.expr).l, F.one)) {
+                throw new Error('internal: irrational module generator mismatch');
+            }
+        });
+
+        // Integer coordinates in basis (exact; returns BigInt[] or null if not in ℤ-span of basis)
+        const intCoords = (v) => {
+            if (F.isZero(v)) return new Array(s).fill(0n);
+            let co;
+            try { co = solveRational(F, basis.map((x) => x.v), v); } catch (e) { return null; }
+            if (!co.every((c) => F.isZero(c) || c.q === 1n)) return null;
+            return co.map((c) => (F.isZero(c) ? 0n : c.n[0]));
+        };
+
+        const liftS = lifts.map((L) => evalS(L.expr));
+        const relations = [], relators = [];
+        let actionOk = true;
+        if (allUnits) {
+            for (const j of freeIdx) {
+                const lam = liftS[j].l;
+                for (let l = 0; l < s; l++) {
+                    const co = intCoords(F.mul(lam, basis[l].v));
+                    if (!co) { actionOk = false; break; }
+                    const rhs = intVecTex(uNames, co);
+                    relations.push(`${liftNames[j]}\\, ${uNames[l]}\\, ${liftNames[j]}^{-1} = ${rhs}`);
+                    relators.push(`${liftNames[j]}\\, ${uNames[l]}\\, ${liftNames[j]}^{-1} = ${rhs}`);
+                }
+            }
+        } else {
+            const j = freeIdx[0];
+            const tNm = liftNames[j];
+            const T = hnnSign === 1 ? tNm : `${tNm}^{-1}`, Ti = hnnSign === 1 ? `${tNm}^{-1}` : tNm;
+            const mu = hnnSign === 1 ? liftS[j].l : F.inv(liftS[j].l);
+            for (let l = 0; l < s; l++) {
+                const co = intCoords(F.mul(mu, basis[l].v));
+                if (!co) { actionOk = false; break; }
+                const rhs = intVecTex(uNames, co);
+                relations.push(`${T}\\, ${uNames[l]}\\, ${Ti} = ${rhs}`);
+                relators.push(`${T}\\, ${uNames[l]}\\, ${Ti} = ${rhs}`);
+            }
+        }
+        if (tIdx >= 0 && actionOk) {
+            for (let l = 0; l < s; l++) {
+                const co = intCoords(F.mul(zeta, basis[l].v));
+                if (!co) { actionOk = false; break; }
+                const rhs = intVecTex(uNames, co);
+                relations.push(`z\\, ${uNames[l]}\\, z^{-1} = ${rhs}`);
+                relators.push(`z\\, ${uNames[l]}\\, z^{-1} = ${rhs}`);
+            }
+            relations.push(`z^{${m}} = 1`);
+            relators.push(`z^{${m}}`);
+        }
+        const commCoords = [];
+        for (const c of commPairs) {
+            const co = intCoords(c.c);
+            if (!co) { actionOk = false; break; }
+            commCoords.push(co);
+            const rhs = intVecTex(uNames, co);
+            relations.push(`[${liftNames[c.a]}, ${liftNames[c.b]}] = ${rhs}`);
+            relators.push(rhs === '1' ? `[${liftNames[c.a]}, ${liftNames[c.b]}]` : `[${liftNames[c.a]}, ${liftNames[c.b]}] = ${rhs}`);
+        }
+        const kerCoords = kernel.map((k) => intCoords(k.b));
+        if (kerCoords.some((c) => !c)) actionOk = false;
+
+        if (actionOk) {
+            for (let a = 0; a < s; a++) for (let b = a + 1; b < s; b++) {
+                relations.push(`[${uNames[a]}, ${uNames[b]}] = 1`);
+                relators.push(`[${uNames[a]}, ${uNames[b]}]`);
+            }
+            // Verify every conjugation relation on exact affine maps
+            if (allUnits) {
+                for (const j of freeIdx) for (let l = 0; l < s; l++) {
+                    const lhs = A.comp(A.comp(liftS[j], evalS(us[l].expr)), A.inv(liftS[j]));
+                    const co = intCoords(F.mul(liftS[j].l, basis[l].v));
+                    const rhsB = co.reduce((acc, c, q) => F.add(acc, F.mul(F.rat(c), basis[q].v)), F.zero);
+                    if (!F.eq(lhs.b, rhsB)) throw new Error('internal: unit module action check failed');
+                }
+            } else {
+                const j = freeIdx[0];
+                const tOp = hnnSign === 1 ? liftS[j] : A.inv(liftS[j]);
+                for (let l = 0; l < s; l++) {
+                    const lhs = A.comp(A.comp(tOp, evalS(us[l].expr)), A.inv(tOp));
+                    const co = intCoords(F.mul(tOp.l, basis[l].v));
+                    const rhsB = co.reduce((acc, c, q) => F.add(acc, F.mul(F.rat(c), basis[q].v)), F.zero);
+                    if (!F.eq(lhs.b, rhsB)) throw new Error('internal: HNN module action check failed');
+                }
+            }
+            const given = G.map((_, i) => {
+                const tr = intVecTex(uNames, kerCoords[i]);
+                const lift = coordTex(Q.coordsOf[i], liftNames);
+                const parts = [tr === '1' ? '' : tr, lift === '1' ? '' : lift].filter(Boolean);
+                return `${ctx.names[i]} = ${parts.join('\\, ') || '1'}`;
+            });
+            const split = commCoords.every((co) => co.every((x) => x === 0n));
+            const Mtex = allUnits ? zPow(s) : `\\mathbb{Z}[${F.tex(hnnSign === 1 ? freeL[0] : F.inv(freeL[0]))}^{-1}]`;
+            const structure = allUnits
+                ? (split ? `${zPow(s)} \\rtimes ${Dp}` : `${zPow(s)} \\,.\\, ${Dp}`)
+                : (split ? `M \\rtimes ${Dp}` : `M \\,.\\, ${Dp}`);
+            const out = {
+                structure,
+                gens: serialGens(us.concat(lifts.filter((_, j) => j !== tIdx), tIdx >= 0 ? [lifts[tIdx]] : [])),
+                relations,
+                relationsAreRelators: false,
+                complete: true,
+                finitelyPresented: true,
+                given,
+                unitGap: rel.unitGap,
+                D: { tex: Dtex, free: r, torsion: m, multipliers: freeIdx.map((j) => ({ name: liftNames[j], tex: F.tex(liftS[j].l) })), zeta: tIdx >= 0 ? F.tex(zeta) : null },
+                split,
+                fpReason: allUnits
+                    ? `Every multiplier is an algebraic unit in $\\mathcal{O}_F^{\\times}$, so $M \\cong ${zPow(s)}$ and $\\Gamma$ is polycyclic (hence finitely presented).`
+                    : `The multiplier ${hnnSign === 1 ? '' : 'inverse '}is an algebraic integer, so $\\Gamma$ is an ascending HNN extension of $${zPow(s)}$ (finitely presented by Britton’s lemma).`,
+                ordinary: {
+                    finite: true,
+                    relators,
+                    infinite: [],
+                    note: allUnits
+                        ? `Polycyclic presentation on $${zPow(s)}$ and $${Dtex}$.`
+                        : `Ascending HNN presentation on base $${zPow(s)}$.`,
+                },
+                summary: allUnits
+                    ? `Γ fixes a point of P¹, with unit multipliers D ≅ ${texPlain(Dtex)} acting on M ≅ ${texPlain(zPow(s))}${split ? ' (split polycyclic)' : ''}.`
+                    : `Γ fixes a point of P¹; as an ascending HNN extension of ${texPlain(zPow(s))} by an algebraic-integer multiplier (${texPlain(Dtex)}), it is finitely presented.`,
+                kindNote: kind,
+            };
+            return out;
+        }
+    }
+
+    // ── Case 2: Fractional irrational multipliers — exact ℤ[D]-module relations from minimal polynomials ──
+    // Prune any generator g_l that is already an exact integer combination of earlier generators or their conjugates
+    const kept = [];
+    for (const g of gens) {
+        if (!kept.some((h) => F.eq(h.b, g.b) || F.eq(h.b, F.neg(g.b)))) kept.push(g);
+    }
+    const mNames = kept.map((_, l) => sym('m', l, kept.length));
+    const us = kept.map((g, l) => niceGen(ctx, mNames[l], g.expr));
+    const liftS = lifts.map((L) => evalS(L.expr));
+    const relations = [];
+
+    // Minimal polynomial annihilators: ∑_{e=0}^δ c_e λ_j^e = 0  ⟹  ∏_{e=0}^δ (t_j^e m_l t_j^{-e})^{c_e} = 1
+    freeIdx.forEach((j, t) => {
+        const poly = minPolys[t];
+        const tNm = liftNames[j];
+        for (let l = 0; l < us.length; l++) {
+            const mNm = mNames[l];
+            const factors = [];
+            let checkSum = F.zero;
+            for (let e = poly.length - 1; e >= 0; e--) {
+                const c = poly[e];
+                if (!c) continue;
+                const base = e === 0 ? mNm : e === 1 ? `${tNm}\\, ${mNm}\\, ${tNm}^{-1}` : `${tNm}^{${e}}\\, ${mNm}\\, ${tNm}^{-${e}}`;
+                factors.push(c === 1n ? (e === 0 ? mNm : `(${base})`) : `(${base})^{${c}}`);
+                const conjAff = A.comp(A.pow(liftS[j], e), A.comp(evalS(us[l].expr), A.pow(liftS[j], -e)));
+                checkSum = F.add(checkSum, F.mul(F.rat(c), conjAff.b));
+            }
+            if (!F.isZero(checkSum)) throw new Error('internal: minimal polynomial annihilator check failed');
+            relations.push(`${factors.join('\\, ')} = 1`);
+        }
+    });
+
+    // Inter-generator ℤ[D]-syzygies when kept.length > 1: search small monomial orbit {t_j^e · m_l}
+    let syzygyComplete = kept.length === 1 && r === 1 && tIdx < 0;
+    if (kept.length > 1) {
+        const mons = [];
+        kept.forEach((g, l) => {
+            mons.push({ b: g.b, tex: mNames[l], l });
+            freeIdx.forEach((j, t) => {
+                mons.push({ b: F.mul(freeL[t], g.b), tex: `${liftNames[j]}\\, ${mNames[l]}\\, ${liftNames[j]}^{-1}`, l });
+            });
+        });
+        const den = mons.reduce((acc, x) => blcm(acc, x.b.q), 1n);
+        const rows = mons.map((x) => x.b.n.map((c) => c * (den / x.b.q)));
+        const syz = leftKernel(rows);
+        for (const row of syz.slice(0, 12)) {
+            // Skip relations supported on a single m_l (already implied by minimal polynomial when degree ≤ 1)
+            const supp = new Set();
+            row.forEach((c, idx) => { if (c) supp.add(mons[idx].l); });
+            if (supp.size < 2) continue;
+            const terms = [];
+            let check = F.zero;
+            row.forEach((c, idx) => {
+                if (!c) return;
+                const tx = mons[idx].tex;
+                terms.push(c === 1n ? `(${tx})` : `(${tx})^{${c}}`);
+                check = F.add(check, F.mul(F.rat(c), mons[idx].b));
+            });
+            if (!F.isZero(check)) throw new Error('internal: module syzygy check failed');
+            relations.push(`${terms.join('\\, ')} = 1`);
+        }
+    }
+
+    if (tIdx >= 0) relations.push(`z^{${m}} = 1`);
+    for (let a = 0; a < mNames.length; a++) for (let b = a + 1; b < mNames.length; b++) {
+        relations.push(`[${mNames[a]}, ${mNames[b]}] = 1`);
+    }
+
+    // Given generators when kernel[i].b matches ±kept[l].b
+    const given = G.map((_, i) => {
+        const kb = kernel[i].b;
+        const lift = coordTex(Q.coordsOf[i], liftNames);
+        let tr = '';
+        if (!F.isZero(kb)) {
+            const posIdx = kept.findIndex((h) => F.eq(h.b, kb));
+            const negIdx = kept.findIndex((h) => F.eq(h.b, F.neg(kb)));
+            if (posIdx >= 0) tr = mNames[posIdx];
+            else if (negIdx >= 0) tr = `${mNames[negIdx]}^{-1}`;
+            else return null;
+        }
+        const parts = [tr, lift === '1' ? '' : lift].filter(Boolean);
+        return `${ctx.names[i]} = ${parts.join('\\, ') || '1'}`;
+    });
+    const allGiven = given.every(Boolean);
+    const isComplete = syzygyComplete && allGiven && commPairs.every((c) => F.isZero(c.c));
+
     return {
-        structure: `M \\rtimes ${Dtex}`, gens: serialGens(us.concat(lifts)), relations: [], relationsAreRelators: false,
-        complete: false, given: [],
-        summary: `Γ fixes a point of P¹, with multipliers D ≅ ${texPlain(Dtex)} that are not all rational. Its translations M are the ℤ[D]-module generated by ${us.length} element${us.length === 1 ? '' : 's'}; the relations of that module are not computed.`,
-        D: { tex: Dtex, free: r, torsion: m },
+        structure: `M \\rtimes ${Dtex}`,
+        gens: serialGens(us.concat(lifts.filter((_, j) => j !== tIdx), tIdx >= 0 ? [lifts[tIdx]] : [])),
+        relations,
+        relationsAreRelators: false,
+        complete: isComplete,
+        given: allGiven ? given : [],
+        summary: isComplete
+            ? `Γ fixes a point of P¹, with multiplier D ≅ ${texPlain(Dtex)} acting on the cyclic ℤ[D]-module M ≅ ℤ[t, t⁻¹]/(P(t)) defined by the multiplier’s minimal polynomial.`
+            : `Γ fixes a point of P¹, with multipliers D ≅ ${texPlain(Dtex)} acting on the ℤ[D]-module M generated by ${us.length} element${us.length === 1 ? '' : 's'} (annihilated by the minimal polynomial${r === 1 ? '' : 's'} of the multiplier${r === 1 ? '' : 's'}).`,
+        D: { tex: Dtex, free: r, torsion: m, multipliers: freeIdx.map((j) => ({ name: liftNames[j], tex: F.tex(liftS[j].l) })), zeta: tIdx >= 0 ? F.tex(zeta) : null },
         kindNote: kind,
     };
 }

@@ -14,18 +14,8 @@
  *   node batch/enumerateNF.mjs i 1.6       elements and pairs of ℚ(i) with e^h ≤ 1.6
  */
 
-/** The fields: minimal polynomial of w (monic, low → high), a root to embed by, and labels. */
-export const FIELDS = {
-    i:   { poly: [1, 0, 1],      root: { re: 0, im: 1 },            tex: '\\mathbb{Q}(i)',          name: 'ℚ(i)',       gal: [[0, -1]] },
-    m2:  { poly: [2, 0, 1],      root: { re: 0, im: Math.SQRT2 },   tex: '\\mathbb{Q}(\\sqrt{-2})', name: 'ℚ(√−2)',     gal: [[0, -1]] },
-    m3:  { poly: [1, -1, 1],     root: { re: 0.5, im: Math.sqrt(3) / 2 }, tex: '\\mathbb{Q}(\\sqrt{-3})', name: 'ℚ(√−3)', gal: [[1, -1]] },
-    r2:  { poly: [-2, 0, 1],     root: { re: Math.SQRT2, im: 0 },   tex: '\\mathbb{Q}(\\sqrt{2})',  name: 'ℚ(√2)',      gal: [[0, -1]] },
-    r3:  { poly: [-3, 0, 1],     root: { re: Math.sqrt(3), im: 0 }, tex: '\\mathbb{Q}(\\sqrt{3})',  name: 'ℚ(√3)',      gal: [[0, -1]] },
-    r5:  { poly: [-1, -1, 1],    root: { re: (1 + Math.sqrt(5)) / 2, im: 0 }, tex: '\\mathbb{Q}(\\sqrt{5})', name: 'ℚ(√5)', gal: [[1, -1]] },
-    c2:  { poly: [-2, 0, 0, 1],  root: { re: Math.cbrt(2), im: 0 },  tex: '\\mathbb{Q}(\\sqrt[3]{2})', name: 'ℚ(∛2)',   gal: [] },
-    c23: { poly: [-1, -1, 0, 1], root: { re: 1.324717957244746, im: 0 }, tex: '\\mathbb{Q}(\\theta),\\ \\theta^3=\\theta+1', name: 'ℚ(θ), θ³=θ+1', gal: [] },
-    c7:  { poly: [-1, -2, 1, 1], root: { re: 2 * Math.cos(2 * Math.PI / 7), im: 0 }, tex: '\\mathbb{Q}(\\zeta_7)^+', name: 'ℚ(ζ₇)⁺', gal: [[-2, 0, 1], [1, -1, -1]] },
-};
+import { FIELDS } from '../js/fields.js';
+export { FIELDS };
 
 // ── arithmetic in ℤ[w] and ℚ(w), coefficient vectors low → high ──
 const reduce = (v, P) => {

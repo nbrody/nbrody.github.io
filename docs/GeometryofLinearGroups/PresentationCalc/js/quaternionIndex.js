@@ -183,17 +183,20 @@ export function quaternionAlgebra(gens, poly, fieldInfo = null) {
     };
     const quats = [];
     for (const g of G) { const q = quatOf(g); if (!q) return { error: 'a generator does not normalize the invariant quaternion algebra' }; quats.push(q); }
-    if (K.real && K.sigma(alpha).every((x) => x < 0) && K.sigma(beta).every((x) => x < 0)) return reduceBasis(K, QA, quats);
+    // an element of A (in these coordinates) as a matrix over F, flat, entries { v, D }
+    const toFmat = (b) => { let M = ZERO; QA.blocks(b).forEach((c, i) => { if (!K.isZero(c)) M = madd(M, mscale(E[i], kToF(c))); }); return M; };
+    // the same from the coordinates of reduceBasis
+    const toFfrom = (red) => (red.back ? (x) => toFmat(red.back(x)) : toFmat);
+    if (K.real && K.sigma(alpha).every((x) => x < 0) && K.sigma(beta).every((x) => x < 0)) { const red = reduceBasis(K, QA, quats); return { ...red, toF: toFfrom(red) }; }
     // the basis as matrices over F (for the embedding at the split place: quaternionDirichlet.js)
     const Finfo = (Es) => ({ poly: poly.map(BigInt), basis: Es.map((Xm) => Xm.map((x) => ({ v: x.v.slice(), D: x.D }))), theta: Pk.map((row) => row.map((q) => [q[0], q[1]])) });
     const F0 = Finfo(E);
     const emb0 = makeEmbedding(K, QA, F0);
-    if (!emb0) return { K, QA, quats, alpha, beta, F: F0 };
+    if (!emb0) return { K, QA, quats, alpha, beta, F: F0, toF: toFmat };
     // a better basis, by the majorant of the split place; its elements as matrices over F
     const red = reduceBasis(K, QA, quats, emb0.gram);
-    if (!red.basis) return { K, QA, quats, alpha, beta, F: F0 };
-    const toFmat = (b) => { let M = ZERO; QA.blocks(b).forEach((c, i) => { if (!K.isZero(c)) M = madd(M, mscale(E[i], kToF(c))); }); return M; };
-    return { ...red, F: Finfo(red.basis.map(toFmat)) };
+    if (!red.basis) return { K, QA, quats, alpha, beta, F: F0, toF: toFmat };
+    return { ...red, F: Finfo(red.basis.map(toFmat)), toF: toFfrom(red) };
 }
 
 /**
@@ -250,7 +253,7 @@ function reduceBasis(K, QA0, quats, Gflat = null) {
     const back = (y) => { let s = { v: new Array(D).fill(0n), d: 1n }; QA.blocks(y).forEach((c, i) => { const t = QA0.scaleK(basis[i], c); s = normFlat(s.v.map((a, j) => a * t.d + t.v[j] * s.d), s.d * t.d); }); return s; };
     const out = quats.map(toNew);
     out.forEach((y, i) => { if (QA0.key(back(y)) !== QA0.key(quats[i])) throw new Error('internal: the change of basis failed'); });
-    return { K, QA, quats: out, alpha: I.a, beta: best.a, basis };
+    return { K, QA, quats: out, alpha: I.a, beta: best.a, basis, back };
 }
 
 // ───────────────────────── primes of k ─────────────────────────
@@ -364,26 +367,32 @@ export function indexFromQuaternions(QD, Sin, opts = {}, t0 = Date.now()) {
             if (K.valuation(QA.nrd(x), Pw) % 2 && !bad.some((b) => b.key === Pw.key)) bad.push(Pw);
         }
         let kernelIndex = 1;
+        // (for quaternionPresentation.js: K's generators and the coset representatives as words in the given ones)
+        let kGivenWords = X.map((_, i) => [i + 1]), parityReps = null, parityOf = null;
         if (bad.length) {
             const parity = (x) => bad.map((P) => ((K.valuation(QA.nrd(x), P) % 2) + 2) % 2);
             const keyP = (c) => c.join('');
-            const reps = new Map([[keyP(bad.map(() => 0)), { c: bad.map(() => 0), x: one }]]);
+            const reps = new Map([[keyP(bad.map(() => 0)), { c: bad.map(() => 0), x: one, w: [] }]]);
             const queue = [...reps.values()];
             while (queue.length) {
                 const r = queue.shift();
-                for (const g of X) {
+                X.forEach((g, gi) => {
                     const c = r.c.map((v, i) => v ^ parity(g)[i]);
-                    if (!reps.has(keyP(c))) { const nr = { c, x: QA.prim(QA.mul(r.x, g)) }; reps.set(keyP(c), nr); queue.push(nr); }
-                }
+                    if (!reps.has(keyP(c))) { const nr = { c, x: QA.prim(QA.mul(r.x, g)), w: r.w.concat([gi + 1]) }; reps.set(keyP(c), nr); queue.push(nr); }
+                });
             }
-            const sch = [];
-            for (const r of reps.values()) for (const g of X) {
+            const sch = [], schWords = [];
+            for (const r of reps.values()) X.forEach((g, gi) => {
                 const c = r.c.map((v, i) => v ^ parity(g)[i]);
-                const y = QA.prim(QA.mul(QA.mul(r.x, g), QA.conj(reps.get(keyP(c)).x)));
-                if (QA.key(y) !== ONEKEY) sch.push(y);
-            }
+                const t = reps.get(keyP(c));
+                const y = QA.prim(QA.mul(QA.mul(r.x, g), QA.conj(t.x)));
+                if (QA.key(y) !== ONEKEY) { sch.push(y); schWords.push(r.w.concat([gi + 1], t.w.slice().reverse().map((l) => -l))); }
+            });
             kernelIndex = reps.size;
             X = sch.length ? sch : [one];
+            kGivenWords = sch.length ? schWords : [[]];
+            parityReps = [...reps.values()];
+            parityOf = parity;
         }
         base.kernelIndex = kernelIndex; base.bad = bad.map((P) => `${P.p}`);
 
@@ -638,7 +647,7 @@ export function indexFromQuaternions(QD, Sin, opts = {}, t0 = Date.now()) {
             definite, place: definite ? null : emb.kind, covols: definite ? null : reps.map((r) => r.U.covol), stabGens: reps.map((r) => r.U.gens.length),
             letters: S.map((P) => Number(P.N) + 1), norms: S.map((P) => String(P.N)), alpha: `${QA.alpha.v.join(',')}`, beta: `${QA.beta.v.join(',')}`,
         };
-        if (opts.debug) info.debug = { rels, words, nGens, elOf, reps, QA, K, O, QD };
+        if (opts.debug) info.debug = { rels, words, nGens, elOf, reps, QA, K, O, QD, wordOf, kGivenWords, parityReps, parityOf, given: QD.quats };
         const tc0 = Date.now();
         const r = enumerateFelsch(nGens, rels, words, { seconds, maxCosets });
         const tcMs = Date.now() - tc0;
@@ -679,55 +688,68 @@ function congruenceLevel({ n, table, nGens, elOf, words, O, QA, below, levelPrim
         return cols;
     };
     const inv = (a, N) => { let [r0, r1, s0, s1] = [modn(a, N), N, 1n, 0n]; while (r1) { const q = r0 / r1; [r0, r1] = [r1, r0 - q * r1]; [s0, s1] = [s1, s0 - q * s1]; } if (r0 !== 1n) throw new Error('internal: not invertible mod N'); return modn(s0, N); };
-    const ID = Array.from({ length: D * D }, (_, t) => (Math.floor(t / D) === t % D ? 1 : 0));
+    const ID = Int32Array.from({ length: D * D }, (_, t) => (Math.floor(t / D) === t % D ? 1 : 0));
+    const hashM = (A) => {
+        let h1 = 0x811c9dc5, h2 = 0x9747b28c;
+        for (let t = 0; t < A.length; t++) {
+            const e = A[t];
+            h1 = Math.imul(h1 ^ e, 0x01000193);
+            h2 = Math.imul(h2 ^ (h2 >>> 15) ^ e, 0x5bd1e995);
+        }
+        return (h1 >>> 0) * 2097152 + ((h2 >>> 0) >>> 11);
+    };
+    const eqM = (A, B) => { for (let t = 0; t < A.length; t++) if (A[t] !== B[t]) return false; return true; };
     const tried = [];
     const indexAt = (N, firstRepeat = false) => {
         const Nn = Number(N);
         const img = new Map();
         const imgOf = (l) => {
             if (img.has(l)) return img.get(l);
-            const cols = ad(l), M = new Array(D * D);
+            const cols = ad(l), M = new Int32Array(D * D);
             for (let j = 0; j < D; j++) for (let i = 0; i < D; i++) { const q = cols[j][i]; M[D * i + j] = Number(modn(q[0] * inv(q[1], N), N)); }
             img.set(l, M);
             return M;
         };
-        const mm = (A, B) => { const C = new Array(D * D); for (let i = 0; i < D; i++) for (let j = 0; j < D; j++) { let s = 0; for (let k = 0; k < D; k++) s += A[D * i + k] * B[D * k + j]; C[D * i + j] = s % Nn; } return C; };
+        const mm = (A, B) => { const C = new Int32Array(D * D); for (let i = 0; i < D; i++) for (let j = 0; j < D; j++) { let s = 0; for (let k = 0; k < D; k++) s += A[D * i + k] * B[D * k + j]; C[D * i + j] = s % Nn; } return C; };
         const wordM = (w) => w.reduce((A, l) => mm(A, imgOf(l)), ID);
         const gensH = words.map(wordM).concat(words.map((w) => wordM(w.slice().reverse().map((l) => l ^ 1))));
-        const capH = Math.floor(budget / (n * (D / 4) ** 3));
-        const H = new Map([[ID.join(','), ID]]), st = [ID];
-        let ops = 0;
+        const capH = Math.floor(budget / Math.max(1, (D / 4) ** 3 * 32));
+        // H = φ_N(Γ): stored by 53-bit digest (bucketed on exact equality)
+        const H = new Map([[hashM(ID), [ID]]]), st = [ID];
+        let sizeH = 1, ops = 0;
+        const hasH = (M) => { const b = H.get(hashM(M)); if (!b) return false; for (let t = 0; t < b.length; t++) if (eqM(b[t], M)) return true; return false; };
+        const addH = (M) => {
+            const hk = hashM(M), b = H.get(hk);
+            if (!b) { H.set(hk, [M]); sizeH++; return true; }
+            for (let t = 0; t < b.length; t++) if (eqM(b[t], M)) return false;
+            b.push(M); sizeH++; return true;
+        };
         while (st.length) {
             const A = st.pop();
-            for (const g of gensH) { const B = mm(A, g), k = B.join(','); if (!H.has(k)) { H.set(k, B); st.push(B); if (H.size > capH) return null; } }
-            if (++ops % 1024 === 0 && Date.now() > deadline) throw new Stop();
+            for (const g of gensH) { const B = mm(A, g); if (addH(B)) { st.push(B); if (sizeH > capH) return null; } }
+            if (++ops % 4096 === 0 && Date.now() > deadline) throw new Stop();
         }
-        const Hs = [...H.values()];
+        // Since Λ = ⊔_{c=0}^{n-1} Γ·λ_c and Γ ≤ φ_N⁻¹(H) ≤ Λ, [φ_N(Λ) : H] = n / #{ c : φ_N(λ_c) ∈ H }.
         const rep = new Array(n);
         rep[0] = ID;
         const q = [0];
-        for (let h = 0; h < q.length; h++) { const c = q[h]; for (let x = 0; x < 2 * nGens; x++) { const d = table[c][x]; if (rep[d] === undefined) { rep[d] = mm(rep[c], imgOf(x)); q.push(d); } } }
-        const seen = new Set();
-        for (let c = 0; c < n; c++) {
-            const r = rep[c];
-            let best = Infinity;
-            for (const h of Hs) {
-                let h1 = 0x811c9dc5, h2 = 0x9747b28c;
-                for (let i = 0; i < D; i++) for (let j = 0; j < D; j++) {
-                    let s = 0;
-                    for (let k = 0; k < D; k++) s += h[D * i + k] * r[D * k + j];
-                    const e = s % Nn;
-                    h1 = Math.imul(h1 ^ e, 0x01000193);
-                    h2 = Math.imul(h2 ^ (h2 >>> 15) ^ e, 0x5bd1e995);
+        let inPreimage = 1;
+        for (let h = 0; h < q.length; h++) {
+            const c = q[h];
+            for (let x = 0; x < 2 * nGens; x++) {
+                const d = table[c][x];
+                if (rep[d] === undefined) {
+                    const rd = mm(rep[c], imgOf(x));
+                    rep[d] = rd;
+                    q.push(d);
+                    if (hasH(rd)) {
+                        if (firstRepeat) return { index: -1, H: sizeH };
+                        inPreimage++;
+                    }
                 }
-                const v = (h1 >>> 0) * 2097152 + ((h2 >>> 0) >>> 11);
-                if (v < best) best = v;
             }
-            if (seen.has(best) && firstRepeat) return { index: -1, H: Hs.length };
-            seen.add(best);
-            if (c % 32 === 0 && Date.now() > deadline) throw new Stop();
         }
-        return { index: seen.size, H: Hs.length };
+        return { index: Math.round(n / inPreimage), H: sizeH };
     };
     const levelOf = (ps) => ps.reduce((N, x) => N * x.p ** BigInt(x.k), 1n);
     const memo = new Map();

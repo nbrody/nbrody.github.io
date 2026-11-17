@@ -166,8 +166,8 @@ self.onmessage = (ev) => {
         }
         const summary = found || first;
         summary.tries = tries;
-        // the volume at every place needs a compact domain in PSL₂(ℂ) (placeVolumes.js)
-        const wantCycle = cycle && found && !real && found.finiteVolume && !found.cusps && !(state.anti || []).some(Boolean);
+        // the volume at every place needs a finite-volume domain in PSL₂(ℂ) (placeVolumes.js)
+        const wantCycle = cycle && found && !real && found.finiteVolume && !(state.anti || []).some(Boolean);
         if (wantCycle) {
             const c = cycleOf(foundRes);
             if (c.ok) summary.cycle = { ...c, bp: found.bp };

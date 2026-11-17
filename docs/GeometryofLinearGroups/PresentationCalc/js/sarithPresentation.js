@@ -29,6 +29,7 @@ import { congruenceClosure, congruenceDescription, congruenceCosetAction, findLe
 import { graphOfGroups, hallExtension, rationalAlgebra, wordsInGiven, eliminateByWords, restateFromGraph, stripTree, GRAPH_MAX_COSETS } from './graphOfGroups.js';
 import { beamWords } from './wordSearch.js';
 import { subgroupPresentation } from './felsch.js';
+import { prunePresentation } from './rewriting.js';
 
 const babs = (x) => (x < 0n ? -x : x);
 const bgcd = (a, b) => { a = babs(a); b = babs(b); while (b) [a, b] = [b, a % b]; return a; };
@@ -249,13 +250,16 @@ export function presentationOverQ(rows, S, opts = {}) {
         } catch (e) { /* keep the h's */ }
     }
     delete F._gens;
-    return {
+    const res = {
         _core: core,
         index: r.index, tableFrom, kernelIndex: R.reps.size, S: R.S.map(String), conjugatedAt: R.conjugatedAt,
         ...F,
         rs: { generators: m, relators: RS.relators.length },
         ms: Date.now() - t0,
     };
+    if (opts.prune !== false) prunePresentation(res, { work: opts.pruneWork ?? 2e7 });
+    res.ms = Date.now() - t0;
+    return res;
 }
 
 /**
@@ -324,7 +328,9 @@ export function presentationReport(rows, S, { levels = null, C = null, maxIndex 
     if (P && P._core) {
         if (graph && P.index && S.length) {
             try { out.graph = graphReport(P._core, { seconds: graphSeconds, longWords }); } catch (e) { out.graph = { error: e.message || String(e) }; }
+            const before = P.hFrom;
             restateFromGraph(P, out.graph);
+            if (P.hFrom === 'graph' && before !== 'graph') { delete P.pruned; prunePresentation(P); }
         }
         delete P._core;
     }

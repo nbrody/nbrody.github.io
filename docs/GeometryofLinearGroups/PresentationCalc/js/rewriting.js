@@ -13,6 +13,8 @@
  * Words are in ±(k+1), as presentation.js.
  */
 
+import { abelianInvariants } from './presentation.js';
+
 const keyOf = (w) => w.join(',');
 const sameWord = (a, b) => { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; };
 const invWord = (w) => w.slice().reverse().map((x) => -x);
@@ -122,9 +124,24 @@ export class RewritingSystem {
         r = cyclicReduce(r);
         if (!r.length) return;
         for (const u of [r, invWord(r)]) for (let i = 0; i < u.length; i++) {
+            if (this.work > this.maxWork || Date.now() > this.deadline) { this.truncated = true; return; }
             const rot = u.slice(i).concat(u.slice(0, i)), h = Math.ceil((rot.length + 1) / 2);
             this.equate(rot.slice(0, h), invWord(rot.slice(h)));
         }
+    }
+
+    /** Does word `hay` contain `needle` as a contiguous subword? */
+    _containsSubword(hay, needle) {
+        const L = hay.length, k = needle.length;
+        if (k > L) return false;
+        const first = needle[0];
+        for (let s = 0; s <= L - k; s++) {
+            if (hay[s] !== first) continue;
+            let ok = true;
+            for (let t = 1; t < k; t++) if (hay[s + t] !== needle[t]) { ok = false; break; }
+            if (ok) return true;
+        }
+        return false;
     }
 
     /** Resolve critical pairs until every overlap is resolved (complete) or a limit is met. Returns complete. */
@@ -137,7 +154,19 @@ export class RewritingSystem {
             // a rule made redundant by a newer one goes back in as an equation
             if (this._reducibleLhs(r)) { this._kill(r); this.equate(r.lhs, r.rhs); continue; }
             r.rhs = this.reduce(r.rhs);
-            for (let j = 0; j <= i; j++) this._pair(r, this.rules[j]);
+            for (let j = 0; j <= i && r.alive; j++) {
+                const old = this.rules[j];
+                if (!old.alive) continue;
+                // inclusion overlap: if an earlier rule's lhs contains r.lhs, retire and re-equate old
+                if (old !== r && this._containsSubword(old.lhs, r.lhs)) {
+                    this._kill(old);
+                    this.equate(old.lhs, old.rhs);
+                    if (this._reducibleLhs(r)) { this._kill(r); this.equate(r.lhs, r.rhs); break; }
+                    continue;
+                }
+                this._pair(r, old);
+                if (r.alive && this._reducibleLhs(r)) { this._kill(r); this.equate(r.lhs, r.rhs); break; }
+            }
         }
         this.done = this.rules.length;
         return !this.truncated;
@@ -192,15 +221,37 @@ export function pruneRelators(m, relators, { work = 3e7, seconds = 30, maxRules 
         S.addRelator(r);
         S.complete();
     }
-    // backward: each kept relator against the others, sharing what is left of the work
+    // backward: each kept relator against the others, sharing what is left of the work (capped when kept is huge)
     let left = work - Math.min(S.work, work / 2);
-    for (let i = kept.length - 1; i >= 0 && kept.length > 1; i--) {
-        if (left <= 0 || Date.now() > deadline) break;
-        const T = new RewritingSystem(m, { maxRules, maxLen: ML, maxWork: left / (i + 1), deadline });
-        kept.forEach((r, j) => { if (j !== i) T.addRelator(r); });
-        T.complete();
-        left -= T.work;
-        if (T.kills(kept[i])) kept.splice(i, 1);
+    if (kept.length <= 250) {
+        for (let i = kept.length - 1; i >= 0 && kept.length > 1; i--) {
+            if (left <= 0 || Date.now() > deadline) break;
+            const T = new RewritingSystem(m, { maxRules, maxLen: ML, maxWork: left / (i + 1), deadline });
+            kept.forEach((r, j) => { if (j !== i && !T.truncated) T.addRelator(r); });
+            if (!T.truncated) T.complete();
+            left -= T.work;
+            if (T.kills(kept[i])) kept.splice(i, 1);
+        }
     }
     return { relators: kept, dropped: list.length - kept.length, ms: Date.now() - t0 };
+}
+
+/**
+ * Prune redundant relators of a verified m-generator presentation, checking that H₁(Γ) is unchanged.
+ * Mutates `pres` in place ({ relators, pruned }) when relators are dropped; returns `pres`.
+ */
+export function prunePresentation(pres, { work = 2e7, seconds = 6 } = {}) {
+    if (!pres || pres.error || !Array.isArray(pres.relators) || pres.relators.length <= 1 || work <= 0) return pres;
+    const m = pres.gens ? pres.gens.length : 0;
+    if (!m) return pres;
+    const ab = pres.abelian || abelianInvariants(m, pres.relators);
+    const P = pruneRelators(m, pres.relators, { work, seconds });
+    if (!P.dropped) return pres;
+    const after = abelianInvariants(m, P.relators);
+    if (after.rank !== ab.rank || JSON.stringify(after.torsion) !== JSON.stringify(ab.torsion)) return pres;
+    const prevBefore = pres.pruned ? pres.pruned.before : pres.relators.length;
+    const prevMs = pres.pruned ? pres.pruned.ms : 0;
+    pres.relators = P.relators;
+    pres.pruned = { before: prevBefore, dropped: prevBefore - P.relators.length, ms: prevMs + P.ms };
+    return pres;
 }

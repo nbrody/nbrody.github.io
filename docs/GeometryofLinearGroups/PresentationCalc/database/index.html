@@ -16,12 +16,17 @@
         <a class="quiet" href="../">calculator ↗</a>
     </header>
 
-    <p class="lead-in">Two-generator subgroups <span class="m">\Gamma = \langle g_1, g_2 \rangle \le \mathrm{PGL}_2(\mathbb{Q})</span> with both generators of height at most <span class="m">\log B</span>, run through the <a href="../">Presentation Calculator</a>’s four steps. The height is <span class="m">h(g) = \log \sigma_1(\tilde g)</span> for the primitive integral representative <span class="m">\tilde g</span>: half the displacement of the basepoint of <span class="m">\mathbb{H}^2 \times \prod_p T_p</span>, with a tree edge at <span class="m">p</span> counting <span class="m">\log p</span>. Each pair is listed once up to swapping, inverting either generator, and conjugating by the Klein four-group that fixes the basepoint.</p>
+    <p class="lead-in" id="lead-q">Two-generator subgroups <span class="m">\Gamma = \langle g_1, g_2 \rangle \le \mathrm{PGL}_2(\mathbb{Q})</span> with both generators of height at most <span class="m">\log B</span>, run through the <a href="../">Presentation Calculator</a>’s steps. The height is <span class="m">h(g) = \log \sigma_1(\tilde g)</span> for the primitive integral representative <span class="m">\tilde g</span>: half the displacement of the basepoint of <span class="m">\mathbb{H}^2 \times \prod_p T_p</span>, with a tree edge at <span class="m">p</span> counting <span class="m">\log p</span>. Each pair is listed once up to swapping, inverting either generator, and conjugating by the Klein four-group that fixes the basepoint.</p>
     <p class="lead-in" id="lead-field"></p>
 
     <section class="card" id="summary-card">
         <h2>By height <span class="tag" id="db-meta"></span></h2>
-        <div class="filters"><label class="f">field <select id="field-select"><option value="Q">ℚ</option></select></label><label class="f">data set <select id="set-select"></select></label><label class="f" id="group-toggle" hidden><input type="checkbox" id="by-group"> one row per group (up to conjugacy and generators)</label><span class="note" id="set-note"></span></div>
+        <div class="filters">
+            <label class="f">field <select id="field-select"><option value="Q">ℚ</option></select></label>
+            <label class="f">data set <select id="set-select"></select></label>
+            <label class="f" id="group-toggle" hidden><input type="checkbox" id="by-group"> one row per group (up to conjugacy and generators)</label>
+            <span class="note" id="set-note"></span>
+        </div>
         <div id="summary"></div>
     </section>
 
@@ -29,10 +34,38 @@
         <h2>Groups</h2>
         <div class="filters">
             <div class="pills" id="verdict-pills" role="group" aria-label="Verdicts shown"></div>
-            <label class="f">reason <select id="why-select"><option value="">any</option></select></label>
-            <label class="f"><span id="bound-label">σ₁ ≤</span> <select id="bound-select"></select></label>
+            <div class="presets" role="group" aria-label="Verdict presets">
+                <button type="button" class="chip-btn" data-preset="all">all</button>
+                <button type="button" class="chip-btn" data-preset="decided">decided</button>
+                <button type="button" class="chip-btn" data-preset="undetermined">undetermined</button>
+            </div>
         </div>
-        <p class="note" id="count-line"></p>
+        <div class="filters filters-sub">
+            <label class="f f-search">search <input type="search" id="q-input" placeholder="matrix, key, S, relator…" autocomplete="off" spellcheck="false"></label>
+            <label class="f"><span id="bound-label">σ₁ ≤</span> <select id="bound-select"></select></label>
+            <label class="f">reason <select id="why-select"><option value="">any</option></select></label>
+            <label class="f">primes in S <input type="text" id="prime-input" class="f-short" placeholder="e.g. 2,3 or ∅" autocomplete="off" spellcheck="false"></label>
+            <label class="f">index <input type="text" id="index-input" class="f-short" placeholder="e.g. <=24" autocomplete="off" spellcheck="false"></label>
+            <label class="f">congruence <select id="cong-select">
+                <option value="">any</option>
+                <option value="full">full PSL₂(ℤ[1/S])</option>
+                <option value="Γ₀(N)">Γ₀(N) / Γ⁰(N)</option>
+                <option value="Γ₁(N)">±Γ₁(N) / ±Γ¹(N)</option>
+                <option value="Γ(N)">principal Γ(N)</option>
+                <option value="other">other congruence H₀</option>
+            </select></label>
+            <label class="f">H₁ <select id="h1-select">
+                <option value="">any</option>
+                <option value="inf">infinite (rank ≥ 1)</option>
+                <option value="rank2">rank ≥ 2</option>
+                <option value="finite">finite (rank 0)</option>
+                <option value="torsion">has torsion</option>
+                <option value="trivial">trivial (0)</option>
+            </select></label>
+            <label class="f" id="closure-wrap">closure <select id="closure-select"><option value="">any</option></select></label>
+            <button type="button" class="chip-btn" id="reset-filters" hidden>reset filters</button>
+        </div>
+        <p class="note" id="count-line" aria-live="polite"></p>
         <div id="rows"></div>
         <button class="btn" id="more-btn" hidden>Show more</button>
     </section>
@@ -41,9 +74,10 @@
         <summary>The verdicts and the reasons</summary>
         <div>
             <p><b>Not Zariski dense</b> — step 1: Γ is finite, virtually abelian, or reducible.</p>
-            <p><b>Discrete at a place</b> — step 2: poincare proves Γ discrete in <span class="m">\mathrm{PGL}_2(\mathbb{R})</span>, or the tree algorithm proves it discrete in <span class="m">\mathrm{PGL}_2(\mathbb{Q}_p)</span>. A presentation is recorded when poincare reads one off the domain.</p>
-            <p><b>S-arithmetic</b> — step 4: FlashBeam covers the trees, re-checked exactly, and the stabilizer of the basepoint is a lattice at ∞, so <span class="m">\Gamma^{(2)}</span> has finite index in <span class="m">\mathrm{PGL}_2(\mathbb{Z}[1/S])</span> (up to conjugation).</p>
-            <p><b>Undetermined</b> — no step settles Γ. The reasons:</p>
+            <p><b>Discrete at a place</b> — step 2: Poincaré proves Γ discrete in <span class="m">\mathrm{PGL}_2(\mathbb{R})</span> or <span class="m">\mathrm{PSL}_2(\mathbb{C})</span>, or the tree algorithm proves it discrete in <span class="m">\mathrm{PGL}_2(K_{\mathfrak{p}})</span>. A presentation is recorded when Poincaré or Bass–Serre reads one off the fundamental domain.</p>
+            <p><b>S-arithmetic</b> — step 3: exact coset enumeration in <span class="m">\Lambda = \mathrm{PGL}_2(\mathcal{O}_S)</span>, Vaserstein’s cusp unipotent theorem, congruence-targeted stabilizer search, or FlashBeam’s tree covering + basepoint stabilizer proves that <span class="m">\Gamma^{(2)}</span> has finite index in <span class="m">\Lambda</span> (up to conjugation).</p>
+            <p><b>Thin</b> — step 3: Γ is Zariski dense and not discrete at any single place, yet certified of infinite index in <span class="m">\mathrm{PGL}_2(\mathbb{Z}[1/S])</span> — either because the vertex orbits on <span class="m">\prod_{p \in S} T_p</span> close up with finite or infinite-index Stallings stabilizers, or by an exact adelic / Bruhat–Tits ping-pong certificate.</p>
+            <p><b>Undetermined</b> — no step settles Γ within the run’s budget. The reasons:</p>
             <dl class="why-list" id="why-list"></dl>
         </div>
     </details>

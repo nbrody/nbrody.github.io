@@ -2,24 +2,54 @@
 .page.wide { max-width: 960px; }
 .lead-in { color: var(--muted); margin-bottom: 18px; }
 .m { white-space: nowrap; }
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 
 /* summary table */
 .sum { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 0.86rem; font-variant-numeric: tabular-nums; }
 .sum th, .sum td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--line); }
-.sum th { font-weight: 600; color: var(--faint); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.sum thead th { font-weight: 600; color: var(--faint); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.sum tbody th { font-weight: 400; color: var(--ink); text-align: left; }
 .sum th:first-child, .sum td:first-child { text-align: left; }
 .sum td.zero { color: var(--faint); }
 .sum td.hot { color: var(--warn); font-weight: 600; }
-.sum tr.total td { border-bottom: none; font-weight: 600; }
+.sum tr.total th, .sum tr.total td { border-bottom: none; font-weight: 600; }
 .sum-wrap { overflow-x: auto; }
 
 /* filters */
-.filters { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 10px; }
-.pills { display: flex; flex-wrap: wrap; gap: 6px; }
-.pill { font-family: var(--sans); font-size: 0.8rem; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 10px; }
+.filters-sub { padding-top: 4px; border-top: 1px solid var(--line); margin-top: 2px; }
+.pills, .presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pill { font-family: var(--sans); font-size: 0.8rem; border-radius: 999px; padding: 4px 11px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; transition: border-color 0.12s, background 0.12s, color 0.12s; }
+.pill:hover { border-color: var(--tone, var(--accent)); color: var(--ink); }
 .pill[aria-pressed="true"] { border-color: var(--tone, var(--accent)); color: var(--tone, var(--accent)); background: var(--tone-soft, var(--accent-soft)); }
+.chip-btn { font-family: var(--sans); font-size: 0.76rem; border-radius: 7px; padding: 3px 9px; border: 1px solid var(--line); background: var(--input-bg); color: var(--muted); cursor: pointer; }
+.chip-btn:hover { border-color: var(--accent); color: var(--accent); }
 .f { font-family: var(--sans); font-size: 0.82rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
-.f select { font-family: var(--sans); font-size: 0.82rem; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line); border-radius: 7px; padding: 3px 6px; }
+.f select, .f input[type="text"], .f input[type="search"] {
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    color: var(--ink);
+    background: var(--input-bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 4px 7px;
+}
+.f-search input { width: 13.5rem; }
+.f input.f-short { width: 6.8rem; }
+.pill:focus-visible, .chip-btn:focus-visible, .f select:focus-visible, .f input:focus-visible, .row-side button:focus-visible, .row-side a:focus-visible, details.card summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
 
 /* verdict tones */
 .t-notdense { --tone: var(--info); --tone-soft: var(--info-soft); }
@@ -39,9 +69,9 @@
 .what .vh { font-family: var(--sans); font-size: 0.84rem; color: var(--tone); font-weight: 600; }
 .what .vd { font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
 .row-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-family: var(--sans); font-size: 0.78rem; }
-.row-side a { white-space: nowrap; }
-.row-side button { font-family: var(--sans); font-size: 0.78rem; color: var(--faint); background: none; border: none; cursor: pointer; padding: 0; }
-.row-side button:hover { color: var(--accent); }
+.row-side a { white-space: nowrap; padding: 2px 0; }
+.row-side button { font-family: var(--sans); font-size: 0.78rem; color: var(--faint); background: none; border: none; cursor: pointer; padding: 3px 4px; border-radius: 4px; }
+.row-side button:hover { color: var(--accent); background: var(--accent-soft); }
 .detail { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 0.9rem; }
 .detail dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; }
 .detail dt { font-family: var(--sans); font-size: 0.78rem; color: var(--faint); padding-top: 2px; }
@@ -60,5 +90,7 @@ details.card p { margin-bottom: 8px; }
 @media (max-width: 640px) {
     .row-main { grid-template-columns: 1fr; }
     .row-side { flex-direction: row; align-items: center; gap: 14px; }
+    .f-search input { width: 100%; }
+    .pill, .chip-btn, .row-side button { min-height: 32px; padding: 5px 11px; }
 }
 #lead-field:empty { display: none; }

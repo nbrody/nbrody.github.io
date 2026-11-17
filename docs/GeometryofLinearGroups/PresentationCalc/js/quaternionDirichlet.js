@@ -22,7 +22,7 @@ import { Matrix2x2, Complex, translationTowards } from '../../Geometric/Tools/Kl
 import * as Zmod from './zeta.js';
 import { polyRoots, elemsOf, shortVectors, normFlat } from './quatOrders.js';
 
-const zetaApi = () => (Zmod && Zmod.default && Zmod.default.zetaK2 ? Zmod.default : globalThis.Zeta || (globalThis.self && globalThis.self.Zeta));
+const zetaApi = () => (Zmod && Zmod.zetaK2 ? Zmod : Zmod && Zmod.default && Zmod.default.zetaK2 ? Zmod.default : globalThis.Zeta || (globalThis.self && globalThis.self.Zeta));
 const C = (re, im = 0) => ({ re, im });
 const cadd = (a, b) => C(a.re + b.re, a.im + b.im);
 const cmul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);

@@ -5,8 +5,12 @@
  * Over ℚ(√−1), ℚ(√−2), ℚ(√−3) (kind 'bianchi'), the same from bianchiPresentation.js; and for a Γ of finite
  * index in PGL₂(O_k) (kind 'numberRing'), from Voronoi's presentation (numberRingPresentation.js).
  *
- * In:  { id, rows, S, levels, C, maxIndex, seconds }, { id, kind: 'bianchi', d, polySrc, rows, maxIndex, seconds }
- *      or { id, kind: 'numberRing', polySrc, rows, maxIndex, seconds }
+ * When step 3 decided Γ by coset enumeration in Λ = N(𝒪[1/S])/k^× (kind 'quaternion'), from that
+ * presentation of Λ (quaternionPresentation.js).
+ *
+ * In:  { id, rows, S, levels, C, maxIndex, seconds }, { id, kind: 'bianchi', d, polySrc, rows, maxIndex, seconds },
+ *      { id, kind: 'numberRing', polySrc, rows, maxIndex, seconds }
+ *      or { id, kind: 'quaternion', rows, poly, S, opts } (as quaternionWorker.js)
  * Out: { id, result } or { id, error }.
  */
 import { presentationReport } from './sarithPresentation.js';
@@ -16,6 +20,15 @@ import { wordMatrices } from './bianchi.js';
 self.onmessage = async (ev) => {
     const { id, kind, d, polySrc, rows, S, levels, C, maxIndex, seconds } = ev.data;
     try {
+        // ringEngine.js sets the global NumberRingEngine, which quaternionIndex.js needs: loaded first
+        if (kind === 'quaternion') {
+            await import('../../Algebraic/Tools/numberRings/ringEngine.js');
+            const { quaternionPresentation } = await import('./quaternionPresentation.js');
+            const { poly, opts } = ev.data;
+            const pres = quaternionPresentation(rows, poly.map(BigInt), S, opts || {});
+            self.postMessage({ id, result: JSON.parse(JSON.stringify({ kind: 'quaternion', pres }, (k, v) => (typeof v === 'bigint' ? String(v) : v))) });
+            return;
+        }
         // PGL₂(O_k) from Voronoi's algorithm: loaded here, since the ring engine loads with a top-level await
         if (kind === 'numberRing') {
             const { presentationReportNumberRing } = await import('./numberRingPresentation.js');

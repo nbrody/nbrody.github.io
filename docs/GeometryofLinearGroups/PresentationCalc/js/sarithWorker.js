@@ -31,6 +31,8 @@ import { Frac } from '../../Geometric/Tools/Kleinian/poincare/js/exact.js';
 import { CoveringProblem, runCovering, choosePlaces, harvest } from './covering.js';
 import { dirichletGenerators } from './adelic.js';
 import { orbitDecideAuto } from './orbits.js';
+import { certifyCongruenceStabilizer } from './congStab.js';
+import { certifyThinQ } from './thinCert.js';
 import { calibrationMs } from './calibrate.js';
 
 let problem = null, beam = null, field = null;
@@ -55,17 +57,21 @@ function fullSpeedClock(refMs, maxStretch) {
     return clock;
 }
 
-/** Per representative and tree: the state of each neighbour (parent first, then the children). */
+/**
+ * Per representative and tree: the state of each neighbour (parent first, then the children); null for a large
+ * tree, whose neighbours are never listed.
+ */
 function links(P) {
-    return P.reps.map((r, i) => r.tuple.map((vt, j) => P.places[j].neighbors(vt).map((u) => {
+    return P.reps.map((r, i) => r.tuple.map((vt, j) => (P.big[j] ? null : P.places[j].neighbors(vt).map((u) => {
         const t = r.tuple.slice(); t[j] = u;
         const id = P.tupleId(t);
         if (P.repIndex.has(id)) return 'rep';
         const hit = P.orbit.get(id);
         if (!hit) return 'open';
         return hit.rep === i ? 'self' : 'other';
-    })));
+    }))));
 }
+
 
 function vertexTex(P, j, vt) {
     const x = P.places[j].labelTex(vt);
@@ -91,6 +97,29 @@ self.onmessage = (ev) => {
             send({ type: 'orbits', ...r, groups: (r.groups || []).slice(0, 32) });
         } catch (e) {
             send({ type: 'error', error: e && e.message ? e.message : String(e) });
+        }
+        return;
+    }
+    if (cmd === 'congStab') {
+        try {
+            const stabWords = problem ? problem.stabilizerElements(600).map((e) => e.word) : (ev.data.stabWords || []);
+            const r = certifyCongruenceStabilizer(ev.data.rows, ev.data.S, {
+                stabWords,
+                levels: ev.data.levels || null,
+                seconds: ev.data.seconds ?? 8,
+            });
+            send({ type: 'congStab', ...r });
+        } catch (e) {
+            send({ type: 'congStab', ok: false, reason: e && e.message ? e.message : String(e), ms: 0 });
+        }
+        return;
+    }
+    if (cmd === 'thinCert') {
+        try {
+            const r = certifyThinQ(ev.data.rows, ev.data.S, { seconds: ev.data.seconds ?? 6 });
+            send({ type: 'thinCert', ...r });
+        } catch (e) {
+            send({ type: 'thinCert', thin: false, reason: e && e.message ? e.message : String(e), ms: 0 });
         }
         return;
     }
@@ -134,7 +163,7 @@ self.onmessage = (ev) => {
             const now = Date.now();
             if (now - last < 250 && !p.promoted) return;
             last = now;
-            send({ type: 'progress', ...p, links: links(problem), fast: problem.fast.map(Boolean), slow: clock ? clock.ratio() : 1 });
+            send({ type: 'progress', ...p, links: links(problem), fast: problem.fast.map(Boolean), slow: clock ? clock.ratio() : 1, stabFound: problem.stab.length, bigMode: problem.bigMode });
         });
         const P = problem;
         beam = res.beam;
@@ -148,6 +177,7 @@ self.onmessage = (ev) => {
             dirichlet: { pairs: dir.pairs, active: dir.active.length, tied: dir.tied.length, considered: dir.considered, points: dir.points },
             relations: P.relations.slice().sort((a, b) => a.length - b.length || (a.join() < b.join() ? -1 : 1)),
             collisions: P.collisionsSeen, redundant: P.relSet.redundant,
+            bigMode: P.bigMode, big: P.big,
         };
         if (res.status === 'covered') {
             out.verify = res.verify;

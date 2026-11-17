@@ -35,12 +35,11 @@ import { archClasses, sameTaus, tauValuesOf } from './archPlaces.js';
 import { placeVolumes, volumeDigits } from './placeVolumes.js';
 import { mathLines, innerTex } from './texText.js';
 import { zariskiCard, generatorDetailHtml, congruenceSection, zariskiLineTex, jointCongruenceLine, summaryTex, esc, mix } from './zariskiView.js';
-import { sarithCard, liveNumbers, wordText, gapText, presentationSection, presentationGap, relatorTexNamed, ordersFrom, orientRelator, graphTop } from './sarithView.js';
+import { sarithCard, liveNumbers, wordText, gapText, sageText, magmaText, presentationSection, presentationGap, presentationSage, presentationMagma, relatorTexNamed, ordersFrom, orientRelator, graphTop } from './sarithView.js';
 import { createInput, fromZariskiStyle } from './input.js';
 import { indexInPGL2Z } from './modularIndex.js';
-import { exactIndexCheck } from './sarithIndex.js';
 import { fuchsianPairTest } from './fuchsian2.js';
-import { bianchiRing, wordMatrices, indexInBianchi, indexInPGL2OS, unitDeterminants, squareClassIndex, RINGS } from './bianchi.js';
+import { bianchiRing, wordMatrices, indexInBianchi, unitDeterminants, squareClassIndex, RINGS } from './bianchi.js';
 import { descendToQ } from './descent.js';
 import { infiniteOrderWord } from './cusps.js';
 import { foldPGL2Z } from './stallings.js';
@@ -48,7 +47,7 @@ import { referenceMs } from './calibrate.js';
 import { randomGroup } from './randomGroup.js';
 import { elementarySection, elementaryTop } from './elementaryView.js';
 
-const VERSION = '2026-11-04a';          // busts the workers' module caches
+const VERSION = '2026-11-16a';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const ZARISKI_TIMEOUT = 120;
 const MAX_PRIMES = 12;
@@ -124,17 +123,76 @@ let input = null;
 
 const newStep = () => ({ status: 'idle', head: '', detail: '' });
 
+let sharedZariskiWorker = null;
+let sharedZariskiBusy = false;
+
+function acquireZariskiWorker() {
+    if (sharedZariskiWorker && !sharedZariskiBusy) {
+        sharedZariskiBusy = true;
+        return sharedZariskiWorker;
+    }
+    const w = new Worker(new URL(`../../Algebraic/Tools/zariskiClosure/zariskiWorker.js?v=${VERSION}`, import.meta.url));
+    if (!sharedZariskiWorker) { sharedZariskiWorker = w; sharedZariskiBusy = true; }
+    return w;
+}
+
+function releaseZariskiWorker(w, discard = false) {
+    if (w === sharedZariskiWorker) {
+        sharedZariskiBusy = false;
+        if (discard) {
+            try { w.terminate(); } catch (e) { /* gone */ }
+            sharedZariskiWorker = null;
+        }
+    } else {
+        try { w.terminate(); } catch (e) { /* gone */ }
+    }
+}
+
+function syncStopBtn() {
+    const btn = $('stop-btn');
+    if (!btn) return;
+    const busy = !!(run && !run.cancelled && (
+        STEPS.some((s) => run.steps[s].status === 'running') ||
+        (run.presentation && run.presentation.status === 'running')
+    ));
+    btn.hidden = !busy;
+}
+
 function cancelRun() {
     if (!run) return;
-    for (const w of run.workers) { try { w.terminate(); } catch (e) { /* gone */ } }
+    for (const w of run.workers) {
+        if (w === sharedZariskiWorker) releaseZariskiWorker(w, true);
+        else { try { w.terminate(); } catch (e) { /* gone */ } }
+    }
     run.workers.clear();
     run.cancelled = true;
+    syncStopBtn();
+}
+
+function stopCurrentRun() {
+    if (!run || run.cancelled) return;
+    const R = run;
+    cancelRun();
+    for (const s of STEPS) {
+        if (R.steps[s].status === 'running') {
+            Object.assign(R.steps[s], { status: 'open', head: 'Stopped', detail: 'Stopped by user.' });
+        }
+    }
+    if (R.presentation && R.presentation.status === 'running') {
+        R.presentation = { status: 'error', error: 'stopped' };
+    }
+    renderSteps();
+    renderVerdict();
+    for (const c of CARDS) if (!$(`card-${c}`).hidden) refreshView(c);
+    setStageStatus('Stopped.');
+    syncStopBtn();
 }
 
 function setStep(name, status, head, detail = '') {
     if (!run) return;
     Object.assign(run.steps[name], { status, head, detail });
     renderSteps();
+    syncStopBtn();
     // an S-arithmetic Γ over ℚ: standard generators, the congruence description, a presentation
     // (a lattice at one place has Poincaré's presentation already)
     if (name === 'sarith' && status === 'yes' && /arithmetic/i.test(head) && !(run.sarith && run.sarith.lattice)) startPresentation(run);
@@ -147,38 +205,54 @@ function setStep(name, status, head, detail = '') {
 function startPresentation(R) {
     if (!R || R.presentation || !R.model || !R.zariski || !R.zariski.arith) return;
     if (R.engineCong === 'running') { R.presentationWanted = true; return; }   // engineCongruenceDone calls back
-    // (a definite algebra: Γ is not in a Bianchi group, and no presentation is computed yet)
-    if (R.sarith && R.sarith.exact && R.sarith.exact.quaternion) return;
+    // step 3 found the index by coset enumeration in Λ = N(𝒪[1/S])/k^× (quaternionIndex.js): Γ's from Λ's presentation
+    const quat = !!(R.sarith && R.sarith.exact && R.sarith.exact.quaternion && R.sarith.exact.index);
+    if (R.sarith && R.sarith.exact && R.sarith.exact.quaternion && !quat) return;
     const ring = R.model.degree === 2 ? bianchiRing(R.model.polySrc) : null;
     // step 3 found the index by coset enumeration in PGL₂(O_k) (Voronoi's presentation): Γ's from the same table
     const nr = R.model.degree > 1 && !ring && !!(R.sarith && R.sarith.exact && R.sarith.exact.numberRing);
-    if (R.model.degree !== 1 && !ring && !nr) return;
+    if (R.model.degree !== 1 && !ring && !nr && !quat) return;
     const A = R.zariski.arith;
     const S = A.ring.S.map((x) => x.p);
     const cong = R.congruence && R.congruence.result;
     R.presentation = { status: 'running' };
-    let worker;
-    try { worker = new Worker(new URL(`./presentationWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
-    catch (e) { R.presentation = { status: 'error', error: 'module workers are unavailable here' }; return; }
-    R.workers.add(worker);
+    syncStopBtn();
+
+    // Reuse Step 3's warm quaternionWorker or numberRingWorker when available so Λ is not rebuilt twice
+    const reused = quat && R.quatWorker ? R.quatWorker : nr && R.nrWorker ? R.nrWorker : null;
+    if (quat) R.quatWorker = null;
+    if (nr) R.nrWorker = null;
+    let worker = reused;
+    if (!worker) {
+        try { worker = new Worker(new URL(`./presentationWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
+        catch (e) { R.presentation = { status: 'error', error: 'module workers are unavailable here' }; syncStopBtn(); return; }
+        R.workers.add(worker);
+    }
     const done = (m) => {
         clearTimeout(timer);
         try { worker.terminate(); } catch (e) { /* gone */ }
         R.workers.delete(worker);
+        R.arithWorkers.delete(worker);
         if (R !== run) return;
         R.presentation = m.error ? { status: 'error', error: m.error } : { status: 'done', result: m.result };
         refreshView('sarith');
         renderPresentation();
+        syncStopBtn();
     };
-    const timer = setTimeout(() => done({ error: 'no answer after 90 s' }), 90000);
+    const timer = setTimeout(() => done({ error: 'no answer after 90 s' }), timeLimit(R, 90) * 1000);
     worker.onmessage = (ev) => done(ev.data);
     worker.onerror = (e) => { e.preventDefault?.(); done({ error: e.message || 'the worker failed to load' }); };
+    if (quat) {
+        const job = definiteParams(R.model, A);
+        worker.postMessage({ id: R.seq, ...(reused ? { cmd: 'presentation' } : { kind: 'quaternion' }), ...job, opts: { ...job.opts, seconds: timeLimit(R, 20), buildSeconds: timeLimit(R, 25) } });
+        return;
+    }
     if (ring) {
         worker.postMessage({ id: R.seq, kind: 'bianchi', d: ring, polySrc: R.model.polySrc, rows: R.model.mats.map((r) => r.map((e) => e.src)), maxIndex: 20000, seconds: timeLimit(R, 20) });
         return;
     }
     if (nr) {
-        worker.postMessage({ id: R.seq, kind: 'numberRing', polySrc: R.model.polySrc, rows: R.model.mats.map((r) => r.map((e) => e.src)), maxIndex: 5000, seconds: timeLimit(R, 20) });
+        worker.postMessage({ id: R.seq, ...(reused ? { cmd: 'presentation' } : { kind: 'numberRing' }), polySrc: R.model.polySrc, rows: R.model.mats.map((r) => r.map((e) => e.src)), maxIndex: 20000, seconds: timeLimit(R, 20) });
         return;
     }
     worker.postMessage({
@@ -263,16 +337,24 @@ function startZariski() {
     const R = run;
     let worker;
     try {
-        worker = new Worker(new URL(`../../Algebraic/Tools/zariskiClosure/zariskiWorker.js?v=${VERSION}`, import.meta.url));
+        worker = acquireZariskiWorker();
     } catch (e) {
         zariskiDone(R, { ok: false, error: 'workers are unavailable here' });
         return;
     }
     R.workers.add(worker);
-    const done = (res) => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); zariskiDone(R, res); };
-    const timer = setTimeout(() => done({ ok: false, error: `no answer after ${timeLimit(R, ZARISKI_TIMEOUT)} s` }), timeLimit(R, ZARISKI_TIMEOUT) * 1000);
-    worker.onmessage = (ev) => done(ev.data.result);
-    worker.onerror = (e) => { e.preventDefault?.(); done({ ok: false, error: e.message || 'the worker failed to load' }); };
+    let answered = false;
+    const done = (res, discard = false) => {
+        if (answered) return;
+        answered = true;
+        clearTimeout(timer);
+        R.workers.delete(worker);
+        releaseZariskiWorker(worker, discard);
+        zariskiDone(R, res);
+    };
+    const timer = setTimeout(() => done({ ok: false, error: `no answer after ${timeLimit(R, ZARISKI_TIMEOUT)} s` }, true), timeLimit(R, ZARISKI_TIMEOUT) * 1000);
+    worker.onmessage = (ev) => done(ev.data.result, false);
+    worker.onerror = (e) => { e.preventDefault?.(); done({ ok: false, error: e.message || 'the worker failed to load' }, true); };
     // without the congruence closure, which can take far longer over a big field: it runs after step 1
     // (startEngineCongruence), and steps 2 and 3 need only the density, k, A and S
     worker.postMessage({ id: R.seq, state: zariskiState(R.model), opts: { congruence: false } });
@@ -288,26 +370,26 @@ function startEngineCongruence(R) {
     setStep('congruence', 'running', 'Computing…', 'Prime by prime, at the primes where the closure can be smaller.');
     let worker;
     try {
-        worker = new Worker(new URL(`../../Algebraic/Tools/zariskiClosure/zariskiWorker.js?v=${VERSION}`, import.meta.url));
+        worker = acquireZariskiWorker();
     } catch (e) {
         engineCongruenceDone(R, { error: 'workers are unavailable here' });
         return;
     }
     R.workers.add(worker);
     let answered = false;
-    const done = (res) => {
+    const done = (res, discard = false) => {
         if (answered) return;
         answered = true;
         clearTimeout(timer);
-        try { worker.terminate(); } catch (e) { /* gone */ }
         R.workers.delete(worker);
+        releaseZariskiWorker(worker, discard);
         if (R !== run) return;
         const C = res && res.ok && res.arith ? res.arith.congruence : null;
         engineCongruenceDone(R, C || { error: res && res.error ? res.error : 'no congruence closure was returned' });
     };
-    const timer = setTimeout(() => done({ ok: false, error: `no answer after ${timeLimit(R, ENGINE_CONG_TIMEOUT)} s` }), timeLimit(R, ENGINE_CONG_TIMEOUT) * 1000);
-    worker.onmessage = (ev) => done(ev.data.result);
-    worker.onerror = (e) => { e.preventDefault?.(); done({ ok: false, error: e.message || 'the worker failed to load' }); };
+    const timer = setTimeout(() => done({ ok: false, error: `no answer after ${timeLimit(R, ENGINE_CONG_TIMEOUT)} s` }, true), timeLimit(R, ENGINE_CONG_TIMEOUT) * 1000);
+    worker.onmessage = (ev) => done(ev.data.result, false);
+    worker.onerror = (e) => { e.preventDefault?.(); done({ ok: false, error: e.message || 'the worker failed to load' }, true); };
     worker.postMessage({ id: R.seq, state: zariskiState(R.model) });
 }
 
@@ -966,8 +1048,7 @@ function updateShadow(R) {
     const arch = R.places.filter((p) => p.tool === 'poincare');
     const ekey = (p, a) => `${p.key}:${a.rootIndex}`;
     let res;
-    if (sm.cusps) res = { ok: false, reason: 'cusped' };
-    else if ((src.state.anti || []).some(Boolean)) res = { ok: false, reason: 'mirror' };
+    if ((src.state.anti || []).some(Boolean)) res = { ok: false, reason: 'mirror' };
     else if (!sm.cycle) res = { ok: false, reason: 'none' };
     else {
         const embeddings = arch.flatMap((p) => (p.members || [p]).map((a) => ({ key: ekey(p, a), root: a.root })));
@@ -987,8 +1068,10 @@ function updateShadow(R) {
 }
 
 const SHADOW_SKIP = {
-    cusped: 'the domain has cusps, and the sum here needs a compact one',
-    ideal: 'the domain has ideal vertices, and the sum here needs a compact one',
+    ideal: 'the domain has vertices beyond $\\partial\\mathbb{H}^3$ (infinite volume)',
+    'cusp-cell': 'the cells around an ideal vertex could not be read cleanly in floating point',
+    'cusp-parabolic': 'no parabolic element was found at an ideal vertex of the domain',
+    'cusp-edge': 'the cells around an edge at a cusp could not be read cleanly in floating point',
     mirror: 'some generators reverse orientation',
     stabilizer: 'every basepoint tried is fixed by an elliptic element',
     euler: 'the vertices of the domain could not be read cleanly in floating point',
@@ -1644,7 +1727,7 @@ function startCovolume(R, pl, how) {
     const done = (zeta) => applyCovolume(R, pl, how, shape, zeta, kind);
     if (A.k.d === 1) { done({ value: Math.PI ** 2 / 6, digits: 15 }); return; }
     let worker;
-    try { worker = new Worker(new URL(`./covolumeWorker.js?v=${VERSION}`, import.meta.url)); } catch (e) { return; }
+    try { worker = new Worker(new URL(`./covolumeWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); } catch (e) { return; }
     R.workers.add(worker);
     const stop = () => { clearTimeout(timer); try { worker.terminate(); } catch (e) { /* gone */ } R.workers.delete(worker); };
     const timer = setTimeout(stop, COVOL_SECONDS * 1000);
@@ -1758,7 +1841,45 @@ function sarithApplicable(R, factors) {
 
 
 
-function startSarith(afterCusps = false, noWait = false, definiteResult = undefined) {
+function sarithIndexJob(R, cb) {
+    const m = R.model, A = R.zariski.arith;
+    const isQ = m.degree === 1;
+    const d = m.degree === 2 && A.ring.S.length ? bianchiRing(m.polySrc) : null;
+    if (!isQ && !d) { cb(null); return; }
+    if (isQ && !A.ring.S.length) { cb(null); return; }
+    setStep('sarith', 'running', 'Coset enumeration…', isQ
+        ? 'Enumerating the cosets of $\\Gamma$ in $\\mathrm{PGL}_2(\\mathbb{Z}[1/S])$, then FlashBeam if it does not close.'
+        : 'Enumerating the cosets of $\\Gamma$ in $\\mathrm{PGL}_2(\\mathcal{O}[1/S])$, then FlashBeam if it does not close.');
+    let worker;
+    try { worker = new Worker(new URL(`./sarithIndexWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
+    catch (e) { cb(null); return; }
+    arithWorker(R, worker);
+    const ep = R.arithEpoch;
+    let answered = false;
+    const secs = timeLimit(R, isQ ? 3 : 4);
+    const done = (res) => {
+        if (answered) return;
+        answered = true;
+        clearTimeout(timer);
+        dropWorker(R, worker);
+        if (R !== run || R.arithEpoch !== ep || R.cancelled) return;
+        cb(res);
+    };
+    const timer = setTimeout(() => done({ index: null, limit: 'time' }), (secs + 15) * 1000);
+    worker.onmessage = (ev) => done(ev.data.result);
+    worker.onerror = (e) => { e.preventDefault?.(); done({ index: null, error: e.message || 'the worker failed to load' }); };
+    worker.postMessage({
+        id: R.seq,
+        kind: isQ ? 'q' : 'bianchi',
+        rows: m.mats.map((row) => row.map((e) => e.src)),
+        S: A.ring.S.map((x) => x.p),
+        polySrc: m.polySrc,
+        seconds: secs,
+        express: true,
+    });
+}
+
+function startSarith(afterCusps = false, noWait = false, exactResult = undefined) {
     const R = run, A = R.zariski.arith, m = R.model, st = R.settings;
     // a definite quaternion algebra over ℚ: coset enumeration in N(𝒪[1/S])/ℚ^× once step 1's congruence
     // closure has named the primes where Γ is deficient (the candidate levels), or after a few seconds
@@ -1769,10 +1890,13 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
         setStep('sarith', 'running', 'Waiting…', 'Coset enumeration starts once the congruence closure has named the candidate levels.');
         return;
     }
-    // over a definite algebra, coset enumeration runs in a worker, and comes back here with its result
-    if (definite && definiteResult === undefined) { definiteJob(R); return; }
-    // exact first: coset enumeration in PGL₂(ℤ[1/S]), N(𝒪[1/S])/k^× or PGL₂(O[1/S])
-    const ex = m.degree === 1 ? exactIndexCheck(m.mats.map((row) => row.map((e) => e.src)), A.ring.S.map((x) => x.p), { express: true }) : definite ? definiteResult : bianchiExact(m, A);
+    // exact first (all off the main thread): N(𝒪[1/S])/k^×, PGL₂(ℤ[1/S]) or PGL₂(O[1/S])
+    if (definite && exactResult === undefined) { definiteJob(R); return; }
+    if (!definite && exactResult === undefined && !afterCusps && (m.degree === 1 ? A.ring.S.length > 0 : !!(m.degree === 2 && A.ring.S.length && bianchiRing(m.polySrc)))) {
+        sarithIndexJob(R, (res) => startSarith(afterCusps, noWait, res ?? null));
+        return;
+    }
+    const ex = exactResult || null;
     if (ex && ex.index && ex.quaternion) { quaternionFound(R, ex); return; }
     if (ex && ex.index && ex.ring) {
         // over ℚ(√−1), ℚ(√−2), ℚ(√−3): coset enumeration in PGL₂(O[1/S])
@@ -1822,8 +1946,8 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
         numberRingJob(R, m.mats.map((_, i) => [i + 1]), (res) => {
             if (res && res.index) { numberRingFound(R, res); return; }
             R.nrResult = res && res.applies !== false ? res : null;
-            startSarith(false, true);
-        }, NR_SECONDS, true);
+            startSarith(false, true, null);
+        }, NR_SECONDS, true, true);
         return;
     }
     // bounded at every prime, over a field with infinitely many units: a full lattice of unipotents
@@ -1871,7 +1995,9 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
             const slow = msg.slow > 1.5
                 ? ` The browser is running this search about ${Math.round(msg.slow)} times slower than at full speed, probably because the page is in the background, so its time budget is stretched to match.`
                 : '';
-            setStep('sarith', 'running', 'Searching…', (R.sarith.places.length
+            setStep('sarith', 'running', 'Searching…', (msg.bigMode
+                ? `Iteration ${msg.stats.iteration}: ${msg.stabFound} element${msg.stabFound === 1 ? '' : 's'} fixing $o$, ${rel}.`
+                : R.sarith.places.length
                 ? `Iteration ${msg.stats.iteration}: ${msg.covered} of ${msg.targets} neighbours, ${msg.reps} representative${msg.reps === 1 ? '' : 's'}, ${rel}.`
                 : `Iteration ${msg.stats.iteration}: ${rel}.`) + slow);
             patchSarith(msg.promoted);
@@ -1887,6 +2013,14 @@ function startSarith(afterCusps = false, noWait = false, definiteResult = undefi
         } else if (msg.type === 'orbits') {
             const h = R.sarith.orbitsWaiting;
             R.sarith.orbitsWaiting = null;
+            if (h) h(msg);
+        } else if (msg.type === 'congStab') {
+            const h = R.sarith.congStabWaiting;
+            R.sarith.congStabWaiting = null;
+            if (h) h(msg);
+        } else if (msg.type === 'thinCert') {
+            const h = R.sarith.thinCertWaiting;
+            R.sarith.thinCertWaiting = null;
             if (h) h(msg);
         } else if (msg.type === 'elements') {
             const h = R.sarith.elementsWaiting;
@@ -1958,11 +2092,15 @@ function definiteJob(R) {
         if (answered) return;
         answered = true;
         clearTimeout(timer);
-        dropWorker(R, worker);
-        if (R !== run || R.arithEpoch !== ep || R.cancelled) return;
         const ex = result ? { ...result, quaternion: true } : null;
-        if (ex && ex.index) quaternionFound(R, ex);
-        else startSarith(false, true, ex);
+        if (R !== run || R.arithEpoch !== ep || R.cancelled || !(ex && ex.index)) {
+            dropWorker(R, worker);
+            if (R !== run || R.arithEpoch !== ep || R.cancelled) return;
+            startSarith(false, true, ex);
+            return;
+        }
+        R.quatWorker = worker; // kept warm for startPresentation(R)
+        quaternionFound(R, ex);
     };
     const timer = setTimeout(() => done({ index: null, error: `no answer after ${timeLimit(R, DEFINITE_TIMEOUT)} s` }), timeLimit(R, DEFINITE_TIMEOUT) * 1000);
     worker.onmessage = (ev) => done(ev.data.result);
@@ -1994,16 +2132,6 @@ function quaternionFound(R, ex) {
     if (!R.userPicked) showView('sarith', null, { auto: true });
 }
 
-/** Over ℚ(√−1), ℚ(√−2), ℚ(√−3) with S ≠ ∅: [PGL₂(O[1/S]) : Γ] by coset enumeration (bianchi.js; also batch/pipeline.mjs). */
-function bianchiExact(m, A) {
-    const d = m.degree === 2 && A.ring.S.length ? bianchiRing(m.polySrc) : null;
-    if (!d) return null;
-    const gens = wordMatrices(d, m.mats.map((row) => row.map((e) => e.src)), m.mats.map((_, i) => [i + 1]), m.polySrc);
-    if (!gens) return null;
-    const r = indexInPGL2OS(d, gens, { seconds: 4, maxCosets: 1500000 });
-    return { index: r.index ?? null, limit: r.limit ?? null, error: r.error ?? null, S: r.S || [], kernelIndex: 1, ms: r.ms ?? null, ring: d };
-}
-
 // ───────────────────────── PGL₂(O_k) from Voronoi's algorithm (numberRingIndex.js) ─────────────────────────
 const NR_SECONDS = 20, NR_TIMEOUT = 150;
 /** S = ∅, k = the field of definition, A split, Γ unbounded at ≥ 2 places at ∞ (the worker checks the field type). */
@@ -2013,7 +2141,7 @@ function numberRingWanted(R) {
     return A.k.r1 - A.A.ram.filter((r) => r.kind === 'real').length + A.k.r2 >= 2;
 }
 /** [PGL₂(O_k) : ⟨words in the generators⟩] in a worker; cb(result) with indexInPGL2O's record, { applies: false } or { error }. */
-function numberRingJob(R, words, cb, seconds = NR_SECONDS, express = false) {
+function numberRingJob(R, words, cb, seconds = NR_SECONDS, express = false, keepWarm = false) {
     const m = R.model;
     let worker;
     try { worker = new Worker(new URL(`./numberRingWorker.js?v=${VERSION}`, import.meta.url), { type: 'module' }); }
@@ -2025,8 +2153,12 @@ function numberRingJob(R, words, cb, seconds = NR_SECONDS, express = false) {
         if (answered) return;
         answered = true;
         clearTimeout(timer);
-        dropWorker(R, worker);
-        if (R !== run || R.arithEpoch !== ep || R.cancelled) return;
+        if (R !== run || R.arithEpoch !== ep || R.cancelled || !(keepWarm && result && result.index)) {
+            dropWorker(R, worker);
+            if (R !== run || R.arithEpoch !== ep || R.cancelled) return;
+        } else {
+            R.nrWorker = worker;
+        }
         cb(result);
     };
     const timer = setTimeout(() => done({ index: null, error: `no answer after ${timeLimit(R, NR_TIMEOUT)} s` }), timeLimit(R, NR_TIMEOUT) * 1000);
@@ -2208,10 +2340,65 @@ function runOrbits(R, msg) {
             renderVerdict(); refreshView('sarith');
             return;
         }
-        if (!((msg.status === 'covered' || msg.auto) && S.certifiable && S.arch)) stopWorker();
         sarithDone(R, msg);
     };
     S.worker.postMessage({ id: R.seq, cmd: 'orbits', rows: R.model.mats.map((r) => r.map((e) => e.src)), S: R.zariski.arith.ring.S.map((x) => x.p), seconds: timeLimit(R, ORBIT_SECONDS) });
+}
+
+/**
+ * Over ℚ (S ≠ ∅), before giving up after FlashBeam / orbits / stabilizer checks:
+ *   1. Congruence-targeted stabilizer certificate (congStab.js): Stallings folding of Δ_o = Δ ∩ PGL₂(ℤ)
+ *      + targeted meet-in-the-middle / FlashBeam search (Appendix A of arXiv:2308.07785).
+ *   2. Exact thinness certificates (thinCert.js): Bass–Serre tower ping-pong and adelic ping-pong.
+ */
+function tryQCertificates(R, onFail) {
+    const S = R.sarith;
+    if (!orbitsApply(R) || S.qCertsTried || !S.worker) { onFail(); return; }
+    S.qCertsTried = true;
+    const rows = R.model.mats.map((r) => r.map((e) => e.src));
+    const Sprimes = R.zariski.arith.ring.S.map((x) => x.p);
+    const Ltex = `\\mathrm{PGL}_2(\\mathbb{Z}[1/${Sprimes.join('\\cdot ')}])`;
+    const congRes = R.congruence && R.congruence.result;
+    const levels = congRes && congRes.levels ? Object.entries(congRes.levels).map(([p, k]) => Number(p) ** Number(k)) : null;
+
+    setStep('sarith', 'running', 'Congruence stabilizer…', 'Testing whether $\\Gamma$ contains the congruence stabilizer $\\Delta_o = \\Delta \\cap \\mathrm{PGL}_2(\\mathbb{Z})$.');
+    refreshView('sarith');
+    S.congStabWaiting = (cs) => {
+        if (R !== run) return;
+        if (cs && cs.ok) {
+            if (S.worker) { dropWorker(R, S.worker); S.worker = null; }
+            Object.assign(S, { phase: 'done', status: 'yes', congStab: cs });
+            const secs = `${(cs.ms / 1000).toFixed(1)} s`;
+            S.head = [
+                cs.method === 'stallings'
+                    ? `Stallings folding in $\\mathrm{PGL}_2(\\mathbb{Z})$ on the ${cs.used} stabilizer elements found closes up with index $${cs.stabIndex}$.`
+                    : `From the congruence levels $${(cs.levels || []).join(', ') || '1'}$, $\\Delta_o = \\Delta \\cap \\mathrm{PGL}_2(\\mathbb{Z})$ has index $${cs.deltaIndex}$ in $\\mathrm{PGL}_2(\\mathbb{Z})$, and a targeted search in $\\Gamma$ found generators of a subgroup of index $${cs.stabIndex}$ in $\\mathrm{PGL}_2(\\mathbb{Z})$.`,
+                `Since $\\Gamma$ is Zariski dense and unbounded at every prime of $S$, containing a finite-index subgroup of $\\mathrm{PGL}_2(\\mathbb{Z})$ forces $[${Ltex} : \\Gamma^{(2)}] < \\infty$ (Appendix A of arXiv:2308.07785): $\\Gamma$ is S-arithmetic.`,
+            ];
+            setStep('sarith', 'yes', 'S-arithmetic', `$\\Gamma$ contains a subgroup of index $${cs.stabIndex}$ in $\\mathrm{PGL}_2(\\mathbb{Z})$${cs.method === 'congruence-mitm' ? ' via congruence-targeted stabilizer search' : ' by Stallings folding'} (${secs}), so $\\Gamma$ is S-arithmetic.`);
+            renderVerdict();
+            refreshView('sarith');
+            return;
+        }
+        if (!S.worker) { onFail(); return; }
+        setStep('sarith', 'running', 'Thinness certificates…', 'Searching for an exact rational or adelic ping-pong certificate that $[\\Lambda : \\Gamma] = \\infty$.');
+        refreshView('sarith');
+        S.thinCertWaiting = (th) => {
+            if (R !== run) return;
+            if (S.worker) { dropWorker(R, S.worker); S.worker = null; }
+            if (th && th.thin) {
+                Object.assign(S, { phase: 'done', status: 'yes', thin: true, thinCert: th });
+                S.head = th.lines;
+                setStep('sarith', 'yes', 'Thin', th.detail);
+                renderVerdict();
+                refreshView('sarith');
+                return;
+            }
+            onFail();
+        };
+        S.worker.postMessage({ id: R.seq, cmd: 'thinCert', rows, S: Sprimes, seconds: timeLimit(R, 6) });
+    };
+    S.worker.postMessage({ id: R.seq, cmd: 'congStab', rows, S: Sprimes, levels, seconds: timeLimit(R, 8) });
 }
 
 /**
@@ -2234,10 +2421,19 @@ function autoCovering(R, msg) {
 function autoCoveringLines(R, msg) {
     const a = msg.auto;
     return [
-        `It did not finish covering the trees (${msg.covered} of the ${msg.targets} neighbours), but the element $${wordTex(a.word, gName)}$ fixes $o$ and has infinite order (${a.why === 'parabolic' ? 'it is parabolic' : '$\\mathrm{tr}^2/\\det$ lies outside $[0, 4]$ at some place at $\\infty$'}).`,
+        `${msg.bigMode ? `The trees at ${bigTreesText(R, msg)} are too large to cover vertex by vertex` : `It did not finish covering the trees (${msg.covered} of the ${msg.targets} neighbours)`}, but the element $${wordTex(a.word, gName)}$ fixes $o$ and has infinite order (${a.why === 'parabolic' ? 'it is parabolic' : '$\\mathrm{tr}^2/\\det$ lies outside $[0, 4]$ at some place at $\\infty$'}).`,
         'So $\\Gamma$ is not discrete in $G_S = \\prod_{\\mathfrak{p} \\in S} \\mathrm{PGL}_2(k_\\mathfrak{p})$. It is Zariski dense in $\\mathrm{Res}_{k/\\mathbb{Q}} \\mathrm{PGL}_2$, so the Lie algebra of its closure $H$ is an ideal of $\\bigoplus_\\mathfrak{p} \\mathfrak{sl}_2(k_\\mathfrak{p})$, and a missing factor would make $\\Gamma$ discrete: $H$ is open.',
         'An open subgroup of $G_S$ that is unbounded at every $\\mathfrak{p}$ contains $\\prod_\\mathfrak{p} \\mathrm{PSL}_2(k_\\mathfrak{p})$, and $\\Gamma$ has the vertex orbits of $H$. So the orbits are the classes of vertex types that the determinants of $\\Gamma$ allow, the representatives the search starts from: no covering is needed.',
     ];
+}
+
+const BIG_VALENCE = 2000;            // as covering.js: a tree with more neighbours per vertex is not listed
+
+/** The large trees of a search, as TeX names: 𝔭 | p. */
+function bigTreesText(R, msg) {
+    const places = R.sarith.places || [];
+    const names = (msg.big || []).map((b, j) => (b && places[j] ? `$${R.model.degree > 1 && places[j].primeTex ? places[j].primeTex : places[j].p}$` : null)).filter(Boolean);
+    return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 function sarithDone(R, msg) {
@@ -2270,7 +2466,25 @@ function sarithDone(R, msg) {
     }
     if (msg.status !== 'covered' || !(msg.verify && msg.verify.ok)) {
         if (!S.archiveTried && vasersteinApplies(R) && S.worker) { archiveCusps(R, () => sarithDone(R, msg)); return; }
+        if (!S.qCertsTried && orbitsApply(R) && S.worker) { tryQCertificates(R, () => sarithDone(R, msg)); return; }
+        if (S.worker) { dropWorker(R, S.worker); S.worker = null; }
         Object.assign(S, { phase: 'done', status: 'open' });
+        if (msg.bigMode) {
+            const big = bigTreesText(R, msg), k = msg.stabFound || 0;
+            const why = k ? `the ${plural(k, 'element')} it found fixing $o$ ${k === 1 ? 'has' : 'have'} finite order` : 'it found no element of $\\Gamma$ other than $1$ fixing $o$';
+            S.head = [
+                `FlashBeam found ${S.found}.`,
+                `The trees at ${big} have more than ${BIG_VALENCE} neighbours at each vertex, so they are not covered vertex by vertex.`,
+                'Instead, one element of infinite order fixing $o$ would settle every tree at once: then $\\Gamma$ is not discrete in $G_S = \\prod_{\\mathfrak{p} \\in S} \\mathrm{PGL}_2(k_\\mathfrak{p})$, its closure there is open, and its vertex orbits are those of $\\prod_\\mathfrak{p} \\mathrm{PSL}_2(k_\\mathfrak{p})$.',
+                `After ${msg.iterations} iterations and ${msg.seconds.toFixed(0)} s, ${why}.`,
+                ...(msg.slow > 1.5 ? [`The browser ran the search about ${Math.round(msg.slow)} times slower than at full speed, so the time budget was stretched, by at most ${MAX_STRETCH} times.`] : []),
+                'If $\\Gamma_o$ is finite, $\\Gamma$ is discrete in $G_S$ and so thin; if it is infinite, $\\Gamma$ is S-arithmetic exactly when $\\Gamma_o$ is a lattice at $\\infty$. Nothing is claimed.',
+            ];
+            setStep('sarith', 'open', 'No certificate', `FlashBeam found ${S.found}. The trees at ${big} are too large to cover vertex by vertex, and ${why}.`);
+            renderVerdict();
+            refreshView('sarith');
+            return;
+        }
         S.head = msg.status === 'covered'
             ? [`FlashBeam found ${S.found}.`, 'It also found a covering of the trees, but the covering did not survive the exact re-check, so nothing is claimed.']
             : [
@@ -2502,6 +2716,7 @@ function cuspStabCheck(R, stab, attempt) {
 function finishStab(R, ok) {
     const S = R.sarith;
     if (!ok && !S.archiveTried && vasersteinApplies(R) && S.worker) { archiveCusps(R, () => finishStab(R, false)); return; }
+    if (!ok && !S.qCertsTried && orbitsApply(R) && S.worker) { tryQCertificates(R, () => finishStab(R, false)); return; }
     if (S.worker) { dropWorker(R, S.worker); S.worker = null; }
     const nR = S.result.reps.length;
     S.phase = 'done';
@@ -2653,7 +2868,7 @@ function presentationData() {
         // a very large presentation: the first relators and generators only (Copy for GAP, in step 3, has them all)
         const cap = 150, big = Pr.relators.length > cap;
         return {
-            source: 'Reidemeister–Schreier', rels: Pr.relators.slice(0, cap).map((w) => relatorTexNamed(w, names, orders)), count: Pr.relators.length,
+            source: Pr.route === 'labels' ? 'Modified Todd–Coxeter' : 'Reidemeister–Schreier', rels: Pr.relators.slice(0, cap).map((w) => relatorTexNamed(w, names, orders)), count: Pr.relators.length,
             note: big ? `the first ${cap} shown` : null, complete: true, free: !Pr.relators.length,
             extra: extra.length > 12 ? extra.slice(0, 12).concat([`\\ldots\\ (${extra.length - 12}\\text{ more})`]) : extra,
             toggle: hasGraph ? { to: 'nice', label: 'as a graph of groups' } : null,
@@ -2665,6 +2880,16 @@ function presentationData() {
         if (d && d.presentation && d.presentation.n === nGens) {
             return { source: `Geometric at $${placeTexLabel(pl)}$`, rels: d.presentation.relators.map((r) => relatorTex(r)), complete: true };
         }
+    }
+    const tc = R.sarith && R.sarith.thinCert && R.sarith.thinCert.presentation;
+    if (tc && tc.relators) {
+        const orders = ordersFrom(tc.relators);
+        return {
+            source: 'Ping-pong certificate',
+            rels: tc.relators.map((w) => relatorTex({ enc: w, m: 1 }, orders)),
+            complete: true,
+            free: !tc.relators.length,
+        };
     }
     const res = R.sarith && R.sarith.result;
     if (res && res.relations && res.relations.length) {
@@ -2680,8 +2905,10 @@ function renderPresentation() {
     const d = presentationData();
     if (!d) {
         const busy = run && STEPS.some((s) => run.steps[s].status === 'running');
-        const definite = run && run.sarith && run.sarith.exact && run.sarith.exact.quaternion && run.sarith.exact.index;
-        el.innerHTML = `<p class="rels-empty">${!run ? 'Relations appear here after Compute.' : busy ? 'Computing…' : definite ? 'Not computed yet in these generators: step 3 found the index by coset enumeration in the ambient group.' : 'No presentation found.'}</p>`;
+        const P = run && run.presentation;
+        const presBusy = P && P.status === 'running';
+        const presErr = P && (P.error || (P.result && P.result.pres && P.result.pres.error));
+        el.innerHTML = `<p class="rels-empty">${!run ? 'Relations appear here after Compute.' : busy || presBusy ? 'Computing…' : presErr ? `No presentation found: ${esc(String(presErr))}.` : 'No presentation found.'}</p>`;
         syncRelsHeight();
         return;
     }
@@ -2767,6 +2994,7 @@ function arithLine(R) {
             const nR = res.reps.length;
             if (!S.certifiable) parts.push(`FlashBeam found ${S.found}, but no covering certificate applies here.`);
             else if (res.status === 'covered' && res.verify && res.verify.ok) parts.push(`FlashBeam found ${S.found}, and it covered the trees with ${plural(nR, 'representative')}.`);
+            else if (res.bigMode) parts.push(`FlashBeam found ${S.found}, but ${res.stabFound ? 'no element of infinite order' : 'no element'} fixing $o$, which the trees at ${bigTreesText(R, res)} need: they are too large to cover vertex by vertex.`);
             else parts.push(`FlashBeam found ${S.found}, but no covering of the trees: ${plural(nR, 'representative')} cover ${res.covered} of the ${res.targets} neighbours.`);
         } else if (S.error) parts.push(`FlashBeam stopped: ${String(S.error).replace(/\$/g, '')}.`);
         // what decided it
@@ -3008,14 +3236,20 @@ function patchSarith(promoted) {
 }
 
 function wireSarithButtons() {
-    const pg = $('copy-pres-gap');
-    if (pg) pg.addEventListener('click', async () => {
-        const Pr = run.presentation && run.presentation.result && run.presentation.result.pres;
-        if (!Pr || Pr.error) return;
-        try { await navigator.clipboard.writeText(presentationGap(Pr)); pg.textContent = 'Copied'; }
-        catch (e) { pg.textContent = 'Copy failed'; }
-        setTimeout(() => { pg.textContent = 'Copy for GAP'; }, 1600);
-    });
+    const wireCopyPres = (id, label, fmt) => {
+        const btn = $(id);
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            const Pr = run.presentation && run.presentation.result && run.presentation.result.pres;
+            if (!Pr || Pr.error) return;
+            try { await navigator.clipboard.writeText(fmt(Pr)); btn.textContent = 'Copied'; }
+            catch (e) { btn.textContent = 'Copy failed'; }
+            setTimeout(() => { btn.textContent = label; }, 1600);
+        });
+    };
+    wireCopyPres('copy-pres-gap', 'Copy for GAP', presentationGap);
+    wireCopyPres('copy-pres-sage', 'Copy for Sage', presentationSage);
+    wireCopyPres('copy-pres-magma', 'Copy for Magma', presentationMagma);
     const copy = $('copy-cert');
     if (copy) copy.addEventListener('click', async () => {
         const S = run.sarith, r = S.result;
@@ -3030,13 +3264,19 @@ function wireSarithButtons() {
         catch (e) { copy.textContent = 'Copy failed'; }
         setTimeout(() => { copy.textContent = 'Copy the certificate (JSON)'; }, 1600);
     });
-    const gap = $('copy-gap');
-    if (gap) gap.addEventListener('click', async () => {
-        const r = run.sarith.result;
-        try { await navigator.clipboard.writeText(gapText(run.model.mats.length, r.relations)); gap.textContent = 'Copied'; }
-        catch (e) { gap.textContent = 'Copy failed'; }
-        setTimeout(() => { gap.textContent = 'Copy the relations for GAP'; }, 1600);
-    });
+    const wireCopyRels = (id, label, fmt) => {
+        const btn = $(id);
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            const r = run.sarith.result;
+            try { await navigator.clipboard.writeText(fmt(run.model.mats.length, r.relations)); btn.textContent = 'Copied'; }
+            catch (e) { btn.textContent = 'Copy failed'; }
+            setTimeout(() => { btn.textContent = label; }, 1600);
+        });
+    };
+    wireCopyRels('copy-gap', 'Copy for GAP', gapText);
+    wireCopyRels('copy-sage', 'Copy for Sage', sageText);
+    wireCopyRels('copy-magma', 'Copy for Magma', magmaText);
     const show = $('show-stab');
     if (show) show.addEventListener('click', () => showView('sarith', 'stabilizer'));
 }
@@ -3139,6 +3379,7 @@ function closeExamples() { $('ex-pop').hidden = true; $('examples-btn').setAttri
 
 function wire() {
     $('compute-btn').addEventListener('click', compute);
+    if ($('stop-btn')) $('stop-btn').addEventListener('click', stopCurrentRun);
     // an undecided Γ: the same run with longer time limits
     $('v-sub').addEventListener('click', (e) => {
         const b = e.target.closest('#more-time');

@@ -198,9 +198,10 @@ export function tietze(m, relators, { maxLen = 12, growth = 1.15, slack = 4, max
     // a match longer than half of r = u·v contains u's first q = ⌊|r|/2⌋ + 1 letters: relators are
     // indexed by hashes of their cyclic pieces of each length q in use
     const shorten = () => {
-        if (rels.size > shortenLimit) return false;
+        if (totalLength() > 250000) return false;
         let any = false;
         for (let pass = 0; pass < 1000 && Date.now() < deadline; pass++) {
+            const maxShortener = rels.size > shortenLimit ? 24 : 120;
             const words = [...rels.entries()];
             const index = new Map();                 // q → hash → [relator, position]
             const hashAt = (t, p, q) => { let h = 0; for (let j = 0; j < q; j++) h = (Math.imul(h, 1000003) + t[(p + j) % t.length] + 65536) | 0; return h; };
@@ -213,9 +214,10 @@ export function tietze(m, relators, { maxLen = 12, growth = 1.15, slack = 4, max
             };
             const dirty = new Set(), out = [];
             for (let a = 0; a < words.length; a++) {
+                if ((a & 63) === 0 && Date.now() >= deadline) break;
                 if (dirty.has(a)) continue;
                 const r = words[a][1], L = r.length;
-                if (L < 3 || L > 120) continue;
+                if (L < 3 || L > maxShortener) continue;
                 const q = Math.floor(L / 2) + 1, I = indexFor(q);
                 let best = null;
                 for (const rr of [r, invWord(r)]) for (let i = 0; i < L; i++) {
@@ -241,10 +243,11 @@ export function tietze(m, relators, { maxLen = 12, growth = 1.15, slack = 4, max
         }
         return any;
     };
-    for (let outer = 0; outer < 50; outer++) {
+    for (let outer = 0; outer < 50 && Date.now() < deadline; outer++) {
         for (let phase = prefer ? 0 : 1; phase < (prefer && keepPreferred ? 1 : 2); phase++) {
             const blocked = new Set();
             for (let round = 0; round < maxRounds; round++) {
+                if ((round & 63) === 0 && Date.now() >= deadline) break;
                 // a trivial generator goes first
                 const one = [...orders].find(([g, n]) => n === 1 && allowed(g, phase));
                 if (one) { eliminate(one[0], [], null); blocked.clear(); continue; }

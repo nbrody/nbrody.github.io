@@ -55,6 +55,8 @@ export function placeTex(pl, degree) {
 
 /** The link of a representative in one tree: the parent on top, the q children below. */
 function star(states) {
+    // a large tree: its neighbours are never listed
+    if (!states) return '<svg viewBox="0 0 88 88" aria-hidden="true"><circle class="st-center" cx="44" cy="44" r="5"/><circle class="st-open" cx="44" cy="44" r="30" fill="none" stroke-dasharray="2 3" stroke-opacity="0.5"/></svg>';
     const n = states.length, R = 34, c = 44;
     let s = `<svg viewBox="0 0 88 88" aria-hidden="true">`;
     states.forEach((st, k) => {
@@ -90,6 +92,8 @@ export function liveNumbers(S) {
         visited: r ? r.visited : p ? p.stats.visited : 0,
         reps: r ? r.reps.length : p ? p.reps : 1,
         covered, targets, frac: targets ? covered / targets : 0,
+        // a large tree: no neighbours are listed, and the elements fixing o carry the certificate
+        bigMode: !!(r ? r.bigMode : p && p.bigMode), stabFound: r ? r.stabFound : p ? p.stabFound || 0 : 0,
     };
 }
 
@@ -124,11 +128,32 @@ function scatter(points, weights, nArch, archNames = ['\\sigma_1', '\\sigma_2'])
     return svg + '</svg>';
 }
 
-/** GAP input for ⟨g₁, …, g_n | relators⟩. */
+function collectRuns(u, names, powOp = '^', idExpr = '1') {
+    if (!u || !u.length) return idExpr;
+    const parts = [];
+    for (let i = 0; i < u.length;) {
+        let j = i;
+        while (j < u.length && u[j] === u[i]) j++;
+        const e = (j - i) * Math.sign(u[i]);
+        const nm = names[Math.abs(u[i]) - 1];
+        parts.push(e === 1 ? nm : `${nm}${powOp}${e}`);
+        i = j;
+    }
+    return parts.join('*');
+}
+
+/** GAP / Sage / Magma input for ⟨g₁, …, g_n | relators⟩. */
 export function gapText(n, rels) {
-    const gens = Array.from({ length: n }, (_, i) => `"g${i + 1}"`).join(', ');
-    const word = (w) => w.map((x) => `g${Math.abs(x)}${x < 0 ? '^-1' : ''}`).join('*');
-    return `F := FreeGroup(${gens});; AssignGeneratorVariables(F);;\nG := F / [ ${rels.map(word).join(', ')} ];`;
+    const names = Array.from({ length: n }, (_, i) => `g${i + 1}`);
+    return `F := FreeGroup(${names.map((x) => `"${x}"`).join(', ')});; AssignGeneratorVariables(F);;\nG := F / [ ${rels.map((w) => collectRuns(w, names, '^', 'One(F)')).join(', ')} ];`;
+}
+export function sageText(n, rels) {
+    const names = Array.from({ length: n }, (_, i) => `g${i + 1}`);
+    return `F.<${names.join(', ')}> = FreeGroup()\nG = F / [${rels.map((w) => collectRuns(w, names, '^', 'F.one()')).join(', ')}]`;
+}
+export function magmaText(n, rels) {
+    const names = Array.from({ length: n }, (_, i) => `g${i + 1}`);
+    return `G<${names.join(', ')}> := Group< ${names.join(', ')} | ${rels.map((w) => collectRuns(w, names, '^', 'Id($)')).join(', ')} >;`;
 }
 
 /** g_{1}^{2}g_{2}^{-1} in TeX, runs as powers; long words cut with ⋯ and their length. */
@@ -315,12 +340,13 @@ export function sarithCard(S, model, nGens) {
     html += stat('Iteration', L.it, 'cov-it');
     html += stat('Elements tried', L.visited.toLocaleString(), 'cov-visited');
     html += stat('Relations', rels, 'cov-rels');
-    if (trees) {
+    if (trees && L.bigMode) html += stat('Elements fixing $o$', L.stabFound.toLocaleString(), 'cov-stab');
+    else if (trees) {
         html += stat('Representatives', L.reps, 'cov-reps');
         html += stat('Neighbours covered', `${L.covered} / ${L.targets}`, 'cov-covered');
     }
     html += '</div>';
-    if (trees) {
+    if (trees && !L.bigMode) {
         html += `<div class="cov-bar"><span id="cov-bar" style="width:${(100 * L.frac).toFixed(1)}%"></span></div>`;
         html += `<div id="cov-chart">${chart(S.history || [])}</div>`;
     }
@@ -362,14 +388,16 @@ export function sarithCard(S, model, nGens) {
                 'The list need not be complete, so the presentation it suggests is one to test, not one proved.',
             ]);
             html += `<div class="cov-words"><table><tbody>${r.relations.slice(0, 40).map((w) => `<tr><td>${wordCell(w, 60)}</td><td class="note">${w.length} letters</td></tr>`).join('')}</tbody></table></div>`;
-            html += `<p><button class="btn btn-add-alt" id="copy-gap">Copy the relations for GAP</button></p>`;
+            html += `<p><button class="btn btn-add-alt" id="copy-gap">Copy for GAP</button> <button class="btn btn-add-alt" id="copy-sage">Copy for Sage</button> <button class="btn btn-add-alt" id="copy-magma">Copy for Magma</button></p>`;
         }
     }
 
+    // large trees: no covering, and why
+    if (trees && r && r.bigMode) html += bigTreesNote(S, model, r);
     // the covering certificate
     const links = r ? r.links : S.progress ? S.progress.links : null;
     const repTex = r ? r.reps.map((x) => x.tex) : null;
-    if (trees && links) {
+    if (trees && links && !L.bigMode) {
         html += `<h3>The covering certificate</h3>`;
         html += `<p class="note">${mix('The certificate is a finite set $R$ of vertices of the trees such that every neighbour of every $r \\in R$ is $w \\cdot r\'$ for a word $w$ and some $r\' \\in R$. Then $\\Gamma R$ is every vertex. Each star below is the link of a representative in one tree, with the parent at the top. Its neighbours are marked')} <span class="key-self">●</span> when reached from the same representative, <span class="key-other">●</span> when reached from another, <span class="key-rep">●</span> when they are representatives themselves, and <span class="key-open">○</span> when still open.</p>`;
         html += '<div class="cov-reps">';
@@ -476,6 +504,17 @@ const matTex = (M) => `\\left(\\begin{smallmatrix}${M[0]}&${M[1]}\\\\${M[2]}&${M
 const SHAPES = { 'Γ(N)': '\\Gamma(N)', 'Γ₁(N)': '\\pm\\Gamma_1(N)', 'Γ¹(N)': '\\pm\\Gamma^1(N)', 'Γ₀(N)': '\\Gamma_0(N)', 'Γ⁰(N)': '\\Gamma^0(N)' };
 
 /** ⟨names | relators⟩ in one line when short, else the generators and a list of the relators. */
+/** Large trees (covering.js bigMode): why there are no stars, and what settles their vertex orbits instead. */
+function bigTreesNote(S, model, r) {
+    const places = S.places || [];
+    const names = (r.big || []).map((b, j) => (b && places[j] ? `$${model.degree > 1 && places[j].primeTex ? places[j].primeTex : places[j].p}$` : null)).filter(Boolean);
+    const list = names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+    return `<h3>${mix('Large trees')}</h3>` + para([
+        `The trees at ${list} have more than 2000 neighbours at each vertex, so the search lists no neighbours and builds no covering.`,
+        'It collects elements of $\\Gamma$ fixing $o$ instead: one of infinite order shows that $\\Gamma$ is not discrete in $G_S = \\prod_{\\mathfrak{p} \\in S} \\mathrm{PGL}_2(k_\\mathfrak{p})$, so its closure there is open and contains every $\\mathrm{PSL}_2(k_\\mathfrak{p})$, and the vertex orbits of $\\Gamma$ are those its determinants allow, in every tree at once.',
+    ]);
+}
+
 function presBlock(G, names, rels) {
     const orders = ordersFrom(rels);
     // a very large presentation: the first relators only (Copy for GAP has them all)
@@ -508,6 +547,8 @@ export function presentationSection(P) {
     const matTex = (M) => `\\left(\\begin{smallmatrix}${M.map(ent).join('&').replace(/&([^&]*)&/, '&$1\\\\')}\\end{smallmatrix}\\right)`;
     // nr: Γ of finite index in PGL₂(O_k), whose presentation comes from Voronoi's algorithm (numberRingPresentation.js)
     const nr = R.kind === 'numberRing';
+    // qt: from the presentation of Λ = N(𝒪[1/S])/k^× that step 3 built (quaternionPresentation.js; the card describes Λ)
+    if (R.kind === 'quaternion') return html + quaternionPresSection(R.pres);
     const Stex = (R.S || []).map((x) => (R.ring ? `(${ent(x)})` : x)).join('\\cdot ') || '1';
     const Ltex = nr ? '\\mathrm{PGL}_2(\\mathcal{O}_k)' : `\\mathrm{PGL}_2(${ringTex}[1/${Stex}])`;
     // Λ on its standard generators
@@ -573,6 +614,7 @@ export function presentationSection(P) {
         `Tietze moves remove the Schreier generators in favour of the given ones${extra.length ? `, except ${extra.length === 1 ? 'one, which is' : `${extra.length}, which are`} written out below` : ''}.`,
         ...(Pr.hFrom === 'graph' ? ['The ones they could not remove alone are written in the given generators through the graph of groups: each is rewritten in its generators by the Bass–Serre normal form, and those have words in the given ones. Each such word is a relator that removes one.'] : []),
         ...(Pr.hFrom === 'labels' ? [`The ones they could not remove alone are written in the given generators by the coset enumeration itself, run again with labels (the modified Todd–Coxeter algorithm). Each step records, as a word in the generators of ${K}, the element it uses, so every Schreier generator comes out as such a word. Each word is a relator that removes one generator.`] : []),
+        ...(Pr.pruned ? [`Knuth–Bendix completion of the relators as rewriting rules then showed that ${Pr.pruned.dropped} of the ${Pr.pruned.before} follow from the others, so they were dropped.`] : []),
         'Every relator is multiplied out and checked to be the identity.',
     ].join(' '))}</p>`;
     const rels = Pr.relators;
@@ -583,15 +625,64 @@ export function presentationSection(P) {
     }
     const dropped = Pr.gamma.map((w, i) => ({ w, i })).filter(({ w, i }) => !(w.length === 1 && w[0] > 0 && Pr.gens[w[0] - 1].given === i));
     if (dropped.length) html += para([`The given ${dropped.length === 1 ? 'generator that was not kept is' : 'generators that were not kept are'} ${dropped.map(({ w, i }) => `$g_{${i + 1}} = ${w.length ? relatorTexNamed(w, names) : '1'}$`).join(', ')}.`]);
-    html += `<p class="note">${mix(`The abelianization is $H_1(\\Gamma) = ${H1}$. The presentation has ${rels.length} relators on ${Pr.gens.length} generators, and it took ${Pr.ms} ms to find.`)} <button class="quiet" id="copy-pres-gap">Copy for GAP</button></p>`;
+    html += `<p class="note">${mix(`The abelianization is $H_1(\\Gamma) = ${H1}$. The presentation has ${rels.length} relators on ${Pr.gens.length} generators, and it took ${Pr.ms} ms to find.`)} <button class="quiet" id="copy-pres-gap">Copy for GAP</button> · <button class="quiet" id="copy-pres-sage">Copy for Sage</button> · <button class="quiet" id="copy-pres-magma">Copy for Magma</button></p>`;
     return html;
 }
 
-/** The presentation as GAP input. */
+/** The same for a Γ decided in Λ = N(𝒪[1/S])/k^× (quaternionPresentation.js), whose card has described Λ already. */
+function quaternionPresSection(Pr) {
+    if (!Pr || Pr.error) return para([`No presentation of $\\Gamma$ was found${Pr && Pr.error ? `: ${String(Pr.error).replace(/\$/g, '')}` : ''}.`]);
+    const names = Pr.gens.map((g) => g.name.replace(/^g(\d+)$/, 'g_{$1}').replace(/^h(\d+)$/, 'h_{$1}'));
+    const extra = Pr.gens.filter((g) => g.given === null);
+    const matTex = (M) => `\\left(\\begin{smallmatrix}${M[0]}&${M[1]}\\\\${M[2]}&${M[3]}\\end{smallmatrix}\\right)`;
+    const ab = Pr.abelian, H1 = [ab.rank ? (ab.rank === 1 ? '\\mathbb{Z}' : `\\mathbb{Z}^{${ab.rank}}`) : null, ...ab.torsion.map((d) => `\\mathbb{Z}/${d}`)].filter(Boolean).join(' \\oplus ') || '0';
+    const K = Pr.kernelIndex > 1 ? '$K$' : '$\\Gamma$';
+    const cosets = `${Pr.index.toLocaleString()} coset${Pr.index === 1 ? '' : 's'}`;
+    const lines = [
+        ...(Pr.route === 'labels'
+            ? [
+                `The coset enumeration of ${K} in $\\Lambda$ was run again with labels (the modified Todd–Coxeter algorithm): each step records, as a word in the generators of ${K}, the element it uses.`,
+                `Reading every relator of $\\Lambda$ around ${Pr.index === 1 ? 'the one coset' : `each of the ${cosets}`} then gives a relator of ${K} in its own generators, and these present it.`,
+            ]
+            : [`Reidemeister–Schreier on the ${cosets} of the coset table gives ${Pr.rs.generators} generators and ${Pr.rs.relators} relators.`]),
+        ...(Pr.kernelIndex > 1 ? [
+            `$\\Gamma$ is not inside $\\Lambda$: its elements whose reduced norms have even valuations at the split primes outside $S$ form a normal subgroup $K$ of index $${Pr.kernelIndex}$, and $[\\Lambda : K] = ${Pr.index}$.`,
+            'So the presentation of $\\Gamma$ adds coset representatives of $K$, with their squares, their commutators and their action on the generators of $K$, all written in $K$.',
+        ] : []),
+        ...(Pr.route === 'labels'
+            ? [Pr.kernelIndex > 1
+                ? 'The generators of $K$ and the coset representatives are words in the given generators, so substituting them leaves relators in $g_1, g_2, \\ldots$ alone, which Tietze moves shorten.'
+                : 'Tietze moves shorten them.']
+            : [`Tietze moves remove the Schreier generators in favour of the given ones${extra.length ? `, except ${extra.length === 1 ? 'one, which is' : `${extra.length}, which are`} written out below` : ''}.`]),
+        ...(Pr.hFrom === 'search' ? ['The ones they could not remove alone were found as short words in the given generators by a search in $\\Gamma$, and each word is a relator that removes one.'] : []),
+        ...(Pr.hFrom === 'labels' ? [`The ones they could not remove alone are written in the given generators through the labels of the coset enumeration, run again with labels (the modified Todd–Coxeter algorithm). Each word is a relator that removes one generator.`] : []),
+        ...(Pr.pruned ? [`Knuth–Bendix completion of the relators as rewriting rules then showed that ${Pr.pruned.dropped} of the ${Pr.pruned.before} follow from the others, so they were dropped.`] : []),
+        'Every relator is multiplied out and checked to be the identity.',
+    ];
+    let html = `<p><b>${mix('A presentation of $\\Gamma$.')}</b> ${mix(lines.join(' '))}</p>`;
+    html += presBlock('\\Gamma', names, Pr.relators);
+    if (extra.length) {
+        const hs = Pr.gens.map((g, i) => (g.given === null ? `$${names[i]} = ${matTex(g.M)}$` : null)).filter(Boolean);
+        html += para([`Here ${hs.slice(0, 12).join(', ')}${hs.length > 12 ? `, and ${hs.length - 12} more (Copy for GAP names them all)` : ''}.`]);
+    }
+    const dropped = Pr.gamma.map((w, i) => ({ w, i })).filter(({ w, i }) => !(w.length === 1 && w[0] > 0 && Pr.gens[w[0] - 1].given === i));
+    if (dropped.length) html += para([`The given ${dropped.length === 1 ? 'generator that was not kept is' : 'generators that were not kept are'} ${dropped.map(({ w, i }) => `$g_{${i + 1}} = ${w.length ? relatorTexNamed(w, names) : '1'}$`).join(', ')}.`]);
+    html += `<p class="note">${mix(`The abelianization is $H_1(\\Gamma) = ${H1}$. The presentation has ${Pr.relators.length} relators on ${Pr.gens.length} generators, and it took ${Pr.ms} ms to find.`)} <button class="quiet" id="copy-pres-gap">Copy for GAP</button> · <button class="quiet" id="copy-pres-sage">Copy for Sage</button> · <button class="quiet" id="copy-pres-magma">Copy for Magma</button></p>`;
+    return html;
+}
+
+/** The presentation as GAP / Sage / Magma input. */
 export function presentationGap(Pr) {
     const names = Pr.gens.map((g) => g.name);
-    const w = (u) => u.map((x) => (x > 0 ? names[x - 1] : `${names[-x - 1]}^-1`)).join('*') || 'One(F)';
-    return `F := FreeGroup(${names.map((n) => `"${n}"`).join(', ')});;\n${names.map((n, i) => `${n} := F.${i + 1};;`).join(' ')}\nG := F / [${Pr.relators.map(w).join(', ')}];;`;
+    return `F := FreeGroup(${names.map((n) => `"${n}"`).join(', ')});;\n${names.map((n, i) => `${n} := F.${i + 1};;`).join(' ')}\nG := F / [${Pr.relators.map((u) => collectRuns(u, names, '^', 'One(F)')).join(', ')}];;`;
+}
+export function presentationSage(Pr) {
+    const names = Pr.gens.map((g) => g.name);
+    return `F.<${names.join(', ')}> = FreeGroup()\nG = F / [${Pr.relators.map((u) => collectRuns(u, names, '^', 'F.one()')).join(', ')}]`;
+}
+export function presentationMagma(Pr) {
+    const names = Pr.gens.map((g) => g.name);
+    return `G<${names.join(', ')}> := Group< ${names.join(', ')} | ${Pr.relators.map((u) => collectRuns(u, names, '^', 'Id($)')).join(', ')} >;`;
 }
 
 

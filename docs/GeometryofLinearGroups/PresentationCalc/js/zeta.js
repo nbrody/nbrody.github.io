@@ -12,14 +12,16 @@
  *
  * Classic script (self.Zeta, after ringEngine.js) for covolumeWorker.js, or a Node module for tests.
  */
-(function (root) {
-    'use strict';
-    const isNode = typeof module !== 'undefined' && module.exports;
-    const NR = isNode ? require('../../Algebraic/Tools/numberRings/ringEngine.js') : root.NumberRingEngine;
-    const ZETA2 = Math.PI * Math.PI / 6;
+import * as NRmod from '../../Algebraic/Tools/numberRings/ringEngine.js';
+
+const getNR = () => (NRmod && NRmod.default && NRmod.default.defineField
+    ? NRmod.default
+    : globalThis.NumberRingEngine || (globalThis.self && globalThis.self.NumberRingEngine));
+
+export const ZETA2 = Math.PI * Math.PI / 6;
 
     /** ζ(2, x) = Σ_{n ≥ 0} (n + x)⁻² for x > 0 (Euler–Maclaurin after 20 terms). */
-    function hurwitz2(x) {
+    export function hurwitz2(x) {
         let s = 0;
         const N = 20;
         for (let n = 0; n < N; n++) s += 1 / ((n + x) * (n + x));
@@ -32,7 +34,7 @@
     }
 
     /** The Kronecker symbol (D/n), n ≥ 1, D a discriminant. */
-    function kronecker(D, n) {
+    export function kronecker(D, n) {
         let r = 1;
         while (n % 2 === 0) {
             n /= 2;
@@ -52,7 +54,7 @@
     }
 
     /** L(2, χ_D) for a fundamental discriminant D. */
-    function L2(D) {
+    export function L2(D) {
         const m = Math.abs(D);
         let s = 0;
         for (let a = 1; a <= m; a++) { const c = kronecker(D, a); if (c) s += c * hurwitz2(a / m); }
@@ -99,7 +101,7 @@
         return trim(q);
     }
     /** Residue degrees of the irreducible factors of a squarefree monic g mod p (distinct-degree factorization). */
-    function factorDegrees(g, p) {
+    export function factorDegrees(g, p) {
         let f = monic(g.map((c) => mod(c, p)), p);
         const out = [];
         let xp = [0, 1];
@@ -126,13 +128,14 @@
      * ζ_k(2). k = { d, minpoly: [c₀, …, c_d] (strings or BigInt, monic, integral), disc } as the Zariski engine gives
      * it. Returns { value, method, digits }.
      */
-    function zetaK2(k, { P = 200000 } = {}) {
+    export function zetaK2(k, { P = 200000 } = {}) {
         const d = k.d;
         if (d === 1) return { value: ZETA2, method: 'exact', digits: 15 };
         const D = Number(BigInt(k.disc));
         if (d === 2) return { value: ZETA2 * L2(D), method: 'L-function', digits: 14 };
         const g = k.minpoly.map((c) => BigInt(c));
         if (g[g.length - 1] !== 1n) throw new Error('the minimal polynomial is not monic');
+        const NR = getNR();
         const mo = NR._internal.maximalOrderFor(g);
         const bad = new Map();
         for (const [q] of NR._internal.factorInt(mo.nf.disc < 0n ? -mo.nf.disc : mo.nf.disc).factors) bad.set(BigInt(q), NR._internal.primesAbove(mo.O, BigInt(q)).map((pr) => pr.f));
@@ -148,7 +151,7 @@
     }
 
     /** The simplest fraction a/b (b ≤ maxDen) within rel·|x| of x, by continued fractions; or null. */
-    function rational(x, { maxDen = 240, rel = 3e-6 } = {}) {
+    export function rational(x, { maxDen = 240, rel = 3e-6 } = {}) {
         let [h0, h1, k0, k1] = [0, 1, 1, 0], y = x;
         for (let i = 0; i < 40; i++) {
             const a = Math.floor(y);
@@ -163,6 +166,6 @@
         return null;
     }
 
-    const api = { zetaK2, rational, L2, kronecker, hurwitz2, factorDegrees, ZETA2 };
-    if (isNode) module.exports = api; else root.Zeta = api;
-})(typeof self !== 'undefined' ? self : this);
+const api = { zetaK2, rational, L2, kronecker, hurwitz2, factorDegrees, ZETA2 };
+if (typeof globalThis !== 'undefined') globalThis.Zeta = api;
+export default api;

@@ -112,11 +112,14 @@ test('Jørgensen’s n = 4 orbifold (non-arithmetic): a second complex place of 
     expectPlaces(values, [0, 0, 0, 0, 0.7413525739, 1.8574619899], 1e-7, 'Jørgensen n = 4');
 });
 
-test('a cusped domain gets no cycle', () => {
-    const ex = exampleLibrary.find((e) => e.name === 'Figure eight knot group');
-    const state = { mats: ex.mats, anti: ex.mats.map(() => false), consts: ex.consts || [] };
-    const msgs = call({ id: 1, state, maxFaces: 96, maxDepth: 8, certify: false, cycle: true });
-    const done = msgs.find((m) => m.phase === 'done');
-    assert.ok(done.summary.status === 'verified' && done.summary.cusps > 0);
-    assert.ok(!done.summary.cycle && !done.summary.cyclePending && !msgs.some((m) => m.phase === 'cycle'));
+test('cusped finite-volume domains: Figure-eight knot (2 V₀) and Borromean rings (8 G)', () => {
+    const f8 = volumesOf('Figure eight knot group');
+    assert.ok(f8.summary.cusps === 1 && f8.cycle.idealVertices > 0);
+    close(f8.res.value, 2 * 1.0149416064096536, 1e-12, 'Figure-eight volume = 2 D(e^{πi/3})');
+    assert.ok(f8.res.check.z < 1e-12);
+
+    const bor = volumesOf('Borromean rings group');
+    assert.ok(bor.summary.cusps === 3 && bor.cycle.idealVertices > 0);
+    close(bor.res.value, 8 * 0.915965594177219, 1e-12, 'Borromean rings volume = 8 Catalan');
+    assert.ok(bor.res.check.z < 1e-12);
 });
