@@ -1,0 +1,26 @@
+\section{In this project}\label{sec:project}
+
+This paper is part of an AlphaCentaur demo project, whose other files tell
+the same story in other forms. They are pointers only: the paper does not
+depend on them or make claims about what they currently check or print; their
+own sections in AlphaCentaur show that.
+
+\begin{itemize}
+\item \emph{Formalization.} The four-set lemma, Theorem~\ref{thm:pingpong},
+is formalized in Lean in the file \projectfile{lean/PingPong/Lemma.lean}, which
+uses the reduced words of \projectfile{lean/PingPong/Words.lean}. Sanov's case,
+Theorem~\ref{thm:sanov} with $t = 2$, is formalized in
+\projectfile{lean/PingPong/Sanov.lean}. There the matrices act on $\Z^2$ and
+the four sets are given by the linear inequalities of Table~\ref{tab:sanov},
+so each inclusion is a statement of linear integer arithmetic. The
+Formalization section records whether these files check.
+\item \emph{Computations.} The alphaPy notebook
+\projectfile{computations/ping_pong.py} checks Sanov's case by computer, with
+exact arithmetic: it multiplies out reduced words in $A$ and $B$. It also
+searches for relations in the groups $G_q$ of Section~\ref{sec:open}. Its
+recorded runs are in the Computations section.
+\item \emph{Pictures and talk.} The app
+\projectfile{apps/ping-pong-explorer} draws Schottky discs and Sanov's cones
+interactively, and the slides in \projectfile{talks/ping-pong} present the
+lemma as a talk.
+\end{itemize}

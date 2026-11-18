@@ -1,0 +1,202 @@
+/* alphaMarkdown — note editor, in alphaCentaur's light theme. The note styles
+   (.prose …) match the Notes section's, which this applet now renders. */
+:root {
+  /* Skin tokens (app/lib/skins.mjs); alphaCentaur sets them to the chosen skin. */
+  --skin-bg: #ffffff;
+  --skin-fg: #152c3e;
+  --skin-accent: #087e6c;
+  --skin-accent-bright: #2eac98;
+  --skin-accent2: #d9822b;
+  --skin-on-accent: #ffffff;
+  --skin-sidebar: #132c3d;
+  --skin-sidebar-fg: #ffffff;
+  --skin-sidebar-muted: #8aa7b7;
+  --skin-sidebar-accent: #aaf0db;
+  --skin-shadow: #152c3e;
+  --skin-blue: #5274b8;
+  --skin-amber: #a97c51;
+  --skin-purple: #8665a9;
+  --skin-red: #c24940;
+  --skin-green: #36ab83;
+  --skin-yellow: #e0ad46;
+}
+:root {
+  --bg: var(--skin-bg); --fg: var(--skin-fg); --primary: var(--skin-accent); --secondary: color-mix(in srgb, var(--skin-bg) 90%, var(--skin-accent-bright));
+  --muted: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-fg)); --muted-fg: color-mix(in srgb, var(--skin-bg) 40%, var(--skin-fg)); --border: color-mix(in srgb, var(--skin-bg) 88%, var(--skin-fg)); --ring: color-mix(in srgb, color-mix(in srgb, var(--skin-accent) 75%, var(--skin-accent-bright)) 73%, var(--skin-bg));
+  --font: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); -webkit-font-smoothing: antialiased; }
+#app { height: 100%; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+.muted { color: var(--muted-fg); }
+
+/* ------------------------------------------------------------ frame -- */
+.note-applet { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.note-toolbar { display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 7px 18px; border-bottom: 1px solid color-mix(in srgb, var(--skin-fg) 9%, var(--skin-bg)); flex: none; }
+.applet-name {
+  flex: none; padding: 2px 8px; margin-right: 6px; border-radius: 999px; background: var(--secondary); color: var(--primary);
+  font-size: 12px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; cursor: default;
+}
+.spacer { flex: 1; min-width: 8px; }
+.segmented { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--muted); flex: none; }
+.segmented button { border: 0; border-radius: 6px; padding: 4px 10px; background: none; color: var(--muted-fg); font-size: 12px; }
+.segmented button[aria-selected='true'] { background: var(--skin-bg); color: var(--fg); box-shadow: 0 1px 2px color-mix(in srgb, var(--skin-shadow) 12%, transparent); }
+.ghost-btn, .icon-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px; border: 0; border-radius: 7px; background: none; font-size: 12px; }
+.ghost-btn:hover, .icon-btn:hover { background: var(--muted); }
+.icon-btn { width: 30px; padding: 0; justify-content: center; }
+.segmented button:focus-visible, .ghost-btn:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.note-scroll { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.note-scroll.source .cm-editor { flex: 1; min-height: 250px; }
+.render-error { color: var(--skin-red); }
+@media (max-width: 560px) { .note-toolbar { padding: 6px 10px; flex-wrap: wrap; } .applet-name { display: none; } }
+
+/* Bare (alphaCentaur's Overview shows description.md this way): no toolbar
+   and no scroller. The frame is as tall as the note (size messages), so the
+   page scrolls instead. Text starts flush left after the fold-toggle gutter;
+   the host offsets the frame by that gutter so the text lines up with its page. */
+/* No overflow: hidden here: it would stop the wheel from scrolling the page. */
+html[data-bare], html[data-bare] body { height: auto; }
+html[data-bare] #app, html[data-bare] .note-applet { height: auto; display: block; }
+html[data-bare] .note-scroll { overflow: visible; display: block; }
+html[data-bare] .note-scroll.live .cm-editor { min-height: 0; }
+html[data-bare] .cm-live .cm-content { margin: 0; padding: 2px 0 28px 34px; }
+html[data-bare] .prose { margin: 0; padding: 2px 0 28px 34px; }
+
+/* ------------------------------------------------------------- note -- */
+.prose { font-size: 16px; line-height: 1.8; max-width: 800px; width: 100%; margin: 0 auto; padding: 28px 34px; color: color-mix(in srgb, var(--skin-fg) 90%, var(--skin-bg)); }
+.prose h1, .prose h2, .prose h3 { font-family: Georgia, serif; letter-spacing: -0.02em; margin: 1.1em 0 .5em; font-weight: 700; line-height: 1.25; }
+.prose h1 { font-size: 34px; } .prose h2 { font-size: 27px; } .prose h3 { font-size: 21px; }
+.prose h4, .prose h5, .prose h6 { margin: 1em 0 .4em; }
+.prose > :first-child { margin-top: 0; }
+.prose p { margin: 0 0 1em; }
+.prose a { color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); text-decoration: underline; text-underline-offset: 3px; }
+.prose ul, .prose ol { padding-left: 24px; margin: 12px 0; }
+.prose li { margin: 5px 0; }
+.prose li.task-list-item { list-style: none; margin-left: -20px; }
+.prose blockquote { border-left: 3px solid color-mix(in srgb, var(--skin-bg) 55%, var(--skin-accent)); padding: 5px 18px; margin: 20px 0; color: color-mix(in srgb, color-mix(in srgb, var(--skin-accent-bright) 15%, var(--skin-fg)) 67%, var(--skin-bg)); background: color-mix(in srgb, var(--skin-bg) 96%, var(--skin-accent)); }
+.prose pre { font-size: 13px; line-height: 1.65; padding: 15px; margin: 0 0 1em; background: color-mix(in srgb, var(--skin-bg) 96%, var(--skin-fg)); overflow: auto; border: 1px solid color-mix(in srgb, var(--skin-bg) 89%, var(--skin-fg)); border-radius: 6px; }
+.prose code { font-size: .9em; background: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-fg)); padding: 2px 4px; border-radius: 3px; }
+.prose pre code { padding: 0; background: none; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 0 0 1em; }
+.prose td, .prose th { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+.prose img { max-width: 100%; }
+.prose hr { border: 0; border-top: 1px solid var(--border); margin: 1.5em 0; }
+.prose .katex { font-size: 1.21em; color: inherit; font-style: normal; line-height: 1.2; }
+.prose .katex-display { margin: 1em 0; padding: 0; overflow-x: auto; overflow-y: hidden; }
+.prose .katex p { margin: 0; } .prose .katex table { width: auto; border: 0; } .prose .katex td { border: 0; padding: 0; }
+.math-environment { border-left: 3px solid color-mix(in srgb, var(--skin-bg) 8%, var(--skin-accent)); padding: 14px 18px; margin: 20px 0; background: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-accent-bright)); border-radius: 0 6px 6px 0; }
+.math-environment > :last-child, .math-environment p:last-child { margin-bottom: 0; }
+.math-environment ul, .math-environment ol { margin: 8px 0 12px; }
+.env-thm, .env-conj { font-style: italic; }
+.math-environment strong { font-style: normal; }
+@media (max-width: 760px) { .prose { padding: 20px; font-size: 15px; } .prose h1 { font-size: 28px; } }
+
+/* ----------------------------------------------------- Live editing -- */
+/* One editor, drawn like the note reads (live-preview.js). The text styles
+   match .prose so Live editing and Reading look the same. */
+.note-scroll.live .cm-editor { flex: 1; min-height: 100%; }
+.note-scroll.live .cm-scroller { overflow: visible; }
+.cm-live { font-size: 16px; color: color-mix(in srgb, var(--skin-fg) 90%, var(--skin-bg)); }
+.cm-live.cm-focused { outline: none; }
+.cm-live .cm-scroller { font-family: var(--font); line-height: 1.8; }
+.cm-live .cm-content { max-width: 800px; margin: 0 auto; padding: 28px 34px 120px; caret-color: var(--skin-accent); }
+.cm-live .cm-line { padding: 0; }
+.cm-live .cm-cursor { border-left: 2px solid var(--skin-accent); }
+.cm-live .cm-selectionBackground, .cm-live.cm-focused .cm-selectionBackground { background: color-mix(in srgb, var(--skin-accent-bright) 21%, var(--skin-bg)) !important; }
+.cm-live .cm-placeholder { color: color-mix(in srgb, var(--skin-bg) 51%, var(--skin-fg)); }
+/* Revealed syntax (the element the cursor is in). */
+.cm-live .cm-formatting, .cm-live .cm-fence { color: color-mix(in srgb, var(--skin-bg) 58%, var(--skin-fg)); }
+.cm-live .cm-source { color: color-mix(in srgb, color-mix(in srgb, var(--skin-accent-bright) 15%, var(--skin-bg)) 36%, var(--skin-fg)); }
+.cm-live .cm-math-source { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .9em; color: color-mix(in srgb, var(--skin-purple) 75%, var(--skin-fg)); }
+/* Headings */
+.cm-live .cm-h { font-family: Georgia, serif; font-weight: 700; letter-spacing: -.02em; line-height: 1.3; color: color-mix(in srgb, var(--skin-fg) 94%, var(--skin-bg)); position: relative; }
+.cm-live .cm-h1 { font-size: 34px; padding-top: .55em; padding-bottom: .15em; }
+.cm-live .cm-h2 { font-size: 27px; padding-top: .55em; padding-bottom: .1em; }
+.cm-live .cm-h3 { font-size: 21px; padding-top: .5em; }
+.cm-live .cm-h4, .cm-live .cm-h5, .cm-live .cm-h6 { font-size: 17px; padding-top: .45em; }
+.cm-live .cm-setext-mark { color: color-mix(in srgb, var(--skin-bg) 58%, var(--skin-fg)); font-size: 14px; }
+.cm-live .cm-fold-toggle { position: absolute; left: -30px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 5px; color: color-mix(in srgb, color-mix(in srgb, var(--skin-accent) 35%, var(--skin-fg)) 59%, var(--skin-bg)); background: transparent; cursor: pointer; }
+.cm-live .cm-h1 .cm-fold-toggle, .cm-live .cm-h2 .cm-fold-toggle { top: calc(50% + .2em); }
+.cm-live .cm-fold-toggle:hover { color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); background: color-mix(in srgb, var(--skin-accent) 8%, var(--skin-bg)); }
+.cm-live .cm-fold-toggle[aria-expanded='false'] { color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); }
+.cm-live .cm-fold-toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
+.cm-live .cm-fold-placeholder { display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 5px; background: color-mix(in srgb, var(--skin-accent) 8%, var(--skin-bg)); color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); font: 600 13px/1.6 var(--font); cursor: pointer; }
+/* Inline text */
+.cm-live .cm-strong { font-weight: 700; }
+.cm-live .cm-em { font-style: italic; }
+.cm-live .cm-strike { text-decoration: line-through; }
+.cm-live .cm-code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .9em; background: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-fg)); padding: 2px 4px; border-radius: 3px; }
+.cm-live .cm-link { color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); text-decoration: underline; text-underline-offset: 3px; }
+.cm-live .cm-follow { cursor: pointer; }
+/* Math, pictures, tables */
+.cm-live .cm-math .katex { font-size: 1.21em; }
+.cm-live .cm-math-display { display: block; padding: 8px 0; overflow-x: auto; overflow-y: hidden; cursor: text; }
+.cm-live .cm-math-display .katex-display { margin: 0; }
+.cm-live .cm-image { display: block; max-width: 100%; margin: 6px 0; }
+.cm-live .cm-table { padding: 6px 0; overflow-x: auto; cursor: text; }
+.cm-live .cm-table table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.cm-live .cm-table td, .cm-live .cm-table th { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+.cm-live .cm-table-source { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 14px; }
+/* Lists and tasks */
+.cm-live .cm-bullet { display: inline-block; width: 1em; color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); font-weight: 700; }
+.cm-live .cm-list-mark { color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); }
+.cm-live .cm-task { margin: 0 .45em 0 0; vertical-align: -1px; accent-color: var(--skin-accent); cursor: pointer; }
+.cm-live .cm-task-done { color: color-mix(in srgb, var(--skin-bg) 51%, var(--skin-fg)); text-decoration: line-through; }
+/* Blocks */
+.cm-live .cm-quote { border-left: 3px solid color-mix(in srgb, var(--skin-bg) 55%, var(--skin-accent)); padding-left: 18px; color: color-mix(in srgb, color-mix(in srgb, var(--skin-accent-bright) 15%, var(--skin-fg)) 67%, var(--skin-bg)); background: color-mix(in srgb, var(--skin-bg) 96%, var(--skin-accent)); }
+.cm-live .cm-hr { display: inline-block; width: 100%; border-top: 1px solid var(--border); vertical-align: middle; }
+.cm-live .cm-codeblock { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; line-height: 1.65; background: color-mix(in srgb, var(--skin-bg) 96%, var(--skin-fg)); padding: 0 15px; border-left: 1px solid color-mix(in srgb, var(--skin-bg) 89%, var(--skin-fg)); border-right: 1px solid color-mix(in srgb, var(--skin-bg) 89%, var(--skin-fg)); }
+.cm-live .cm-codeblock-first { border-top: 1px solid color-mix(in srgb, var(--skin-bg) 89%, var(--skin-fg)); border-radius: 6px 6px 0 0; padding-top: 8px; }
+.cm-live .cm-codeblock-last { border-bottom: 1px solid color-mix(in srgb, var(--skin-bg) 89%, var(--skin-fg)); border-radius: 0 0 6px 6px; padding-bottom: 8px; }
+.cm-live .cm-codeblock-first.cm-codeblock-last { border-radius: 6px; }
+/* Theorem-like blocks */
+.cm-live .cm-env { border-left: 3px solid color-mix(in srgb, var(--skin-bg) 8%, var(--skin-accent)); background: color-mix(in srgb, var(--skin-bg) 95%, var(--skin-accent-bright)); padding: 0 18px; }
+.cm-live .cm-env-first { padding-top: 12px; border-radius: 0 6px 0 0; }
+.cm-live .cm-env-last { padding-bottom: 12px; border-radius: 0 0 6px 0; }
+.cm-live .cm-env-first.cm-env-last { border-radius: 0 6px 6px 0; }
+.cm-live .cm-env-thm, .cm-live .cm-env-conj { font-style: italic; }
+.cm-live .cm-env-label { font-weight: 700; font-style: normal; margin-right: .3em; }
+@media (max-width: 760px) { .cm-live .cm-content { padding: 20px 20px 80px 28px; font-size: 15px; } .cm-live .cm-h1 { font-size: 28px; } .cm-live .cm-fold-toggle { left: -25px; width: 22px; } }
+
+/* ---------------------------------------------------------- folding -- */
+.prose .fold-heading { position: relative; }
+.prose .fold-toggle { position: absolute; top: .15em; left: -30px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 5px; color: color-mix(in srgb, color-mix(in srgb, var(--skin-accent) 35%, var(--skin-fg)) 59%, var(--skin-bg)); background: transparent; line-height: 1; }
+.prose .fold-toggle:hover, .prose .fold-toggle:focus-visible { color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); background: color-mix(in srgb, var(--skin-accent) 8%, var(--skin-bg)); }
+.prose .fold-toggle:focus-visible { outline: 2px solid color-mix(in srgb, var(--skin-bg) 55%, var(--skin-accent)); outline-offset: 1px; }
+.prose .fold-toggle[aria-expanded='false'] { color: color-mix(in srgb, var(--skin-bg) 3%, var(--skin-accent)); }
+.prose .fold-toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
+.prose [data-fold-hidden] { display: none !important; }
+@media (max-width: 760px) { .prose:has(.fold-heading) { padding-left: 28px; } .prose .fold-toggle { left: -25px; width: 24px; } }
+
+/* ----------------------------------------------------- Editor guide -- */
+dialog.guide { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 18px 50px color-mix(in srgb, var(--skin-shadow) 25%, transparent); color: var(--fg); }
+dialog.guide::backdrop { background: color-mix(in srgb, var(--skin-fg) 33%, transparent); }
+dialog.guide header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 6px; }
+dialog.guide h2 { margin: 0 0 4px; font-size: 18px; }
+dialog.guide header p { margin: 0; font-size: 13px; }
+.guide-body { max-height: 70vh; overflow: auto; padding: 10px 20px 20px; font-size: 15px; line-height: 1.6; }
+.guide-body p { margin: 0 0 16px; }
+.guide-body dl > div { display: grid; grid-template-columns: 150px 1fr; gap: 16px; margin: 16px 0; }
+.guide-body dt { font-weight: 600; }
+.guide-body dd { margin: 0; }
+.guide-body pre { white-space: pre-wrap; background: var(--muted); border-radius: 6px; padding: 12px; margin: 0; font-size: 13px; }
+@media (max-width: 650px) { .guide-body dl > div { grid-template-columns: 1fr; gap: 4px; } }
+
+.applet-offline { max-width: 640px; margin: 80px auto; padding: 0 20px; line-height: 1.6; }
+.applet-offline h1 { font: 30px Georgia, serif; margin: 0 0 12px; }
+.applet-offline pre { background: var(--muted); border-radius: 6px; padding: 12px; white-space: pre-wrap; }
+
+/* Skins: inside alphaCentaur the --skin-* tokens follow Settings → Appearance
+   (app/lib/skins.mjs). Parchment sets notes in an old-style serif on paper. */
+html[data-skin='parchment'] { --font: 'Hoefler Text', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; }
+html[data-skin='parchment'] body {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .38 0 0 0 0 .16 0 0 0 .3 -.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .27 0 0 0 0 .12 0 0 0 .14 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+html[data-skin='parchment'] .cm-editor, html[data-skin='parchment'] .note-toolbar { background-color: transparent; }

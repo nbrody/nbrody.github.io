@@ -1,0 +1,476 @@
+// alphaNote's notebook: pages of pen strokes on a 1000×1400 canvas, with a
+// highlighter, eraser, select-and-move, pan, PDF pages as backgrounds and
+// experimental OCR. The same code runs inside alphaCentaur's Handwriting
+// section and on its own (see main.js).
+//
+// A notebook is JSON:
+//   {version: 1, current, pages: [{id, background: 'grid'|'ruled'|'dots'|'blank'|'pdf', paper?: 'paper'|'white'|'blue'|'blackboard',
+//     backgroundImage?, sourcePage?, strokes: [{id, points: [{x, y, p}], color, width, tool}]}],
+//    sources?: [{name, mimeType, base64}]}
+// Every committed change calls onChange(JSON.stringify(notebook)).
+
+const W = 1000, H = 1400;
+
+export function parse(value) {
+  try {
+    const v = JSON.parse(value);
+    if (v.pages?.length) return v;
+  } catch { /* not a notebook yet */ }
+  return { version: 1, pages: [{ id: crypto.randomUUID(), background: 'ruled', paper: 'paper', strokes: [] }], current: 0 };
+}
+
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') node.className = v;
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else if (k in node && typeof v !== 'string') node[k] = v;
+    else node.setAttribute(k, v === true ? '' : v);
+  }
+  node.append(...children.flat().filter(c => c != null && c !== false));
+  return node;
+}
+
+// Tool, color, width and zoom carry over when another notebook (or a newer
+// copy of this one) is loaded into the page.
+const prefs = { tool: 'pen', color: '#172d44', width: 3, zoom: 0.65 };
+
+export function createNotebook(container, { onChange, onRecognized, onAskImage, readOnly = false, ai = false, icon }) {
+  let book = parse(''), redo = [], selection = [], ocr = '', notice = '', busy = false, destroyed = false, aiEnabled = !!ai;
+  let drawing = null, dragStart = null, askBtn = null;
+  const images = new Map();
+  const ico = (name, size) => icon(name, size);
+  const page = () => book.pages[book.current] || book.pages[0];
+
+  // ------------------------------------------------------------ toolbar --
+  const TOOLS = [['pen', 'Pen', 'pen'], ['chalk', 'Chalk', 'pencil'], ['highlight', 'Highlighter', 'highlighter'], ['eraser', 'Eraser', 'eraser'],
+    ['lasso', 'Select and move', 'mouse-pointer-2'], ['pan', 'Pan', 'hand']];
+  const toolButtons = TOOLS.map(([t, label, name]) => el('button', {
+    type: 'button', class: 'btn icon', title: label, 'aria-label': label,
+    onclick: () => { prefs.tool = t; if (t === 'chalk' && prefs.color === '#172d44') prefs.color = '#f4f2e8'; selection = []; sync(); paint(); },
+  }, ico(name, 18)));
+  const colorInput = el('input', { type: 'color', 'aria-label': 'Ink color', value: prefs.color, oninput: e => { prefs.color = e.target.value; } });
+  const widthLabel = el('span', { class: 'ink-value' });
+  const zoomLabel = el('span', { class: 'ink-value' });
+  const undoBtn = el('button', { type: 'button', class: 'btn icon', 'aria-label': 'Undo stroke', title: 'Undo stroke', onclick: () => undo() }, ico('undo-2', 17));
+  const redoBtn = el('button', { type: 'button', class: 'btn icon', 'aria-label': 'Redo stroke', title: 'Redo stroke', onclick: () => redoStroke() }, ico('redo-2', 17));
+  const top = el('div', { class: 'ink-toolbar' },
+    el('span', { class: 'applet-name', title: "alphaNote, AlphaCentaur's handwriting notebooks. It also runs on its own: node ink/server.mjs <folder> --open" }, 'alphaNote'),
+    el('div', { class: 'button-group', role: 'group', 'aria-label': 'Tools' }, toolButtons),
+    colorInput,
+    el('button', { type: 'button', class: 'btn', title: 'Thinner stroke', 'aria-label': 'Thinner stroke', onclick: () => { prefs.width = Math.max(1, prefs.width - 1); sync(); } }, ico('minus', 14)),
+    widthLabel,
+    el('button', { type: 'button', class: 'btn', title: 'Thicker stroke', 'aria-label': 'Thicker stroke', onclick: () => { prefs.width = Math.min(12, prefs.width + 1); sync(); } }, ico('plus', 14)),
+    el('span', { class: 'divider' }),
+    undoBtn, redoBtn,
+    el('div', { class: 'spacer' }),
+    el('button', { type: 'button', class: 'btn', title: 'Zoom out', 'aria-label': 'Zoom out', onclick: () => { prefs.zoom = Math.max(0.3, +(prefs.zoom - 0.1).toFixed(2)); sync(); } }, ico('minus', 14)),
+    zoomLabel,
+    el('button', { type: 'button', class: 'btn', title: 'Zoom in', 'aria-label': 'Zoom in', onclick: () => { prefs.zoom = Math.min(1.5, +(prefs.zoom + 0.1).toFixed(2)); sync(); } }, ico('plus', 14)),
+    el('button', { type: 'button', class: 'btn outline', title: 'Download this page as a PNG', onclick: () => {
+      const a = document.createElement('a');
+      a.download = 'notebook-page.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    } }, ico('download', 15), 'PNG'),
+    askBtn = el('button', { type: 'button', class: 'btn outline', hidden: !aiEnabled || !onAskImage, title: 'Send this page (or lasso selection) as an image to the AI collaborator for LaTeX transcription or discussion', onclick: () => sendToCollaborator() }, ico('scan-text', 15), 'Ask AI'));
+
+  // -------------------------------------------------------------- stage --
+  const canvas = el('canvas', { width: W, height: H, 'aria-label': 'Notebook page' });
+  const dustCanvas = el('canvas', { width: W, height: H, class: 'ink-dust', 'aria-hidden': 'true' });
+  const sheet = el('div', { class: 'ink-sheet' }, canvas, dustCanvas);
+  const stage = el('div', { class: 'ink-stage' }, sheet);
+
+  // ------------------------------------------------------ bottom toolbar --
+  const prevBtn = el('button', { type: 'button', class: 'btn', 'aria-label': 'Previous page', title: 'Previous page', onclick: () => goTo(book.current - 1) }, ico('chevron-left', 16));
+  const nextBtn = el('button', { type: 'button', class: 'btn', 'aria-label': 'Next page', title: 'Next page', onclick: () => goTo(book.current + 1) }, ico('chevron-right', 16));
+  const pageLabel = el('span', { class: 'ink-page' });
+  const addPageBtn = el('button', { type: 'button', class: 'btn outline', onclick: () => commit({
+    ...book, current: book.pages.length, pages: [...book.pages, { id: crypto.randomUUID(), background: page().backgroundImage ? 'ruled' : (page().background || 'ruled'), paper: page().backgroundImage ? 'paper' : (page().paper || 'white'), strokes: [] }],
+  }) }, ico('plus', 15), 'Page');
+  const lineSelect = el('select', { 'aria-label': 'Page lines', onchange: e => commit(withPage(p => ({ ...p, background: e.target.value }))) },
+    ...[['ruled', 'Ruled'], ['grid', 'Grid'], ['dots', 'Dots'], ['blank', 'None']].map(([value, label]) => el('option', { value }, label)));
+  const paperSelect = el('select', { 'aria-label': 'Paper background', onchange: e => { if (e.target.value === 'blackboard' && prefs.color === '#172d44') { prefs.tool = 'chalk'; prefs.color = '#f4f2e8'; } commit(withPage(p => ({ ...p, paper: e.target.value }))); } },
+    ...[['paper', 'Paper'], ['white', 'White'], ['blue', 'Blue'], ['blackboard', 'Blackboard']].map(([value, label]) => el('option', { value }, label)));
+  const pdfInput = el('input', { type: 'file', accept: 'application/pdf', onchange: e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) void addPdf(file);
+  } });
+  const pdfLabel = el('label', { class: 'import-action', title: 'Import a PDF as pages to write on' }, ico('upload', 14), 'PDF', pdfInput);
+  const ocrBtn = el('button', { type: 'button', class: 'btn', onclick: () => void runOcr() });
+  const bottom = el('div', { class: 'ink-toolbar bottom' },
+    prevBtn, pageLabel, nextBtn, addPageBtn,
+    el('label', { class: 'ink-setting' }, 'Background', paperSelect),
+    el('label', { class: 'ink-setting' }, 'Lines', lineSelect),
+    el('div', { class: 'spacer' }),
+    pdfLabel, ocrBtn);
+
+  // ------------------------------------------------- notice, OCR result --
+  const noticeBar = el('div', { class: 'ink-notice', role: 'alert', hidden: true });
+  const ocrText = el('textarea', { 'aria-label': 'Recognized text', oninput: e => { ocr = e.target.value; } });
+  const ocrPanel = el('div', { class: 'ocr-result', hidden: true },
+    el('strong', {}, 'Recognition draft'),
+    el('p', {}, 'Printed-text recognition; handwritten equations may be inaccurate. Your original ink stays unchanged.'),
+    ocrText,
+    el('button', { type: 'button', class: 'btn primary', onclick: () => onRecognized?.(ocr) }, 'Save separate transcription'));
+
+  const root = el('div', { class: 'ink-workspace' }, top, stage, bottom, noticeBar, ocrPanel);
+  container.append(root);
+
+  // -------------------------------------------------------------- state --
+  function sync() {
+    for (const [i, b] of toolButtons.entries()) {
+      const on = prefs.tool === TOOLS[i][0];
+      b.classList.toggle('secondary', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+    colorInput.value = prefs.color;
+    widthLabel.textContent = String(prefs.width);
+    zoomLabel.textContent = `${Math.round(prefs.zoom * 100)}%`;
+    undoBtn.disabled = readOnly;
+    redoBtn.disabled = !redo.length || readOnly;
+    sheet.style.width = `${W * prefs.zoom}px`;
+    sheet.style.height = `${H * prefs.zoom}px`;
+    canvas.style.width = dustCanvas.style.width = `${W * prefs.zoom}px`;
+    canvas.style.height = dustCanvas.style.height = `${H * prefs.zoom}px`;
+    canvas.style.touchAction = prefs.tool === 'pan' ? 'pan-x pan-y' : 'none';
+    canvas.style.cursor = readOnly ? 'default' : prefs.tool === 'pan' ? 'grab' : prefs.tool === 'lasso' ? 'default' : 'crosshair';
+    prevBtn.disabled = !book.current;
+    nextBtn.disabled = book.current >= book.pages.length - 1;
+    pageLabel.textContent = `Page ${book.current + 1} of ${book.pages.length}`;
+    addPageBtn.disabled = readOnly;
+    const isPdf = !!page().backgroundImage;
+    paperSelect.value = page().paper || 'white';
+    lineSelect.value = isPdf ? 'blank' : (page().background || 'ruled');
+    paperSelect.disabled = readOnly || isPdf;
+    lineSelect.disabled = readOnly || isPdf;
+    paperSelect.title = lineSelect.title = isPdf ? 'Imported PDF pages keep their original background' : '';
+    pdfLabel.hidden = readOnly;
+    pdfInput.disabled = busy;
+    pdfLabel.setAttribute('aria-disabled', String(busy));
+    ocrBtn.disabled = busy;
+    ocrBtn.replaceChildren(ico('scan-text', 16), busy ? 'Recognizing…' : 'Experimental OCR');
+    if (askBtn) {
+      askBtn.hidden = !aiEnabled || !onAskImage;
+      askBtn.replaceChildren(ico('scan-text', 15), selection.length ? 'Ask AI (selection)' : 'Ask AI');
+    }
+    noticeBar.hidden = !notice;
+    noticeBar.textContent = notice;
+    ocrPanel.hidden = !ocr;
+    if (ocrText.value !== ocr) ocrText.value = ocr;
+  }
+
+  function commit(next) {
+    book = next;
+    onChange?.(JSON.stringify(next));
+    sync();
+    paint();
+  }
+  const withPage = fn => ({ ...book, pages: book.pages.map((pg, i) => (i === book.current ? fn(pg) : pg)) });
+  function goTo(n) {
+    if (n < 0 || n >= book.pages.length) return;
+    selection = [];
+    redo = [];
+    clearDust();
+    commit({ ...book, current: n });
+  }
+
+  // Deterministic texture stays still during redraws and appears in PNG exports.
+  const boardTexture = document.createElement('canvas');
+  boardTexture.width = W; boardTexture.height = H;
+  const boardCtx = boardTexture.getContext('2d');
+  boardCtx.fillStyle = '#273a35'; boardCtx.fillRect(0, 0, W, H);
+  let seed = 41519;
+  const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  for (let i = 0; i < 12000; i++) {
+    boardCtx.fillStyle = i % 3 ? 'rgba(230,238,219,0.025)' : 'rgba(0,0,0,0.035)';
+    boardCtx.fillRect(random() * W, random() * H, 1 + random() * 5, 1 + random() * 2);
+  }
+  for (let i = 0; i < 25; i++) {
+    boardCtx.fillStyle = 'rgba(218,230,214,0.012)';
+    boardCtx.fillRect(random() * W, random() * H, 100 + random() * 280, 4 + random() * 25);
+  }
+
+  // ------------------------------------------------------------ drawing --
+  function paint(draft = null) {
+    const ctx = canvas.getContext('2d'), pg = page();
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = ({ paper: '#faf8f2', white: '#ffffff', blue: '#f1f7fa' })[pg.paper || 'white'] || '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    if (pg.paper === 'blackboard' && !pg.backgroundImage) ctx.drawImage(boardTexture, 0, 0);
+    ctx.strokeStyle = pg.paper === 'blackboard' && !pg.backgroundImage ? 'rgba(224,236,222,0.22)' : '#e5edf1';
+    ctx.lineWidth = 1;
+    if (pg.backgroundImage) {
+      let image = images.get(pg.id);
+      if (!image) {
+        image = new Image();
+        image.onload = () => { if (!destroyed) paint(drawing); };
+        image.src = pg.backgroundImage;
+        images.set(pg.id, image);
+      }
+      if (image.complete && image.naturalWidth) ctx.drawImage(image, 0, 0, W, H);
+    }
+    if (!pg.backgroundImage && pg.background !== 'blank') {
+      if (pg.background === 'ruled') {
+        for (let i = 0; i < 27; i++) {
+          const y = 70 + i * 48;
+          ctx.beginPath(); ctx.moveTo(50, y); ctx.lineTo(W - 50, y); ctx.stroke();
+        }
+      } else if (pg.background === 'grid') {
+        for (let y = 40; y < H; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+        for (let x = 40; x < W; x += 32) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      } else if (pg.background === 'dots') {
+        ctx.fillStyle = pg.paper === 'blackboard' ? 'rgba(224,236,222,0.32)' : '#d3dfe3';
+        for (let y = 40; y < H; y += 32) for (let x = 40; x < W; x += 32) {
+          ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+    for (const s of [...pg.strokes, ...(draft ? [draft] : [])]) {
+      ctx.strokeStyle = s.color;
+      ctx.fillStyle = s.color;
+      ctx.globalAlpha = s.tool === 'highlight' ? 0.28 : 1;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if (s.tool === 'chalk') {
+        // Soft underlayer and irregular, deterministic grains make the mark
+        // look like dry chalk. The same stroke always renders identically.
+        const grain = (x, y, salt) => {
+          const n = Math.sin(x * 12.9898 + y * 78.233 + salt * 37.719) * 43758.5453;
+          return n - Math.floor(n);
+        };
+        const dab = (x, y, pressure) => {
+          const size = Math.max(2, s.width * (0.6 + pressure) * 1.5);
+          for (let k = 0; k < 7; k++) {
+            const ox = (grain(x, y, k * 3) - 0.5) * size;
+            const oy = (grain(x, y, k * 3 + 1) - 0.5) * size;
+            const r = Math.max(0.35, size * (0.04 + grain(x, y, k * 3 + 2) * 0.12));
+            ctx.globalAlpha = 0.2 + grain(x, y, k + 31) * 0.55;
+            ctx.beginPath(); ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2); ctx.fill();
+          }
+        };
+        if (s.points.length === 1) dab(s.points[0].x, s.points[0].y, s.points[0].p || 0.5);
+        for (let i = 1; i < s.points.length; i++) {
+          const a = s.points[i - 1], b = s.points[i];
+          const length = Math.hypot(b.x - a.x, b.y - a.y);
+          const count = Math.max(1, Math.ceil(length / 1.5));
+          ctx.globalAlpha = 0.12;
+          ctx.lineWidth = s.width * (0.4 + (b.p || 0.5));
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          for (let j = 0; j < count; j++) {
+            const t = (j + 0.5) / count;
+            dab(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, b.p || 0.5);
+          }
+        }
+      } else {
+        if (s.points.length === 1) {
+          ctx.beginPath(); ctx.arc(s.points[0].x, s.points[0].y, s.width / 2, 0, Math.PI * 2); ctx.fill();
+        }
+        for (let i = 1; i < s.points.length; i++) {
+          const a = s.points[i - 1], b = s.points[i];
+          ctx.lineWidth = s.width * (0.4 + (b.p || 0.5));
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      if (selection.includes(s.id)) {
+        const xs = s.points.map(p => p.x), ys = s.points.map(p => p.y);
+        ctx.strokeStyle = '#059981';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(Math.min(...xs) - 6, Math.min(...ys) - 6, Math.max(...xs) - Math.min(...xs) + 12, Math.max(...ys) - Math.min(...ys) + 12);
+        ctx.setLineDash([]);
+      }
+    }
+  }
+
+  // Dust is drawn on a separate transient layer: it is never saved or exported.
+  let dust = [], dustFrame = 0;
+  const dustCtx = dustCanvas.getContext('2d');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  function clearDust() {
+    if (dustFrame) cancelAnimationFrame(dustFrame);
+    dustFrame = 0; dust = []; dustCtx.clearRect(0, 0, W, H);
+  }
+  function animateDust(now) {
+    dustCtx.clearRect(0, 0, W, H);
+    dust = dust.filter(p => now - p.born < p.life);
+    for (const p of dust) {
+      const age = (now - p.born) / 1000, fade = 1 - (now - p.born) / p.life;
+      dustCtx.globalAlpha = p.opacity * fade * fade;
+      dustCtx.fillStyle = p.color;
+      dustCtx.beginPath(); dustCtx.arc(p.x + p.vx * age, p.y + p.vy * age + 30 * age * age, p.radius, 0, Math.PI * 2); dustCtx.fill();
+    }
+    dustCtx.globalAlpha = 1;
+    dustFrame = dust.length ? requestAnimationFrame(animateDust) : 0;
+  }
+  function sprayDust(p, color, width) {
+    if (reduceMotion.matches) return;
+    const now = performance.now();
+    for (let i = 0; i < 5; i++) {
+      const angle = Math.random() * Math.PI * 2, speed = 12 + Math.random() * 42;
+      dust.push({ x: p.x, y: p.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        radius: 0.5 + Math.random() * Math.max(1, width * 0.35), color, born: now,
+        life: 350 + Math.random() * 450, opacity: 0.35 + Math.random() * 0.45 });
+    }
+    if (dust.length > 250) dust.splice(0, dust.length - 250);
+    if (!dustFrame) dustFrame = requestAnimationFrame(animateDust);
+  }
+
+  const point = e => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: ((e.clientX - rect.left) * W) / rect.width, y: ((e.clientY - rect.top) * H) / rect.height, p: e.pressure || 0.5 };
+  };
+  canvas.addEventListener('pointerdown', e => {
+    // Only pens and mice draw: a resting palm or finger never leaves a mark.
+    if (readOnly || prefs.tool === 'pan' || e.pointerType === 'touch') return;
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    const p = point(e);
+    if (prefs.tool === 'lasso') { dragStart = p; return; }
+    if (prefs.tool === 'eraser') {
+      commit(withPage(pg => ({ ...pg, strokes: pg.strokes.filter(s => !s.points.some(q => Math.hypot(q.x - p.x, q.y - p.y) < 18)) })));
+      return;
+    }
+    drawing = { id: crypto.randomUUID(), points: [p], color: prefs.color, width: prefs.tool === 'highlight' ? prefs.width * 5 : prefs.width, tool: prefs.tool };
+    if (drawing.tool === 'chalk') sprayDust(p, drawing.color, drawing.width);
+    paint(drawing);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!drawing) return;
+    const samples = e.getCoalescedEvents?.();
+    for (const sample of samples?.length ? samples : [e]) drawing.points.push(point(sample));
+    if (drawing.tool === 'chalk') sprayDust(drawing.points.at(-1), drawing.color, drawing.width);
+    paint(drawing);
+  });
+  const up = e => {
+    if (dragStart) {
+      const a = dragStart, b = point(e);
+      dragStart = null;
+      if (selection.length) {
+        const dx = b.x - a.x, dy = b.y - a.y, moving = new Set(selection);
+        selection = [];
+        commit(withPage(pg => ({ ...pg, strokes: pg.strokes.map(s => (moving.has(s.id) ? { ...s, points: s.points.map(p => ({ ...p, x: p.x + dx, y: p.y + dy })) } : s)) })));
+      } else {
+        const [x0, x1, y0, y1] = [Math.min(a.x, b.x), Math.max(a.x, b.x), Math.min(a.y, b.y), Math.max(a.y, b.y)];
+        selection = page().strokes.filter(s => s.points.some(p => p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1)).map(s => s.id);
+        sync();
+        paint();
+      }
+    }
+    if (drawing) {
+      const stroke = drawing;
+      drawing = null;
+      redo = [];
+      commit(withPage(pg => ({ ...pg, strokes: [...pg.strokes, stroke] })));
+    }
+  };
+  canvas.addEventListener('pointerup', up);
+  canvas.addEventListener('pointercancel', up);
+
+  function undo() {
+    const strokes = page().strokes;
+    if (readOnly || !strokes.length) return;
+    redo = [...redo, strokes.at(-1)];
+    commit(withPage(pg => ({ ...pg, strokes: pg.strokes.slice(0, -1) })));
+  }
+  function redoStroke() {
+    if (readOnly || !redo.length) return;
+    const stroke = redo.at(-1);
+    redo = redo.slice(0, -1);
+    commit(withPage(pg => ({ ...pg, strokes: [...pg.strokes, stroke] })));
+  }
+
+  // --------------------------------------------------------- PDF and OCR --
+  async function addPdf(file) {
+    busy = true;
+    notice = '';
+    sync();
+    try {
+      const { importPdf } = await import('./pdf.js');
+      const result = await importPdf(file);
+      if (destroyed) return;
+      commit({ ...book, current: book.pages.length, pages: [...book.pages, ...result.pages], sources: [...(book.sources || []), result.source] });
+    } catch (e) {
+      notice = e.message || 'The PDF could not be imported.';
+    } finally {
+      busy = false;
+      if (!destroyed) sync();
+    }
+  }
+  async function runOcr() {
+    busy = true;
+    ocr = '';
+    sync();
+    try {
+      const { recognize } = await import('./ocr.js');
+      const text = await recognize(canvas);
+      ocr = text || 'No text recognized. Handwritten mathematics may need manual transcription.';
+    } catch {
+      ocr = 'Recognition could not load. Your ink is unchanged.';
+    } finally {
+      busy = false;
+      if (!destroyed) sync();
+    }
+  }
+
+  function sendToCollaborator() {
+    if (!onAskImage) return;
+    const savedSel = selection;
+    let dataUrl;
+    if (savedSel.length) {
+      const chosen = page().strokes.filter(s => savedSel.includes(s.id));
+      const pts = chosen.flatMap(s => s.points);
+      selection = [];
+      paint();
+      if (pts.length) {
+        const pad = 32;
+        const x0 = Math.max(0, Math.floor(Math.min(...pts.map(p => p.x)) - pad));
+        const y0 = Math.max(0, Math.floor(Math.min(...pts.map(p => p.y)) - pad));
+        const x1 = Math.min(W, Math.ceil(Math.max(...pts.map(p => p.x)) + pad));
+        const y1 = Math.min(H, Math.ceil(Math.max(...pts.map(p => p.y)) + pad));
+        const crop = document.createElement('canvas');
+        crop.width = Math.max(1, x1 - x0);
+        crop.height = Math.max(1, y1 - y0);
+        crop.getContext('2d').drawImage(canvas, x0, y0, crop.width, crop.height, 0, 0, crop.width, crop.height);
+        dataUrl = crop.toDataURL('image/png');
+      } else {
+        dataUrl = canvas.toDataURL('image/png');
+      }
+      selection = savedSel;
+      paint();
+    } else {
+      dataUrl = canvas.toDataURL('image/png');
+    }
+    onAskImage({ dataUrl, page: book.current + 1, selection: savedSel.length > 0 });
+  }
+
+  sync();
+  paint();
+  return {
+    // A notebook's JSON; a new readOnly too, if given.
+    load(content, options = {}) {
+      if (typeof options.readOnly === 'boolean') readOnly = options.readOnly;
+      if (typeof options.ai === 'boolean') aiEnabled = options.ai;
+      book = parse(content);
+      redo = [];
+      selection = [];
+      drawing = null;
+      dragStart = null;
+      notice = '';
+      images.clear();
+      clearDust();
+      sync();
+      paint();
+    },
+    setReadOnly(value) { readOnly = !!value; sync(); },
+    setAi(value) { aiEnabled = !!value; sync(); },
+    destroy() {
+      destroyed = true;
+      clearDust();
+      root.remove();
+    },
+  };
+}

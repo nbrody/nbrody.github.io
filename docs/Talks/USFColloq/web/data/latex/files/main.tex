@@ -1,0 +1,63 @@
+\documentclass[11pt]{amsart}
+\usepackage[hmargin=1.2in,vmargin=1.05in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\input{macros.tex}
+\graphicspath{{figures/}}
+\setlength{\emergencystretch}{1.5em}
+
+% The four letter colors used by every figure in this project.
+\definecolor{pa}{HTML}{D1495B}  % a and D_a
+\definecolor{pai}{HTML}{EDAE49} % a^{-1} and D_{a^{-1}}
+\definecolor{pb}{HTML}{00798C}  % b and D_b
+\definecolor{pbi}{HTML}{30638E} % b^{-1} and D_{b^{-1}}
+\definecolor{ink}{HTML}{1F2A36}
+\usepackage[colorlinks=true,linkcolor=pbi,citecolor=pb,urlcolor=pbi]{hyperref}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{question}[theorem]{Question}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% A path to another file of this project.
+\newcommand{\projectfile}[1]{\nolinkurl{#1}}
+
+\title{Ping-pong and free groups}
+\author{AlphaCentaur demo project}
+
+\begin{document}
+
+\begin{abstract}
+The ping-pong lemma turns the question ``do these two elements generate a free
+group?'' into a picture: four disjoint sets that the generators throw into one
+another. We prove the lemma in two forms, use it to show that Sanov's matrices
+generate a free group, explain why the same argument must fail for
+$\SL_2(\Z)$, and follow it to Schottky groups and the Tits alternative. We end
+with an open question about rational parameters, where ping-pong runs out.
+\end{abstract}
+
+\maketitle
+
+\input{sections/introduction}
+\input{sections/ping-pong-lemma}
+\input{sections/sanov}
+\input{sections/schottky}
+\input{sections/tits}
+\input{sections/open-question}
+\input{sections/in-this-project}
+
+\bibliographystyle{amsplain}
+\bibliography{alphacentaur}
+
+\end{document}

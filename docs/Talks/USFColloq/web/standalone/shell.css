@@ -1,0 +1,64 @@
+/* The standalone frame alphaMarkdown and alphaNote share (shell.js), in
+   alphaCentaur's light theme. */
+.shell { height: 100vh; display: grid; grid-template-columns: 248px minmax(0, 1fr); background: #fff; color: #152c3e; }
+.shell-side { display: flex; flex-direction: column; gap: 14px; min-height: 0; padding: 16px 12px; border-right: 1px solid #dfe6e9; background: #fbfcfd; }
+.shell-brand { display: flex; align-items: center; gap: 10px; padding: 0 4px; min-width: 0; }
+.shell-brand img { width: 30px; height: 30px; border-radius: 7px; flex: none; }
+.shell-brand div { display: grid; min-width: 0; line-height: 1.25; }
+.shell-brand strong { font-size: 14px; }
+.shell-brand small { color: #70818e; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shell-new { display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border: 1px solid #dfe6e9; border-radius: 8px; background: #fff; font-size: 13px; font-weight: 500; }
+.shell-new:hover { background: #f3f6f8; }
+.shell-files { flex: 1; min-height: 0; overflow: auto; font-size: 13px; }
+.shell-tree, .shell-tree ul { list-style: none; margin: 0; padding: 0; }
+.shell-row { display: flex; align-items: center; min-height: 34px; border-radius: 5px; gap: 2px; color: #607784; }
+.shell-row:hover { background: #eef3f4; }
+.shell-row.selected { background: #e3efec; color: #237568; }
+.shell-item { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 0; background: none; text-align: left; }
+.shell-item span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shell-chevron { display: inline-flex; transition: transform .12s; }
+.shell-chevron.open { transform: rotate(90deg); }
+.shell-row-btn { flex: none; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 5px; background: none; color: #7b918b; opacity: 0; }
+.shell-row:hover .shell-row-btn, .shell-row-btn:focus-visible { opacity: 1; }
+.shell-row-btn:hover { background: #e2eaec; }
+.shell-empty-tree { padding: 8px; color: #8a9aa4; }
+.shell-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.shell-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 15px; padding: 24px 30px 14px; border-bottom: 1px solid #eff2f3; }
+.shell-eyebrow { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8a9aa4; margin-bottom: 8px; }
+.shell-head h1 { margin: 0; font: 30px/1.15 Georgia, serif; overflow-wrap: anywhere; }
+.shell-status { font-size: 11px; color: #7a909c; white-space: nowrap; padding-bottom: 4px; }
+.shell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.shell-body > * { flex: 1; min-height: 0; }
+.shell-conflict { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 10px 18px 0; padding: 10px 14px; border-radius: 8px; background: #fff6e2; color: #6b5420; font-size: 13px; }
+.shell-empty { margin: auto; display: grid; justify-items: center; gap: 14px; padding: 20px; text-align: center; color: #70818e; }
+.shell-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 8px; font-size: 13px; font-weight: 500; background: #f3f6f8; }
+.shell-btn.primary { background: #087e6c; color: #fff; }
+.shell-btn.primary:hover { background: #066a5b; }
+.shell-btn.outline { border-color: #dfe6e9; background: #fff; }
+.shell-btn.danger { background: #fdeceb; color: #c24940; }
+.shell-btn:disabled { opacity: .5; }
+.shell-new:focus-visible, .shell-item:focus-visible, .shell-btn:focus-visible { outline: 2px solid #53aa9b; outline-offset: 1px; }
+.shell-menu { position: fixed; z-index: 50; min-width: 180px; padding: 5px; border: 1px solid #dfe6e9; border-radius: 8px; background: #fff; box-shadow: 0 10px 30px #0b1d2a2e; }
+.shell-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 9px; border: 0; border-radius: 5px; background: none; font-size: 13px; text-align: left; }
+.shell-menu button:hover, .shell-menu button:focus-visible { background: #f3f6f8; outline: none; }
+.shell-menu button.danger { color: #c24940; }
+.shell-menu hr { border: 0; border-top: 1px solid #eef2f3; margin: 4px 0; }
+.shell-dialog { width: min(440px, calc(100vw - 32px)); padding: 20px; border: 1px solid #dfe6e9; border-radius: 12px; box-shadow: 0 18px 50px #0b1d2a40; color: #152c3e; }
+.shell-dialog::backdrop { background: #0b1d2a55; }
+.shell-dialog h2 { margin: 0 0 6px; font-size: 17px; }
+.shell-dialog p { margin: 0 0 12px; font-size: 13px; }
+.shell-dialog input { width: 100%; border: 1px solid #dfe6e9; border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+.shell-dialog .muted { color: #70818e; }
+.shell-field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font-size: 13px; color: #70818e; }
+.shell-field select { border: 1px solid #dfe6e9; border-radius: 6px; padding: 7px 8px; font: inherit; font-size: 14px; color: #152c3e; background: #fff; }
+.shell-error { color: #c24940; margin-top: 8px !important; }
+.shell-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.shell-toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 60; max-width: min(560px, calc(100vw - 32px)); padding: 10px 16px; border-radius: 8px; background: #132c3d; color: #fff; font-size: 13px; box-shadow: 0 10px 30px #0b1d2a40; cursor: pointer; }
+.shell-offline { max-width: 640px; margin: 80px auto; padding: 0 20px; line-height: 1.6; }
+.shell-offline h1 { font: 30px Georgia, serif; }
+@media (max-width: 700px) {
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .shell-side { max-height: 38vh; border-right: 0; border-bottom: 1px solid #dfe6e9; }
+  .shell-head { padding: 16px 18px 10px; }
+  .shell-head h1 { font-size: 24px; }
+}

@@ -1,0 +1,61 @@
+\section{An open question}\label{sec:open}
+
+Ping-pong proves that a group is free. It cannot prove that a group is not
+free; for that one needs a relation. This section describes a family where
+the two kinds of argument meet, in the normalization of Kim and
+Koberda~\cite{kim-koberda-2019}. For $q \in \R$ let
+\[
+  a = \mat{1}{0}{1}{1}, \qquad b_q = \mat{1}{q}{0}{1}, \qquad
+  G_q = \gen{a, b_q}.
+\]
+For $t \ne 0$, conjugating by $\mathrm{diag}(t, 1)$ carries $A_t$ to $b_{t^2}$
+and $B_t$ to $a$. So $G_t$ of Section~\ref{sec:sanov} is conjugate to $G_q$
+with $q = t^2$: Sanov's group is $q = 4$ and $\SL_2(\Z)$ is $q = 1$.
+Conjugating by $\mathrm{diag}(1,-1)$ carries $a$ to $a^{-1}$ and $b_q$ to
+$b_{-q}$, so $G_q$ and $G_{-q}$ are conjugate.
+
+\begin{proposition}\label{prop:q-free}
+If $\abs{q} \ge 4$, then $a$ and $b_q$ freely generate a free group of
+rank~$2$.
+\end{proposition}
+
+\begin{proof}
+Let $U = \{(x,y) : \abs{x} > 2\abs{y}\}$ and
+$V = \{(x,y) : \abs{x} < 2\abs{y}\}$, and let $n \ne 0$. If $(x,y) \in U$,
+then $a^n(x,y) = (x,\ nx + y)$ and
+$\abs{nx + y} \ge \abs{x} - \abs{y} > \abs{x} - \abs{x}/2 = \abs{x}/2$, so
+$a^n(U) \subseteq V$. If $(x,y) \in V$, then $b_q^n(x,y) = (x + nqy,\ y)$
+and $\abs{x + nqy} \ge 4\abs{y} - \abs{x} > 2\abs{y}$, so
+$b_q^n(V) \subseteq U$. Both $a$ and $b_q$ have infinite order, so
+Theorem~\ref{thm:tabletennis} with $H_1 = \gen{b_q}$, $X_1 = U$,
+$H_2 = \gen{a}$, $X_2 = V$ gives $G_q \cong \Z * \Z$.
+\end{proof}
+
+For $\abs{q} < 4$ these sets fail. The question is what happens there for
+rational~$q$.
+
+\begin{question}\label{q:rational}
+Is $G_q$ non-free for every nonzero rational $q$ with $\abs{q} < 4$?
+\end{question}
+
+(At $q = 0$, $b_0 = 1$ and $G_0 = \gen{a} \cong \Z$, which is free of rank~$1$.) For $q = 1, 2, 3$ a single element
+gives a relation: $a b_q^{-1} = \mat{1}{-q}{1}{1-q}$ has trace $2 - q$, which
+is $1$, $0$ or $-1$. A matrix in $\SL_2$ with one of these traces has
+eigenvalues that are primitive roots of unity of order $6$, $4$ or $3$, and
+the two eigenvalues are distinct, so it has that finite order. Hence
+$(a b_q^{-1})^{12} = 1$, a relation given by a nonempty reduced word, and
+$G_q$ is not free. By the symmetry $q \mapsto -q$ the same holds for
+$q = -1, -2, -3$.
+
+For other rational $q$ in $(-4,4)$ the question is harder. Kim and
+Koberda~\cite{kim-koberda-2019} prove (arXiv:1901.06375) that $G_q$ is not
+free when $q = s/r$ with $\abs{s} \le 27$, except possibly when $s = 24$; for
+$s = 24$ they show that the denominators $r$ giving a non-free group have
+natural density~$1$. Some of their proofs are computer assisted.
+Nyberg-Brodda~\cite{nyberg-brodda-2023} (arXiv:2312.11258) conjectures that
+when $q = m/p$ in this range, with $p$ prime, $G_q$ is an explicit congruence
+subgroup of $\SL_2(\Z[\frac1p])$, and proves this when $m \le 4$ and in some cases with
+$m = 5$. In those cases $G_q$ has finite index in $\SL_2(\Z[\frac1p])$, so it
+is far from free. Questions of this kind go back to the study by Lyndon and
+Ullman~\cite{lyndon-ullman-1969} of which complex parameters make two
+parabolic transformations generate a free group.
