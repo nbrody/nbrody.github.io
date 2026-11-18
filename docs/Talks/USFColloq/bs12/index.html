@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BS(1,2): bricks and branching planes</title>
+<style>
+  :root { --pz-text:#172C39; --pz-muted:#4E6166; --pz-accent:#12665D; --pz-accent2:#B34530; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; cursor: pointer; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+</style></head><body>
+<canvas id="c"></canvas>
+<script>
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const cs = getComputedStyle(document.documentElement);
+const V = (n, f) => (cs.getPropertyValue(n).trim() || f);
+const TEXT = V("--pz-text", "#172C39"), MUTED = V("--pz-muted", "#4E6166"),
+      TEAL = V("--pz-accent", "#12665D"), CORAL = V("--pz-accent2", "#B34530");
+const GOLD = "#C99A2E";
+const hex = (h, a) => { h = h.replace("#", ""); if (h.length === 3) h = h.replace(/./g, c => c + c);
+  const n = parseInt(h, 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+const col = (c, a) => c[0] === "#" ? hex(c, a) : c;
+
+const ROWS = 4, W = 8, D = [0, 3.6, 1.8, 0.9], ZC = 3.15, PITCH = 14 * Math.PI / 180, MAXTH = 80 * Math.PI / 180;
+// binary tree of rows: row r+1 sits on row r in two ways, so planes share lower rows and fan out upward
+const nodes = [];
+(function build(r, bits, zb) {
+  if (r === ROWS) return;
+  const opts = r === 0 ? [0] : [0, 1];
+  for (const b of opts) {
+    const zt = zb + b * D[r], nb = bits + (r === 0 ? "" : b);
+    nodes.push({ r, bits: nb, zb, zt, primary: !/1/.test(nb) });
+    build(r + 1, nb, zt);
+  }
+})(0, "", 0);
+
+const Y0 = r => 0.5 * (2 ** r - 1); // row r is the band y in [2^r, 2^(r+1)] (half-scale): height doubles with every row up
+let w, h, S, dpr, t0 = performance.now();
+function resize() {
+  dpr = window.devicePixelRatio || 1; w = cv.clientWidth; h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr; S = Math.min(w / 9.4, h / 11.2);
+}
+window.addEventListener("resize", resize); resize();
+
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const ease = x => (x = clamp(x), x * x * (3 - 2 * x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const T = 13.6, FREEZE = new URLSearchParams(location.search).get("t");
+function rotAt(t) { return ease(seg(t, 5.2, 7.6)) - ease(seg(t, 10.6, 13.0)); }
+
+let TH = 0;
+function P(x, y, z) {
+  const px = x - W / 2, pz = z - ZC;
+  const X = px * Math.cos(TH) + pz * Math.sin(TH);
+  const d = -px * Math.sin(TH) + pz * Math.cos(TH);
+  const up = y * Math.cos(PITCH) + d * Math.sin(PITCH);
+  return { X: w / 2 + X * S, Y: h * 0.5 - (up - 3.75 * Math.cos(PITCH)) * S, d };
+}
+
+function mkBrick(node, m, wid, spread) {
+  const g = 0.07, x0 = m * wid + g, x1 = (m + 1) * wid - g;
+  const y0 = Y0(node.r) + g * 0.8, y1 = Y0(node.r + 1) - g * 0.8;
+  const zb = node.zb * spread, zt = node.zt * spread;
+  const pts = [P(x0, y0, zb), P(x1, y0, zb), P(x1, y1, zt), P(x0, y1, zt)];
+  return { pts, d: (pts[0].d + pts[1].d + pts[2].d + pts[3].d) / 4, node, m };
+}
+
+function brickColors(node, m) {
+  let fill = col(TEXT, node.primary ? 0.17 : 0.11), stroke = col(TEXT, node.primary ? 0.34 : 0.26);
+  if (node.primary && node.r === 1 && m < 2) { fill = col(TEAL, 0.34); stroke = col(TEAL, 0.7); }
+  if (node.primary && node.r === 2 && m === 0) { fill = col(CORAL, 0.28); stroke = col(CORAL, 0.65); }
+  return { fill, stroke };
+}
+
+function arrow(a, b, bend, prog, color, alpha, wid) {
+  if (prog <= 0 || alpha <= 0) return;
+  const mx = (a.X + b.X) / 2, my = (a.Y + b.Y) / 2, dx = b.X - a.X, dy = b.Y - a.Y, L = Math.hypot(dx, dy) || 1;
+  const cx = mx - dy / L * bend * S, cy = my + dx / L * bend * S;
+  const at = u => ({ X: (1 - u) * (1 - u) * a.X + 2 * u * (1 - u) * cx + u * u * b.X, Y: (1 - u) * (1 - u) * a.Y + 2 * u * (1 - u) * cy + u * u * b.Y });
+  ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = wid; ctx.lineCap = "round";
+  ctx.beginPath(); for (let i = 0; i <= 30; i++) { const p = at(prog * i / 30); i ? ctx.lineTo(p.X, p.Y) : ctx.moveTo(p.X, p.Y); } ctx.stroke();
+  if (prog > 0.97) {
+    const p = at(1), q = at(0.94), ang = Math.atan2(p.Y - q.Y, p.X - q.X), s = 15;
+    ctx.beginPath(); ctx.moveTo(p.X, p.Y); ctx.lineTo(p.X - s * Math.cos(ang - 0.45), p.Y - s * Math.sin(ang - 0.45));
+    ctx.lineTo(p.X - s * Math.cos(ang + 0.45), p.Y - s * Math.sin(ang + 0.45)); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+function dot(p, color, alpha) { if (alpha <= 0) return; ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = "#F7F3E9"; ctx.strokeStyle = color; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(p.X, p.Y, 8, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore(); }
+
+function frame(now) {
+  const t = FREEZE !== null ? +FREEZE : ((now - t0) / 1000) % T, rot = rotAt(t), sp = ease(rot);
+  TH = rot * MAXTH;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+
+  const bricks = [];
+  for (const n of nodes) { const wid = 2 ** n.r; for (let m = 0; m < W / wid; m++) bricks.push(mkBrick(n, m, wid, sp)); }
+  bricks.sort((a, b) => b.d - a.d);
+  ctx.lineJoin = "round";
+  for (const b of bricks) {
+    const { fill, stroke } = brickColors(b.node, b.m);
+    ctx.globalAlpha = b.node.primary ? 1 : 0.15 + 0.85 * sp;
+    ctx.beginPath(); b.pts.forEach((p, i) => i ? ctx.lineTo(p.X, p.Y) : ctx.moveTo(p.X, p.Y)); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = stroke; ctx.lineWidth = 2.5; ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // the relation D U D^-1 = U^2 drawn on the front plane
+  const aA = clamp(1 - rot * 3);
+  if (aA > 0) {
+    const yq = (Y0(1) + Y0(2)) / 2, yr = (Y0(2) + Y0(3)) / 2;
+    const Q0 = P(0.5, yq, 0), Q1 = P(2.5, yq, 0), Q2 = P(4.5, yq, 0), R0 = P(0.5, yr, 0), R1 = P(4.5, yr, 0);
+    arrow(Q0, Q1, -0.28, seg(t, 1.0, 1.7), TEAL, aA, 6);
+    arrow(Q1, Q2, -0.28, seg(t, 1.7, 2.4), TEAL, aA, 6);
+    arrow(Q0, R0, 0.35, seg(t, 2.8, 3.5), GOLD, aA, 6);
+    arrow(R0, R1, -0.7, seg(t, 3.5, 4.4), CORAL, aA, 6);
+    arrow(R1, Q2, 0.35, seg(t, 4.4, 5.1), GOLD, aA, 6);
+    dot(Q0, TEAL, aA * seg(t, 0.6, 1.0)); dot(Q1, TEAL, aA * seg(t, 1.6, 1.8)); dot(Q2, TEAL, aA * seg(t, 2.3, 2.5));
+    dot(R0, CORAL, aA * seg(t, 3.4, 3.6)); dot(R1, CORAL, aA * seg(t, 4.3, 4.5));
+    ctx.save(); ctx.font = "italic 25px Georgia"; ctx.textAlign = "center";
+    const lab = (X, Y, s, c, k) => { ctx.globalAlpha = aA * k; ctx.fillStyle = c; ctx.fillText(s, X, Y); };
+    lab((Q0.X + Q1.X) / 2, Q0.Y + 30, "U", TEAL, seg(t, 1.2, 1.7));
+    lab((Q1.X + Q2.X) / 2, Q0.Y + 30, "U", TEAL, seg(t, 1.9, 2.4));
+    lab((R0.X + R1.X) / 2, R0.Y - 60, "U", CORAL, seg(t, 3.9, 4.4));
+    lab(Q0.X + 26, (Q0.Y + R0.Y) / 2 + 8, "D", GOLD, seg(t, 3.0, 3.5));
+    lab(Q2.X + 40, (Q2.Y + R1.Y) / 2 + 8, "D⁻¹", GOLD, seg(t, 4.6, 5.1));
+    ctx.restore();
+  }
+
+  ctx.textAlign = "left";
+  const cap = (s, sub, k) => { if (k <= 0) return; ctx.globalAlpha = k; ctx.fillStyle = TEXT; ctx.font = "bold 27px Georgia"; ctx.fillText(s, 8, 32);
+    ctx.fillStyle = MUTED; ctx.font = "21px Helvetica, Arial"; ctx.fillText(sub, 8, 62); ctx.globalAlpha = 1; };
+  cap("Front view: hyperbolic bricks", "every brick is a unit-size tile of ℍ²", clamp(1 - rot * 2.5));
+  cap("Side view: a branching space of planes", "planes share their lower rows and fan out upward", clamp(rot * 2.5 - 1.5));
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+const reset = () => { t0 = performance.now(); };
+document.body.addEventListener("click", reset);
+window.addEventListener("message", e => { if (e.data && (e.data.type === "pz-reveal" || e.data.type === "pz-visible")) reset(); });
+</script>
+</body></html>

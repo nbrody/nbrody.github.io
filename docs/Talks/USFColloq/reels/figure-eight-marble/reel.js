@@ -11,6 +11,19 @@ try {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#0f1218');
   scene.add(marble);
+  const params = new URLSearchParams(location.search);
+  if (params.get('mode') === 'interact' && params.has('tiling-remote') && params.get('embed') !== 'true') {
+    const copies = [];
+    // The original domain and glass shell are separate from the instanced copies.
+    marble.traverse(object => { if (object.isInstancedMesh) copies.push(object); });
+    addEventListener('message', (event) => {
+      const command = event.data;
+      if (event.source !== parent || command?.type !== 'pz-param' ||
+          command.name !== 'gamma8Tiling' || typeof command.value !== 'boolean') return;
+      copies.forEach(copy => { copy.visible = command.value; });
+    });
+    parent.postMessage({ type: 'pz-applet-ready' }, '*');
+  }
   const camera = new THREE.PerspectiveCamera(data.camera.fov, 1, 0.05, 100);
   const direction = new THREE.Vector3(...data.camera.position).sub(new THREE.Vector3(...data.camera.target)).normalize();
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });

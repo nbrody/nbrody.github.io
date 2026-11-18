@@ -2,148 +2,275 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>One matrix in parallel spaces</title>
+<title>One matrix, parallel lives</title>
 <!--
-  One matrix, read in several number systems, moving a different space in each.
-  Every picture is the project's own tool, loaded whole in a frame:
-    Geometric/Tools/Kleinian/poincare/   the hyperbolic plane (a real embedding)
-    Geometric/Tools/padicGroups/trees/   the Bruhat–Tits tree (a prime)
-  This page only chooses what is on screen and presses "apply the generator"
-  in each tool at the same moment.
+  One matrix sits in the middle. On each side is a space it moves, shown by the
+  project's own tool, loaded whole in a frame:
+    Geometric/Tools/Kleinian/poincare/   a hyperbolic plane (one real value of the entries)
+    Geometric/Tools/padicGroups/trees/   a tree (one prime)
+  This page only decides which spaces are uncovered, and presses "apply the
+  generator" in the tools.
 
-  ?m=A | B            which matrix (default A)
-  ?show=1 | 2 | both  which space is on screen first (default 1)
+  ?m=A | B              which matrix (default A)
+  ?mode=solo | together solo: the spaces are uncovered and played one per step,
+                        and one more step plays them all; together: every space
+                        is on screen from the start and one step plays them all.
+  The deck drives it with pz-build-step messages; a click on a space (or the
+  matrix) plays it again, and so does a phone-remote button named "replay".
 -->
+<link rel="stylesheet" href="./web/presentations/vendor/katex/katex.min.css">
+<script src="./web/presentations/vendor/katex/katex.min.js"></script>
 <style>
-:root{color-scheme:light;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#172c39;background:#f7f3e9;
-  --ink:#172c39;--muted:#4e6166;--accent:#12665d;--accent2:#b34530;--line:#d1d0c4;--surface:#e9e6dc}
+:root{color-scheme:light;--bg:#f7f3e9;--surface:#e9e6dc;--ink:#172c39;--muted:#4e6166;--accent:#12665d;--accent2:#b34530;--line:#d1d0c4;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;overflow:hidden}
-header{display:flex;align-items:center;justify-content:space-between;gap:10px 26px;padding:2px 4px;flex-wrap:wrap}
-.formula{display:flex;align-items:center;gap:12px;font:34px Georgia,"Times New Roman",serif;white-space:nowrap}
-.formula table{border-left:2.5px solid;border-right:2.5px solid;border-radius:10px;border-spacing:16px 2px;text-align:center;line-height:1.1}
-.controls{display:flex;align-items:center;gap:10px}
-.seg{display:flex;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#eee9df}
-button{font:650 23px/1.2 "Helvetica Neue",Arial,sans-serif;color:inherit;background:transparent;border:0;padding:.5em .8em;cursor:pointer}
-.seg button+button{border-left:1px solid var(--line)}
-.seg button[aria-pressed="true"]{background:#dbeae4;color:#10443f}
-#play{background:var(--accent);color:#fff;border-radius:11px;min-width:7.2em}
-#play:disabled{opacity:.5;cursor:wait}
-#reset{border:1px solid var(--line);border-radius:11px;background:#eee9df}
-button:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
-#views{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:16px;min-height:0}
-figure{display:grid;grid-template-rows:auto minmax(0,1fr);margin:0;overflow:hidden;border-radius:14px;border:1px solid var(--line);background:#eef0f7}
-figure[hidden]{display:none}
-figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 18px;padding:11px 18px;background:var(--surface);border-bottom:1px solid var(--line);font-size:24px}
-figcaption b{font-size:1.12em;white-space:nowrap}
-figcaption b i{font-style:normal;color:var(--accent)}
-figcaption b u{text-decoration:none;font-weight:400}
-figcaption span{color:var(--muted);text-align:right;white-space:nowrap;margin-left:auto}
-figcaption span em{font-style:normal;font-weight:650;color:var(--accent2)}
-.stage{position:relative;min-height:0}
-iframe{position:absolute;inset:0;border:0;width:100%;height:100%;display:block;background:#eef0f7}
-.veil{position:absolute;inset:0;display:grid;place-items:center;background:#eef0f7;color:var(--muted);font-size:22px;transition:opacity .4s}
-.veil.gone{opacity:0;pointer-events:none}
-#status{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:#fcf7e9;color:#963923;padding:8px 14px;border-radius:8px;border:1px solid #e3c9bf;font-size:18px}
+body{margin:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) var(--mid,350px) minmax(0,1fr);gap:22px;user-select:none}
+.life{position:relative;display:grid;grid-template-rows:auto minmax(0,1fr);border-radius:22px;overflow:hidden;background:var(--surface);cursor:pointer}
+.life header{display:flex;align-items:center;gap:16px;min-height:74px;padding:10px 24px;font-size:30px}
+.life header .space{font-size:38px}
+.life header .via{color:var(--muted)}
+.life header .verdict{margin-left:auto;padding:.22em .8em;border-radius:99px;background:var(--accent2);color:#fff;font-weight:700;font-size:26px;
+  opacity:0;transform:translateY(6px);transition:opacity .45s,transform .45s}
+.life.done header .verdict{opacity:1;transform:none}
+.stage{position:relative;min-height:0;margin:0 12px 12px;border-radius:14px;overflow:hidden;background:#eef0f7}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;pointer-events:none}
+.veil{position:absolute;inset:0;z-index:2;display:grid;place-items:center;border-radius:22px;background:var(--surface);
+  color:var(--line);font:700 150px Georgia,"Times New Roman",serif;transition:opacity .7s}
+.life.open .veil{opacity:0;pointer-events:none}
+#mid{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;min-width:0;cursor:pointer}
+#matrix{font-size:40px;white-space:nowrap}
+#arrows{width:100%;height:30px;overflow:visible}
+#arrows path{fill:none;stroke:var(--accent);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;transition:opacity .6s}
+#arrows path.off{opacity:.18}
+#others{display:none;width:100%;text-align:center}
+body.together #others{display:block}
+#others p{margin:0 0 12px;font-size:25px;color:var(--muted);white-space:nowrap}
+#minis{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 6px}
+#minis figure{margin:0;font-size:22px;color:var(--muted)}
+#minis svg{display:block;width:100%;height:auto;overflow:visible}
+#minis .branch{transition:transform 1.5s cubic-bezier(.45,0,.2,1)}
+#minis .branch line{stroke-linecap:round}
+#minis .hub{fill:var(--accent2)}
+#minis .ring{fill:none;stroke:var(--accent2);stroke-width:1.5;opacity:0}
+#minis .go .ring{animation:ring 1.5s ease-out}
+#minis .dots{display:grid;place-items:center;font:700 44px Georgia,serif;color:var(--line);aspect-ratio:1}
+@keyframes ring{0%{r:4px;opacity:.9}100%{r:22px;opacity:0}}
+#others .verdict{display:inline-block;margin-top:12px;padding:.22em .8em;border-radius:99px;background:var(--accent2);color:#fff;font-weight:700;font-size:24px;
+  opacity:0;transition:opacity .45s}
+#others.done .verdict{opacity:1}
+#status{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;padding:8px 16px;border-radius:10px;background:#fcf7e9;
+  border:1px solid #e3c9bf;color:#963923;font-size:20px}
 </style>
-<header>
-  <div class="formula" id="formula"></div>
-  <div class="controls">
-    <div class="seg" role="group" aria-label="Which space">
-      <button type="button" id="first" aria-pressed="true"></button>
-      <button type="button" id="second" aria-pressed="false"></button>
-      <button type="button" id="both" aria-pressed="false">Both at once</button>
-    </div>
-    <button type="button" id="play" disabled>Apply</button>
-    <button type="button" id="reset" title="Back to the start">Reset</button>
+<section class="life" id="life0"></section>
+<div id="mid" title="Play again">
+  <div id="matrix"></div>
+  <svg id="arrows" viewBox="0 0 350 30" preserveAspectRatio="none" aria-hidden="true">
+    <path id="arrow0" d="M150 15H6M22 3 6 15l16 12"/>
+    <path id="arrow1" d="M200 15h144M328 3l16 12-16 12"/>
+  </svg>
+  <div id="others">
+    <p id="others-label"></p>
+    <div id="minis"></div>
+    <span class="verdict">a fixed point in each</span>
   </div>
-</header>
-<main id="views" aria-label="The spaces this matrix moves"></main>
+</div>
+<section class="life" id="life1"></section>
 <output id="status" hidden role="status"></output>
 <script>
+const tex = (s, display) => katex.renderToString(s, { displayMode: !!display, throwOnError: false });
 const plane = '../../GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare/index.html';
 const trees = '../../GeometryofLinearGroups/Geometric/Tools/padicGroups/trees/index.html';
-function url(path, state) {
-    const hash = btoa(JSON.stringify({v:1,...state})).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/, '');
+function tool(path, state) {
+    const hash = btoa(JSON.stringify({ v: 1, theme: 'light', panel: 'closed', ...state })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     return path + '?actionDemo=1#s=' + hash;
 }
-const A = ['3/5','4/5','-4/5','3/5'];
-const real = (matrix,bp) => url(plane,{mats:[matrix],bp,depth:2,panel:'closed'});
-const examples = [
-    {
-        matrix: '<span>A = ⅕</span><table aria-label="rows 3, 4 and negative 4, 3"><tr><td>3</td><td>4</td></tr><tr><td>−4</td><td>3</td></tr></table>',
-        views: [
-            ['ℝ → H²','Rotation about i',real(A,[.27,0,0])],
-            ['ℚ₅ → T₅','Translation by two edges along the axis',url(trees,{p:'5',mats:[A],vertex:['0','0'],L:1,r:0,model:'disk'})]
-        ]
+const real = (matrix, bp) => tool(plane, { mats: [matrix], bp, depth: 2 });
+const A = ['3/5', '4/5', '-4/5', '3/5'];
+const B = s => ['0', '-1', '1', `1${s}sqrt(2)`];
+const examples = {
+    A: {
+        matrix: 'A = \\begin{pmatrix} \\tfrac35 & \\tfrac45 \\\\[3pt] -\\tfrac45 & \\tfrac35 \\end{pmatrix}',
+        lives: [
+            { space: '\\mathbb{H}^2', via: 'entries in $\\mathbb{R}$', verdict: 'rotation', src: real(A, [.27, 0, 0]) },
+            { space: 'T_5', via: 'entries in $\\mathbb{Q}_5$', verdict: 'translation · 2 edges',
+              // word length 0 and distance 2: the viewer draws the ball around the base vertex, the same from every side
+              src: tool(trees, { p: '5', mats: [A], vertex: ['0', '0'], L: 0, r: 2, model: 'disk' }) }
+        ],
+        // on the tree of every other prime p, A fixes the standard vertex and permutes its p + 1 neighbors
+        others: { label: '…and a tree at every prime', primes: [2, 3, 7, 11, 13], mobius: [3, 4, -4, 3] }
     },
-    {
-        matrix: '<span>B =</span><table aria-label="rows 1 plus square root of 2, negative 1 and 1, 0"><tr><td>1 + √2</td><td>−1</td></tr><tr><td>1</td><td>0</td></tr></table>',
-        views: [
-            ['+√2 → H²','Translation along an axis',real(['1+sqrt(2)','-1','1','0'],[0,0,0])],
-            ['−√2 → H²','Rotation about an interior point',real(['1-sqrt(2)','-1','1','0'],[.24,0,0])]
+    B: {
+        matrix: 'B = \\begin{pmatrix} 0 & -1 \\\\[3pt] 1 & 1+\\sqrt2 \\end{pmatrix}',
+        lives: [
+            { space: '\\mathbb{H}^2', via: '$\\sqrt2 = 1.414\\ldots$', verdict: 'translation', src: real(B('+'), [0, 0, 0]) },
+            { space: '\\mathbb{H}^2', via: '$\\sqrt2 = -1.414\\ldots$', verdict: 'rotation', src: real(B('-'), [.24, 0, 0]) }
         ]
     }
-];
-const views = document.getElementById('views');
-const status = document.getElementById('status');
-const panels = examples.map(example => example.views.map(([label,description,src]) => {
-    const figure = document.createElement('figure');
-    const caption = document.createElement('figcaption');
-    const heading = document.createElement('b'), detail = document.createElement('span');
-    heading.textContent = label;
-    detail.textContent = description;
-    caption.append(heading,detail);
-    const frame = document.createElement('iframe');
-    frame.title = label;
-    frame.tabIndex = -1;
-    frame.src = src;
-    figure.append(caption,frame);
-    views.append(figure);
-    return {figure,frame};
-}));
+};
 const params = new URLSearchParams(location.search);
-const example = params.get('m') === 'B' ? 1 : 0;
-const together = params.get('show') === 'both';
-let epoch = 0, step = 0;
-function show(next,play) {
-    step = next;
-    const ticket = ++epoch;
-    const part = together ? 2 : Math.max(0, step - 1);
-    const active = panels[example].filter((p,i) => part === 2 || i === part);
-    panels.flat().forEach(p => { p.figure.hidden = !active.includes(p); });
-    document.getElementById('formula').innerHTML = examples[example].matrix;
-    document.getElementById('cue').textContent = step === 0 ? 'Advance to play the first action' : '';
-    status.hidden = true;
-    const deadline = performance.now() + 8000;
-    function ready() {
-        if (ticket !== epoch) return;
-        const apis = active.map(p => p.frame.contentWindow?.talkAction);
-        if (apis.every(Boolean) && active.every(p => !p.frame.contentWindow.PoincareAPI?.isAnimating())) {
-            apis.forEach(a => play ? a.play() : a.reset());
-        } else if (performance.now() < deadline) {
-            setTimeout(ready,60);
-        } else {
-            status.hidden = false;
-            status.value = 'A project viewer did not finish loading.';
+const example = examples[params.get('m') === 'B' ? 'B' : 'A'];
+const together = params.get('mode') === 'together';
+document.body.classList.toggle('together', together);
+const inline = s => s.replace(/\$([^$]+)\$/g, (_, m) => tex(m));
+
+const matrix = document.getElementById('matrix');
+matrix.innerHTML = tex(example.matrix, true);
+// the middle column is as wide as the matrix needs, so the matrix never runs under a picture
+function fitMiddle() {
+    // a displayed formula's box is as wide as its column, so add up its pieces instead
+    const width = Math.ceil([...matrix.querySelectorAll('.katex-html > *')].reduce((sum, piece) => sum + piece.getBoundingClientRect().width, 0));
+    document.body.style.setProperty('--mid', Math.max(350, width + 44) + 'px');
+}
+fitMiddle();
+document.fonts?.ready.then(fitMiddle);
+const lives = example.lives.map((life, i) => {
+    const el = document.getElementById('life' + i);
+    el.innerHTML = `<header><span class="space">${tex(life.space)}</span><span class="via">${inline(life.via)}</span>` +
+        `<span class="verdict">${life.verdict}</span></header><div class="stage"><iframe tabindex="-1" title="${life.verdict}"></iframe></div>` +
+        '<div class="veil" aria-hidden="true">?</div>';
+    const frame = el.querySelector('iframe');
+    frame.src = life.src;
+    el.addEventListener('click', () => { if (el.classList.contains('open')) play([i]); });
+    return { el, frame, arrow: document.getElementById('arrow' + i), timer: 0 };
+});
+
+// ---- the other primes: a small tree for each, drawn here (a vertex, its p + 1 neighbors, their children) ----
+const others = document.getElementById('others');
+const minis = [];
+if (example.others && together) {
+    document.getElementById('others-label').textContent = example.others.label;
+    const [a, b, c, d] = example.others.mobius;
+    const NS = 'http://www.w3.org/2000/svg';
+    const node = (name, attrs, parent) => {
+        const n = document.createElementNS(NS, name);
+        for (const k in attrs) n.setAttribute(k, attrs[k]);
+        return parent.appendChild(n);
+    };
+    for (const p of example.others.primes) {
+        const mod = n => ((n % p) + p) % p;
+        const inverse = n => { for (let k = 1; k < p; k++) if (mod(n * k) === 1) return k; };
+        // z ↦ (az + b)/(cz + d) on the projective line over F_p; the point at infinity is p
+        const image = z => {
+            const [num, den] = z === p ? [mod(a), mod(c)] : [mod(a * z + b), mod(c * z + d)];
+            return den ? mod(num * inverse(den)) : p;
+        };
+        const figure = document.createElement('figure');
+        const svg = node('svg', { viewBox: '-52 -52 104 104' }, figure);
+        const turn = 360 / (p + 1);
+        const branches = [];
+        for (let z = 0; z <= p; z++) {
+            const g = node('g', { class: 'branch' }, svg);
+            const color = `hsl(${Math.round(360 * z / (p + 1))} 45% 42%)`;
+            node('line', { x1: 0, y1: 0, x2: 24, y2: 0, stroke: color, 'stroke-width': p > 7 ? 1.4 : 2 }, g);
+            for (let k = 0; k < p; k++) {
+                const t = (p === 1 ? 0 : (k / (p - 1) - .5)) * turn * .74 * Math.PI / 180;
+                node('line', { x1: 24, y1: 0, x2: 24 + 22 * Math.cos(t), y2: 22 * Math.sin(t), stroke: color, 'stroke-width': p > 7 ? .6 : 1, opacity: .8 }, g);
+            }
+            branches.push({ g, at: z * turn - 90, to: image(z) * turn - 90 });
+        }
+        node('circle', { class: 'ring', r: 4 }, svg);
+        node('circle', { class: 'hub', r: 3.4 }, svg);
+        figure.insertAdjacentHTML('beforeend', `<figcaption>${tex('T_{' + p + '}')}</figcaption>`);
+        document.getElementById('minis').append(figure);
+        minis.push({ svg, branches });
+    }
+    document.getElementById('minis').insertAdjacentHTML('beforeend', '<figure><div class="dots">⋯</div></figure>');
+}
+function setMinis(moved, animate) {
+    for (const { svg, branches } of minis) {
+        svg.classList.toggle('go', moved && animate);
+        for (const br of branches) {
+            // turn the short way round
+            const delta = ((br.to - br.at + 540) % 360) - 180;
+            br.g.style.transition = animate ? '' : 'none';
+            br.g.style.transform = `rotate(${moved ? br.at + delta : br.at}deg)`;
         }
     }
-    requestAnimationFrame(ready);
+    clearTimeout(setMinis.timer);
+    others.classList.toggle('done', moved && !animate);
+    if (moved && animate) setMinis.timer = setTimeout(() => others.classList.add('done'), 1500);
 }
-addEventListener('message',event => {
-    if (event.source !== parent || event.data?.type !== 'pz-build-step') return;
-    const next = Math.max(0,Math.min(3,Number(event.data.step)||0));
-    show(next,next > 0 && !event.data.instant && next !== step);
+
+// ---- playing ----
+const status = document.getElementById('status');
+const api = life => { try { return life.frame.contentWindow.talkAction; } catch (e) { return null; } };
+const busy = life => { try { return !!life.frame.contentWindow.PoincareAPI?.isAnimating(); } catch (e) { return false; } };
+let epoch = 0, step = 0;
+/** Run fn once every listed tool has loaded and is at rest. */
+function whenReady(indices, fn) {
+    const ticket = epoch, deadline = performance.now() + 12000;
+    (function poll() {
+        if (ticket !== epoch) return;
+        const group = indices.map(i => lives[i]);
+        if (group.every(life => api(life) && !busy(life))) { status.hidden = true; fn(group); return; }
+        if (performance.now() < deadline) { setTimeout(poll, 60); return; }
+        status.hidden = false;
+        status.value = 'A viewer did not finish loading.';
+    })();
+}
+function rest(indices) {
+    indices.forEach(i => { clearTimeout(lives[i].timer); lives[i].el.classList.remove('done'); });
+    whenReady(indices, group => group.forEach(life => api(life).reset()));
+}
+function play(indices, delay = 0) {
+    epoch++;
+    indices.forEach(i => { clearTimeout(lives[i].timer); lives[i].el.classList.remove('done'); });
+    const withMinis = minis.length && indices.length === lives.length;
+    if (withMinis) setMinis(false, false);
+    const ticket = epoch;
+    whenReady(indices, group => setTimeout(() => {
+        if (ticket !== epoch) return;
+        // a tool that is not ready to move says so by returning false
+        if (group.some(life => api(life).play() === false)) { setTimeout(() => play(indices), 120); return; }
+        group.forEach(life => { life.timer = setTimeout(() => life.el.classList.add('done'), 1500); });
+        if (withMinis) requestAnimationFrame(() => setMinis(true, true));
+    }, delay));
+}
+/** Step 0: at rest. Solo: step k uncovers and plays space k, and the step after the last plays them all. Together: any step plays them all. */
+function show(next, animate) {
+    const before = step;
+    step = next;
+    epoch++;
+    const all = lives.map((_, i) => i);
+    const open = i => together || i === 0 || step > i;
+    lives.forEach((life, i) => {
+        const was = life.el.classList.contains('open');
+        life.el.classList.toggle('open', open(i));
+        life.arrow.classList.toggle('off', !open(i));
+        life.fresh = open(i) && !was;
+    });
+    const playing = step === 0 ? [] : together || step > lives.length ? all : [step - 1];
+    if (animate && step > before && playing.length) {
+        // give a space that has just been uncovered a moment to be seen before it moves
+        play(playing, playing.some(i => lives[i].fresh) ? 1100 : 0);
+        rest(all.filter(i => !playing.includes(i) && !open(i)));
+    } else {
+        if (minis.length) setMinis(false, false);
+        rest(all);
+    }
+}
+addEventListener('message', event => {
+    const data = event.data || {};
+    if (event.source !== parent) return;
+    if (data.type === 'pz-build-step') {
+        const next = Math.max(0, Math.min(lives.length + 1, Number(data.step) || 0));
+        show(next, !data.instant && next !== step);
+    } else if (data.type === 'pz-button' && data.name === 'replay') replay();
 });
-addEventListener('keydown',event => {
-    const direction = {ArrowRight:'next', ArrowDown:'next', PageDown:'next', ' ':'next',
-        ArrowLeft:'prev', ArrowUp:'prev', PageUp:'prev', Escape:'exit'}[event.key];
+function replay() {
+    const open = lives.map((life, i) => life.el.classList.contains('open') ? i : -1).filter(i => i >= 0);
+    play(together || step > lives.length ? open : step ? [step - 1] : open);
+}
+document.getElementById('mid').addEventListener('click', () => play(lives.map((life, i) => life.el.classList.contains('open') ? i : -1).filter(i => i >= 0)));
+addEventListener('keydown', event => {
+    const direction = { ArrowRight: 'next', ArrowDown: 'next', PageDown: 'next', ' ': 'next',
+        ArrowLeft: 'prev', ArrowUp: 'prev', PageUp: 'prev', Escape: 'exit' }[event.key];
     if (!direction) return;
     event.preventDefault();
-    parent.postMessage({type:'iframeNav',direction},'*');
+    parent.postMessage({ type: 'iframeNav', direction }, '*');
 });
-show(0,false);
-parent.postMessage({type:'pz-applet-ready'},'*');
+show(0, false);
+parent.postMessage({ type: 'pz-applet-ready' }, '*');
 </script>
 </html>
