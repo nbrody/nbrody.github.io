@@ -23,17 +23,29 @@ export function encodeState(state) {
     return PREFIX + toB64(JSON.stringify(state));
 }
 
-/** The state in the current URL hash, or null. */
-export function readStateFromURL() {
-    const h = location.hash || '';
-    if (!h.startsWith(PREFIX)) return null;
+/** Decode a `#s=…` hash, full URL containing `#s=…`, or bare base64url payload. */
+export function decodeState(str) {
+    if (typeof str !== 'string') return null;
+    let s = str.trim();
+    const idx = s.indexOf(PREFIX);
+    if (idx >= 0) s = s.slice(idx + PREFIX.length);
+    else if (s.startsWith('s=')) s = s.slice(2);
+    else if (s.startsWith('#')) return null;
+    if (!s) return null;
     try {
-        const st = JSON.parse(fromB64(h.slice(PREFIX.length)));
+        const st = JSON.parse(fromB64(s));
         return st && st.v === 1 ? st : null;
     } catch (e) {
         console.warn('[permalink] could not read the URL state:', e);
         return null;
     }
+}
+
+/** The state in the current URL hash, or null. */
+export function readStateFromURL() {
+    const h = location.hash || '';
+    if (!h.startsWith(PREFIX)) return null;
+    return decodeState(h);
 }
 
 /** Replace the URL hash without adding a history entry. */

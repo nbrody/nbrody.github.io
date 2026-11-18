@@ -29,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-11-05f';
+            const APP_VERSION = '2026-11-17a';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -43,7 +43,7 @@
                 'app', 'domain', 'scene', 'overlays', 'isoAxis', 'inspector', 'panels',
                 'invariantsPanel', 'horoballs', 'tessellation', 'permalink', 'domainService',
                 'compute', 'format', 'tower', 'expr', 'planar', 'welcome', 'nondiscrete', 'classical',
-                'gluing', 'highlight', 'unwrap', 'postfx', 'delaunay', 'delaunayView', 'delaunayPanel', 'pathTrace'];
+                'gluing', 'highlight', 'unwrap', 'postfx', 'delaunay', 'delaunayView', 'delaunayPanel', 'pathTrace', 'gallery'];
             for (const m of mods) {
                 im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             }
@@ -81,6 +81,14 @@
             <button class="tab-btn active" data-tab="group">Group</button>
             <button class="tab-btn" data-tab="graphics">View</button>
             <button class="tab-btn" data-tab="info">Info</button>
+            <button id="gallery-btn" class="collapse-btn" type="button" title="Open the gallery (G)" aria-label="Open the gallery">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                    <rect x="3.5" y="3.5" width="7.2" height="7.2" rx="1.6"/>
+                    <rect x="13.3" y="3.5" width="7.2" height="7.2" rx="1.6"/>
+                    <rect x="3.5" y="13.3" width="7.2" height="7.2" rx="1.6"/>
+                    <rect x="13.3" y="13.3" width="7.2" height="7.2" rx="1.6"/>
+                </svg>
+            </button>
             <button id="help-btn" class="collapse-btn" title="Show the tutorial" aria-label="Show the tutorial">
                 <span class="collapse-icon">?</span>
             </button>
@@ -133,6 +141,16 @@
                 </div>
 
                 <div class="control-group">
+                    <button type="button" class="gallery-open-btn" data-open-gallery
+                        title="Browse curated groups, view combinations, and camera angles (G)">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3.5" y="3.5" width="7.2" height="7.2" rx="1.6"/>
+                            <rect x="13.3" y="3.5" width="7.2" height="7.2" rx="1.6"/>
+                            <rect x="3.5" y="13.3" width="7.2" height="7.2" rx="1.6"/>
+                            <rect x="13.3" y="13.3" width="7.2" height="7.2" rx="1.6"/>
+                        </svg>
+                        <span>Browse Gallery…</span>
+                    </button>
                     <div class="control-row">
                         <label class="control-label">Examples</label>
                         <button id="load-example-btn" class="toggle-btn"
@@ -295,6 +313,17 @@
                 <div>
                     <h2 class="panel-title">View Options</h2>
                 </div>
+
+                <button type="button" class="gallery-open-btn" data-open-gallery
+                    title="Browse curated groups, view combinations, and camera angles (G)">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3.5" y="3.5" width="7.2" height="7.2" rx="1.6"/>
+                        <rect x="13.3" y="3.5" width="7.2" height="7.2" rx="1.6"/>
+                        <rect x="3.5" y="13.3" width="7.2" height="7.2" rx="1.6"/>
+                        <rect x="13.3" y="13.3" width="7.2" height="7.2" rx="1.6"/>
+                    </svg>
+                    <span>Browse Gallery…</span>
+                </button>
 
                 <div class="control-group">
                     <div class="cayley-selector" role="group" aria-label="Which fundamental domain">
@@ -468,6 +497,7 @@
 
     <script type="module">import('./js/main.js');</script>
     <script type="module">import('./js/welcome.js');</script>
+    <script type="module">import('./js/gallery.js');</script>
     <script type="module">
         if (document.documentElement.classList.contains('tutorial-mode')) import('./js/tutorial.js');
     </script>

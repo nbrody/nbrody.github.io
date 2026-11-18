@@ -5,7 +5,7 @@
  * never block. See app.js for the frame conventions.
  */
 import * as THREE from 'three';
-import { Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD, pslKey } from './math.js';
+import { Complex, Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD, pslKey } from './math.js';
 import { serializeTowerContext } from './tower.js';
 import { exportDomainAs3MF } from './export3mf.js';
 import { wirePathTrace, mountPathTraceOptions, isLocalPage, srgbToLinear } from './pathTrace.js';
@@ -16,7 +16,7 @@ import { createHoneycombView } from './honeycombView.js';
 import { createLimitSet } from './limitSet.js';
 import { mirrorFragmentShader, mirrorDefaults } from './mirror.js';
 import { vertexShader } from './shaders.js';
-import { setupMatrixInput, getMatricesFromUI, getExactContext, getInputState, loadExample } from './matrixInput.js';
+import { setupMatrixInput, getMatricesFromUI, getExactContext, getInputState, applyInputState, loadExample } from './matrixInput.js';
 import { setupControlPanel, readBoundedInteger, updateToggleBtn, setCustomPalette, setCurrentPalette, getCurrentPalette, getPaletteColors, colorPalettes } from './controlPanel.js';
 import { isHexList } from './paletteColors.js';
 import { delaunayContacts } from './faceColoring.js';
@@ -59,11 +59,12 @@ import { horo, updateHoroballs } from './horoballs.js';
 import {
     manifoldFragmentShader, makeTessellationUniforms, loadTessellationUniforms
 } from './tessellation.js';
-import { readStateFromURL, writeStateToURL } from './permalink.js';
+import { encodeState, decodeState, readStateFromURL, writeStateToURL } from './permalink.js';
 import { createPlanarView, isRealGroup, framePlanarCamera, planarPick, planarRayPoint, PLANAR_MAX_WALLS } from './planar.js';
 import { createPostFX } from './postfx.js';
 
 const EMBED = document.documentElement.classList.contains('embed-mode');
+const TUTORIAL = document.documentElement.classList.contains('tutorial-mode');
 const service = createDomainService({ version: window.APP_VERSION || '' });
 
 // ---------------- render modes ----------------
@@ -996,20 +997,347 @@ function setBasepointFromBall(p) {
 
 // ---------------- permalinks ----------------
 
+const roundN = (x, k = 4) => {
+    const f = 10 ** k;
+    return Math.round(Number(x) * f) / f;
+};
+const roundArr = (arr, k = 4) => arr.map(x => roundN(x, k));
+const arrClose = (a, b, tol = 2e-3) => a.length === b.length && a.every((x, i) => Math.abs(x - b[i]) <= tol);
+
+function defaultCameraPose() {
+    if (planar.on) {
+        return view.model === 'uhs'
+            ? { pos: [0, 1.6, 5.2], tgt: [0, 1.6, 0] }
+            : { pos: [0, -3.05, 0.0005], tgt: [0, 0, 0] };
+    }
+    return view.model === 'uhs'
+        ? { pos: [0.9, 3.2, 2.6], tgt: [0, 0.35, 0] }
+        : { pos: [2.5, 1.5, 2.5], tgt: [0, 0, 0] };
+}
+
 function currentState() {
     const inputs = getInputState();
+    const palKey = getCurrentPalette();
+    const palette = palKey === 'studio' ? getPaletteColors('studio') : (palKey !== 'hiroshige' ? palKey : undefined);
+    const defaultPoly = app.fordOn ? 0.45 : 1.0;
+    const curPoly = material.uniforms.u_opacity.value;
+    const hcW = parseFloat(document.getElementById('honeycomb-walls')?.value || '0') || 0;
+    const hcF = parseFloat(document.getElementById('honeycomb-faces')?.value || '0') || 0;
+    const inside = insideView.isActive();
+
+    let cam;
+    let fly;
+    if (inside) {
+        cam = { quat: roundArr(camera.quaternion.toArray(), 4) };
+        const eFly = entryFlyMatrix();
+        const fm = app.flyMatrix;
+        const curArr = [fm.a.re, fm.a.im, fm.b.re, fm.b.im, fm.c.re, fm.c.im, fm.d.re, fm.d.im];
+        const defArr = [eFly.a.re, eFly.a.im, eFly.b.re, eFly.b.im, eFly.c.re, eFly.c.im, eFly.d.re, eFly.d.im];
+        const sameSign = arrClose(curArr, defArr, 1e-3) || arrClose(curArr, defArr.map(x => -x), 1e-3);
+        if (!sameSign) fly = roundArr(curArr, 5);
+    } else {
+        const pos = roundArr(camera.position.toArray(), 4);
+        const tgt = roundArr(controls.target.toArray(), 4);
+        const def = defaultCameraPose();
+        if (!arrClose(pos, def.pos) || !arrClose(tgt, def.tgt)) {
+            cam = { pos, tgt };
+        }
+    }
+
+    const defaultSpin = !planar.on && !inside;
+    const spin = !inside && controls.autoRotate !== defaultSpin ? controls.autoRotate : undefined;
+    const ceilVal = material.uniforms.u_ceiling.value;
+    const cut = view.model === 'uhs' && (cutawayTouched || (!app.fordOn && ceilVal > 1e-3)) && ceilVal > 1e-3
+        ? roundN(ceilVal, 3) : undefined;
+    const redWord = reduceWord(app.cumulativeWord);
+
     return {
         v: 1,
-        ...inputs,
-        plane: planar.available && !planar.on ? false : undefined,
-        depth: app.depth, faces: app.maxFaces,
-        bp: app.basepointBall.some(x => Math.abs(x) > 1e-9) ? app.basepointBall : undefined,
+        mats: inputs.mats,
+        anti: inputs.anti && inputs.anti.some(Boolean) ? inputs.anti : undefined,
+        consts: inputs.consts && inputs.consts.length ? inputs.consts : undefined,
+        plane: planar.available ? (planar.on ? true : false) : undefined,
+        depth: app.depth !== 8 ? app.depth : undefined,
+        faces: app.maxFaces !== 96 ? app.maxFaces : undefined,
+        full: app.fullDirichlet ? true : undefined,
+        bp: app.basepointBall.some(x => Math.abs(x) > 1e-9) ? roundArr(app.basepointBall, 4) : undefined,
         cusp: app.fordOn ? app.fordCusp : undefined,
+        horo: app.fordOn && !horo.on ? false : undefined,
+        cut,
         dom: dl.on ? 'delaunay' : undefined,
         model: view.model !== 'ball' ? view.model : undefined,
         theme: view.theme !== 'dark' ? view.theme : undefined,
+        palette,
+        mirror: mirrorMode ? true : undefined,
+        tieDye: render.tieDye ? true : undefined,
+        honeycomb: render.honeycomb ? true : undefined,
+        hcWalls: render.honeycomb && hcW > 1e-3 ? roundN(hcW, 2) : undefined,
+        hcFaces: render.honeycomb && hcF > 1e-3 ? roundN(hcF, 2) : undefined,
+        tiling: questTilingOn ? true : undefined,
+        tiles: (render.honeycomb || questTilingOn) && tileLimit !== 200 ? tileLimit : undefined,
+        inside: inside && !render.manifold && !insideHoneycombOn ? true : undefined,
+        manifold: render.manifold ? true : undefined,
+        insideHc: insideHoneycombOn ? true : undefined,
+        poly: Math.abs(curPoly - defaultPoly) > 1e-2 ? roundN(curPoly, 2) : undefined,
+        walls: layers.wallsOpacity > 1e-2 ? roundN(layers.wallsOpacity, 2) : undefined,
+        cycles: inspect.showCycles ? true : undefined,
+        labels: inspect.showLabels ? true : undefined,
+        cayley: layers.cayleyMode !== 'off' ? layers.cayleyMode : undefined,
+        dual: layers.dualMode !== 'off' ? layers.dualMode : undefined,
+        dualOp: layers.dualMode !== 'off' && Math.abs(layers.dualOpacity - 0.3) > 1e-2 ? roundN(layers.dualOpacity, 2) : undefined,
+        limit: limitSet.isEnabled() ? true : undefined,
+        limitDepth: limitSet.isEnabled() && limitSet.iterations() !== 48 ? limitSet.iterations() : undefined,
+        dust: layers.showDust ? true : undefined,
+        orbit: orbitRun ? true : undefined,
         mark: markIndex !== null ? markIndex : undefined,
+        word: redWord.length ? redWord : undefined,
+        spin,
+        cam,
+        fly,
     };
+}
+
+let applyingState = false;
+let applySeq = 0;
+let lastWrittenHash = '';
+
+/**
+ * Restore a complete state object (from URL `#s=…` or the Gallery). Resets any
+ * unspecified view modes to defaults so every payload reproduces identically.
+ */
+async function applyState(st, { skipInputs = false, updateHash = true } = {}) {
+    if (!st || st.v !== 1 || !Array.isArray(st.mats) || !st.mats.length) return false;
+    const seq = ++applySeq;
+    applyingState = true;
+    try {
+        if (st.panel === 'closed') document.getElementById('control-panel')?.classList.add('collapsed');
+        if (insideView.isActive()) setInsideView(false);
+        clearFaceSelection();
+        clearGeodesicSelection();
+        opacityBeforeCusp = null;
+        opacityBeforeGeodesic = null;
+
+        // Clear mutually exclusive shader/tiling modes first so setters don't collide.
+        if (mirrorMode) setMirrorMode(false);
+        if (render.tieDye) setTieDye(false);
+        if (render.honeycomb) setHoneycomb(false);
+        if (questTilingOn) setQuestTiling(false);
+        if (dl.on) {
+            dl.on = false;
+            delaunayView.clear();
+            document.querySelectorAll('.domain-opt').forEach(b => b.classList.toggle('active', b.dataset.domain === 'dirichlet'));
+        }
+        if (app.fordOn && st.cusp === undefined) {
+            setCuspView(false, { recompute: false });
+        }
+
+        const depth = st.depth || 8;
+        app.depth = depth;
+        const wl = document.getElementById('wordLength');
+        if (wl) wl.value = String(depth);
+
+        const faces = st.faces || 96;
+        app.maxFaces = faces;
+        const fc = document.getElementById('face-count-input');
+        if (fc) fc.value = String(faces);
+
+        app.fullDirichlet = !!st.full;
+        updateToggleBtn(document.getElementById('toggle-full-domain'), app.fullDirichlet);
+
+        tileLimit = st.tiles || 200;
+        const tlEl = document.getElementById('tiling-limit');
+        if (tlEl) tlEl.value = String(tileLimit);
+
+        const hcW = st.hcWalls !== undefined ? Number(st.hcWalls) : 0;
+        const hcWEl = document.getElementById('honeycomb-walls');
+        if (hcWEl) hcWEl.value = String(hcW);
+        honeycombView.setWalls(hcW);
+
+        const hcF = st.hcFaces !== undefined ? Number(st.hcFaces) : 0;
+        const hcFEl = document.getElementById('honeycomb-faces');
+        if (hcFEl) hcFEl.value = String(hcF);
+        honeycombView.setFaces(hcF);
+
+        setTheme(st.theme === 'light' ? 'light' : 'dark');
+        if (Array.isArray(st.palette) && isHexList(st.palette)) setCustomPalette(st.palette, 'From the link');
+        else setCurrentPalette(colorPalettes[st.palette] ? st.palette : 'hiroshige');
+        invalidateFaceColors();
+
+        const bp = Array.isArray(st.bp) && st.bp.length === 3 ? st.bp.map(Number) : [0, 0, 0];
+        ['bp-x', 'bp-y', 'bp-z'].forEach((id, i) => { const el = document.getElementById(id); if (el) el.value = String(bp[i]); });
+        app.basepointBall = bp.slice();
+        const bpR = Math.hypot(...bp);
+        app.basepoint = bpR < 1e-9
+            ? Matrix2x2.identity()
+            : translationTowards(new THREE.Vector3(bp[0] / bpR, bp[1] / bpR, bp[2] / bpR), 2 * Math.atanh(Math.min(bpR, 0.999)));
+        const bpOut = document.getElementById('basepoint-readout');
+        if (bpOut) bpOut.textContent = bpR < 1e-9 ? 'at j = (0, 0, 1)' : `hyperbolic distance ${(2 * Math.atanh(bpR)).toFixed(3)} from j`;
+
+        if (!skipInputs) applyInputState(st);
+
+        const errorEl = document.getElementById('matrix-error-message');
+        app.matrices = getMatricesFromUI();
+        app.exactCtx = getExactContext();
+        if (errorEl) errorEl.textContent = '';
+        inputError = null;
+
+        markIndex = Number.isInteger(st.mark) && st.mark >= 0 && st.mark < app.matrices.length ? st.mark : null;
+
+        const wantUhs = st.model === 'uhs' || st.cusp !== undefined;
+        setViewModel(wantUhs ? 'uhs' : 'ball');
+
+        planar.available = isRealGroup(app.matrices);
+        planar.groupKey = groupKey(app.matrices);
+        planar.keep3d = false;
+        const force3d = st.plane === false || st.cusp !== undefined || st.inside || st.manifold || st.insideHc
+            || st.mirror || st.honeycomb || st.tiling || st.tieDye;
+        setPlanar(planar.available && !force3d);
+        syncPlanarControls();
+
+        if (st.cusp !== undefined) {
+            app.fordOn = true;
+            app.fordCusp = st.cusp;
+            horo.on = st.horo !== false;
+            updateToggleBtn(document.getElementById('toggle-cusp'), true);
+            const hbBtn = document.getElementById('toggle-horoballs');
+            if (hbBtn) { hbBtn.disabled = false; updateToggleBtn(hbBtn, horo.on); }
+            frameCuspPending = !st.cam;
+        }
+
+        const cutEl = document.getElementById('cutaway');
+        if (st.cut !== undefined && wantUhs) {
+            cutawayTouched = true;
+            if (cutEl) cutEl.value = String(st.cut);
+            material.uniforms.u_ceiling.value = Number(st.cut);
+        } else {
+            cutawayTouched = false;
+            if (cutEl) cutEl.value = '0';
+            material.uniforms.u_ceiling.value = 0;
+        }
+
+        dl.on = st.dom === 'delaunay';
+        document.querySelectorAll('.domain-opt').forEach(b => b.classList.toggle('active', (b.dataset.domain === 'delaunay') === dl.on));
+
+        const defaultPoly = st.cusp !== undefined ? 0.45 : 1.0;
+        setPolyhedronOpacity(st.poly !== undefined ? Number(st.poly) : defaultPoly);
+
+        const wOp = st.walls !== undefined ? Number(st.walls) : 0;
+        setWallsOpacity(wOp);
+        panelUI?.sliders?.walls?.setValue(wOp);
+
+        layers.cayleyMode = st.cayley || 'off';
+        document.querySelectorAll('.cayley-opt').forEach(b => b.classList.toggle('active', b.dataset.mode === layers.cayleyMode));
+        updateCayley();
+
+        layers.dualMode = st.dual || 'off';
+        document.querySelectorAll('.dual-opt').forEach(b => b.classList.toggle('active', b.dataset.mode === layers.dualMode));
+        document.getElementById('dual-opacity-row')?.classList.toggle('disabled', layers.dualMode === 'off');
+        const dOp = st.dualOp !== undefined ? Number(st.dualOp) : 0.3;
+        const dOpEl = document.getElementById('dual-opacity');
+        if (dOpEl) dOpEl.value = String(dOp);
+        setDualOpacity(dOp);
+        updateDual();
+
+        inspect.showCycles = !!st.cycles;
+        updateToggleBtn(document.getElementById('toggle-cycles'), inspect.showCycles);
+        material.uniforms.u_edgeLines.value = inspect.showCycles ? 1 : 0;
+
+        inspect.showLabels = !!st.labels;
+        updateToggleBtn(document.getElementById('toggle-labels'), inspect.showLabels);
+
+        const limDepth = st.limitDepth || 48;
+        const limItersEl = document.getElementById('limit-iters');
+        if (limItersEl) limItersEl.value = String(limDepth);
+        limitSet.setIterations(limDepth);
+        limitSet.setEnabled(!!st.limit);
+        updateToggleBtn(document.getElementById('toggle-limitset'), !!st.limit);
+        document.getElementById('limit-depth-row')?.classList.toggle('disabled', !st.limit);
+
+        layers.showDust = !!st.dust;
+        updateToggleBtn(document.getElementById('toggle-dust'), layers.showDust);
+        updateDust(true);
+
+        if (st.orbit) startOrbit(); else stopOrbit();
+        updateToggleBtn(document.getElementById('toggle-orbit'), !!st.orbit);
+
+        app.viewMatrix = Matrix2x2.identity();
+        app.cumulativeWord = [];
+        if (Array.isArray(st.word) && st.word.length) {
+            try {
+                app.viewMatrix = wordToMatrix(st.word);
+                app.cumulativeWord = reduceWord(st.word);
+            } catch (e) { /* invalid word ignored */ }
+        }
+        updateIsometryButtons();
+        renderUserElements(applyMatrixWord);
+
+        await requestCompute({ force: true });
+        if (seq !== applySeq) return false;
+
+        if (st.cusp !== undefined && app.fordOn) {
+            horo.on = st.horo !== false;
+            updateToggleBtn(document.getElementById('toggle-horoballs'), horo.on);
+            updateHoroballs();
+            if (st.poly !== undefined) setPolyhedronOpacity(Number(st.poly));
+        }
+
+        if (st.mirror) setMirrorMode(true);
+        if (st.tieDye) setTieDye(true);
+        if (st.honeycomb) setHoneycomb(true);
+        if (st.tiling) setQuestTiling(true);
+
+        if (st.inside || st.manifold || st.insideHc) {
+            setInsideView(true);
+            if (st.manifold) setManifold(true);
+            if (st.insideHc) setInsideHoneycomb(true);
+            if (Array.isArray(st.fly) && st.fly.length === 8) {
+                const [ar, ai, br, bi, cr, ci, dr, di] = st.fly.map(Number);
+                app.flyMatrix = new Matrix2x2(
+                    new Complex(ar, ai), new Complex(br, bi),
+                    new Complex(cr, ci), new Complex(dr, di)
+                ).normalized();
+                retargetScene();
+                onSceneMoved();
+                updateInsideHud();
+            }
+            if (st.cam && Array.isArray(st.cam.quat) && st.cam.quat.length === 4) {
+                camera.quaternion.fromArray(st.cam.quat.map(Number)).normalize();
+                camera.updateMatrixWorld();
+            }
+        } else {
+            if (st.cam && Array.isArray(st.cam.pos) && st.cam.pos.length === 3) {
+                camera.position.fromArray(st.cam.pos.map(Number));
+                if (Array.isArray(st.cam.tgt) && st.cam.tgt.length === 3) {
+                    controls.target.fromArray(st.cam.tgt.map(Number));
+                }
+                if (Array.isArray(st.cam.up) && st.cam.up.length === 3) {
+                    camera.up.fromArray(st.cam.up.map(Number));
+                } else {
+                    camera.up.set(0, 1, 0);
+                }
+                camera.updateProjectionMatrix();
+                controls.update();
+            }
+            const wantSpin = st.spin !== undefined ? !!st.spin : !planar.on;
+            controls.autoRotate = wantSpin;
+            controls.autoRotateSpeed = st.spinSpeed || 1.0;
+            updateToggleBtn(document.getElementById('auto-rotate'), wantSpin);
+        }
+
+        if (st.poly !== undefined) setPolyhedronOpacity(Number(st.poly));
+        onSceneMoved();
+        rebuildFaceLabels();
+    } catch (e) {
+        const errorEl = document.getElementById('matrix-error-message');
+        if (errorEl) errorEl.textContent = e.message;
+        inputError = e.message;
+        showInputError();
+        return false;
+    } finally {
+        if (seq === applySeq) applyingState = false;
+    }
+    if (updateHash) updatePermalink();
+    return true;
 }
 
 // What the tracer's poincare scene reads (demos/poincareScene.ts there): the displayed domain's
@@ -1047,8 +1375,12 @@ function pathTraceScene(options = { look: mirrorMode ? 'mirror' : 'matte' }) {
 }
 
 function updatePermalink() {
-    if (EMBED || inputError) return null;       // the URL keeps the last valid group
-    try { return writeStateToURL(currentState()); } catch (e) { return null; }
+    if (EMBED || TUTORIAL || inputError || applyingState) return null; // the URL keeps the last valid group
+    try {
+        const st = currentState();
+        lastWrittenHash = encodeState(st);
+        return writeStateToURL(st);
+    } catch (e) { return null; }
 }
 
 // ---------------- UI wiring ----------------
@@ -1552,6 +1884,13 @@ window.PoincareAPI = {
     },
     loadExample,
     permalink: () => updatePermalink(),
+    currentState: () => currentState(),
+    encodePayload: (st) => encodeState(st || currentState()),
+    decodePayload: (payload) => decodeState(payload),
+    loadPayload(payload, opts = {}) {
+        const st = typeof payload === 'string' ? decodeState(payload) : payload;
+        return st ? applyState(st, opts) : Promise.resolve(false);
+    },
     /** Example names, in library order (for loadExample(i)). */
     examples: () => exampleLibrary.map((e) => e.name),
     /** Use a palette: a key of the dropdown, or a list of hex colors. */
@@ -1590,40 +1929,28 @@ window.addEventListener('message', (e) => {
 
 // ---------------- boot ----------------
 
-const urlState = EMBED ? null : readStateFromURL();
+const urlState = TUTORIAL ? null : readStateFromURL();
 // a page that frames this one in a small space can ask for the panel closed (`panel: 'closed'`)
 if (urlState && urlState.panel === 'closed') document.getElementById('control-panel')?.classList.add('collapsed');
 initialPalette();
 initUI();
 applyThemeUniforms();
-if (urlState) {
-    if (urlState.depth) { const wl = document.getElementById('wordLength'); if (wl) wl.value = String(urlState.depth); }
-    if (urlState.faces) {
-        app.maxFaces = urlState.faces;
-        const fc = document.getElementById('face-count-input');
-        if (fc) fc.value = String(urlState.faces);
-    }
-    if (urlState.theme) setTheme(urlState.theme);
-}
-planar.keep3d = !!(urlState && (urlState.plane === false || urlState.cusp !== undefined));
-if (urlState && Number.isInteger(urlState.mark) && urlState.mark >= 0) markIndex = urlState.mark;
 setupMatrixInput(refreshFromUI, urlState);
 applyViewOffset(panelWidth());
 setTimeout(() => {
-    if (urlState && urlState.bp) {
-        ['bp-x', 'bp-y', 'bp-z'].forEach((id, i) => { const el = document.getElementById(id); if (el) el.value = String(urlState.bp[i]); });
-        const r = Math.hypot(...urlState.bp);
-        app.basepointBall = urlState.bp.slice();
-        if (r > 1e-9) {
-            app.basepoint = translationTowards(new THREE.Vector3(...urlState.bp).normalize(), 2 * Math.atanh(Math.min(r, 0.999)));
-        }
+    if (urlState) {
+        applyState(urlState, { skipInputs: true, updateHash: false });
+    } else {
+        refreshFromUI();
     }
-    if (urlState && urlState.cusp !== undefined) { app.fordOn = true; app.fordCusp = urlState.cusp; horo.on = true; }
-    if (urlState && urlState.model === 'uhs') setViewModel('uhs');
-    if (urlState && urlState.dom === 'delaunay') setDelaunay(true, { quiet: true });
-    refreshFromUI();
-    // The request above already asked for the Ford domain; this sets up the
-    // rest of cusp view (buttons, translucency, framing once it arrives).
-    if (app.fordOn) setCuspView(true, { recompute: false });
 }, 200);
+
+window.addEventListener('hashchange', () => {
+    if (EMBED || TUTORIAL || applyingState) return;
+    const h = location.hash || '';
+    if (!h || h === lastWrittenHash) return;
+    const st = readStateFromURL();
+    if (st) applyState(st, { updateHash: false });
+});
+
 animate(0);
