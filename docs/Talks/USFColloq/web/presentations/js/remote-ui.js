@@ -13,8 +13,8 @@
   'use strict';
   var CSS = [
     '.pzr{--bg:#0b1020;--surface:#18203a;--text:#e9edf8;--muted:#97a3c4;--accent:#7c9cff;--accent2:#f6a85b;--fh:system-ui,sans-serif;--fb:system-ui,sans-serif;',
-    'min-height:100%;box-sizing:border-box;background:var(--bg);color:var(--text);font-family:var(--fb);display:flex;flex-direction:column;gap:12px;',
-    'padding:max(14px,env(safe-area-inset-top)) 14px max(16px,env(safe-area-inset-bottom));-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overflow-x:hidden}',
+    'height:100vh;height:100dvh;min-height:0;box-sizing:border-box;background:var(--bg);color:var(--text);font-family:var(--fb);display:flex;flex-direction:column;gap:12px;',
+    'padding:max(14px,env(safe-area-inset-top)) 14px max(16px,env(safe-area-inset-bottom));-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overflow:hidden}',
     '.pzr *{box-sizing:border-box;margin:0}',
     '.pzr-head{display:flex;align-items:center;gap:10px;min-height:22px}',
     '.pzr-title{flex:1;font:700 16px/1.2 var(--fh);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -28,15 +28,14 @@
     '.pzr-btn{appearance:none;border:0;border-radius:16px;background:var(--surface);color:var(--text);font:600 18px/1.1 var(--fb);padding:14px;min-height:58px;touch-action:manipulation;cursor:pointer;width:100%}',
     '.pzr-btn.accent{background:var(--accent);color:var(--bg)}',
     '.pzr-btn:active{transform:scale(.97);filter:brightness(1.12)}',
-    '.pzr-nav{display:grid;grid-template-columns:1fr 1.6fr;gap:10px}.pzr-nav .pzr-btn{min-height:76px;font-size:21px}',
-    '.pzr>.pzr-nav:last-child,.pzr>.pzr-btn:last-child{margin-top:auto}',
-    '.pzr-next{min-height:36vh;flex:1 1 auto;font-size:30px;border-radius:24px}',
+    '.pzr-content{flex:1 1 0;min-height:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:12px}',
+    '.pzr-nav{flex:none;display:grid;grid-template-columns:1fr 1.6fr;gap:10px}.pzr-nav .pzr-btn{min-height:76px;font-size:21px}',
     '.pzr-progress{display:flex;align-items:baseline;gap:6px;font-family:var(--fh)}.pzr-progress b{font-size:30px;line-height:1}.pzr-progress span{color:var(--muted);font-size:15px}',
     '.pzr-progress em{margin-left:auto;font-style:normal;color:var(--muted);font-size:13px}',
     '.pzr-bar{height:5px;border-radius:3px;background:color-mix(in srgb,var(--text) 14%,transparent);overflow:hidden;margin-top:10px}.pzr-bar i{display:block;height:100%;background:var(--accent);transition:width .3s}',
     '.pzr-timer{display:flex;align-items:center;justify-content:space-between}.pzr-time{font:700 38px/1 var(--fh);font-variant-numeric:tabular-nums}',
     '.pzr-small{appearance:none;border:0;border-radius:10px;background:color-mix(in srgb,var(--text) 12%,transparent);color:var(--text);font:600 13px var(--fb);padding:8px 12px;cursor:pointer}',
-    '.pzr-notes{font-size:17px;line-height:1.45;white-space:pre-wrap;max-height:32vh;overflow:auto;-webkit-user-select:text;user-select:text}',
+    '.pzr-notes{font-size:17px;line-height:1.45;white-space:pre-wrap;-webkit-user-select:text;user-select:text}',
     '.pzr-notes.empty,.pzr-upnext.empty{color:var(--muted);font-style:italic}',
     '.pzr-upnext{font:600 17px/1.3 var(--fh)}',
     '.pzr-text{font-size:15px;line-height:1.45;color:var(--muted)}',
@@ -49,7 +48,7 @@
     'background:radial-gradient(circle,color-mix(in srgb,var(--accent) 22%,transparent),transparent 70%),var(--bg);border:2px solid color-mix(in srgb,var(--accent) 50%,transparent)}',
     '.pzr-joy:before,.pzr-joy:after{content:"";position:absolute;background:color-mix(in srgb,var(--text) 14%,transparent)}.pzr-joy:before{left:50%;top:12%;bottom:12%;width:1px}.pzr-joy:after{top:50%;left:12%;right:12%;height:1px}',
     '.pzr-knob{position:absolute;left:50%;top:50%;width:34%;height:34%;margin:-17% 0 0 -17%;border-radius:50%;background:var(--accent);box-shadow:0 8px 20px rgba(0,0,0,.35);z-index:1}',
-    '.pzr-slides{display:flex;flex-direction:column;gap:2px;max-height:36vh;overflow:auto}',
+    '.pzr-slides{display:flex;flex-direction:column;gap:2px}',
     '.pzr-slides button{appearance:none;text-align:left;font:15px/1.3 var(--fb);padding:9px 10px;border-radius:10px;border:0;background:transparent;color:var(--text);cursor:pointer;display:flex;gap:10px}',
     '.pzr-slides button span{color:var(--muted);min-width:1.6em;font-variant-numeric:tabular-nums}.pzr-slides button.on{background:color-mix(in srgb,var(--accent) 26%,transparent)}',
     '.pzr-wait{margin:auto;text-align:center;color:var(--muted);font-size:15px;line-height:1.5;padding:30px 10px}',
@@ -111,8 +110,6 @@
         b.onclick = function () { send({ k: 'prev' }); }; n.onclick = function () { send({ k: 'next' }); };
         g.append(b, n); return g;
       },
-      next: function (c) { var b = h('button', 'pzr-btn accent pzr-next', c.label || 'Next'); b.onclick = function () { send({ k: 'next' }); }; return b; },
-      prev: function (c) { var b = h('button', 'pzr-btn', c.label || '‹ Back'); b.onclick = function () { send({ k: 'prev' }); }; return b; },
       // A small live copy of the deck, following the presenter (runtime/deck.js ?pz-thumb).
       slide: function () {
         var card = h('div', 'pzr-card'), lab = h('div', 'pzr-label', 'Current slide'), box = h('div', 'pzr-thumb');
@@ -237,12 +234,15 @@
     function render() {
       var k = JSON.stringify([model.controls || null, (model.slides || []).length]);
       if (k !== key) {
-        key = k; dyn = []; el.replaceChildren(head());
+        key = k; dyn = [];
+        var content = h('div', 'pzr-content');
+        el.replaceChildren(head(), content, build.nav());
         if (!model.controls) {
-          var wait = h('div', 'pzr-wait'); el.append(wait);
+          var wait = h('div', 'pzr-wait'); content.append(wait);
           dyn.push(function (m) { wait.textContent = m.wait || 'Waiting for the presentation…'; });
         } else {
-          (model.controls || []).forEach(function (c) { var f = build[c.type]; if (f) el.append(f(c)); });
+          // Navigation is always in the fixed footer, even for custom presets.
+          (model.controls || []).forEach(function (c) { if (c.type === 'nav' || c.type === 'prev' || c.type === 'next') return; var f = build[c.type]; if (f) content.append(f(c)); });
         }
       }
       dyn.forEach(function (f) { f(model); });

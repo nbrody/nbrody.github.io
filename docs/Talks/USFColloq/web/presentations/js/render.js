@@ -304,7 +304,7 @@ export function appletDoc(code, deck, { fonts = true } = {}) {
   const head = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 ${fonts ? fontLinks([...new Set(Object.values(deck.theme.fonts))]) : ''}
 <style>:root{${themeVars(deck.theme)}}html,body{margin:0;height:100%}body{background:transparent;color:var(--pz-text);font-family:var(--pz-font-body);overflow:hidden}</style>
-<script>addEventListener('keydown',function(e){if(e.defaultPrevented||(e.target.closest&&e.target.closest('input,textarea,select,[contenteditable]')))return;var d={ArrowRight:'next',PageDown:'next',' ':'next',ArrowLeft:'prev',PageUp:'prev'}[e.key];if(e.key==='Escape')d='exit';if(d){e.preventDefault();parent.postMessage({type:'iframeNav',direction:d},'*');}});<\/script>
+<script>addEventListener('keydown',function(e){if(e.defaultPrevented||e.metaKey||e.ctrlKey||e.altKey||(e.target.closest&&e.target.closest('input,textarea,select,[contenteditable]')))return;if(/^[0-9]$/.test(e.key)||e.key==='Enter'){e.preventDefault();parent.postMessage({type:'iframeKey',key:e.key},'*');return;}var d={ArrowRight:'next',PageDown:'next',' ':'next',ArrowLeft:'prev',PageUp:'prev'}[e.key];if(e.key==='Escape')d='exit';if(d){e.preventDefault();parent.postMessage({type:'iframeNav',direction:d},'*');}});<\/script>
 ${APPLET_API}`;
   if (/<head[^>]*>/i.test(code)) return code.replace(/<head[^>]*>/i, m => m + head);
   if (/<html[^>]*>/i.test(code)) return code.replace(/<html[^>]*>/i, m => m + '<head>' + head + '</head>');

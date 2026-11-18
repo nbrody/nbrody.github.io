@@ -1,5 +1,6 @@
 /* alphaPresent (alphaCentaur) — runtime for exported decks.
- * Scales the 1920×1080 stage to the window, drives fullPage.js, steps
+ * Scales the 1920×1080 stage to the window (or, with "Lock aspect ratio", to
+ * a frame of one shape whatever the screen), drives fullPage.js, steps
  * through builds, lazy-loads embeds/applets near the current slide, and
  * accepts {type:'iframeNav', direction:'next'|'prev'} from embedded tools. */
 (function () {
@@ -12,7 +13,41 @@
   var W = cfg.width || 1920, H = cfg.height || 1080;
   var root = document.documentElement;
 
-  function fit() { root.style.setProperty('--pz-scale', Math.min(innerWidth / W, innerHeight / H)); }
+  // Lock aspect ratio: the whole presentation (slides, their backgrounds, the
+  // slide number, the dots) stays inside a frame of one shape on any screen,
+  // and the rest of the screen is black. The deck's setting is the default.
+  // A deck presented from the editor (cfg.live) reports a change to the editor,
+  // which keeps it in the deck; any other deck remembers it in this browser.
+  var LOCKS = { '16:9': 16 / 9, '16:10': 16 / 10, '4:3': 4 / 3 };
+  var lockDefault = LOCKS[cfg.lock] ? cfg.lock : 'off', lock = lockDefault;
+  var lockKey = 'pz-lock:' + (cfg.deckId || 'deck');
+  if (!cfg.live && !thumb) {
+    try {
+      var kept = JSON.parse(localStorage.getItem(lockKey) || 'null');
+      // a choice made against another default is out of date
+      if (kept && kept.base === lockDefault && (kept.value === 'off' || LOCKS[kept.value])) lock = kept.value;
+    } catch (e) {}
+  }
+  function fit() {
+    var w = innerWidth, h = innerHeight, on = lock !== 'off' && !thumb;
+    if (on) { var r = LOCKS[lock]; if (w / h > r) w = h * r; else h = w / r; }
+    root.style.setProperty('--pz-scale', Math.min(w / W, h / H));
+    root.style.setProperty('--pz-lock-x', (innerWidth - w) / 2 + 'px');
+    root.style.setProperty('--pz-lock-y', (innerHeight - h) / 2 + 'px');
+    root.classList.toggle('pz-locked', on);
+  }
+  function setLock(value) {
+    value = value === 'off' || LOCKS[value] ? value : 'off';
+    if (value === lock) return;
+    lock = value;
+    fit();
+    if (cfg.live) {
+      var host = parent !== window ? parent : window.opener;
+      try { if (host) host.postMessage({ type: 'pz-setting', name: 'lock', value: lock }, '*'); } catch (e) {}
+    } else {
+      try { localStorage.setItem(lockKey, JSON.stringify({ base: lockDefault, value: lock })); } catch (e) {}
+    }
+  }
   addEventListener('resize', fit);
   fit();
 
@@ -93,17 +128,25 @@
     for (var k = 0; k < order.length; k++) if (order[k].si === si) return go(k, 1);
   }
 
-  // Embeds and applets load only near the current slide.
+  // Embeds and applets load only near the current slide; distant embeds sleep
+  // so long decks with many WebGL apps and workers never exhaust browser contexts.
   function wake(i) {
     if (thumb) return;
-    for (var k = i - 1; k <= i + 1; k++) {
-      var o = order[k];
-      if (!o) continue;
-      Array.prototype.forEach.call(o.el.querySelectorAll('iframe[data-pz-src],iframe[data-pz-srcdoc]'), function (f) {
-        if (f.hasAttribute('data-pz-srcdoc')) { f.srcdoc = f.getAttribute('data-pz-srcdoc'); f.removeAttribute('data-pz-srcdoc'); }
-        if (f.hasAttribute('data-pz-src')) { f.src = f.getAttribute('data-pz-src'); f.removeAttribute('data-pz-src'); }
-      });
-    }
+    order.forEach(function (o, k) {
+      var near = Math.abs(k - i) <= 2;
+      if (near) {
+        Array.prototype.forEach.call(o.el.querySelectorAll('iframe[data-pz-src],iframe[data-pz-srcdoc]'), function (f) {
+          if (f.hasAttribute('data-pz-srcdoc')) { f.srcdoc = f.getAttribute('data-pz-srcdoc'); f.removeAttribute('data-pz-srcdoc'); }
+          if (f.hasAttribute('data-pz-src')) { var u = f.getAttribute('data-pz-src'); f.setAttribute('data-pz-awake', u); f.removeAttribute('data-pz-src'); f.src = u; }
+        });
+      } else if (Math.abs(k - i) > 3) {
+        Array.prototype.forEach.call(o.el.querySelectorAll('iframe[data-pz-awake]'), function (f) {
+          f.setAttribute('data-pz-src', f.getAttribute('data-pz-awake'));
+          f.removeAttribute('data-pz-awake');
+          f.src = 'about:blank';
+        });
+      }
+    });
   }
 
   var numberEl = document.querySelector('.pz-number'), progressEl = document.querySelector('.pz-progress');
@@ -112,7 +155,8 @@
     current = indexOfActive();
     wake(current);
     if (numberEl) numberEl.textContent = (current + 1) + ' / ' + order.length;
-    if (progressEl) progressEl.style.width = (order.length > 1 ? current / (order.length - 1) * 100 : 100) + '%';
+    // a share of the frame's width, which is the window's unless the aspect ratio is locked
+    if (progressEl) progressEl.style.width = 'calc((100% - 2 * var(--pz-lock-x, 0px)) * ' + (order.length > 1 ? current / (order.length - 1) : 1) + ')';
     if (notesEl) {
       var n = order[current] && order[current].el.querySelector('aside.pz-notes');
       notesEl.innerHTML = '<b>Notes · slide ' + (current + 1) + '</b>';
@@ -181,6 +225,8 @@
   if (cfg.anchors) opts.anchors = cfg.anchors;
 
   function start() {
+    // What is outside a locked frame is black (deck.css .pz-matte).
+    if (!thumb) { var matte = document.createElement('div'); matte.className = 'pz-matte'; document.body.appendChild(matte); }
     if (thumb) {
       document.documentElement.classList.add('pz-thumb');
       var css = document.createElement('style');
@@ -258,7 +304,11 @@
         });
       });
     }
-    if (d.type === 'iframeNav') { if (d.direction === 'next') next(); else if (d.direction === 'prev') prev(); else if (d.direction === 'exit' && parent !== window) parent.postMessage({ type: 'pz-exit' }, '*'); }
+    if (d.type === 'iframeKey' && typeof d.key === 'string') {
+      if (/^\d$/.test(d.key)) { typed += d.key; if (gotoEl) { gotoEl.textContent = 'Go to slide ' + typed; gotoEl.classList.add('open'); } }
+      else if (d.key === 'Enter') { if (typed) { go(Math.min(order.length, Math.max(1, +typed)) - 1, 1); typed = ''; if (gotoEl) gotoEl.classList.remove('open'); } else next(); }
+    }
+    if (d.type === 'iframeNav') { typed = ''; if (gotoEl) gotoEl.classList.remove('open'); if (d.direction === 'next') next(); else if (d.direction === 'prev') prev(); else if (d.direction === 'exit' && parent !== window) parent.postMessage({ type: 'pz-exit' }, '*'); }
     if (d.type === 'pz-control' && e.source === parent) {
       if (thumb) { if (typeof d.index === 'number') jump(d.index, +d.step || 0); return; }
       if (d.action === 'next') next(); if (d.action === 'prev') prev(); if (typeof d.index === 'number') go(d.index, 1);
@@ -271,5 +321,7 @@
     // The embeds and applets on the current slide (the remote talks to them).
     frames: function () { var o = order[current]; return o ? Array.prototype.slice.call(o.el.querySelectorAll('iframe')) : []; },
     state: function () { var o = order[current]; return { index: current, count: order.length, step: o ? o.step : 0, steps: o ? o.steps.length : 0 }; },
+    // Lock aspect ratio: 'off' or one of the shapes in `locks` (the phone remote's popup sets it).
+    locks: ['off'].concat(Object.keys(LOCKS)), lock: function () { return lock; }, setLock: setLock,
   };
 })();

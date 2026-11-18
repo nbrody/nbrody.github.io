@@ -8,6 +8,8 @@ import { normalizeRemoteDeck, normalizeRemoteSlide } from './remote-model.js';
 import { CONSOLE_STARTER } from './console.js';
 
 export const W = 1920, H = 1080;
+// Lock aspect ratio: the frame a presented deck keeps on any screen (runtime/deck.js).
+export const ASPECT_LOCKS = ['off', '16:9', '16:10', '4:3'];
 
 export const uid = (p = '') => p + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3);
 export const clone = o => JSON.parse(JSON.stringify(o));
@@ -157,7 +159,7 @@ export function newDeck(title = 'Untitled presentation') {
     version: 1, id: uid('d'), title, size: { w: W, h: H },
     theme: defaultTheme(),
     settings: {
-      nav: 'linear', dots: true, arrows: false, numbers: true, progress: true, speed: 700, macros: DEFAULT_MACROS,
+      nav: 'linear', dots: true, arrows: false, numbers: true, progress: true, lock: 'off', speed: 700, macros: DEFAULT_MACROS,
     },
     assets: {},
     remote: normalizeRemoteDeck(),
@@ -304,6 +306,7 @@ export function normalizeDeck(input) {
   out.settings = {
     nav: pick(st.nav, ['linear', 'chapters'], 'linear'),
     dots: st.dots ?? true, arrows: !!st.arrows, numbers: st.numbers ?? true, progress: st.progress ?? true,
+    lock: pick(st.lock, ASPECT_LOCKS, 'off'),
     speed: num(st.speed, 700, 0, 5000), macros: str(st.macros, DEFAULT_MACROS, 1e5), hostMacros: str(st.hostMacros, '', 2e5),
   };
   for (const k of ['dots', 'numbers', 'progress']) out.settings[k] = !!out.settings[k];

@@ -9,7 +9,8 @@
   'use strict';
   var q = new URLSearchParams(location.search);
   if (q.has('preview')) return;      // the editor mounts its own preview here
-  var local = q.has('local'), session = q.get('local') || q.get('s');
+  var local = q.has('local'), lan = q.has('lan'), session = q.get('lan') || q.get('local') || q.get('s');
+  var lanURL = lan ? 'ws://' + location.host + '/socket?token=' + encodeURIComponent(q.get('token') || '') : null;
   var firebase = local ? null : { apiKey: q.get('k') || '', databaseURL: q.get('db') || '', projectId: q.get('p') || '', root: q.get('r') || '' };
   var ui = PZRemoteUI.mount(document.getElementById('app'), { onEvent: onEvent });
   var link = null, deck = null, state = null, params = {}, online = false, wasOnline = false, phone = 'phone' + Math.random().toString(36).slice(2, 10);
@@ -40,7 +41,7 @@
     return;
   }
   render();
-  PZRemoteLink.connect({ firebase: firebase, session: session, local: local, role: 'phone' }).then(function (l) {
+  PZRemoteLink.connect({ firebase: firebase, session: session, local: local, lan: lanURL, role: 'phone' }).then(function (l) {
     link = l;
     l.onConnected(function (ok) {
       online = ok; if (ok) wasOnline = true;

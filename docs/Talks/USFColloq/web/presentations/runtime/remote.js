@@ -2,7 +2,8 @@
  * exported deck after deck.js when the deck's remote is on, together with
  * qrcode.js and remote-link.js; window.PZ_REMOTE carries the configuration.
  *
- * Press R for the QR code. Phones send navigation commands, which drive the
+ * Press R for the popup: the QR code, and Lock aspect ratio (deck.js). Phones
+ * send navigation commands, which drive the
  * deck, and parameter / joystick / button events, which are posted to the
  * applets and embeds on the current slide:
  *   { type: 'pz-param', name, value }   { type: 'pz-joystick', name, x, y }
@@ -14,7 +15,7 @@
   if (/[?&]pz-thumb(?:[=&]|$)/.test(location.search)) return;
   // Where phones can load this deck for their "Current slide" thumbnail: only a
   // deck on the web has an address they can reach (not blob: or file:).
-  var deckURL = /^https?:$/.test(location.protocol) ? location.origin + location.pathname : '';
+  var deckURL = R && !R.lan && /^https?:$/.test(location.protocol) ? location.origin + location.pathname : '';
   if (!R || !window.PZRemoteLink || !D) return;
   var css = '.pz-remote-overlay{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--pz-bg) 82%,transparent);backdrop-filter:blur(6px);font-family:var(--pz-font-body);color:var(--pz-text)}' +
     '.pz-remote-overlay.open{display:flex}' +
@@ -24,7 +25,12 @@
     '.pz-remote-status{display:flex;align-items:center;gap:8px;font-size:15px;margin:16px 0 6px;color:var(--pz-text)}.pz-remote-status i{width:9px;height:9px;border-radius:50%;background:#e5534b}.pz-remote-status.ok i{background:#3fb950}' +
     '.pz-remote-code{font:600 13px/1.4 var(--pz-font-mono);color:var(--pz-muted);word-break:break-all}' +
     '.pz-remote-card a{color:var(--pz-accent)}' +
-    '.pz-remote-hint{position:fixed;left:18px;bottom:16px;z-index:61;font:500 13px var(--pz-font-body);color:var(--pz-muted);background:color-mix(in srgb,var(--pz-surface) 85%,transparent);padding:7px 12px;border-radius:999px;opacity:0;transition:opacity .4s;pointer-events:none}' +
+    '.pz-remote-lock{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin:18px 0 14px;font-size:15px;color:var(--pz-text)}' +
+    '.pz-remote-seg{display:flex;border-radius:10px;overflow:hidden;background:color-mix(in srgb,var(--pz-text) 9%,transparent)}' +
+    '.pz-remote-seg button{font:600 14px/1 var(--pz-font-body);color:var(--pz-text);background:none;border:0;padding:9px 13px;cursor:pointer;font-variant-numeric:tabular-nums}' +
+    '.pz-remote-seg button[aria-pressed=true]{background:var(--pz-accent);color:var(--pz-bg)}' +
+    '.pz-remote-seg button:focus-visible{outline:2px solid var(--pz-accent);outline-offset:-2px}' +
+    '.pz-remote-hint{position:fixed;left:calc(18px + var(--pz-lock-x,0px));bottom:calc(16px + var(--pz-lock-y,0px));z-index:61;font:500 13px var(--pz-font-body);color:var(--pz-muted);background:color-mix(in srgb,var(--pz-surface) 85%,transparent);padding:7px 12px;border-radius:999px;opacity:0;transition:opacity .4s;pointer-events:none}' +
     '.pz-remote-hint.show{opacity:1}';
   var style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
 
@@ -34,10 +40,10 @@
   if (!PZRemoteLink.validSession(session)) { session = PZRemoteLink.newSession(); try { sessionStorage.setItem(key, session); } catch (e) {} }
 
   var fb = R.firebase;
-  var phoneURL = fb && R.page
+  var phoneURL = R.lan ? R.lan.phone + '&lan=' + session : fb && R.page
     ? R.page + (R.page.indexOf('?') < 0 ? '?' : '&') + 's=' + session + '&db=' + encodeURIComponent(fb.databaseURL) + '&k=' + encodeURIComponent(fb.apiKey) + '&p=' + encodeURIComponent(fb.projectId) + (fb.root ? '&r=' + encodeURIComponent(fb.root) : '')
     : '';
-  var localURL = R.localPage ? R.localPage + '?local=' + session : '';
+  var localURL = R.localPage && !R.lan ? R.localPage + '?local=' + session : '';
 
   // ---------------------------------------------------------------- overlay --
   var ov = document.createElement('div'); ov.className = 'pz-remote-overlay';
@@ -57,7 +63,12 @@
     text.append(el('h2', null, 'Phone remote'));
     if (phoneURL) {
       qrBox.style.display = ''; qrBox.innerHTML = qrSVG(phoneURL);
-      text.append(el('p', null, 'Scan with your phone’s camera to control this presentation.'));
+      text.append(el('p', null, R.lan ? 'Connect your phone to the same network, then scan this code. Press Esc to end the presentation and disconnect.' : 'Scan with your phone’s camera to control this presentation.'));
+      if (R.lan) {
+        var open = el('a', null, 'Open remote on this computer'); open.href = phoneURL; open.target = '_blank'; open.rel = 'opener';
+        open.onclick = function (e) { e.preventDefault(); try { if (parent !== window) parent.postMessage({ type: 'pz-keep-open' }, '*'); } catch (x) {} window.open(phoneURL, 'pz-remote-' + session, 'popup=yes,width=420,height=860'); };
+        text.append(open);
+      }
     } else {
       qrBox.style.display = 'none';
       text.append(el('p', null, fb ? 'Set the phone page address in the editor (Design → Phone remote) to get a QR code.' : 'Firebase isn’t set up for this deck, so the remote works on this computer only.'));
@@ -75,7 +86,26 @@
       };
       p.append(a); text.append(p);
     }
+    text.append(lockRow());
     text.append(el('div', 'pz-remote-code', 'Session ' + session + ' · press R or Esc to close'));
+  }
+  // Lock aspect ratio: the slides keep one shape on any screen (deck.js).
+  function lockRow() {
+    var row = el('div', 'pz-remote-lock'), seg = el('div', 'pz-remote-seg');
+    row.title = 'Keep the slides in a frame of one shape on any screen. The rest of the screen is black.';
+    seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Lock aspect ratio');
+    (D.locks || []).forEach(function (v) {
+      var b = el('button', null, v === 'off' ? 'Off' : v);
+      b.type = 'button'; b.setAttribute('aria-pressed', String(D.lock() === v));
+      b.onclick = function () {
+        D.setLock(v);
+        Array.prototype.forEach.call(seg.children, function (c) { c.setAttribute('aria-pressed', String(c === b)); });
+        b.blur();   // the arrow keys and Space go on driving the slides
+      };
+      seg.append(b);
+    });
+    row.append(el('span', null, 'Lock aspect ratio'), seg);
+    return row;
   }
   var phones = 0, connected = false;
   function drawStatus() {
@@ -100,7 +130,7 @@
   var post = function (msg) { D.frames().forEach(function (f) { try { f.contentWindow && f.contentWindow.postMessage(msg, '*'); } catch (e) {} }); };
   var NAME = /^[A-Za-z_][\w-]{0,39}$/;
   var paramValues = {}, seen = {}, startedAt = Date.now();
-  PZRemoteLink.connectPresenter(fb, session).then(function (link) {
+  PZRemoteLink.connectPresenter(fb, session, R.lan && R.lan.presenter).then(function (link) {
     link.removeOnDisconnect('');
     link.set('deck', deckURL ? Object.assign({}, R.deck, { url: deckURL }) : R.deck);
     var publish = function () { var s = D.state(); s.startedAt = startedAt; link.set('state', s); };

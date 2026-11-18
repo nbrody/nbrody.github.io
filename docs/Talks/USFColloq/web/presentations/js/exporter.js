@@ -85,7 +85,8 @@ async function inlineGoogleFont(family) {
 // python: 'relay' (presenting from the editor: consoles use the editor's
 // Python) or 'pyodide' (an exported deck: Python in the browser, or on the
 // presenter's computer at localPython when they chose it there).
-export async function exportHTML(deck, { selfContained = false, localLibs = false, remote = null, base = '', resolveURLs = false, python = 'pyodide', localPython = LOCAL_PYTHON } = {}) {
+// live: presenting from the editor, which keeps what the presenter changes there (Lock aspect ratio).
+export async function exportHTML(deck, { selfContained = false, localLibs = false, remote = null, base = '', resolveURLs = false, python = 'pyodide', localPython = LOCAL_PYTHON, live = false } = {}) {
   const ctx = { mode: 'export', deck, offline: selfContained, resolve: resolveURLs, katex: localLibs ? CONSOLE_KATEX_LOCAL : CONSOLE_KATEX_CDN, ...mathContext(deck) };
   const sections = sectionsOf(deck);
   const chapters = deck.settings.nav === 'chapters';
@@ -135,6 +136,7 @@ export async function exportHTML(deck, { selfContained = false, localLibs = fals
   const config = {
     width: deck.size.w, height: deck.size.h, nav: deck.settings.nav, dots: deck.settings.dots, arrows: deck.settings.arrows,
     speed: deck.settings.speed, tooltips: sections.map(s => s.title),
+    deckId: deck.id, lock: deck.settings.lock, ...(live ? { live: true } : {}),
     ...(pythonJS ? { python: python === 'relay' ? { relay: true } : { pyodide: PYODIDE_CDN, warm: true, local: localPython } } : {}),
   };
 
@@ -190,6 +192,7 @@ export function remotePayload(deck, { local = false, remote = null } = {}) {
     firebase: remote?.firebase || r.firebase,
     page: remote?.page || r.page,
     localPage: local ? here('../remote.html') : '',
+    lan: local ? remote?.lan || null : null,
     deck: {
       v: 1,
       title: deck.title,

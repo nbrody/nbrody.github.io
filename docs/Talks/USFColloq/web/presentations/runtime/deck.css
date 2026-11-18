@@ -5,6 +5,15 @@ html,body{margin:0;padding:0;background:var(--pz-bg);overflow:hidden}
 .pz-frame>.pz-stage{position:absolute;left:50%;top:50%;margin:0;transform:translate(-50%,-50%) scale(var(--pz-scale,1));transform-origin:center center}
 aside.pz-notes{display:none}
 
+/* Lock aspect ratio (deck.js): the frame is inset by --pz-lock-x / --pz-lock-y from the window, and
+   everything outside it is black. The chrome below sits inside the frame. */
+.pz-matte{position:fixed;left:var(--pz-lock-x,0px);right:var(--pz-lock-x,0px);top:var(--pz-lock-y,0px);bottom:var(--pz-lock-y,0px);z-index:55;pointer-events:none;box-shadow:0 0 0 100vmax #000;display:none}
+.pz-locked .pz-matte{display:block}
+.pz-locked #fp-nav.fp-right{right:calc(17px + var(--pz-lock-x,0px))}
+.pz-locked .fp-slidesNav.fp-bottom{bottom:calc(17px + var(--pz-lock-y,0px))}
+.pz-locked .fp-controlArrow.fp-prev{left:var(--pz-lock-x,0px)}
+.pz-locked .fp-controlArrow.fp-next{right:var(--pz-lock-x,0px)}
+
 /* Builds: elements (or paragraphs) with data-build appear click by click. */
 [data-build]{transition:opacity .55s ease,translate .7s cubic-bezier(.2,.8,.2,1),scale .6s cubic-bezier(.2,.8,.2,1),clip-path .7s cubic-bezier(.6,0,.2,1)}
 [data-build]:not(.pz-in){opacity:0;pointer-events:none}
@@ -21,11 +30,11 @@ aside.pz-notes{display:none}
 #fp-nav ul li .fp-tooltip{font-family:var(--pz-font-body);color:var(--pz-text)}
 .fp-controlArrow.fp-prev{border-color:transparent color-mix(in srgb,var(--pz-text) 45%,transparent) transparent transparent!important}
 .fp-controlArrow.fp-next{border-color:transparent transparent transparent color-mix(in srgb,var(--pz-text) 45%,transparent)!important}
-.pz-number{position:fixed;right:22px;bottom:16px;z-index:60;font:500 14px/1 var(--pz-font-body);color:color-mix(in srgb,var(--pz-text) 55%,transparent);font-variant-numeric:tabular-nums;pointer-events:none;letter-spacing:.04em}
-.pz-progress{position:fixed;left:0;bottom:0;height:4px;width:0;z-index:60;background:var(--pz-accent);transition:width .45s ease;pointer-events:none}
-.pz-notes-panel{position:fixed;left:50%;bottom:28px;translate:-50% 0;z-index:70;width:min(860px,calc(100vw - 48px));max-height:34vh;overflow:auto;padding:18px 22px;border-radius:14px;background:rgba(14,18,28,.92);color:#eef2f8;font:17px/1.5 system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.45);white-space:pre-wrap;display:none}
+.pz-number{position:fixed;right:calc(22px + var(--pz-lock-x,0px));bottom:calc(16px + var(--pz-lock-y,0px));z-index:60;font:500 14px/1 var(--pz-font-body);color:color-mix(in srgb,var(--pz-text) 55%,transparent);font-variant-numeric:tabular-nums;pointer-events:none;letter-spacing:.04em}
+.pz-progress{position:fixed;left:var(--pz-lock-x,0px);bottom:var(--pz-lock-y,0px);height:4px;width:0;z-index:60;background:var(--pz-accent);transition:width .45s ease;pointer-events:none}
+.pz-notes-panel{position:fixed;left:50%;bottom:calc(28px + var(--pz-lock-y,0px));translate:-50% 0;z-index:70;width:min(860px,calc(100vw - 48px));max-height:34vh;overflow:auto;padding:18px 22px;border-radius:14px;background:rgba(14,18,28,.92);color:#eef2f8;font:17px/1.5 system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.45);white-space:pre-wrap;display:none}
 .pz-notes-panel.open{display:block}
 .pz-notes-panel b{display:block;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#9fb0c8;margin-bottom:6px}
-.pz-goto{position:fixed;left:50%;top:24px;translate:-50% 0;z-index:70;padding:8px 16px;border-radius:999px;background:rgba(14,18,28,.88);color:#fff;font:600 18px/1.2 system-ui,sans-serif;display:none}
+.pz-goto{position:fixed;left:50%;top:calc(24px + var(--pz-lock-y,0px));translate:-50% 0;z-index:70;padding:8px 16px;border-radius:999px;background:rgba(14,18,28,.88);color:#fff;font:600 18px/1.2 system-ui,sans-serif;display:none}
 .pz-goto.open{display:block}
-@media print{.pz-number,.pz-progress,#fp-nav,.fp-controlArrow{display:none!important}}
+@media print{.pz-number,.pz-progress,#fp-nav,.fp-controlArrow,.pz-matte{display:none!important}}

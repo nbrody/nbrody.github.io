@@ -4,7 +4,7 @@
 import { app, currentSlide, findEl, selectedEls, setSelection, editCtx } from './state.js';
 import {
   newDeck, normalizeDeck, normalizeElements, normalizeAssets, makeText, makeMath, makeImage, makeShape, makeEmbed, makeApplet, makeConsole, makeSlide, LAYOUTS,
-  SHAPES, W, H, uid, clone, aabb, unionBox, textToHTML, slideTitle,
+  SHAPES, W, H, ASPECT_LOCKS, uid, clone, aabb, unionBox, textToHTML, slideTitle,
 } from './model.js';
 import { renderSlide, appletDoc, viewURL } from './render.js';
 import { themeVars, googleFontURL } from './themes.js';
@@ -44,7 +44,6 @@ function ensureDeckFonts(deck) {
 // ------------------------------------------------------------- routing --
 async function route() {
   closePopover();
-  if (location.hash === '#tour') { const d = sampleDeck(); return openEditor({ id: d.id, title: d.title, deck: d, updated: Date.now() }); }
   const id = new URLSearchParams(location.search).get('deck');
   if (id) {
     const rec = await getDeck(id).catch(() => null);
@@ -261,7 +260,24 @@ function buildShell() {
 // inside alphaCentaur; the deck's own copy standalone).
 // Inside alphaCentaur the deck learns the real apps port (its consoles' local Python on the web).
 const localPython = () => { try { return folderCtx.apps ? 'http://127.0.0.1:' + new URL(folderCtx.apps).port : LOCAL_PYTHON; } catch { return LOCAL_PYTHON; } };
-const exportDeck = (deck, opts = {}) => exportHTML(deck, { ...opts, remote: effectiveSetup(deck), localPython: localPython() });
+const exportDeck = (deck, opts = {}) => exportHTML(deck, { ...opts, remote: { ...effectiveSetup(deck), ...opts.remote }, localPython: localPython() });
+// The hosted editor shares AlphaCentaur's origin and authenticated session.
+async function lanRequest(method, id = '') {
+  // Use the top-level window's fetch: Safari can omit Strict session cookies
+  // for a nested frame even when the frame has the same origin.
+  const request = () => parent.fetch('/api/phone-remote/lan' + (id ? '/' + encodeURIComponent(id) : ''), {
+    method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-AlphaCentaur-Client': 'human-ui' },
+    ...(method === 'POST' ? { body: '{}' } : {})
+  });
+  let response = await request();
+  if (response.status === 401) {
+    const renewed = await parent.fetch('/api/session', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-AlphaCentaur-Client': 'human-ui' }, body: '{}' });
+    if (renewed.ok) response = await request();
+  }
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Could not start the local remote.');
+  return result;
+}
 
 // The phone preview needs the remote on; offer that instead when it is off.
 function togglePhone() {
@@ -995,12 +1011,28 @@ function showShortcuts() {
 }
 
 // -------------------------------------------------------------- present --
+// What the presenter changes in the presented deck's own popup (Lock aspect
+// ratio, runtime/deck.js) is kept in the deck.
+function keepPresentedSetting(data) {
+  if (data?.type !== 'pz-setting' || data.name !== 'lock' || !ASPECT_LOCKS.includes(data.value) || app.deck.settings.lock === data.value) return;
+  app.mutate(d => { d.settings.lock = data.value; }, { parts: [] });
+}
+// Decks presented in their own window report to the editor too.
+const presentWindows = new WeakSet();
+addEventListener('message', e => { if (e.source && presentWindows.has(e.source)) keepPresentedSetting(e.data); });
 async function present(i = app.slideIndex) {
   canvas.finishEditing(); canvas.endInteract(); closePopover();
   await flushSave();
   // Presented from a blob: relative URLs become the project's absolute ones.
   // Python consoles in it use this page's Python (python: 'relay').
-  const html = await exportDeck(app.deck, { localLibs: true, resolveURLs: HOST, python: 'relay' });
+  let lan = null;
+  if (HOST && normalizeRemoteDeck(app.deck.remote).enabled) {
+    try { lan = await lanRequest('POST'); }
+    catch (e) { toast('Local phone remote unavailable: ' + e.message, 'error'); }
+  }
+  let html;
+  try { html = await exportDeck(app.deck, { localLibs: true, resolveURLs: HOST, python: 'relay', remote: { lan }, live: true }); }
+  catch (e) { if (lan) lanRequest('DELETE', lan.id).catch(() => {}); throw e; }
   // srcdoc inherits the editor's origin and session; Safari omits strict
   // session cookies for project images requested from blob documents.
   const frameHTML = html.replace('<html lang="en">', `<html lang="en" data-pz-start="${i}">`);
@@ -1011,7 +1043,10 @@ async function present(i = app.slideIndex) {
   // Inside alphaCentaur the frame covers only the document pane; have the
   // host give it the whole window while presenting, in case fullscreen is refused.
   if (HOST) toHost('pz-presenting', { on: true });
+  let closed = false;
   const close = () => {
+    if (closed) return; closed = true;
+    if (lan) lanRequest('DELETE', lan.id).catch(() => {});
     if (HOST) toHost('pz-presenting', { on: false });
     window.pzPython?.forget(frame.contentWindow);
     removeEventListener('message', onMsg);
@@ -1026,6 +1061,7 @@ async function present(i = app.slideIndex) {
     if (e.data?.type === 'pz-exit') close();
     if (e.data?.type === 'pz-state') last = e.data.index;
     if (e.data?.type === 'pz-keep-open') keepUntil = Date.now() + 3000;   // the deck is opening the phone remote's window
+    keepPresentedSetting(e.data);
   };
   const onFs = () => {
     if (document.fullscreenElement) wasFull = true;
@@ -1046,7 +1082,12 @@ async function presentInWindow() {
   const w = window.open('', '_blank');
   if (!w) { toast('The browser blocked the new window — allow pop-ups for this page.', 'error'); return; }
   try {
-    const html = await exportDeck(app.deck, { localLibs: true, resolveURLs: HOST, python: 'relay' });
+    let lan = null;
+    if (HOST && normalizeRemoteDeck(app.deck.remote).enabled) {
+      try { lan = await lanRequest('POST'); } catch (e) { toast('Local phone remote unavailable: ' + e.message, 'error'); }
+    }
+    const html = await exportDeck(app.deck, { localLibs: true, resolveURLs: HOST, python: 'relay', remote: { lan }, live: true });
+    presentWindows.add(w);
     w.location.hash = `pz-${app.slideIndex}`;
     w.document.open(); w.document.write(html); w.document.close();
     window.pzPython?.allow(w);

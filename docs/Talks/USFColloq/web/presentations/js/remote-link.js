@@ -84,13 +84,35 @@
 
   // The same calls over a BroadcastChannel: each window keeps a copy of the
   // tree; the presenter answers a newcomer's "hello" with the whole tree.
-  function localLink(session, role) {
-    var ch = new BroadcastChannel('pz-remote/' + session), tree = {}, subs = [], disc = [];
+  function localLink(session, role, lan) {
+    var ch, tree = {}, subs = [], disc = [], connectionCallbacks = [];
+    if (lan) {
+      var socket, queue = [], stopped = false, retry;
+      ch = {
+        postMessage: function (m) { var data = JSON.stringify(m); if (socket.readyState === WebSocket.OPEN) socket.send(data); else if (socket.readyState === WebSocket.CONNECTING) queue.push(data); },
+        close: function () { stopped = true; clearTimeout(retry); socket.close(); }
+      };
+      function openSocket() {
+        socket = new WebSocket(lan);
+        socket.onopen = function () {
+          queue.forEach(function (m) { socket.send(m); }); queue = [];
+          if (role === 'phone') { socket.send(JSON.stringify({ op: 'hello' })); disc.forEach(function (p) { socket.send(JSON.stringify({ op: 'disconnect', path: p })); }); }
+          connectionCallbacks.forEach(function (cb) { cb(true); });
+        };
+        socket.onmessage = function (e) { try { ch.onmessage({ data: JSON.parse(e.data) }); } catch (x) {} };
+        socket.onclose = function () {
+          connectionCallbacks.forEach(function (cb) { cb(false); });
+          if (!stopped && role === 'phone') retry = setTimeout(openSocket, 1500);
+        };
+      }
+      openSocket();
+    } else ch = new BroadcastChannel('pz-remote/' + session);
     var parts = function (p) { return p ? String(p).split('/').filter(Boolean) : []; };
     var get = function (p) { var n = tree; for (var k of parts(p)) { if (!n || typeof n !== 'object') return null; n = n[k]; } return n === undefined ? null : n; };
     var put = function (p, v) {
       var ks = parts(p);
       if (!ks.length) { tree = v && typeof v === 'object' ? JSON.parse(JSON.stringify(v)) : {}; return; }
+      if (ks.some(function (k) { return k === '__proto__' || k === 'prototype' || k === 'constructor'; })) return;
       var n = tree;
       for (var i = 0; i < ks.length - 1; i++) { if (!n[ks[i]] || typeof n[ks[i]] !== 'object') n[ks[i]] = {}; n = n[ks[i]]; }
       if (v === null || v === undefined) delete n[ks[ks.length - 1]]; else n[ks[ks.length - 1]] = JSON.parse(JSON.stringify(v));
@@ -115,10 +137,10 @@
       set: function (p, v) { return send({ op: 'set', path: p, value: v }); },
       push: function (p, v) { return send({ op: 'push', path: p, key: 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), value: v }); },
       remove: function (p) { return send({ op: 'set', path: p || '', value: null }); },
-      removeOnDisconnect: function (p) { disc.push(p || ''); return Promise.resolve(); },
+      removeOnDisconnect: function (p) { disc.push(p || ''); if (lan) ch.postMessage({ op: 'disconnect', path: p || '' }); return Promise.resolve(); },
       onValue: function (p, cb) { var s = { kind: 'value', path: p, cb: cb }; subs.push(s); cb(get(p)); return function () { subs.splice(subs.indexOf(s), 1); }; },
       onChild: function (p, cb) { var s = { kind: 'child', path: p, cb: cb }; subs.push(s); return function () { subs.splice(subs.indexOf(s), 1); }; },
-      onConnected: function (cb) { cb(true); return function () {}; },
+      onConnected: function (cb) { if (!lan) cb(true); else { connectionCallbacks.push(cb); if (socket.readyState === WebSocket.OPEN) cb(true); } return function () { var i = connectionCallbacks.indexOf(cb); if (i >= 0) connectionCallbacks.splice(i, 1); }; },
       ping: function () { return Promise.resolve(); },
       close: function () { ch.close(); },
     });
@@ -148,12 +170,13 @@
     // { firebase?: config, session, local?: bool, role: 'presenter' | 'phone' }
     connect: function (o) {
       if (!validSession(o.session)) return Promise.reject(new Error('This remote link is incomplete.'));
+      if (o.lan) return localLink(o.session, o.role, o.lan);
       if (o.local || !o.firebase) return localLink(o.session, o.role);
       return firebaseLink(o.firebase, o.session);
     },
-    connectPresenter: function (firebase, session) {
-      var local = localLink(session, 'presenter');
-      if (!firebase) return local;
+    connectPresenter: function (firebase, session, lan) {
+      var local = localLink(session, 'presenter', lan);
+      if (lan || !firebase) return local;
       return Promise.all([local, firebaseLink(firebase, session).catch(function (e) { console.warn('Phone remote:', e.message); return null; })])
         .then(function (ls) { return ls[1] ? both([ls[1], ls[0]]) : ls[0]; });
     },

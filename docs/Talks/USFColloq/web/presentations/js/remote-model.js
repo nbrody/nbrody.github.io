@@ -11,7 +11,7 @@
 export const REMOTE_PRESETS = [
   { id: 'presenter', name: 'Presenter', desc: 'Timer, speaker notes and what comes next, with Back and Next.',
     controls: [{ type: 'slide' }, { type: 'timer' }, { type: 'notes' }, { type: 'upnext' }, { type: 'nav' }] },
-  { id: 'clicker', name: 'Clicker', desc: 'One big Next button and a small Back.',
+  { id: 'clicker', name: 'Clicker', desc: 'Progress with Back and Next fixed at the bottom.',
     controls: [{ type: 'progress' }, { type: 'next' }, { type: 'prev' }] },
   { id: 'buttons', name: 'Buttons', desc: 'Back and Next, the slide number, and a slide list.',
     controls: [{ type: 'progress' }, { type: 'nav' }, { type: 'slides' }] },

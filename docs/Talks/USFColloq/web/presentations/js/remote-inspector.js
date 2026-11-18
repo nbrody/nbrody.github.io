@@ -89,13 +89,12 @@ export function remoteDesignSection() {
       h('div.rs-actions', null, test, menuButton('More', 'more', () => items.filter(Boolean), { cls: 'ghost sm', showLabel: false, align: 'end' })));
   } else {
     status.classList.add('off');
-    status.append(h('i.rs-dot'), h('div.rs-text', null, h('b', null, 'Not connected'),
-      h('span.rs-sub', null, (WORKSPACE ? 'AlphaCentaur has no Firebase setup yet, so phones can’t reach your decks. ' : 'Phones can’t reach this deck yet. ')
-        + 'While presenting you can still open the remote in a window on this computer.')));
+    status.append(h('i.rs-dot'), h('div.rs-text', null, h('b', null, WORKSPACE ? 'Local pairing available' : 'Not connected'),
+      h('span.rs-sub', null, WORKSPACE ? 'For a local presentation, press R and scan the code with a phone on the same network. No Firebase setup is needed.' : 'Phones need a Firebase setup. You can also open a remote on this computer.')));
   }
   const connect = eff.firebase ? null : h('div.btn-row', null,
     !WORKSPACE && saved ? button(`Use ${saved.firebase.projectId}`, 'check', () => setDeckRemote({ firebase: saved.firebase, page: r.page || saved.page }), { showLabel: true, cls: 'primary' }) : null,
-    button(!WORKSPACE && saved ? 'Set up another…' : 'Set up phone remote…', 'phone', wizard, { showLabel: true, cls: !WORKSPACE && saved ? 'ghost' : 'primary' }));
+    button(!WORKSPACE && saved ? 'Set up another…' : WORKSPACE ? 'Set up Firebase for online decks…' : 'Set up phone remote…', 'phone', wizard, { showLabel: true, cls: !WORKSPACE && saved ? 'ghost' : 'primary' }));
 
   // Phone page: the workspace's inside alphaCentaur, the deck's standalone.
   const page = h('input.text-input', { type: 'url', value: eff.page, placeholder: 'https://… /remote.html', spellcheck: false });
@@ -121,7 +120,7 @@ export function remoteDesignSection() {
 
   return titled('Phone remote', eyeButton(), onOff, status, connect, pageField,
     field('Every slide shows', presets, { cls: 'block' }),
-    h('p.hint', null, 'A slide can show something else: click an empty part of it and choose under Phone remote. The remote takes the deck’s colors and fonts.'));
+    h('p.hint', null, 'Back and Next stay at the bottom on every slide. Other controls scroll above them. A slide can show something else: click an empty part of it and choose under Phone remote.'));
 }
 
 // ---------------------------------------------------------- Slide panel --
