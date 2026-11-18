@@ -194,6 +194,15 @@ document.getElementById('ringBtn').onclick = () => {
   useSqrt2 = !useSqrt2;
   prevPos.clear(); pts = buildPoints(); animU = 1; updateLabels();
 };
+// Phone remote: the deck forwards the slide's buttons (real, padic, both, toggleRing) as messages.
+addEventListener('message', e => {
+  const d = e.data || {};
+  if (e.source !== parent || d.type !== 'pz-button') return;
+  if (d.name === 'real') setMode(1);
+  else if (d.name === 'padic') setMode(2);
+  else if (d.name === 'both') setMode(3);
+  else if (d.name === 'toggleRing') document.getElementById('ringBtn').click();
+});
 document.getElementById('kslider').oninput = e => {
   K = +e.target.value;
   prevPos.clear(); pts = buildPoints(); updateLabels();

@@ -190,6 +190,14 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
+// Phone remote: the deck forwards the slide's controls (t, speed, word) as messages.
+addEventListener('message', e => {
+  const d = e.data || {};
+  if (e.source !== parent || typeof d.name !== 'string') return;
+  if (d.type === 'pz-param' && d.name === 't') { shearT = +d.value; tslider.value = shearT; syncT(); }
+  else if (d.type === 'pz-param' && d.name === 'speed') speed = +d.value;
+  else if (d.type === 'pz-button' && d.name === 'word') start();
+});
 stage.onclick = start; document.getElementById('newbtn').onclick = start;
 new ResizeObserver(placeLabels).observe(stage);
 syncT(); start(); requestAnimationFrame(frame);
