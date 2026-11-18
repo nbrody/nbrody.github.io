@@ -52,3 +52,10 @@ try {
   error.style.display = 'grid';
   console.error(e);
 }
+
+addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[0-9]$/.test(e.key) || e.key === 'Enter') { e.preventDefault(); parent.postMessage({ type: 'iframeKey', key: e.key }, '*'); return; }
+  const d = { ArrowRight: 'next', PageDown: 'next', ' ': 'next', ArrowLeft: 'prev', PageUp: 'prev', Escape: 'exit' }[e.key];
+  if (d) { e.preventDefault(); parent.postMessage({ type: 'iframeNav', direction: d }, '*'); }
+});

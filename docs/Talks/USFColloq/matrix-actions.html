@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One matrix in parallel spaces</title>
+<!--
+  One matrix, read in several number systems, moving a different space in each.
+  Every picture is the project's own tool, loaded whole in a frame:
+    Geometric/Tools/Kleinian/poincare/   the hyperbolic plane (a real embedding)
+    Geometric/Tools/padicGroups/trees/   the Bruhat–Tits tree (a prime)
+  This page only chooses what is on screen and presses "apply the generator"
+  in each tool at the same moment.
+
+  ?m=A | B            which matrix (default A)
+  ?show=1 | 2 | both  which space is on screen first (default 1)
+-->
+<style>
+:root{color-scheme:light;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#172c39;background:#f7f3e9;
+  --ink:#172c39;--muted:#4e6166;--accent:#12665d;--accent2:#b34530;--line:#d1d0c4;--surface:#e9e6dc}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;overflow:hidden}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px 26px;padding:2px 4px;flex-wrap:wrap}
+.formula{display:flex;align-items:center;gap:12px;font:34px Georgia,"Times New Roman",serif;white-space:nowrap}
+.formula table{border-left:2.5px solid;border-right:2.5px solid;border-radius:10px;border-spacing:16px 2px;text-align:center;line-height:1.1}
+.controls{display:flex;align-items:center;gap:10px}
+.seg{display:flex;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#eee9df}
+button{font:650 23px/1.2 "Helvetica Neue",Arial,sans-serif;color:inherit;background:transparent;border:0;padding:.5em .8em;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:#dbeae4;color:#10443f}
+#play{background:var(--accent);color:#fff;border-radius:11px;min-width:7.2em}
+#play:disabled{opacity:.5;cursor:wait}
+#reset{border:1px solid var(--line);border-radius:11px;background:#eee9df}
+button:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
+#views{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:16px;min-height:0}
+figure{display:grid;grid-template-rows:auto minmax(0,1fr);margin:0;overflow:hidden;border-radius:14px;border:1px solid var(--line);background:#eef0f7}
+figure[hidden]{display:none}
+figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 18px;padding:11px 18px;background:var(--surface);border-bottom:1px solid var(--line);font-size:24px}
+figcaption b{font-size:1.12em;white-space:nowrap}
+figcaption b i{font-style:normal;color:var(--accent)}
+figcaption b u{text-decoration:none;font-weight:400}
+figcaption span{color:var(--muted);text-align:right;white-space:nowrap;margin-left:auto}
+figcaption span em{font-style:normal;font-weight:650;color:var(--accent2)}
+.stage{position:relative;min-height:0}
+iframe{position:absolute;inset:0;border:0;width:100%;height:100%;display:block;background:#eef0f7}
+.veil{position:absolute;inset:0;display:grid;place-items:center;background:#eef0f7;color:var(--muted);font-size:22px;transition:opacity .4s}
+.veil.gone{opacity:0;pointer-events:none}
+#status{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:#fcf7e9;color:#963923;padding:8px 14px;border-radius:8px;border:1px solid #e3c9bf;font-size:18px}
+</style>
+<header>
+  <div class="formula" id="formula"></div>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Which space">
+      <button type="button" id="first" aria-pressed="true"></button>
+      <button type="button" id="second" aria-pressed="false"></button>
+      <button type="button" id="both" aria-pressed="false">Both at once</button>
+    </div>
+    <button type="button" id="play" disabled>Apply</button>
+    <button type="button" id="reset" title="Back to the start">Reset</button>
+  </div>
+</header>
+<main id="views" aria-label="The spaces this matrix moves"></main>
+<output id="status" hidden role="status"></output>
+<script type="module">
+const POINCARE = '../../GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare/index.html';
+const TREES = '../../GeometryofLinearGroups/Geometric/Tools/padicGroups/trees/index.html';
+
+// The tools restore a group from "#s=<base64url JSON>" (their own permalinks).
+function permalink(state) {
+    const bytes = new TextEncoder().encode(JSON.stringify(state));
+    let bin = '';
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return '#s=' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+const plane = (entries) => ({ tool: 'plane', src: POINCARE + permalink({ v: 1, mats: [entries], theme: 'light', panel: 'closed' }) });
+const tree = (p, entries) => ({ tool: 'tree', src: TREES + permalink({ v: 1, p: String(p), mats: [entries], vertex: ['0', '0'], L: 4, r: 2, model: 'disk', theme: 'light' }) });
+
+const EXAMPLES = {
+    A: {
+        letter: 'A',
+        formula: '<span>A =</span><table aria-label="rows three fifths, four fifths; minus four fifths, three fifths"><tr><td>3/5</td><td>4/5</td></tr><tr><td>−4/5</td><td>3/5</td></tr></table>',
+        views: [
+            { short: 'ℝ', label: 'Entries in <i>ℝ</i>', space: 'the hyperbolic plane ℍ²', does: 'A <em>rotates</em> about i, by 2·arctan(4/3) ≈ 106°',
+              ...plane(['\\frac{3}{5}', '\\frac{4}{5}', '-\\frac{4}{5}', '\\frac{3}{5}']) },
+            { short: 'ℚ₅', label: 'Entries in <i>ℚ₅</i>', space: 'the 6-regular tree T₅', does: 'A <em>slides</em> 2 edges along a line',
+              ...tree(5, ['3', '4', '-4', '3']) },   // 5·A: the same projective transformation
+        ],
+    },
+    B: {
+        letter: 'B',
+        formula: '<span>B =</span><table aria-label="diagonal matrix with entries three plus root two, and one"><tr><td>3 + √2</td><td>0</td></tr><tr><td>0</td><td>1</td></tr></table>',
+        views: [
+            { short: '√2 = +1.414…', label: 'Read <i>√2 = +1.414…</i>', space: 'a hyperbolic plane ℍ²', does: 'z ↦ (3 + √2)·z ≈ <em>4.41</em>·z',
+              ...plane(['3+\\sqrt{2}', '0', '0', '1']) },
+            { short: '√2 = −1.414…', label: 'Read <i>√2 = −1.414…</i>', space: 'a second plane ℍ²', does: 'z ↦ (3 − √2)·z ≈ <em>1.59</em>·z',
+              ...plane(['3-\\sqrt{2}', '0', '0', '1']) },
+        ],
+    },
+};
+
+const query = new URLSearchParams(location.search);
+const example = EXAMPLES[(query.get('m') || 'A').toUpperCase()] || EXAMPLES.A;
+const el = (id) => document.getElementById(id);
+const playBtn = el('play'), resetBtn = el('reset'), views = el('views'), status = el('status');
+const choices = [el('first'), el('second'), el('both')];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let applied = 0;
+
+// The Poincaré tool greets a first visit with its tutorial; a slide is not a first visit.
+try { localStorage.setItem('poincare.welcome.v2', '1'); } catch (e) { /* private mode */ }
+
+// ── driving the tools ────────────────────────────────────────────────
+
+/** Wait until `test()` is truthy (the tools boot asynchronously). */
+async function until(test, ms = 15000) {
+    const t0 = performance.now();
+    for (;;) {
+        let v; try { v = test(); } catch (e) { v = null; }
+        if (v) return v;
+        if (performance.now() - t0 > ms) throw new Error('timed out');
+        await sleep(120);
+    }
+}
+
+const DRIVERS = {
+    // poincare/: hide the workbench, fill the plane with dust, and let its own
+    // isometry animation (the view moves by the matrix, with its axis or centre) play.
+    plane: {
+        async ready(win) {
+            const api = await until(() => win.PoincareAPI && win.PoincareAPI.state().domain && win.PoincareAPI);
+            win.document.documentElement.classList.add('embed-mode');
+            api.setPolyhedronOpacity(0);
+            api.setDust(true);
+            win.dispatchEvent(new Event('poincare:layout'));   // the hidden panel no longer takes room
+            win.dispatchEvent(new Event('resize'));
+            return {
+                busy: () => api.isAnimating(),
+                apply: () => api.animateGenerator(0),
+            };
+        },
+    },
+    // trees/: hide the workbench and press its own g₁ button; the disk picture
+    // glides to the copy W·v.
+    tree: {
+        async ready(win) {
+            const doc = win.document;
+            await until(() => doc.querySelector('#isometry-controls .isometry-btn') && doc.querySelector('#tree-vis .node'));
+            const style = doc.createElement('style');
+            style.textContent = '#control-panel,#status-banner,#isometry-controls{display:none!important}';
+            doc.head.appendChild(style);
+            doc.getElementById('control-panel')?.classList.add('collapsed');
+            win.dispatchEvent(new Event('resize'));
+            return {
+                busy: () => false,
+                apply: () => doc.querySelector('#isometry-controls .isometry-btn').click(),
+            };
+        },
+    },
+};
+
+// ── the panels ───────────────────────────────────────────────────────
+
+const panels = example.views.map((view, i) => {
+    const figure = document.createElement('figure');
+    figure.hidden = true;
+    figure.innerHTML = `<figcaption><b>${view.label} <u>→ ${view.space}</u></b><span>${view.does}</span></figcaption>
+        <div class="stage"><div class="veil">Loading the ${view.tool === 'tree' ? 'tree' : 'plane'}…</div></div>`;
+    choices[i].textContent = view.short;
+    return { view, figure, stage: figure.querySelector('.stage'), veil: figure.querySelector('.veil'), frame: null, driver: null };
+});
+views.append(...panels.map((p) => p.figure));
+el('formula').innerHTML = example.formula;
+
+/** Load a panel's tool the first time it is shown (and again after Reset). */
+function load(panel) {
+    panel.driver = null;
+    panel.veil.classList.remove('gone');
+    panel.frame?.remove();
+    const frame = document.createElement('iframe');
+    frame.title = panel.figure.querySelector('b').textContent;
+    frame.addEventListener('load', async () => {
+        try {
+            const driver = await DRIVERS[panel.view.tool].ready(frame.contentWindow);
+            if (panel.frame !== frame) return;
+            panel.driver = driver;
+            await sleep(350);                       // let the tool settle its first frame
+            panel.veil.classList.add('gone');
+        } catch (e) {
+            console.error(e);
+            status.hidden = false;
+            status.value = 'A project tool did not finish loading.';
+        }
+        refresh();
+    });
+    frame.src = panel.view.src;
+    panel.frame = frame;
+    panel.stage.prepend(frame);
+}
+
+const shown = () => panels.filter((p) => !p.figure.hidden);
+function refresh() {
+    const s = shown();
+    playBtn.disabled = !s.length || s.some((p) => !p.driver);
+    playBtn.textContent = applied ? `Apply ${example.letter} again` : `Apply ${example.letter}`;
+}
+
+function select(index) {
+    choices.forEach((b, i) => b.setAttribute('aria-pressed', i === index));
+    panels.forEach((p, i) => {
+        p.figure.hidden = index !== 2 && i !== index;
+        if (!p.figure.hidden && !p.frame) load(p);
+    });
+    // a frame that was hidden has no size: let the tools lay out again
+    requestAnimationFrame(() => shown().forEach((p) => p.frame?.contentWindow?.dispatchEvent(new Event('resize'))));
+    refresh();
+}
+
+/** The same matrix, applied in every space on screen at the same moment. */
+function apply() {
+    const s = shown();
+    if (s.some((p) => !p.driver || p.driver.busy())) return;
+    s.forEach((p) => p.driver.apply());
+    applied++;
+    refresh();
+}
+
+function reset() {
+    applied = 0;
+    panels.forEach((p) => { if (p.frame) { p.frame.remove(); p.frame = null; p.driver = null; } });
+    shown().forEach(load);
+    refresh();
+}
+
+choices.forEach((b, i) => b.addEventListener('click', () => select(i)));
+playBtn.addEventListener('click', apply);
+resetBtn.addEventListener('click', reset);
+// Space or Enter applies the matrix when no button has focus.
+addEventListener('keydown', (e) => {
+    if (e.target.closest('button') || (e.key !== ' ' && e.key !== 'Enter')) return;
+    e.preventDefault();
+    apply();
+});
+const start = { '1': 0, '2': 1, both: 2 }[query.get('show') || '1'] ?? 0;
+select(start);
+</script>
+</html>
