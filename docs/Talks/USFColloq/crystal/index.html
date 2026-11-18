@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Diagonal Miracle</title>
+<link rel="stylesheet" href="../web/presentations/vendor/katex/katex.min.css">
+<script src="../web/presentations/vendor/katex/katex.min.js"></script>
+<style>
+  :root { --pz-bg:#F7F3E9; --pz-surface:#E9E6DC; --pz-text:#172C39; --pz-muted:#4E6166; --pz-accent:#12665D; --pz-accent2:#B34530; --pz-font-body: Helvetica, Arial, sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; height: 100vh; display: flex; flex-direction: column;
+    background: var(--pz-surface); color: var(--pz-text);
+    font-family: var(--pz-font-body); overflow: hidden;
+    border-radius: 18px; border: 1.5px solid #D1D0C4;
+  }
+  .top {
+    display: flex; gap: 10px; align-items: center; padding: 14px 22px;
+    border-bottom: 1px solid #D1D0C4; background: #EFECE2; flex-wrap: wrap;
+  }
+  button {
+    font: 650 18px/1.2 var(--pz-font-body); padding: 9px 16px; border-radius: 999px;
+    border: 1.5px solid #C6C4B6; background: #F7F3E9; color: var(--pz-text);
+    cursor: pointer; transition: all .15s;
+  }
+  button:hover { border-color: var(--pz-accent); }
+  button.on { background: var(--pz-accent); color: #ffffff; border-color: var(--pz-accent); }
+  button.ring { margin-left: auto; border-color: var(--pz-accent2); color: var(--pz-accent2); background: #FBF8F1; }
+  button.ring:hover { background: #F6EAE5; }
+  .wrap { position: relative; flex: 1; min-height: 0; background: #FCF9F2; overflow: hidden; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* Every label is real LaTeX (KaTeX), laid over the canvas. */
+  .lb { position: absolute; left: 0; top: 0; white-space: nowrap; pointer-events: none; will-change: transform; line-height: 1; }
+  .lb.pill { background: rgba(252, 249, 242, 0.88); padding: 4px 8px; border-radius: 6px; }
+  .lb .katex { font-size: 1em; }
+  .foot {
+    padding: 12px 22px; display: flex; align-items: center; gap: 16px;
+    border-top: 1px solid #D1D0C4; background: #EFECE2; font-size: 19px; color: var(--pz-muted);
+  }
+  input[type=range] { width: 190px; accent-color: var(--pz-accent); cursor: pointer; }
+  #caption { color: var(--pz-text); font-weight: 500; }
+  .katex { font-size: 1.08em; }
+  button .katex { font-size: 1.05em; }
+</style></head><body>
+<div class="top">
+  <button id="m1" class="on"></button>
+  <button id="m2"></button>
+  <button id="m3"></button>
+  <button id="ringBtn" class="ring"></button>
+</div>
+<div class="wrap" id="wrap"><canvas id="c"></canvas></div>
+<div class="foot">
+  <span><span id="sliderLabel"></span> <b id="kv" style="color:var(--pz-accent)">4</b> <span id="denomHint"></span></span>
+  <input id="kslider" type="range" min="1" max="5" step="1" value="4">
+  <span id="caption"></span>
+</div>
+<script>
+// ---- LaTeX helpers: "…$tex$…" strings become KaTeX HTML ---------------------------------------
+const MACROS = { '\\R': '\\mathbb{R}', '\\Z': '\\mathbb{Z}', '\\Q': '\\mathbb{Q}' };
+const texCache = new Map();
+function tex(s) {
+  if (texCache.has(s)) return texCache.get(s);
+  const html = s.split('$').map((part, i) => {
+    if (i % 2 === 0) return part.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    return katex.renderToString(part, { throwOnError: false, macros: MACROS });
+  }).join('');
+  texCache.set(s, html);
+  return html;
+}
+const setTex = (el, s) => { const h = tex(s); if (el._h !== h) { el._h = h; el.innerHTML = h; } };
+
+// ---- overlay labels (pooled; each frame positions the ones in use) -----------------------------
+const wrap = document.getElementById('wrap');
+const pool = new Map();
+let used = new Set();
+// L(key, tex, x, y, {ax: 'l'|'c'|'r', color, size, alpha, pill})
+function L(key, s, x, y, o = {}) {
+  let e = pool.get(key);
+  if (!e) { e = document.createElement('div'); e.className = 'lb'; wrap.append(e); pool.set(key, e); }
+  setTex(e, s);
+  const ax = o.ax === 'r' ? -100 : o.ax === 'c' ? -50 : 0;
+  e.style.transform = 'translate(' + (x).toFixed(1) + 'px,' + (y).toFixed(1) + 'px) translate(' + ax + '%,-50%)';
+  e.style.color = o.color || '#172C39';
+  e.style.fontSize = (o.size || 16) + 'px';
+  e.style.opacity = o.alpha == null ? 1 : o.alpha;
+  e.style.display = 'block';
+  e.classList.toggle('pill', !!o.pill);
+  used.add(key);
+}
+function flushLabels() {
+  for (const [k, e] of pool) if (!used.has(k)) e.style.display = 'none';
+  used = new Set();
+}
+
+// ---- the applet ---------------------------------------------------------------------------------
+const c = document.getElementById('c'), g = c.getContext('2d');
+let mode = 1, useSqrt2 = false, K = 4;
+let pts = [], animU = 1, prevPos = new Map();
+
+const LEVEL_COLORS = ['#172C39', '#12665D', '#B34530', '#2E5A88', '#7A4996', '#9E5A10'];
+const LEVEL_LABELS = [
+  'integers $\\mathbb{Z}$ $\\;(|x|_2 \\le 1)$',
+  'odd $n/2$ $\\;(|x|_2 = 2)$',
+  'odd $n/4$ $\\;(|x|_2 = 4)$',
+  'odd $n/8$ $\\;(|x|_2 = 8)$',
+  'odd $n/16$ $\\;(|x|_2 = 16)$',
+  'odd $n/32$ $\\;(|x|_2 = 32)$'
+];
+
+// Coefficient bound |a|, |b| <= B for Z[sqrt 2]: large enough that projections onto either axis
+// pack thousands of points with sub-pixel spacing (~1/B), visibly smearing into a dense continuum.
+const SQRT2_BOUNDS = [0, 4, 10, 22, 45, 90];
+const SQRT2_X = 14.0, SQRT2_Y = 4.6;
+
+function buildPoints() {
+  const out = [];
+  if (!useSqrt2) {
+    const maxDen = 1 << K;
+    const seen = new Set();
+    const lim = Math.floor(3.15 * maxDen);
+    for (let m = -lim; m <= lim; m++) {
+      let num = m, den = maxDen, k = K;
+      while (k > 0 && num % 2 === 0) { num /= 2; den /= 2; k--; }
+      const key = num + '/' + den;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ key, num, den, x: num / den, y: k, level: k, isZero: num === 0 });
+    }
+    out.sort((a, b) => b.level - a.level);
+  } else {
+    const B = SQRT2_BOUNDS[K] || 45;
+    const s2 = Math.SQRT2;
+    const aReach = Math.ceil(B * s2 + SQRT2_X);
+    for (let b = -B; b <= B; b++) {
+      const aBound = Math.ceil(Math.abs(b) * s2 + SQRT2_X);
+      for (let a = -aBound; a <= aBound; a++) {
+        if (Math.abs(a) > aReach) continue;
+        const x1 = a + b * s2, x2 = a - b * s2;
+        const in1 = Math.abs(x1) <= SQRT2_X, in2 = Math.abs(x2) <= SQRT2_Y;
+        if (!in1 && !in2) continue;
+        out.push({ key: a + ',' + b, a, b, x: x1, y: x2, inBox: in1 && in2,
+          level: Math.abs(b) === 0 ? 0 : (Math.abs(b) % 5) + 1, isZero: a === 0 && b === 0 });
+      }
+    }
+    out.sort((p, q) => (p.isZero - q.isZero) || (p.inBox - q.inBox) || (Math.abs(q.b) - Math.abs(p.b)));
+  }
+  return out;
+}
+
+function posFor(p, m) { return m === 1 ? [p.x, 0] : m === 2 ? [0, p.y] : [p.x, p.y]; }
+function curPos(p) {
+  const tgt = posFor(p, mode);
+  if (animU >= 1 || !prevPos.has(p.key)) return tgt;
+  const pr = prevPos.get(p.key);
+  const e = 1 - Math.pow(1 - animU, 3);
+  return [pr[0] + (tgt[0] - pr[0]) * e, pr[1] + (tgt[1] - pr[1]) * e];
+}
+
+function updateLabels() {
+  const B = SQRT2_BOUNDS[K] || 45;
+  setTex(document.getElementById('sliderLabel'), useSqrt2 ? 'Range $|b| \\le$' : 'Max level $\\le$');
+  document.getElementById('kv').textContent = useSqrt2 ? String(B) : String(K);
+  setTex(document.getElementById('denomHint'), useSqrt2 ? '(' + pts.length + ' points of $\\Z[\\sqrt{2}]$)' : '(up to $n/' + (1 << K) + '$)');
+  setTex(document.getElementById('m1'), useSqrt2 ? '1 · Real line $a+b\\sqrt{2}$ only (dense!)' : '1 · Real line $\\R$ only (crowded!)');
+  setTex(document.getElementById('m2'), useSqrt2 ? '2 · Conjugate $a-b\\sqrt{2}$ only (dense!)' : '2 · $2$-adic height only (crowded!)');
+  setTex(document.getElementById('m3'), useSqrt2 ? '3 · Plot $\\R\\times\\R$ together (discrete lattice!)' : '3 · Raise $n/2,\\ n/4,\\ n/8,\\dots$ together (discrete!)');
+  setTex(document.getElementById('ringBtn'), useSqrt2 ? 'Switch to $\\Z[\\tfrac12]$ (raise $n/2^k$)' : 'Switch to $\\Z[\\sqrt{2}]\\subset\\R\\times\\R$');
+  const cap = document.getElementById('caption');
+  if (!useSqrt2) {
+    setTex(cap, mode === 1
+      ? 'On $\\R$ alone, dyadic fractions $n/2^k$ crowd arbitrarily close to the integers.'
+      : mode === 2
+      ? 'By $2$-adic height alone, all integers $\\Z$ pile onto height $0$ (and all odd $n/2^k$ onto height $k$)!'
+      : 'Leave the integers on the number line and raise $n/2,\\ n/4,\\ n/8,\\dots$ upward: every point of $\\Z[\\tfrac12]$ is isolated!');
+  } else {
+    setTex(cap, mode === 1
+      ? 'On $\\R$ alone, $a+b\\sqrt{2}$ packs densely everywhere (points with huge conjugate sneak right next to $0$!).'
+      : mode === 2
+      ? 'Under the Galois conjugate $a-b\\sqrt{2}$ alone, it also projects to a dense smear!'
+      : 'Unfold into $\\R\\times\\R$ together: tiny $a+b\\sqrt{2}$ forces huge $a-b\\sqrt{2}$, revealing a discrete 2D crystal lattice!');
+  }
+}
+
+function setMode(m) {
+  for (const p of pts) prevPos.set(p.key, curPos(p));
+  mode = m; animU = 0;
+  for (const i of [1, 2, 3]) document.getElementById('m' + i).classList.toggle('on', i === m);
+  updateLabels();
+}
+
+document.getElementById('m1').onclick = () => setMode(1);
+document.getElementById('m2').onclick = () => setMode(2);
+document.getElementById('m3').onclick = () => setMode(3);
+document.getElementById('ringBtn').onclick = () => {
+  useSqrt2 = !useSqrt2;
+  prevPos.clear(); pts = buildPoints(); animU = 1; updateLabels();
+};
+document.getElementById('kslider').oninput = e => {
+  K = +e.target.value;
+  prevPos.clear(); pts = buildPoints(); updateLabels();
+};
+
+pts = buildPoints();
+updateLabels();
+
+function frame() {
+  if (animU < 1) animU = Math.min(1, animU + 0.028);
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) { requestAnimationFrame(frame); return; }
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+
+  if (!useSqrt2) {
+    const padL = 90, padR = 225;
+    const plotW = w - padL - padR;
+    const cx = padL + plotW / 2;
+    const sx = plotW / 6.4;
+    const yBase = h - 78;
+    const yTop = 54;
+    const maxLevel = Math.max(K, 4);
+    const stepY = (yBase - yTop) / maxLevel;
+
+    if (mode !== 1 || animU < 1) {
+      const a = mode === 1 ? Math.max(0, 1 - animU * 1.4) : (animU < 1 ? animU : 1);
+      g.save();
+      g.globalAlpha = a;
+      for (let k = 1; k <= K; k++) {
+        const yk = yBase - k * stepY;
+        g.strokeStyle = 'rgba(23, 44, 57, 0.12)';
+        g.lineWidth = 1.2;
+        g.setLineDash([5, 6]);
+        g.beginPath(); g.moveTo(padL - 10, yk); g.lineTo(w - padR + 10, yk); g.stroke();
+        g.setLineDash([]);
+        L('lvl' + k, LEVEL_LABELS[k], w - padR + 20, yk, { color: LEVEL_COLORS[k % LEVEL_COLORS.length], size: 16, alpha: a });
+      }
+      g.restore();
+    }
+
+    g.strokeStyle = 'rgba(23, 44, 57, 0.22)';
+    g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(cx, 24); g.lineTo(cx, yBase + 16); g.stroke();
+    L('hgt', '$\\uparrow$ denominator height ($\\log_2 |x|_2$)', cx + 10, 34, { color: '#4E6166', size: 16 });
+
+    g.strokeStyle = '#172C39';
+    g.lineWidth = 2.4;
+    g.beginPath(); g.moveTo(padL - 20, yBase); g.lineTo(w - padR + 14, yBase); g.stroke();
+    L('lvl0', LEVEL_LABELS[0], w - padR + 20, yBase, { color: '#172C39', size: 16 });
+
+    for (let n = -3; n <= 3; n++) {
+      const tx = cx + n * sx;
+      g.strokeStyle = '#172C39';
+      g.lineWidth = 2;
+      g.beginPath(); g.moveTo(tx, yBase - 6); g.lineTo(tx, yBase + 7); g.stroke();
+      L('t' + n, '$' + n + '$', tx, yBase + 28, { ax: 'c', size: 17 });
+    }
+    L('rl', 'real number line $\\R\\to$', w - padR + 10, yBase + 50, { ax: 'r', color: '#4E6166', size: 16 });
+
+    if (mode === 3 && animU > 0.35) {
+      g.save();
+      g.globalAlpha = Math.min(1, (animU - 0.35) / 0.65);
+      const rx = sx * 0.46, ry = stepY * 0.68;
+      g.beginPath();
+      g.ellipse(cx, yBase, rx, ry, 0, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(18, 102, 93, 0.08)';
+      g.fill();
+      g.setLineDash([6, 5]);
+      g.strokeStyle = '#12665D';
+      g.lineWidth = 2;
+      g.stroke();
+      g.setLineDash([]);
+      g.restore();
+    }
+
+    if (mode === 3) {
+      g.save();
+      g.globalAlpha = 0.22 * animU;
+      g.lineWidth = 1.2;
+      for (const p of pts) {
+        if (p.level >= 1 && p.level <= 2) {
+          const [ux, uy] = curPos(p);
+          const px = cx + ux * sx, py = yBase - uy * stepY;
+          g.strokeStyle = LEVEL_COLORS[p.level];
+          g.beginPath(); g.moveTo(px, yBase); g.lineTo(px, py); g.stroke();
+        }
+      }
+      g.restore();
+    }
+
+    for (const p of pts) {
+      const [ux, uy] = curPos(p);
+      const px = cx + ux * sx, py = yBase - uy * stepY;
+      const r = p.isZero ? 8.5 : p.level === 0 ? 6.8 : Math.max(4.0, 6.2 - p.level * 0.45);
+      g.beginPath();
+      g.arc(px, py, r, 0, Math.PI * 2);
+      g.fillStyle = p.isZero ? '#B34530' : LEVEL_COLORS[p.level % LEVEL_COLORS.length];
+      g.fill();
+      g.lineWidth = p.isZero ? 2.5 : 1.4;
+      g.strokeStyle = '#FCF9F2';
+      g.stroke();
+
+      if (mode === 3 && animU > 0.6 && p.level >= 1 && p.level <= 2 && Math.abs(p.x) <= 1.6) {
+        L('f' + p.key, '$' + (p.num < 0 ? '-' : '') + '\\frac{' + Math.abs(p.num) + '}{' + p.den + '}$', px, py - r - 17,
+          { ax: 'c', color: LEVEL_COLORS[p.level], size: 19, alpha: (animU - 0.6) / 0.4 });
+      }
+    }
+  } else {
+    // Z[sqrt 2] in R x R: equal-aspect zoom filling the full canvas width
+    const cx = w / 2, cy = h / 2;
+    const scale = (h - 44) / (2 * SQRT2_Y);
+    const sx = scale, sy = scale;
+
+    // Subtle lattice parallelogram grid in Mode 3: e1 = (1, 1), e2 = (sqrt 2, -sqrt 2)
+    if (mode === 3 && animU > 0.3) {
+      g.save();
+      g.globalAlpha = 0.16 * Math.min(1, (animU - 0.3) / 0.7);
+      g.strokeStyle = '#12665D';
+      g.lineWidth = 1.1;
+      const s2 = Math.SQRT2;
+      for (let b = -14; b <= 14; b++) {
+        g.beginPath();
+        g.moveTo(cx + (-18 + b * s2) * sx, cy - (-18 - b * s2) * sy);
+        g.lineTo(cx + (18 + b * s2) * sx, cy - (18 - b * s2) * sy);
+        g.stroke();
+      }
+      for (let a = -18; a <= 18; a++) {
+        g.beginPath();
+        g.moveTo(cx + (a - 14 * s2) * sx, cy - (a + 14 * s2) * sy);
+        g.lineTo(cx + (a + 14 * s2) * sx, cy - (a - 14 * s2) * sy);
+        g.stroke();
+      }
+      g.restore();
+    }
+
+    // Axes
+    g.strokeStyle = 'rgba(23, 44, 57, 0.35)'; g.lineWidth = 1.8;
+    g.beginPath(); g.moveTo(28, cy); g.lineTo(w - 28, cy); g.moveTo(cx, 16); g.lineTo(cx, h - 16); g.stroke();
+
+    // Projection tick-band on the active axis in Mode 1 / Mode 2 (fades out in Mode 3)
+    if (mode === 1 || mode === 2 || animU < 1) {
+      const bandAlpha = mode === 3 ? Math.max(0, 1 - animU * 1.6) : (animU < 1 && prevPos.size ? animU : 1);
+      if (bandAlpha > 0.01) {
+        g.save();
+        g.strokeStyle = '#12665D';
+        g.lineWidth = 1.4;
+        g.globalAlpha = 0.44 * bandAlpha;
+        g.beginPath();
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
+          if (p.b === 0) continue;
+          const [ux, uy] = curPos(p);
+          const px = cx + ux * sx, py = cy - uy * sy;
+          if (px < 28 || px > w - 28 || py < 16 || py > h - 16) continue;
+          if (mode === 1 || (mode === 3 && Math.abs(uy) < 0.25)) {
+            g.moveTo(px, cy - 15); g.lineTo(px, cy + 15);
+          } else if (mode === 2 || (mode === 3 && Math.abs(ux) < 0.25)) {
+            g.moveTo(cx - 15, py); g.lineTo(cx + 15, py);
+          }
+        }
+        g.stroke();
+        g.restore();
+      }
+    }
+
+    // Integer tick labels along axes (-12 .. 12 and -4 .. 4)
+    for (let n = -12; n <= 12; n++) {
+      if (n === 0) continue;
+      const tx = cx + n * sx;
+      if (tx < 36 || tx > w - 36) continue;
+      g.strokeStyle = '#172C39'; g.lineWidth = 1.8;
+      g.beginPath(); g.moveTo(tx, cy - 5); g.lineTo(tx, cy + 5); g.stroke();
+      L('x' + n, '$' + n + '$', tx, cy + 28, { ax: 'c', size: 15 });
+    }
+    for (let n = -4; n <= 4; n++) {
+      if (n === 0) continue;
+      const ty = cy - n * sy;
+      if (ty < 20 || ty > h - 20) continue;
+      g.strokeStyle = '#172C39'; g.lineWidth = 1.8;
+      g.beginPath(); g.moveTo(cx - 5, ty); g.lineTo(cx + 5, ty); g.stroke();
+      if (mode !== 2) L('y' + n, '$' + n + '$', cx - 12, ty, { ax: 'r', size: 15 });
+    }
+
+    // Axis titles, on a pill so lattice dots never obscure them
+    L('ax1', 'real embedding $\\sigma_1(x)=a+b\\sqrt{2}\\ \\to$', w - 38, cy - 22, { ax: 'r', size: 17, pill: true });
+    L('ax2', '$\\uparrow$ conjugate $\\sigma_2(x)=a-b\\sqrt{2}$', cx + 14, 30, { size: 17, pill: true });
+
+    // Empty isolation ball around (0, 0) in Mode 3 (shortest nonzero vector is +-(1, 1), of length sqrt 2)
+    if (mode === 3 && animU > 0.35) {
+      g.save();
+      g.globalAlpha = Math.min(1, (animU - 0.35) / 0.65);
+      g.beginPath(); g.arc(cx, cy, sx * 1.15, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(18, 102, 93, 0.12)'; g.fill();
+      g.setLineDash([6, 5]); g.strokeStyle = '#12665D'; g.lineWidth = 2.2; g.stroke(); g.setLineDash([]);
+      g.restore();
+    }
+
+    // Non-integer points (b != 0)
+    const r = mode === 3 && animU > 0.6 ? 5.0 : 4.2;
+    g.fillStyle = '#12665D';
+    g.globalAlpha = mode === 3 ? 0.92 : 0.62;
+    g.beginPath();
+    let zeroPt = null;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (p.isZero) { zeroPt = p; continue; }
+      if (p.b === 0) continue;
+      const [ux, uy] = curPos(p);
+      const px = cx + ux * sx, py = cy - uy * sy;
+      if (px < 24 || px > w - 24 || py < 14 || py > h - 14) continue;
+      g.moveTo(px + r, py);
+      g.arc(px, py, r, 0, Math.PI * 2);
+    }
+    g.fill();
+    if (mode === 3 && animU > 0.6) {
+      g.globalAlpha = 0.9;
+      g.lineWidth = 1.3;
+      g.strokeStyle = '#FCF9F2';
+      g.stroke();
+    }
+
+    // Integer points (b = 0: (a, a) along the diagonal) in dark ink on top
+    g.fillStyle = '#172C39';
+    g.globalAlpha = 1;
+    g.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (p.isZero || p.b !== 0) continue;
+      const [ux, uy] = curPos(p);
+      const px = cx + ux * sx, py = cy - uy * sy;
+      if (px < 24 || px > w - 24 || py < 14 || py > h - 14) continue;
+      g.moveTo(px + 5.8, py);
+      g.arc(px, py, 5.8, 0, Math.PI * 2);
+    }
+    g.fill();
+    g.lineWidth = 1.5; g.strokeStyle = '#FCF9F2'; g.stroke();
+
+    if (zeroPt) {
+      const [ux, uy] = curPos(zeroPt);
+      const px = cx + ux * sx, py = cy - uy * sy;
+      g.beginPath(); g.arc(px, py, 8.2, 0, Math.PI * 2);
+      g.fillStyle = '#B34530'; g.fill();
+      g.lineWidth = 2.4; g.strokeStyle = '#FCF9F2'; g.stroke();
+    }
+  }
+  flushLabels();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body></html>
