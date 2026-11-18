@@ -61,186 +61,89 @@ iframe{position:absolute;inset:0;border:0;width:100%;height:100%;display:block;b
 </header>
 <main id="views" aria-label="The spaces this matrix moves"></main>
 <output id="status" hidden role="status"></output>
-<script type="module">
-const POINCARE = '../../GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare/index.html';
-const TREES = '../../GeometryofLinearGroups/Geometric/Tools/padicGroups/trees/index.html';
-
-// The tools restore a group from "#s=<base64url JSON>" (their own permalinks).
-function permalink(state) {
-    const bytes = new TextEncoder().encode(JSON.stringify(state));
-    let bin = '';
-    for (const b of bytes) bin += String.fromCharCode(b);
-    return '#s=' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+<script>
+const plane = '../../GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare/index.html';
+const trees = '../../GeometryofLinearGroups/Geometric/Tools/padicGroups/trees/index.html';
+function url(path, state) {
+    const hash = btoa(JSON.stringify({v:1,...state})).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/, '');
+    return path + '?actionDemo=1#s=' + hash;
 }
-const plane = (entries) => ({ tool: 'plane', src: POINCARE + permalink({ v: 1, mats: [entries], theme: 'light', panel: 'closed' }) });
-const tree = (p, entries) => ({ tool: 'tree', src: TREES + permalink({ v: 1, p: String(p), mats: [entries], vertex: ['0', '0'], L: 4, r: 2, model: 'disk', theme: 'light' }) });
-
-const EXAMPLES = {
-    A: {
-        letter: 'A',
-        formula: '<span>A =</span><table aria-label="rows three fifths, four fifths; minus four fifths, three fifths"><tr><td>3/5</td><td>4/5</td></tr><tr><td>−4/5</td><td>3/5</td></tr></table>',
+const A = ['3/5','4/5','-4/5','3/5'];
+const real = (matrix,bp) => url(plane,{mats:[matrix],bp,depth:2,panel:'closed'});
+const examples = [
+    {
+        matrix: '<span>A = ⅕</span><table aria-label="rows 3, 4 and negative 4, 3"><tr><td>3</td><td>4</td></tr><tr><td>−4</td><td>3</td></tr></table>',
         views: [
-            { short: 'ℝ', label: 'Entries in <i>ℝ</i>', space: 'the hyperbolic plane ℍ²', does: 'A <em>rotates</em> about i, by 2·arctan(4/3) ≈ 106°',
-              ...plane(['\\frac{3}{5}', '\\frac{4}{5}', '-\\frac{4}{5}', '\\frac{3}{5}']) },
-            { short: 'ℚ₅', label: 'Entries in <i>ℚ₅</i>', space: 'the 6-regular tree T₅', does: 'A <em>slides</em> 2 edges along a line',
-              ...tree(5, ['3', '4', '-4', '3']) },   // 5·A: the same projective transformation
-        ],
+            ['ℝ → H²','Rotation about i',real(A,[.27,0,0])],
+            ['ℚ₅ → T₅','Translation by two edges along the axis',url(trees,{p:'5',mats:[A],vertex:['0','0'],L:1,r:0,model:'disk'})]
+        ]
     },
-    B: {
-        letter: 'B',
-        formula: '<span>B =</span><table aria-label="diagonal matrix with entries three plus root two, and one"><tr><td>3 + √2</td><td>0</td></tr><tr><td>0</td><td>1</td></tr></table>',
+    {
+        matrix: '<span>B =</span><table aria-label="rows 1 plus square root of 2, negative 1 and 1, 0"><tr><td>1 + √2</td><td>−1</td></tr><tr><td>1</td><td>0</td></tr></table>',
         views: [
-            { short: '√2 = +1.414…', label: 'Read <i>√2 = +1.414…</i>', space: 'a hyperbolic plane ℍ²', does: 'z ↦ (3 + √2)·z ≈ <em>4.41</em>·z',
-              ...plane(['3+\\sqrt{2}', '0', '0', '1']) },
-            { short: '√2 = −1.414…', label: 'Read <i>√2 = −1.414…</i>', space: 'a second plane ℍ²', does: 'z ↦ (3 − √2)·z ≈ <em>1.59</em>·z',
-              ...plane(['3-\\sqrt{2}', '0', '0', '1']) },
-        ],
-    },
-};
-
-const query = new URLSearchParams(location.search);
-const example = EXAMPLES[(query.get('m') || 'A').toUpperCase()] || EXAMPLES.A;
-const el = (id) => document.getElementById(id);
-const playBtn = el('play'), resetBtn = el('reset'), views = el('views'), status = el('status');
-const choices = [el('first'), el('second'), el('both')];
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-let applied = 0;
-
-// The Poincaré tool greets a first visit with its tutorial; a slide is not a first visit.
-try { localStorage.setItem('poincare.welcome.v2', '1'); } catch (e) { /* private mode */ }
-
-// ── driving the tools ────────────────────────────────────────────────
-
-/** Wait until `test()` is truthy (the tools boot asynchronously). */
-async function until(test, ms = 15000) {
-    const t0 = performance.now();
-    for (;;) {
-        let v; try { v = test(); } catch (e) { v = null; }
-        if (v) return v;
-        if (performance.now() - t0 > ms) throw new Error('timed out');
-        await sleep(120);
+            ['+√2 → H²','Translation along an axis',real(['1+sqrt(2)','-1','1','0'],[0,0,0])],
+            ['−√2 → H²','Rotation about an interior point',real(['1-sqrt(2)','-1','1','0'],[.24,0,0])]
+        ]
     }
-}
-
-const DRIVERS = {
-    // poincare/: hide the workbench, fill the plane with dust, and let its own
-    // isometry animation (the view moves by the matrix, with its axis or centre) play.
-    plane: {
-        async ready(win) {
-            const api = await until(() => win.PoincareAPI && win.PoincareAPI.state().domain && win.PoincareAPI);
-            win.document.documentElement.classList.add('embed-mode');
-            api.setPolyhedronOpacity(0);
-            api.setDust(true);
-            win.dispatchEvent(new Event('poincare:layout'));   // the hidden panel no longer takes room
-            win.dispatchEvent(new Event('resize'));
-            return {
-                busy: () => api.isAnimating(),
-                apply: () => api.animateGenerator(0),
-            };
-        },
-    },
-    // trees/: hide the workbench and press its own g₁ button; the disk picture
-    // glides to the copy W·v.
-    tree: {
-        async ready(win) {
-            const doc = win.document;
-            await until(() => doc.querySelector('#isometry-controls .isometry-btn') && doc.querySelector('#tree-vis .node'));
-            const style = doc.createElement('style');
-            style.textContent = '#control-panel,#status-banner,#isometry-controls{display:none!important}';
-            doc.head.appendChild(style);
-            doc.getElementById('control-panel')?.classList.add('collapsed');
-            win.dispatchEvent(new Event('resize'));
-            return {
-                busy: () => false,
-                apply: () => doc.querySelector('#isometry-controls .isometry-btn').click(),
-            };
-        },
-    },
-};
-
-// ── the panels ───────────────────────────────────────────────────────
-
-const panels = example.views.map((view, i) => {
+];
+const views = document.getElementById('views');
+const status = document.getElementById('status');
+const panels = examples.map(example => example.views.map(([label,description,src]) => {
     const figure = document.createElement('figure');
-    figure.hidden = true;
-    figure.innerHTML = `<figcaption><b>${view.label} <u>→ ${view.space}</u></b><span>${view.does}</span></figcaption>
-        <div class="stage"><div class="veil">Loading the ${view.tool === 'tree' ? 'tree' : 'plane'}…</div></div>`;
-    choices[i].textContent = view.short;
-    return { view, figure, stage: figure.querySelector('.stage'), veil: figure.querySelector('.veil'), frame: null, driver: null };
-});
-views.append(...panels.map((p) => p.figure));
-el('formula').innerHTML = example.formula;
-
-/** Load a panel's tool the first time it is shown (and again after Reset). */
-function load(panel) {
-    panel.driver = null;
-    panel.veil.classList.remove('gone');
-    panel.frame?.remove();
+    const caption = document.createElement('figcaption');
+    const heading = document.createElement('b'), detail = document.createElement('span');
+    heading.textContent = label;
+    detail.textContent = description;
+    caption.append(heading,detail);
     const frame = document.createElement('iframe');
-    frame.title = panel.figure.querySelector('b').textContent;
-    frame.addEventListener('load', async () => {
-        try {
-            const driver = await DRIVERS[panel.view.tool].ready(frame.contentWindow);
-            if (panel.frame !== frame) return;
-            panel.driver = driver;
-            await sleep(350);                       // let the tool settle its first frame
-            panel.veil.classList.add('gone');
-        } catch (e) {
-            console.error(e);
+    frame.title = label;
+    frame.tabIndex = -1;
+    frame.src = src;
+    figure.append(caption,frame);
+    views.append(figure);
+    return {figure,frame};
+}));
+const params = new URLSearchParams(location.search);
+const example = params.get('m') === 'B' ? 1 : 0;
+const together = params.get('show') === 'both';
+let epoch = 0, step = 0;
+function show(next,play) {
+    step = next;
+    const ticket = ++epoch;
+    const part = together ? 2 : Math.max(0, step - 1);
+    const active = panels[example].filter((p,i) => part === 2 || i === part);
+    panels.flat().forEach(p => { p.figure.hidden = !active.includes(p); });
+    document.getElementById('formula').innerHTML = examples[example].matrix;
+    document.getElementById('cue').textContent = step === 0 ? 'Advance to play the first action' : '';
+    status.hidden = true;
+    const deadline = performance.now() + 8000;
+    function ready() {
+        if (ticket !== epoch) return;
+        const apis = active.map(p => p.frame.contentWindow?.talkAction);
+        if (apis.every(Boolean) && active.every(p => !p.frame.contentWindow.PoincareAPI?.isAnimating())) {
+            apis.forEach(a => play ? a.play() : a.reset());
+        } else if (performance.now() < deadline) {
+            setTimeout(ready,60);
+        } else {
             status.hidden = false;
-            status.value = 'A project tool did not finish loading.';
+            status.value = 'A project viewer did not finish loading.';
         }
-        refresh();
-    });
-    frame.src = panel.view.src;
-    panel.frame = frame;
-    panel.stage.prepend(frame);
+    }
+    requestAnimationFrame(ready);
 }
-
-const shown = () => panels.filter((p) => !p.figure.hidden);
-function refresh() {
-    const s = shown();
-    playBtn.disabled = !s.length || s.some((p) => !p.driver);
-    playBtn.textContent = applied ? `Apply ${example.letter} again` : `Apply ${example.letter}`;
-}
-
-function select(index) {
-    choices.forEach((b, i) => b.setAttribute('aria-pressed', i === index));
-    panels.forEach((p, i) => {
-        p.figure.hidden = index !== 2 && i !== index;
-        if (!p.figure.hidden && !p.frame) load(p);
-    });
-    // a frame that was hidden has no size: let the tools lay out again
-    requestAnimationFrame(() => shown().forEach((p) => p.frame?.contentWindow?.dispatchEvent(new Event('resize'))));
-    refresh();
-}
-
-/** The same matrix, applied in every space on screen at the same moment. */
-function apply() {
-    const s = shown();
-    if (s.some((p) => !p.driver || p.driver.busy())) return;
-    s.forEach((p) => p.driver.apply());
-    applied++;
-    refresh();
-}
-
-function reset() {
-    applied = 0;
-    panels.forEach((p) => { if (p.frame) { p.frame.remove(); p.frame = null; p.driver = null; } });
-    shown().forEach(load);
-    refresh();
-}
-
-choices.forEach((b, i) => b.addEventListener('click', () => select(i)));
-playBtn.addEventListener('click', apply);
-resetBtn.addEventListener('click', reset);
-// Space or Enter applies the matrix when no button has focus.
-addEventListener('keydown', (e) => {
-    if (e.target.closest('button') || (e.key !== ' ' && e.key !== 'Enter')) return;
-    e.preventDefault();
-    apply();
+addEventListener('message',event => {
+    if (event.source !== parent || event.data?.type !== 'pz-build-step') return;
+    const next = Math.max(0,Math.min(3,Number(event.data.step)||0));
+    show(next,next > 0 && !event.data.instant && next !== step);
 });
-const start = { '1': 0, '2': 1, both: 2 }[query.get('show') || '1'] ?? 0;
-select(start);
+addEventListener('keydown',event => {
+    const direction = {ArrowRight:'next', ArrowDown:'next', PageDown:'next', ' ':'next',
+        ArrowLeft:'prev', ArrowUp:'prev', PageUp:'prev', Escape:'exit'}[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    parent.postMessage({type:'iframeNav',direction},'*');
+});
+show(0,false);
+parent.postMessage({type:'pz-applet-ready'},'*');
 </script>
 </html>
