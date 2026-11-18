@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unwrapping an Indiscrete Group</title>
+<link rel="stylesheet" href="../web/presentations/vendor/katex/katex.min.css">
+<script src="../web/presentations/vendor/katex/katex.min.js"></script>
+<style>
+  :root {
+    --pz-bg: #F7F3E9;
+    --pz-surface: #E9E6DC;
+    --pz-text: #172C39;
+    --pz-muted: #4E6166;
+    --pz-accent: #12665D;
+    --pz-accent2: #B34530;
+    --pz-gold: #9E5A10;
+    --pz-font-heading: Georgia, "Times New Roman", serif;
+    --pz-font-body: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: var(--pz-font-body); color: var(--pz-text); background: var(--pz-surface); }
+  #app {
+    position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;
+    border-radius: 20px; overflow: hidden; border: 1.5px solid #D1D0C4; background: #0b0d16;
+  }
+  #stages { position: relative; flex: 1; min-height: 0; background: #070a14; }
+  .stage {
+    position: absolute; inset: 0; opacity: 0; visibility: hidden;
+    transition: opacity 0.45s ease, visibility 0s linear 0.45s;
+  }
+  .stage.on {
+    opacity: 1; visibility: visible; z-index: 2;
+    transition: opacity 0.45s ease;
+  }
+  .stage iframe { width: 100%; height: 100%; border: 0; display: block; background: transparent; }
+
+  /* Floating caption card in bottom-left over the 3D viewport */
+  #caption-card {
+    position: absolute; left: 22px; bottom: 20px; z-index: 10;
+    width: min(670px, calc(100% - 44px));
+    background: rgba(247, 243, 233, 0.95);
+    color: var(--pz-text);
+    border: 1.5px solid rgba(23, 44, 57, 0.18);
+    border-left: 7px solid var(--pz-accent);
+    border-radius: 16px;
+    padding: 15px 20px;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    pointer-events: auto;
+  }
+  #caption-card[data-accent="coral"] { border-left-color: var(--pz-accent2); }
+  #caption-card[data-accent="gold"]  { border-left-color: var(--pz-gold); }
+  .step-kicker {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--pz-accent); margin-bottom: 5px;
+  }
+  #caption-card[data-accent="coral"] .step-kicker { color: var(--pz-accent2); }
+  #caption-card[data-accent="gold"]  .step-kicker { color: var(--pz-gold); }
+  .step-body { font-size: 20px; line-height: 1.38; margin: 0; color: var(--pz-text); }
+  .step-body b { color: #0E1F29; }
+
+  .matrix-controls {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px;
+  }
+  .matrix-controls[hidden] { display: none; }
+  .matrix-controls button {
+    cursor: pointer; font: 600 16px/1.15 var(--pz-font-body);
+    color: var(--pz-text); background: #FFFFFF;
+    border: 1.5px solid #BFC0B2; border-radius: 10px;
+    padding: 6px 11px; transition: all 0.15s ease;
+  }
+  .matrix-controls button:hover {
+    border-color: var(--pz-accent); background: #EEF6F4;
+  }
+  .matrix-controls button.near {
+    border-color: var(--pz-accent2); color: var(--pz-accent2); background: #FDF6F3;
+  }
+  .matrix-controls button.near:hover { background: #F9E6DF; }
+
+  /* Step bar along bottom */
+  #bar {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px; background: #EFECE2; border-top: 1px solid #D1D0C4;
+    color: var(--pz-text); z-index: 12; flex-wrap: wrap;
+  }
+  .nav-btn {
+    appearance: none; border: 1.5px solid #C6C4B6; background: #F7F3E9; color: var(--pz-text);
+    border-radius: 999px; padding: 6px 15px; font: 700 17px/1.1 var(--pz-font-body);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .nav-btn:hover:not(:disabled) { border-color: var(--pz-accent); background: #FFFFFF; }
+  .nav-btn:disabled { opacity: 0.38; cursor: default; }
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .pill {
+    appearance: none; border: 1.5px solid #C6C4B6; background: #F7F3E9; color: var(--pz-muted);
+    border-radius: 999px; padding: 6px 13px; font: 650 15px/1.15 var(--pz-font-body);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .pill:hover { border-color: var(--pz-accent); color: var(--pz-text); }
+  .pill.on { background: var(--pz-accent); border-color: var(--pz-accent); color: #FFFFFF; }
+  .hint { margin-left: auto; font-size: 15px; color: var(--pz-muted); white-space: nowrap; }
+  .katex { font-size: 1.04em; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stages">
+    <div class="stage on" id="stage-orbit">
+      <iframe id="frame-orbit" title="Cayley graph and isometries in hyperbolic 3-space" data-src="../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare/index.html?embed=true"></iframe>
+    </div>
+    <div class="stage" id="stage-tree">
+      <iframe id="frame-tree" title="2dimFields: the tree of hyperbolic 3-spaces" data-src="../../../GeometryofLinearGroups/Algebraic/Tools/2dimFields/index.html?embed&amp;theme=dark&amp;field=omega"></iframe>
+    </div>
+
+    <div id="caption-card" data-accent="coral">
+      <div class="step-kicker" id="step-kicker"></div>
+      <p class="step-body" id="step-body"></p>
+      <div class="matrix-controls" id="orbit-btns">
+        <button type="button" data-gen="0" id="btn-x"></button>
+        <button type="button" data-gen="1" id="btn-y"></button>
+        <button type="button" data-gen="2" id="btn-u"></button>
+        <button type="button" class="near" id="btn-near"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="bar">
+    <button class="nav-btn" id="prev-btn" aria-label="Previous step">‹ Step</button>
+    <div class="pills" id="pills"></div>
+    <button class="nav-btn" id="next-btn" aria-label="Next step">Step ›</button>
+    <span class="hint">Drag to rotate · scroll to zoom</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const MACROS = {
+    '\\Z': '\\mathbb{Z}',
+    '\\Q': '\\mathbb{Q}',
+    '\\R': '\\mathbb{R}',
+    '\\C': '\\mathbb{C}',
+    '\\HH': '\\mathbb{H}',
+    '\\PSL': '\\mathrm{PSL}',
+    '\\PGL': '\\mathrm{PGL}'
+  };
+  function renderTex(str) {
+    return str.split('$').map((part, i) => {
+      if (i % 2 === 0) return part;
+      return window.katex ? katex.renderToString(part, { throwOnError: false, macros: MACROS }) : part;
+    }).join('');
+  }
+
+  document.getElementById('btn-x').innerHTML = renderTex('$x = \\begin{pmatrix}1&1\\\\0&1\\end{pmatrix}$');
+  document.getElementById('btn-y').innerHTML = renderTex('$y = \\begin{pmatrix}1&0\\\\-\\omega&1\\end{pmatrix}$');
+  document.getElementById('btn-u').innerHTML = renderTex('$u_\\pi = \\begin{pmatrix}1&\\pi\\\\0&1\\end{pmatrix}$');
+  document.getElementById('btn-near').innerHTML = renderTex('$x^{22}u_\\pi^{-7}$');
+
+  const STEPS = [
+    {
+      pill: '1 · Pile-up in ℍ³',
+      kicker: 'Step 1 of 5 · One H³ (crowded!)',
+      accent: 'coral',
+      controls: true,
+      body: '<b>One $\\HH^3$.</b> The Cayley graph of $\\langle x, y, u_\\pi \\rangle$ accumulates in hyperbolic $3$-space: $x^{22}u_\\pi^{-7}$ translates by $22 - 7\\pi \\approx 0.00885$! Click a matrix to apply it ($\\mathscr{\\text{Alt}}$/⌘-click for inverse).'
+    },
+    {
+      pill: '2 · Collapsed at t = π',
+      kicker: 'Step 2 of 5 · Specialize t = π',
+      accent: 'coral',
+      controls: false,
+      body: '<b>Switch to $\\Gamma = \\langle x, y, y_\\pi \\rangle$</b> ($y_\\pi = u_\\pi y u_\\pi^{-1}$). At $t = \\pi$, every vertex’s circle pattern is laid onto a <b>single $\\HH^3$</b> in its own color — $\\Gamma$ acts here <b>indiscretely</b>.'
+    },
+    {
+      pill: '3 · Unwrap t : π → ∞!',
+      kicker: 'Step 3 of 5 · Unwrapping into a tree of H³’s',
+      accent: 'teal',
+      controls: false,
+      body: 'Let $t$ run from $\\pi$ back to $\\infty$: the single crowded $\\HH^3$ <b>unwraps into the Bruhat–Tits tree of $\\HH^3$’s</b> over $\\Q(\\omega)(t)$, each ball hanging off a cusp of its parent!'
+    },
+    {
+      pill: '4 · Action of x, y',
+      kicker: 'Step 4 of 5 · First knot group factor',
+      accent: 'teal',
+      controls: false,
+      body: '<b>$x$ and $y$</b> fix the central base ball $v_0$ and act on it as Riley’s figure-eight knot group $\\Gamma_8$, carrying the rest of the tree rigidly along.'
+    },
+    {
+      pill: '5 · Action of y_t',
+      kicker: 'Step 5 of 5 · Shifted knot group factor',
+      accent: 'gold',
+      controls: false,
+      body: '<b>$y_t$</b> fixes the ball $v_0 \\to \\infty \\to -1$ two edges away and turns the tree about it! Between them sits the cusp ball $v_\\infty$, stabilized in each copy by $P = \\langle x, \\ell \\rangle \\cong \\Z^2$.'
+    }
+  ];
+
+  const pillsEl = document.getElementById('pills');
+  const pillBtns = STEPS.map((s, idx) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pill' + (idx === 0 ? ' on' : '');
+    b.textContent = s.pill;
+    b.onclick = () => goStep(idx, false);
+    pillsEl.appendChild(b);
+    return b;
+  });
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const until = async (ok, ms = 30000) => {
+    const t0 = Date.now();
+    while (!ok()) {
+      if (Date.now() - t0 > ms) return false;
+      await sleep(60);
+    }
+    return true;
+  };
+
+  const frameOrbit = document.getElementById('frame-orbit');
+  const frameTree = document.getElementById('frame-tree');
+  const stageOrbit = document.getElementById('stage-orbit');
+  const stageTree = document.getElementById('stage-tree');
+
+  let stagesBooted = false;
+  function bootFrames() {
+    if (stagesBooted) return;
+    stagesBooted = true;
+    if (!frameOrbit.src) frameOrbit.src = frameOrbit.dataset.src;
+    if (!frameTree.src) frameTree.src = frameTree.dataset.src;
+  }
+
+  // Forward digit+Enter slide jump keys or unhandled Escape up to parent deck
+  function bridgeKeys(win) {
+    if (!win) return;
+    win.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target && e.target.tagName) || '';
+      if (/INPUT|TEXTAREA|SELECT/.test(tag) || (e.target && e.target.isContentEditable)) return;
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault(); e.stopPropagation();
+        if (curStep < STEPS.length - 1) goStep(curStep + 1, false);
+        else if (parent !== window) parent.postMessage({ type: 'iframeNav', direction: 'next' }, '*');
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault(); e.stopPropagation();
+        if (curStep > 0) goStep(curStep - 1, false);
+        else if (parent !== window) parent.postMessage({ type: 'iframeNav', direction: 'prev' }, '*');
+      } else if (/^\d$/.test(e.key) || e.key === 'Enter') {
+        if (parent !== window) parent.postMessage({ type: 'iframeKey', key: e.key }, '*');
+      }
+    }, true);
+  }
+  bridgeKeys(window);
+  frameOrbit.addEventListener('load', () => bridgeKeys(frameOrbit.contentWindow));
+  frameTree.addEventListener('load', () => bridgeKeys(frameTree.contentWindow));
+
+  // ── Controller 1: poincare Cayley orbit with x, y, u_π ──
+  const GTRANSLATION = [['1', '1', '0', '1'], ['1', '0', '-\\omega', '1'], ['1', '\\pi', '0', '1']];
+  const orbitCtrl = {
+    ready: null,
+    async ensure() {
+      bootFrames();
+      if (this.ready) return this.ready;
+      this.ready = (async () => {
+        const ok = await until(() => frameOrbit.contentWindow && frameOrbit.contentWindow.PoincareAPI);
+        if (!ok) return null;
+        const API = frameOrbit.contentWindow.PoincareAPI;
+        await until(() => API.state().report);
+        const w = frameOrbit.contentWindow, d = w.document;
+        w.__deckState = { mats: GTRANSLATION, anti: [false, false, false], consts: [] };
+        const done = new Promise((res) => {
+          w.addEventListener('poincare:refreshed', res, { once: true });
+          setTimeout(res, 15000);
+        });
+        const v = w.APP_VERSION ? ('?v=' + w.APP_VERSION) : '';
+        const s = d.createElement('script');
+        s.type = 'module';
+        s.textContent = "import { applyInputState } from './js/matrixInput.js" + v + "';\n"
+          + "applyInputState(window.__deckState);\nsetTimeout(() => PoincareAPI.refresh(), 50);";
+        d.body.appendChild(s);
+        await done;
+        await sleep(120);
+        API.setDomainVisible(false);
+        API.setPolyhedronOpacity(0);
+        API.setDual('off');
+        API.setDust(true);
+        API.setOrbit(true);
+        API.setCayleyMode('S');
+        API.setAutoRotate(false);
+        return API;
+      })().catch((err) => {
+        console.error('orbitCtrl error:', err);
+        this.ready = null;
+        return null;
+      });
+      return this.ready;
+    }
+  };
+
+  document.querySelectorAll('[data-gen]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const api = await orbitCtrl.ensure();
+      if (api) api.animateGenerator(Number(btn.dataset.gen), e);
+    });
+  });
+
+  document.getElementById('btn-near').addEventListener('click', async () => {
+    const api = await orbitCtrl.ensure();
+    if (!api || api.isAnimating()) return;
+    const matrices = api.state().matrices;
+    if (!matrices || matrices.length < 3) return;
+    let near = matrices[0].constructor.identity();
+    for (let i = 0; i < 22; i++) near = near.mul(matrices[0]).normalized();
+    for (let i = 0; i < 7; i++) near = near.mul(matrices[2].inv()).normalized();
+    api.animateMatrix(near, [...Array(22).fill(1), ...Array(7).fill(-3)]);
+  });
+
+  // ── Controller 2: 2dimFields over Q(ω)(t) ──
+  const FIG8 = 'Shalen: the double of the figure-eight knot complement';
+  const LOOK = { N: 6, lam: 1, h: -1, edges: 'q', base: 'poincare', far: true, hor: false };
+  const S = (extra = {}) => ({ field: 'omega', example: FIG8, specA: '\\pi', dep: 3, settings: LOOK, ...extra });
+
+  const treeCtrl = {
+    at: null,
+    token: 0,
+    states: [
+      S({ collapsed: true, view: 'collapsed' }), // 0: collapsed at t = π
+      S(),                                       // 1: unwrapped tree of H^3's
+      S({ apply: [[0, false], [1, false]] }),    // 2: x, then y
+      S({ apply: [[2, false]] })                 // 3: y_t
+    ],
+    async app() {
+      bootFrames();
+      const ok = await until(() => frameTree.contentWindow && frameTree.contentWindow.__twoDim);
+      if (!ok) return null;
+      await sleep(80);
+      return frameTree.contentWindow.__twoDim;
+    },
+    async go(treeStep, instant) {
+      const token = ++this.token;
+      const T = await this.app();
+      if (!T || token !== this.token) return;
+      const api = T.tutorialAPI;
+      const from = this.at;
+      this.at = treeStep;
+      if (from === treeStep) return;
+      if (!instant && from === treeStep - 1) {
+        if (treeStep === 1) {
+          T.startSpecRun(0); // animate t : π -> ∞!
+          return;
+        }
+        if (treeStep === 2) {
+          await api.effect({ gens: [[0, false], [1, false]] });
+          return;
+        }
+        if (treeStep === 3) {
+          api.prepare(this.states[1]);
+          await api.settle();
+          if (token === this.token) await api.effect({ gens: [[2, false]] });
+          return;
+        }
+      }
+      if (!instant && from === 1 && treeStep === 0) {
+        await api.effect({ collapse: true });
+        return;
+      }
+      api.prepare(this.states[treeStep]);
+    }
+  };
+
+  let curStep = 0;
+  function renderStepUI() {
+    const info = STEPS[curStep];
+    const card = document.getElementById('caption-card');
+    card.dataset.accent = info.accent;
+    document.getElementById('step-kicker').textContent = info.kicker;
+    document.getElementById('step-body').innerHTML = renderTex(info.body.replace(/\mathscr\{\text\{Alt\}\}/g, 'Alt'));
+    document.getElementById('orbit-btns').hidden = !info.controls;
+    pillBtns.forEach((b, idx) => b.classList.toggle('on', idx === curStep));
+    document.getElementById('prev-btn').disabled = curStep === 0;
+    document.getElementById('next-btn').disabled = curStep === STEPS.length - 1;
+  }
+
+  function goStep(k, instant) {
+    const target = Math.max(0, Math.min(STEPS.length - 1, k));
+    curStep = target;
+    renderStepUI();
+    bootFrames();
+    if (target === 0) {
+      stageOrbit.classList.add('on');
+      stageTree.classList.remove('on');
+      orbitCtrl.ensure();
+    } else {
+      stageOrbit.classList.remove('on');
+      stageTree.classList.add('on');
+      treeCtrl.go(target - 1, !!instant);
+    }
+  }
+
+  document.getElementById('prev-btn').onclick = () => goStep(curStep - 1, false);
+  document.getElementById('next-btn').onclick = () => goStep(curStep + 1, false);
+
+  // Sync with AlphaPresent build steps AND phone remote buttons AND joystick orbit!
+  window.addEventListener('message', (e) => {
+    const d = e.data || {};
+    if (d.type === 'pz-build-step' && typeof d.step === 'number') {
+      goStep(d.step, !!d.instant);
+    } else if (d.type === 'pz-button') {
+      if (d.name === 'next-step') goStep(curStep + 1, false);
+      else if (d.name === 'prev-step') goStep(curStep - 1, false);
+      else if (d.name === 'unwrap-near') document.getElementById('btn-near').click();
+    } else if (d.type === 'orbit') {
+      if (curStep === 0 && frameOrbit.contentWindow) {
+        frameOrbit.contentWindow.postMessage(d, '*');
+      } else if (curStep > 0 && frameTree.contentWindow && frameTree.contentWindow.__twoDim) {
+        const T = frameTree.contentWindow.__twoDim;
+        const cam = T.camera, ctl = T.controls;
+        if (cam && ctl) {
+          const dx = (d.dx || 0) * 0.006, dy = (d.dy || 0) * 0.006;
+          const off = cam.position.clone().sub(ctl.target);
+          const r = off.length();
+          let theta = Math.atan2(off.x, off.z) - dx;
+          let phi = Math.acos(Math.max(-1, Math.min(1, off.y / (r || 1)))) - dy;
+          phi = Math.max(0.08, Math.min(Math.PI - 0.08, phi));
+          cam.position.set(
+            ctl.target.x + r * Math.sin(phi) * Math.sin(theta),
+            ctl.target.y + r * Math.cos(phi),
+            ctl.target.z + r * Math.sin(phi) * Math.cos(theta)
+          );
+          ctl.update();
+          T.render();
+        }
+      }
+    }
+  });
+
+  renderStepUI();
+  // Warm both 3D stages right away so stepping from 1 -> 2 -> 3 is instantaneous
+  setTimeout(() => {
+    bootFrames();
+    orbitCtrl.ensure();
+    treeCtrl.go(0, true);
+    if (parent !== window) {
+      try { parent.postMessage({ type: 'pz-applet-ready' }, '*'); } catch (_) {}
+    }
+  }, 80);
+})();
+</script>
+</body>
+</html>
