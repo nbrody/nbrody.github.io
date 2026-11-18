@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>3-adic Solenoid</title>
+<meta name="description" content="The 3-adic solenoid as nested solid tori: each tube winds three times inside the last, and one trip around adds 1 to every 3-adic integer.">
+<link rel="stylesheet" href="style.css?v=1">
+<script>
+  // Theme and embed flags before first paint, so nothing flashes.
+  (function () {
+    var q = new URLSearchParams(location.search), t = q.get('theme');
+    try { if (!t) t = localStorage.getItem('eigenreel-solenoid-theme'); } catch (e) {}
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    if (q.get('embed') === 'true') document.documentElement.classList.add('embed');
+  })();
+</script>
+</head>
+<body>
+<main id="stage">
+  <div id="view">
+    <canvas id="gl" aria-label="A solid torus with thinner tubes winding inside it, each one three times around the last. A wedge is cut away to show the cross-section, a Cantor set of nested disks, turning as the cut travels around."></canvas>
+    <div id="hint" aria-hidden="true">Tap to explore</div>
+  </div>
+
+  <aside id="panel" aria-label="Solenoid controls" inert>
+    <header class="p-head">
+      <div>
+        <h1>The 3-adic solenoid</h1>
+        <p class="sub">The mapping torus of <span class="m">x ↦ x + 1</span> on the 3-adic integers</p>
+      </div>
+      <button id="close" class="icon-btn" aria-label="Back to the feed" title="Back to the feed (Esc)">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+
+    <section class="card">
+      <canvas id="inset" aria-label="The cut face: nested disks labelled by where they started"></canvas>
+      <p class="cap">The cut face, a cross-section of every tube. Each disk keeps the label it started with. Tap a disk to put the bead there.</p>
+      <div class="readout">
+        <span id="r-turn" class="mono">turn 0.00</span>
+        <span id="r-bead"></span>
+      </div>
+    </section>
+
+    <div class="row">
+      <span class="lbl">Go around</span>
+      <div class="turns">
+        <button id="minus1" class="btn" title="Back one turn (Shift+Space)">−1</button>
+        <input id="frac" type="range" min="0" max="0.999" step="0.001" value="0" aria-label="Position of the cut within the current turn">
+        <button id="plus1" class="btn btn-accent" title="Once around: adds 1 (Space)">+1</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="lbl">Depth</span>
+      <div class="seg" id="depth" role="group" aria-label="Depth">
+        <button data-d="1">1</button><button data-d="2">2</button><button data-d="3">3</button>
+        <button data-d="4">4</button><button data-d="5">5</button><button data-d="6">6</button>
+      </div>
+      <p class="note" id="r-depth"></p>
+    </div>
+
+    <label class="switch-row"><span>Cut open</span><input type="checkbox" id="sw-cut" checked><span class="switch" aria-hidden="true"></span></label>
+    <label class="switch-row"><span>Turn the torus with the cut</span><input type="checkbox" id="sw-follow" checked><span class="switch" aria-hidden="true"></span></label>
+    <label class="switch-row"><span>Light up the bead's path</span><input type="checkbox" id="sw-wake" checked><span class="switch" aria-hidden="true"></span></label>
+
+    <div class="row two">
+      <div>
+        <span class="lbl">View</span>
+        <div class="seg" id="view-seg" role="group" aria-label="Camera">
+          <button data-v="whole">Whole</button><button data-v="face">Face</button>
+        </div>
+      </div>
+      <div>
+        <span class="lbl">Theme</span>
+        <div class="seg" id="theme-seg" role="group" aria-label="Theme">
+          <button data-t="auto">Auto</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
+        </div>
+      </div>
+    </div>
+
+    <details class="about" open>
+      <summary>What you're seeing</summary>
+      <p>A 3-adic integer <span class="m">x = a₀ + 3a₁ + 9a₂ + ⋯</span> is an endless string of digits 0, 1, 2. Sort by a₀, then a₁, then a₂, and the 3-adic integers <span class="m">ℤ₃</span> nest into disks inside disks: a Cantor set. That is the cut face.</p>
+      <p>Carry that Cantor set once around a circle and glue the end to the start after adding 1. The result is the solenoid <span class="m">Sol₃ = ℤ₃ × [0, 1] / (x, 1) ∼ (x + 1, 0)</span>. Adding 1 carries, so <span class="m">…222 + 1 = …000</span>, and every disk comes back on top of another one.</p>
+      <p>Keep only k digits and you get the k-th tube: <span class="m">ℤ/3ᵏ</span> glued the same way is one circle winding 3ᵏ times around. Each tube lies inside the last and winds 3 times around it, which is the inverse limit of circles under <span class="m">z ↦ z³</span>. These are exactly the nested solid tori of the Smale–Williams map <span class="m">(θ, w) ↦ (3θ, λw + ½e^{iθ})</span>, whose attractor is Sol₃.</p>
+      <p>Sol₃ is connected but not path-connected. A path can only move around the circle direction, so each path component is a line that winds forever without closing up, and every one is dense. All the ordinary integers lie on one such line: the bead's path runs through x, x + 1, x + 2, …</p>
+      <p>Sol₃ is also a compact group, the Pontryagin dual of <span class="m">ℤ[1/3]</span>.</p>
+    </details>
+    <p class="keys">Space +1 · Shift+Space −1 · ← → nudge · 1–6 depth · Esc back to the feed</p>
+  </aside>
+</main>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/three/three.module.js",
+    "three/addons/": "../../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/three/addons/"
+  }
+}
+</script>
+<script type="module" src="solenoid.js?v=1"></script>
+</body>
+</html>

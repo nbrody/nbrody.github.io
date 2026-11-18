@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Product of Trees</title>
+<meta name="description" content="The product of two regular trees, T3 × T4: built by sliding one tree along the other, turned about a vertex, and slid along one of its flat planes.">
+<link rel="stylesheet" href="style.css?v=1">
+<script>
+  // Theme and embed flags before first paint, so nothing flashes.
+  (function () {
+    var q = new URLSearchParams(location.search), t = q.get('theme');
+    try { if (!t) t = localStorage.getItem('eigenreel-productOfTrees-theme'); } catch (e) {}
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    if (q.get('embed') === 'true') document.documentElement.classList.add('embed');
+  })();
+</script>
+<script>
+  MathJax = {
+    tex: { inlineMath: [['\\(', '\\)']] },
+    svg: { fontCache: 'global' },
+    startup: {
+      typeset: false,
+      ready() { MathJax.startup.defaultReady(); MathJax.startup.promise.then(() => document.dispatchEvent(new Event('mathjax-ready'))); },
+    },
+    options: { enableMenu: false },
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>
+</head>
+<body>
+<main id="stage">
+  <div id="view">
+    <canvas id="gl" aria-label="Two trees, one blue with three edges at every vertex and one violet with four, grow out of a white vertex. Copies of the blue tree slide out along every violet edge and sweep out translucent squares. The whole complex turns about the white vertex, a gold plane of squares lights up and straightens into a floor with walls leaning off every line, and the complex slides along the floor."></canvas>
+    <div id="hint" aria-hidden="true">Tap to explore</div>
+  </div>
+
+  <aside id="panel" aria-label="Product of trees controls" inert>
+    <header class="p-head">
+      <div>
+        <h1>A product of trees</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <button id="close" class="icon-btn" aria-label="Back to the feed" title="Back to the feed (Esc)">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+
+    <section class="card">
+      <div id="ro" class="readout" aria-live="polite"></div>
+    </section>
+
+    <div class="row">
+      <span class="lbl">Slide along the gold flat</span>
+      <div class="moves">
+        <button class="btn" data-move="shift,-1,0" title="← "><span class="c1">\(g^{-1}\)</span></button>
+        <button class="btn" data-move="shift,1,0" title="→"><span class="c1">\(g\)</span></button>
+        <button class="btn" data-move="shift,0,-1" title="Shift+←"><span class="c2">\(h^{-1}\)</span></button>
+        <button class="btn" data-move="shift,0,1" title="Shift+→"><span class="c2">\(h\)</span></button>
+        <button class="btn btn-accent wide" data-move="shift,1,1" title="Space">\(gh\)</button>
+        <button class="btn wide" data-move="shift,-1,-1" title="Shift+Space">\((gh)^{-1}\)</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="lbl">Turn about the white vertex</span>
+      <div class="moves two">
+        <button class="btn" data-move="turn,1,1" title="R"><span class="c1">\(r\)</span> turns <span class="c1 t1name"></span></button>
+        <button class="btn" data-move="turn,2,1" title="S"><span class="c2">\(s\)</span> turns <span class="c2 t2name"></span></button>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="lbl">Draw the trees</span>
+      <div class="seg" id="seg-shape" role="group" aria-label="How the trees are drawn">
+        <button data-s="round">Round</button><button data-s="straight">Straight</button>
+      </div>
+    </div>
+
+    <label class="switch-row"><span>Squares</span><input type="checkbox" id="sw-squares" checked><span class="switch" aria-hidden="true"></span></label>
+    <label class="switch-row"><span>The gold flat</span><input type="checkbox" id="sw-flat" checked><span class="switch" aria-hidden="true"></span></label>
+    <label class="switch-row"><span>The link of the white vertex</span><input type="checkbox" id="sw-link"><span class="switch" aria-hidden="true"></span></label>
+
+    <div class="row two">
+      <div>
+        <span class="lbl">Blue tree</span>
+        <div class="seg" id="seg-m" role="group" aria-label="Edges at each vertex of the blue tree">
+          <button data-k="3">3</button><button data-k="4">4</button><button data-k="5">5</button>
+        </div>
+      </div>
+      <div>
+        <span class="lbl">Violet tree</span>
+        <div class="seg" id="seg-n" role="group" aria-label="Edges at each vertex of the violet tree">
+          <button data-k="3">3</button><button data-k="4">4</button><button data-k="5">5</button>
+        </div>
+      </div>
+    </div>
+    <div class="row two">
+      <div>
+        <span class="lbl">Radius</span>
+        <div class="seg" id="seg-r" role="group" aria-label="Radius of the ball drawn in each tree">
+          <button data-r="1">1</button><button data-r="2">2</button><button data-r="3">3</button><button data-r="4">4</button>
+        </div>
+      </div>
+      <div>
+        <span class="lbl">Theme</span>
+        <div class="seg" id="theme-seg" role="group" aria-label="Theme">
+          <button data-t="auto">Auto</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
+        </div>
+      </div>
+    </div>
+
+    <details class="about" open>
+      <summary>What you're seeing</summary>
+      <p>In the blue tree <span class="c1 t1name"></span> every vertex has <span class="mval">3</span> edges, and in the violet tree <span class="c2 t2name"></span> every vertex has <span class="nval">4</span>. Their product has a vertex \((u, v)\) for each pair of vertices, an edge whenever one coordinate moves along an edge while the other stays put, and a square \(e \times f\) for each pair of edges.</p>
+      <p>You can build it by sliding: copy the blue tree to the white vertex, and slide copies out along every violet edge. Each blue edge sweeps out a square.</p>
+      <p>Pick a line in each tree. Their product is a <b>flat</b>, a copy of the plane tiled by squares (gold). Every square lies in infinitely many flats, and flats branch off each other along every line of squares, so the product is a two-dimensional Euclidean building.</p>
+      <p>The squares around a vertex meet a small sphere in the complete bipartite graph <span class="kname">\(K_{3,4}\)</span>, the <b>link</b>. Its shortest cycles have length \(4\), which is Gromov's condition for a square complex to have no positive curvature, so the product is CAT(0): between any two points there is exactly one straight path.</p>
+      <p>The tree \(T_{p+1}\) is the Bruhat–Tits tree of \(\mathrm{SL}_2(\mathbb{Q}_p)\), so \(\mathrm{SL}_2(\mathbb{Q}_2) \times \mathrm{SL}_2(\mathbb{Q}_3)\) acts on \(T_3 \times T_4\). Groups that act on products of trees with a compact quotient include arithmetic groups built from quaternions and the finitely presented simple groups of Burger and Mozes.</p>
+      <p class="credit">The picture is a shadow: each tree is drawn in its own plane, so the product lives in \(\mathbb{R}^2 \times \mathbb{R}^2 = \mathbb{R}^4\), and we see its linear projection to \(\mathbb{R}^3\). Squares stay parallelograms and flats stay planes.</p>
+    </details>
+    <p class="keys">→ ← slide \(g\) · Shift+→ ← slide \(h\) · Space \(gh\) · R, S turn · V round/straight · Esc back to the feed</p>
+  </aside>
+</main>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/three/three.module.js",
+    "three/addons/": "../../../../GeometryofLinearGroups/Geometric/Tools/Kleinian/vendor/three/addons/"
+  }
+}
+</script>
+<script type="module" src="reel.js?v=1"></script>
+</body>
+</html>

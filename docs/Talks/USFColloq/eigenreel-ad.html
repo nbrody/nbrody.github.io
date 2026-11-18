@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EigenReel Feed Showcase</title>
+<style>
+  :root {
+    --ink: #172C39;
+    --muted: #4E6166;
+    --accent: #12665D;
+    --accent2: #B34530;
+    --surface: #E9E6DC;
+    --card: #FCF9F2;
+    --line: #CFCDBB;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: transparent; color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .shell {
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 295px;
+    gap: 16px;
+  }
+  /* Featured reel card */
+  .player {
+    display: flex; flex-direction: column;
+    background: #0b0f1a;
+    border-radius: 22px;
+    border: 1.5px solid rgba(23, 44, 57, 0.22);
+    box-shadow: 0 18px 42px rgba(23, 44, 57, 0.14);
+    overflow: hidden;
+    min-height: 0;
+  }
+  .frame-wrap {
+    position: relative; flex: 1; min-height: 0;
+    background: #060a14;
+  }
+  iframe {
+    position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block;
+    background: #060a14;
+  }
+  .top-pill {
+    position: absolute; left: 16px; top: 16px; z-index: 4;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 13px; border-radius: 999px;
+    background: rgba(10, 15, 28, 0.76); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #eef1f8; font-size: 14px; font-weight: 600; letter-spacing: 0.02em;
+    pointer-events: none;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #2dd4bf; box-shadow: 0 0 10px #2dd4bf; }
+  .bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 14px 20px;
+    background: #111726;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    color: #eef1f8;
+  }
+  .meta { min-width: 0; }
+  .meta h3 {
+    font: 700 21px/1.2 Georgia, "Times New Roman", serif;
+    color: #ffffff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .meta p {
+    font-size: 14.5px; line-height: 1.35; color: #a8b3c7; margin-top: 3px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .actions { display: flex; align-items: center; gap: 8px; flex: none; }
+  .btn {
+    appearance: none; border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.07); color: #eef1f8;
+    font: 650 14.5px/1 "Helvetica Neue", Arial, sans-serif;
+    padding: 10px 15px; border-radius: 999px; cursor: pointer;
+    transition: all .15s; white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.15); }
+  .btn.primary { background: #2dd4bf; border-color: #2dd4bf; color: #06201d; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.active { background: #f59e0b; border-color: #f59e0b; color: #1f1300; }
+
+  /* Right rail: curated feed switcher */
+  .rail {
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    border-radius: 22px;
+    padding: 16px;
+    overflow: hidden;
+  }
+  .rail-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 2px 4px 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .rail-head span {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .rail-list {
+    display: flex; flex-direction: column; gap: 8px; flex: 1; justify-content: space-between;
+  }
+  .pick {
+    width: 100%; text-align: left; cursor: pointer;
+    padding: 12px 14px; border-radius: 15px;
+    border: 1.5px solid transparent;
+    background: var(--card);
+    color: var(--ink);
+    transition: all .16s ease;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .pick:hover { border-color: var(--accent); transform: translateX(-2px); }
+  .pick.on {
+    background: #172C39; color: #ffffff;
+    border-color: #172C39;
+    box-shadow: 0 8px 20px rgba(23, 44, 57, 0.16);
+  }
+  .pick .kicker {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .pick.on .kicker { color: #5ec9b8; }
+  .pick .title { font: 700 17px/1.22 Georgia, serif; }
+  .pick .desc { font-size: 13px; line-height: 1.3; color: var(--muted); }
+  .pick.on .desc { color: #c4d0d8; }
+  .rail-foot {
+    padding-top: 8px; border-top: 1px solid var(--line);
+    font-size: 13px; line-height: 1.35; color: var(--muted); text-align: center;
+  }
+  .rail-foot b { color: var(--accent2); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="player">
+    <div class="frame-wrap">
+      <div class="top-pill"><span class="dot"></span><span id="modeBadge">EigenReel · Feed Preview</span></div>
+      <iframe id="stageFrame" title="EigenReel Piece" allow="fullscreen"></iframe>
+    </div>
+    <div class="bar">
+      <div class="meta">
+        <h3 id="rTitle"></h3>
+        <p id="rHook"></p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="interactBtn" type="button">Tap to Interact</button>
+        <button class="btn" id="nextBtn" type="button" title="Next reel">Next Reel ›</button>
+      </div>
+    </div>
+  </div>
+  <aside class="rail">
+    <div class="rail-head">
+      <span>In the Feed</span>
+      <span style="color:var(--accent)">4 Reels</span>
+    </div>
+    <div class="rail-list" id="railList"></div>
+    <div class="rail-foot">Built &amp; exported straight from <b>AlphaCentaur</b></div>
+  </aside>
+</div>
+<script>
+const REELS = [
+  {
+    slug: 'productOfTrees',
+    tag: 'Geometric Group Theory',
+    title: 'A product of trees',
+    hook: 'Copies of one Bruhat–Tits tree slide along another to sweep out a 2D Euclidean building T₃ × T₄.',
+    feed: './reels/productOfTrees/index.html?embed=true&theme=dark',
+    interact: './reels/productOfTrees/index.html?mode=interact&theme=dark'
+  },
+  {
+    slug: 'figure-eight-marble',
+    tag: 'Knot Theory · Hyperbolic 3D',
+    title: 'The figure-eight marble',
+    hook: 'The hyperbolic polyhedron around the figure-eight knot unfolds into a shimmering tiling inside a glass marble.',
+    feed: './reels/figure-eight-marble/index.html?embed=true',
+    interact: './reels/figure-eight-marble/index.html?mode=interact'
+  },
+  {
+    slug: 'solenoid',
+    tag: 'Topology · Number Theory',
+    title: 'The 3-adic solenoid',
+    hook: 'Nested solid tori wind three times inside each other: one trip around adds 1 to every 3-adic integer.',
+    feed: './reels/solenoid/index.html?embed=true&theme=dark',
+    interact: './reels/solenoid/index.html?mode=interact&theme=dark'
+  },
+  {
+    slug: 'gameOfLifeZ2',
+    tag: 'Group Theory · Dynamics',
+    title: 'Game of Life in (ℤ/2)²',
+    hook: 'Live cells carry a charge in the Klein four-group: newborns inherit the sum of their parents, and a + b + c = 0 cancels.',
+    feed: './reels/gameOfLifeZ2/index.html?embed=true&theme=dark',
+    interact: './reels/gameOfLifeZ2/index.html?mode=interact&theme=dark'
+  }
+];
+
+const frame = document.getElementById('stageFrame');
+const rTitle = document.getElementById('rTitle');
+const rHook = document.getElementById('rHook');
+const interactBtn = document.getElementById('interactBtn');
+const nextBtn = document.getElementById('nextBtn');
+const modeBadge = document.getElementById('modeBadge');
+const railList = document.getElementById('railList');
+
+let idx = 0, interacting = false;
+
+REELS.forEach((r, i) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'pick';
+  b.innerHTML = '<span class="kicker">' + r.tag + '</span><span class="title">' + r.title + '</span><span class="desc">' + r.hook + '</span>';
+  b.onclick = () => selectReel(i, false);
+  railList.appendChild(b);
+});
+
+function selectReel(i, interact = false) {
+  idx = (i + REELS.length) % REELS.length;
+  interacting = interact;
+  const r = REELS[idx];
+  rTitle.textContent = r.title;
+  rHook.textContent = r.hook;
+  frame.src = interacting ? r.interact : r.feed;
+  interactBtn.textContent = interacting ? 'Back to Feed Loop' : 'Tap to Interact';
+  interactBtn.classList.toggle('active', interacting);
+  modeBadge.textContent = interacting ? 'EigenReel · Interactive Mode' : 'EigenReel · Feed Loop';
+  Array.from(railList.children).forEach((el, k) => el.classList.toggle('on', k === idx));
+}
+
+interactBtn.onclick = () => selectReel(idx, !interacting);
+nextBtn.onclick = () => selectReel(idx + 1, false);
+
+addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[0-9]$/.test(e.key) || e.key === 'Enter') {
+    e.preventDefault();
+    parent.postMessage({ type: 'iframeKey', key: e.key }, '*');
+    return;
+  }
+  const d = { ArrowRight: 'next', PageDown: 'next', ' ': 'next', ArrowLeft: 'prev', PageUp: 'prev', Escape: 'exit' }[e.key];
+  if (d) {
+    e.preventDefault();
+    parent.postMessage({ type: 'iframeNav', direction: d }, '*');
+  }
+});
+
+selectReel(0, false);
+</script>
+</body>
+</html>
