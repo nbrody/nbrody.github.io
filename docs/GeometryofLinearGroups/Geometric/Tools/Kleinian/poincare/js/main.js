@@ -1954,3 +1954,31 @@ window.addEventListener('hashchange', () => {
 });
 
 animate(0);
+
+// The colloquium page matrix-actions.html loads this viewer with ?actionDemo=1 and
+// presses generator 0, then returns to the start. Stay absent until the domain
+// has been computed so that page can still tell a viewer that never finished.
+if (new URLSearchParams(location.search).has('actionDemo')) {
+    const armTalkAction = () => {
+        if (window.talkAction || app.computing || !app.matrices.length || !app.report) return;
+        window.talkAction = {
+            busy: () => app.animating,
+            play() {
+                if (!app.matrices.length) return false;
+                if (app.animating) return true;
+                animateGenerator(0);
+                return true;
+            },
+            reset() {
+                if (app.animating) return false;
+                app.viewMatrix = Matrix2x2.identity();
+                app.cumulativeWord = [];
+                onSceneMoved();
+                renderCurrentElement();
+                return true;
+            },
+        };
+    };
+    window.addEventListener('poincare:refreshed', armTalkAction);
+    armTalkAction();
+}

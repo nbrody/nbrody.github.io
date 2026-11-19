@@ -1,5 +1,5 @@
 import { GlobalField, Place, unramifiedPolynomial } from './localField.js';
-import { drawTree, animateTo, resetZoom, analyzeTree, redraw as redrawTree } from './treeVis.js';
+import { drawTree, animateTo, resetZoom, analyzeTree, redraw as redrawTree, isAnimating } from './treeVis.js';
 import { setupMatrixInput, readInputs, getInputState, applyInputState, addRootInput, freshName, setConstantsExpanded } from './matrixInput.js';
 import { serializeTowerContext } from '../../../../../assets/js/hyperbolic/tower.js';
 import { makeLetters, computeOrbit, stabilizerWords, linkPermutation, cycles, wordTex as lettersTex, translationLength } from './groupWords.js';
@@ -301,6 +301,25 @@ function calculate({ refit = false } = {}) {
     renderCurrentElement();
     renderUserElements();
     updateVisualization({ refit });
+    // matrix-actions.html (?actionDemo=1) applies g₁ and returns to the empty word.
+    // Installed only after a picture exists, so the host's load timeout still means
+    // the computation did not finish.
+    if (!window.talkAction && new URLSearchParams(location.search).has('actionDemo')) {
+        window.talkAction = {
+            busy: () => isAnimating(),
+            play() {
+                if (!current) return false;
+                if (isAnimating()) return true;
+                applyWord([1]);
+                return true;
+            },
+            reset() {
+                if (!current || isAnimating()) return false;
+                if (ui.word.length) resetCurrent();
+                return true;
+            },
+        };
+    }
     startDecision();
     typeset($('output'));
     writeURL();
