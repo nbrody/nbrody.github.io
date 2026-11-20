@@ -1927,6 +1927,18 @@ window.addEventListener('message', (e) => {
     camera.position.setFromSpherical(sph).add(controls.target);
 });
 
+// The USF (2, 3, 7) slide passes ?talkRemote=triangle and sends Apply g₁ / Apply g₂.
+// That slide closes the control panel, so these are the buttons that move the
+// generators. Any other page leaves the names alone.
+if (new URLSearchParams(location.search).get('talkRemote') === 'triangle') {
+    window.addEventListener('message', (e) => {
+        const d = e.data;
+        if (!d || e.source !== window.parent || d.type !== 'pz-button') return;
+        if (d.name === 'triangleG1') animateGenerator(0);
+        else if (d.name === 'triangleG2') animateGenerator(1);
+    });
+}
+
 // ---------------- boot ----------------
 
 const urlState = TUTORIAL ? null : readStateFromURL();
