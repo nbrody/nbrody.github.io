@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>Daily Math · an interactive mathematical plate every morning</title>
+<meta name="description" content="A daily archive of exact interactive mathematical visualizations in dual-mode Museum Parchment and Observatory Obsidian.">
+<link rel="stylesheet" href="atelier/atelier.css">
+<style>
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(980px 540px at 84% -6%, color-mix(in oklab, var(--dm-cobalt) 10%, transparent), transparent 64%),
+      radial-gradient(820px 520px at 10% 18%, color-mix(in oklab, var(--dm-ochre) 7%, transparent), transparent 68%),
+      var(--dm-bg);
+    color: var(--dm-ink);
+    font-family: var(--dm-sans);
+  }
+
+  .g-wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 42px 28px 68px;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* Header */
+  .g-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--dm-line);
+  }
+
+  .g-eyebrow {
+    font: 600 11px/1 var(--dm-mono);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--dm-cobalt);
+    margin-bottom: 8px;
+  }
+
+  .g-brand {
+    margin: 0;
+    font: 400 clamp(38px, 5vw, 52px)/1 var(--dm-serif);
+    letter-spacing: -0.015em;
+    color: var(--dm-ink);
+  }
+
+  .g-brand span { color: var(--dm-vermilion); }
+
+  .g-tagline {
+    margin: 10px 0 0;
+    color: var(--dm-ink-2);
+    font-size: 16px;
+  }
+
+  .g-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .g-stats {
+    color: var(--dm-muted);
+    font: 400 12.5px/1.3 var(--dm-mono);
+    text-align: right;
+  }
+
+  /* Featured Live Plate */
+  .g-feature {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr);
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid var(--dm-line-strong);
+    background: var(--dm-surface);
+    box-shadow: var(--dm-shadow);
+  }
+
+  .g-feature[hidden] { display: none; }
+
+  .g-stage {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: var(--dm-bg-alt);
+    border-right: 1px solid var(--dm-line);
+  }
+
+  .g-stage iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+  }
+
+  .g-live-pill {
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--dm-glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--dm-line);
+    font: 600 10.5px/1 var(--dm-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dm-ink-2);
+    pointer-events: none;
+  }
+
+  .g-live-pill i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--dm-verdigris);
+  }
+
+  .g-feature-info {
+    padding: 32px 32px 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .g-kicker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font: 600 11px/1 var(--dm-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dm-cobalt);
+  }
+
+  .g-feature h2 {
+    margin: 0;
+    font: 400 clamp(26px, 3vw, 35px)/1.1 var(--dm-serif);
+    color: var(--dm-ink);
+  }
+
+  .g-feature .g-hook {
+    margin: 0;
+    color: var(--dm-ink-2);
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  .g-open {
+    align-self: flex-start;
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--dm-cobalt);
+    color: var(--dm-surface);
+    font: 600 13.5px/1 var(--dm-sans);
+    transition: transform 0.2s var(--dm-ease), background-color 0.2s;
+  }
+
+  .g-open:hover {
+    transform: translateX(2px);
+    background: color-mix(in oklab, var(--dm-cobalt) 84%, var(--dm-ink));
+  }
+
+  .g-open svg { width: 14px; height: 14px; }
+
+  /* Tags */
+  .g-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .g-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--dm-line);
+    background: color-mix(in oklab, var(--dm-ink) 3%, transparent);
+    font: 500 11.5px/1 var(--dm-sans);
+    color: var(--dm-ink-2);
+    white-space: nowrap;
+  }
+  .g-tag i { width: 6px; height: 6px; border-radius: 50%; background: var(--tc); }
+
+  /* Filter bar */
+  .g-sentinel { height: 1px; }
+  .g-filters {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    margin: 34px -28px 0;
+    padding: 14px 28px;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    transition: background-color 0.22s;
+  }
+  .g-filters::-webkit-scrollbar { display: none; }
+  .g-filters.is-stuck {
+    background: var(--dm-glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--dm-line);
+  }
+  @media (min-width: 720px) { .g-filters { flex-wrap: wrap; overflow: visible; } }
+
+  .g-chip {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--dm-line);
+    background: var(--dm-surface);
+    color: var(--dm-ink-2);
+    font: 500 13px/1 var(--dm-sans);
+    cursor: pointer;
+    transition: border-color 0.18s, color 0.18s, background-color 0.18s;
+  }
+  .g-chip:hover { color: var(--dm-ink); border-color: var(--dm-line-strong); }
+  .g-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--tc, var(--dm-ink-2)); }
+  .g-chip b { font-weight: 500; color: var(--dm-muted); font-variant-numeric: tabular-nums; }
+  .g-chip[aria-pressed="true"] {
+    border-color: var(--tc, var(--dm-cobalt));
+    background: color-mix(in oklab, var(--tc, var(--dm-cobalt)) 12%, var(--dm-surface));
+    color: var(--dm-ink);
+  }
+
+  /* Grid */
+  .g-month {
+    margin: 28px 0 14px;
+    font: 600 11px/1 var(--dm-mono);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--dm-muted);
+  }
+
+  .g-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(276px, 1fr));
+    gap: 18px;
+  }
+
+  .g-card {
+    display: flex;
+    flex-direction: column;
+    border-radius: 15px;
+    overflow: hidden;
+    border: 1px solid var(--dm-line);
+    background: var(--dm-surface);
+    transition: transform 0.24s var(--dm-ease), border-color 0.24s, box-shadow 0.24s;
+  }
+
+  .g-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--dm-line-strong);
+    box-shadow: var(--dm-shadow);
+  }
+
+  .g-thumb {
+    aspect-ratio: 16 / 10;
+    position: relative;
+    background: var(--dm-bg-alt);
+    border-bottom: 1px solid var(--dm-line);
+    overflow: hidden;
+  }
+
+  .g-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.5s var(--dm-ease);
+  }
+
+  .g-card:hover .g-thumb img { transform: scale(1.03); }
+
+  .g-plate-num {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--dm-glass);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--dm-line);
+    font: 600 10px/1 var(--dm-mono);
+    letter-spacing: 0.12em;
+    color: var(--dm-ink);
+  }
+
+  .g-body {
+    padding: 15px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .g-card h3 {
+    margin: 2px 0 0;
+    font: 400 20px/1.2 var(--dm-serif);
+    color: var(--dm-ink);
+  }
+
+  .g-card p {
+    margin: 0;
+    color: var(--dm-ink-2);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .g-card time {
+    margin-top: auto;
+    padding-top: 6px;
+    color: var(--dm-muted);
+    font: 400 11.5px/1 var(--dm-mono);
+  }
+
+  .g-empty { color: var(--dm-muted); padding: 36px 0; }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--dm-line);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--dm-muted);
+  }
+  footer a { color: var(--dm-cobalt); }
+  footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 860px) {
+    .g-feature { grid-template-columns: 1fr; }
+    .g-stage { border-right: 0; border-bottom: 1px solid var(--dm-line); }
+    .g-feature-info { padding: 22px; }
+  }
+
+  @media (max-width: 560px) {
+    .g-wrap { padding: 24px 16px 48px; }
+    .g-filters { margin: 26px -16px 0; padding: 12px 16px; }
+    .g-cards { grid-template-columns: 1fr; }
+  }
+
+  @media (forced-colors: active) {
+    .g-feature, .g-card, .g-chip, .dm-icon-btn {
+      border: 1px solid CanvasText;
+    }
+    .g-open, .g-chip[aria-pressed="true"] {
+      background: Highlight;
+      color: HighlightText;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="g-wrap">
+  <header class="g-head">
+    <div>
+      <div class="g-eyebrow">Atelier Monograph Archive</div>
+      <h1 class="g-brand">Daily Math<span>.</span></h1>
+      <p class="g-tagline">One interactive mathematical plate every morning — Parchment &amp; Obsidian.</p>
+    </div>
+    <div class="g-right">
+      <div class="g-stats" id="g-stats"></div>
+      <button class="dm-icon-btn dm-theme-btn" id="g-theme-btn" type="button" title="Switch Parchment / Obsidian theme">
+        <span class="dm-when-light" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"><path d="M13.2 9.9A5.4 5.4 0 0 1 6.1 2.8a5.6 5.6 0 1 0 7.1 7.1z"/></svg>
+        </span>
+        <span class="dm-when-light dm-sr-only">Switch to dark mode</span>
+        <span class="dm-when-dark" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1.6v1.5M8 12.9v1.5M1.6 8h1.5M12.9 8h1.5M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1"/></svg>
+        </span>
+        <span class="dm-when-dark dm-sr-only">Switch to light mode</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="g-feature" id="g-feature" hidden></section>
+  <div class="g-sentinel" id="g-sentinel"></div>
+  <nav class="g-filters" id="g-filters" aria-label="Filter plates by topic"></nav>
+  <main id="g-grid"></main>
+
+  <footer>
+    <span>Shared Dual-Mode Atelier · specification in <a href="SPEC.md">SPEC.md</a></span>
+    <a href="../index.html">nbrody.github.io</a>
+  </footer>
+</div>
+
+<script src="atelier/palette.js"></script>
+<script src="manifest.js"></script>
+<script>
+(function () {
+  'use strict';
+  const STORAGE_KEY = 'dailyMath.theme';
+  const mqDark = matchMedia('(prefers-color-scheme: dark)');
+  const systemTheme = () => (mqDark.matches ? 'dark' : 'light');
+  let queryTheme = new URLSearchParams(location.search).get('theme');
+  if (queryTheme !== 'light' && queryTheme !== 'dark') queryTheme = null;
+
+  function readStored() {
+    try {
+      const s = localStorage.getItem(STORAGE_KEY);
+      return s === 'light' || s === 'dark' ? s : null;
+    } catch { return null; }
+  }
+
+  function currentTheme() {
+    return queryTheme || readStored() || systemTheme();
+  }
+
+  let heroFrame = null;
+  function syncTheme() {
+    const th = currentTheme();
+    document.documentElement.dataset.dmTheme = th;
+    const meta = document.querySelector('meta[name="color-scheme"]');
+    if (meta) meta.content = (queryTheme || readStored()) ? th : 'light dark';
+    if (heroFrame && heroFrame.contentWindow) {
+      heroFrame.contentWindow.postMessage({ type: 'dm-theme', theme: th }, '*');
+    }
+    updateTopicColors(th);
+  }
+
+  document.getElementById('g-theme-btn').addEventListener('click', () => {
+    const target = currentTheme() === 'dark' ? 'light' : 'dark';
+    try {
+      if (queryTheme) queryTheme = target;
+      else if (target === systemTheme()) localStorage.removeItem(STORAGE_KEY);
+      else localStorage.setItem(STORAGE_KEY, target);
+    } catch {}
+    syncTheme();
+  });
+
+  mqDark.addEventListener('change', syncTheme);
+  addEventListener('storage', ev => { if (ev.key === STORAGE_KEY) syncTheme(); });
+
+  const plates = (window.DM_PLATES || []).slice();
+  const topics = window.DM_TOPICS || [];
+  const topicMap = Object.fromEntries(topics.map(t => [t.id, t]));
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const href = p => 'plates/' + encodeURIComponent(p.file);
+  const thumb = p => 'thumbs/' + encodeURIComponent(p.file.replace(/\.html$/, '')) + '.webp';
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const fmtDate = d => { const [, m, dd] = d.split('-').map(Number); return MONTHS[m - 1].slice(0, 3) + ' ' + dd; };
+
+  function topicColor(id, th = currentTheme()) {
+    const t = topicMap[id];
+    return t ? (t[th] || t.light) : '#1f4e96';
+  }
+
+  function updateTopicColors(th) {
+    document.querySelectorAll('[data-topic-id]').forEach(el => {
+      el.style.setProperty('--tc', topicColor(el.dataset.topicId, th));
+    });
+  }
+
+  const tagsHtml = (p, max = 3) => '<div class="g-tags">' +
+    (p.topics || []).filter(id => topicMap[id]).slice(0, max).map(id =>
+      `<span class="g-tag" data-topic-id="${esc(id)}" style="--tc:${topicColor(id)}"><i></i>${esc(topicMap[id].label)}</span>`
+    ).join('') + '</div>';
+
+  const arrowSvg = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
+
+  const grid = document.getElementById('g-grid');
+  if (!plates.length) {
+    grid.innerHTML = '<p class="g-empty">Plate 001 arrives tomorrow morning.</p>';
+    syncTheme();
+    return;
+  }
+
+  document.getElementById('g-stats').textContent =
+    `${plates.length} ${plates.length === 1 ? 'plate' : 'plates'} · Plate ${plates[0].plate}`;
+
+  const latest = plates[0];
+  const feature = document.getElementById('g-feature');
+  const today = new Date().toISOString().slice(0, 10) === latest.date;
+  const initTheme = currentTheme();
+  feature.innerHTML =
+    `<div class="g-stage">` +
+      `<span class="g-live-pill"><i></i>live plate ${esc(latest.plate)}</span>` +
+      `<iframe id="g-hero-iframe" src="${href(latest)}?embed&theme=${encodeURIComponent(initTheme)}" title="${esc(latest.title)}"></iframe>` +
+    `</div>` +
+    `<div class="g-feature-info">` +
+      `<div class="g-kicker">${today ? 'Today' : 'Latest'} · Plate ${esc(latest.plate)} · ${fmtDate(latest.date)}</div>` +
+      `<h2><a href="${href(latest)}">${esc(latest.title)}</a></h2>` +
+      `<p class="g-hook">${esc(latest.hook)}</p>` +
+      tagsHtml(latest) +
+      `<a class="g-open" href="${href(latest)}">Open plate ${arrowSvg}</a>` +
+    `</div>`;
+  heroFrame = document.getElementById('g-hero-iframe');
+  heroFrame.addEventListener('load', () => {
+    heroFrame.contentWindow?.postMessage({ type: 'dm-theme', theme: currentTheme() }, '*');
+  });
+
+  // Filters
+  const counts = {};
+  plates.forEach(p => (p.topics || []).forEach(id => { counts[id] = (counts[id] || 0) + 1; }));
+  const filters = document.getElementById('g-filters');
+  const chip = (id, label, n) =>
+    `<button class="g-chip" data-t="${esc(id)}" ${id !== 'all' ? `data-topic-id="${esc(id)}" style="--tc:${topicColor(id)}"` : ''} aria-pressed="false">` +
+    (id !== 'all' ? '<i></i>' : '') + `${esc(label)} <b>${n}</b></button>`;
+
+  filters.innerHTML = chip('all', 'All plates', plates.length) +
+    topics.filter(t => counts[t.id]).map(t => chip(t.id, t.label, counts[t.id])).join('');
+
+  function cardHtml(p) {
+    return `<a class="g-card" href="${href(p)}">` +
+      `<div class="g-thumb"><span class="g-plate-num">PLATE ${esc(p.plate)}</span>` +
+      `<img src="${thumb(p)}" alt="${esc(p.title)}" loading="lazy" onerror="this.style.opacity='0'"></div>` +
+      `<div class="g-body">${tagsHtml(p, 2)}<h3>${esc(p.title)}</h3><p>${esc(p.hook)}</p>` +
+      `<time datetime="${esc(p.date)}">${fmtDate(p.date)}, ${p.date.slice(0, 4)}</time></div></a>`;
+  }
+
+  function render(filterTopic) {
+    const all = filterTopic === 'all';
+    feature.hidden = !all;
+    const list = all ? plates : plates.filter(p => (p.topics || []).includes(filterTopic));
+    filters.querySelectorAll('.g-chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === filterTopic)));
+    if (!list.length) { grid.innerHTML = '<p class="g-empty">No plates in this topic yet.</p>'; return; }
+    const groups = [];
+    for (const p of list) {
+      const ym = p.date.slice(0, 7);
+      if (!groups.length || groups[groups.length - 1].ym !== ym) groups.push({ ym, items: [] });
+      groups[groups.length - 1].items.push(p);
+    }
+    grid.innerHTML = groups.map(g => {
+      const [y, m] = g.ym.split('-');
+      return `<h2 class="g-month">${MONTHS[+m - 1]} ${y}</h2><div class="g-cards">${g.items.map(cardHtml).join('')}</div>`;
+    }).join('');
+    updateTopicColors(currentTheme());
+  }
+
+  const currentFilter = () => {
+    const h = decodeURIComponent(location.hash.slice(1));
+    return topicMap[h] ? h : 'all';
+  };
+  filters.addEventListener('click', ev => {
+    const b = ev.target.closest('.g-chip');
+    if (!b) return;
+    const t = b.dataset.t === currentFilter() && b.dataset.t !== 'all' ? 'all' : b.dataset.t;
+    history.replaceState(null, '', t === 'all' ? location.pathname + location.search : '#' + t);
+    render(t);
+  });
+  addEventListener('hashchange', () => render(currentFilter()));
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => filters.classList.toggle('is-stuck', !e.isIntersecting))
+      .observe(document.getElementById('g-sentinel'));
+  }
+
+  syncTheme();
+  render(currentFilter());
+})();
+</script>
+</body>
+</html>

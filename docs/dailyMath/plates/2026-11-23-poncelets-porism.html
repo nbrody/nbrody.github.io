@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>Poncelet's Porism · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: Poncelet tangent map & Cayley closure radii ---------- */
+
+const POLYGONS = {
+  '3':   { n: 3, m: 1, tex: 'n = 3', formula: 'r = \\frac{1 - d^2}{2}' },
+  '4':   { n: 4, m: 1, tex: 'n = 4', formula: 'r = \\frac{1 - d^2}{\\sqrt{2(1+d^2)}}' },
+  '5':   { n: 5, m: 1, tex: 'n = 5', formula: '\\sum_{k=0}^4 \\Delta\\theta_k = 2\\pi' },
+  '6':   { n: 6, m: 1, tex: 'n = 6', formula: '\\sum_{k=0}^5 \\Delta\\theta_k = 2\\pi' },
+  '5/2': { n: 5, m: 2, tex: '\\{5/2\\}', formula: '\\sum_{k=0}^4 \\Delta\\theta_k = 4\\pi' },
+};
+
+// One counter-clockwise tangent step from outer circle (origin, R) around inner circle ((d, 0), r)
+function ponceletStep(theta, R, r, d) {
+  const px = R * Math.cos(theta);
+  const py = R * Math.sin(theta);
+  const vx = d - px;
+  const vy = -py;
+  const dist = Math.hypot(vx, vy);
+  if (dist <= r + 1e-12) return null;
+
+  const base = Math.atan2(vy, vx);
+  const alpha = Math.asin(Math.min(1, r / dist));
+  const dir = base - alpha; // CCW tangent ray direction
+  const dx = Math.cos(dir);
+  const dy = Math.sin(dir);
+
+  const tanLen = dist * Math.cos(alpha);
+  const tx = px + tanLen * dx;
+  const ty = py + tanLen * dy;
+
+  // Intersect P + t * D with x^2 + y^2 = R^2 (t = -2 (P . D) since |P|=R, |D|=1)
+  const tOut = -2 * (px * dx + py * dy);
+  const nx = px + tOut * dx;
+  const ny = py + tOut * dy;
+  const nextTheta = Math.atan2(ny, nx);
+
+  let delta = nextTheta - theta;
+  while (delta <= 0) delta += 2 * Math.PI;
+  while (delta > 2 * Math.PI) delta -= 2 * Math.PI;
+
+  return {
+    p: [px, py],
+    t: [tx, ty],
+    next: [nx, ny],
+    nextTheta,
+    delta,
+  };
+}
+
+function traceOrbit(theta0, steps, R, r, d) {
+  const pts = [];
+  const tangents = [];
+  let th = theta0;
+  let totalDelta = 0;
+  for (let i = 0; i < steps; i++) {
+    const s = ponceletStep(th, R, r, d);
+    if (!s) break;
+    if (i === 0) pts.push(s.p);
+    pts.push(s.next);
+    tangents.push(s.t);
+    th = s.nextTheta;
+    totalDelta += s.delta;
+  }
+  return { pts, tangents, endTheta: th, totalDelta };
+}
+
+function eulerRadius(d) {
+  return (1 - d * d) / 2;
+}
+
+function fussRadius(d) {
+  return (1 - d * d) / Math.sqrt(2 * (1 + d * d));
+}
+
+function solvePonceletRadius(n, m, d) {
+  if (n === 3 && m === 1) return eulerRadius(d);
+  if (n === 4 && m === 1) return fussRadius(d);
+  let lo = 1e-5;
+  let hi = 1 - d - 1e-5;
+  const target = 2 * Math.PI * m;
+  for (let it = 0; it < 64; it++) {
+    const mid = 0.5 * (lo + hi);
+    const orb = traceOrbit(0.37, n, 1, mid, d);
+    if (orb.pts.length <= n || orb.totalDelta < target) hi = mid;
+    else lo = mid;
+  }
+  return 0.5 * (lo + hi);
+}
+
+/* ---------- state ---------- */
+
+let geom = { x: 0, y: 0, r: 100 };
+let theta0 = 0.92;
+let draggingMode = null; // 'p0' | 'center'
+let labels = null;
+
+function currentPoly(a) {
+  return POLYGONS[(a || app).get('n') || '3'];
+}
+
+function syncLockedRadius(a, silent = true) {
+  const target = a || app;
+  const d = target.get('d');
+  const maxR = Math.max(0.08, 1 - d - 0.025);
+  if (target.get('lock')) {
+    const { n, m } = currentPoly(target);
+    const rPor = Math.min(maxR, solvePonceletRadius(n, m, d));
+    target.set('r', rPor, { silent });
+  } else if (target.get('r') > maxR) {
+    target.set('r', maxR, { silent });
+  }
+}
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const ctx = app.ctx;
+  const P = app.palette;
+  const isDark = app.theme === 'dark';
+  DM.clear(app);
+
+  const cx = geom.x;
+  const cy = geom.y;
+  const S = geom.r;
+  const toScreen = (wx, wy) => [cx + wx * S, cy - wy * S];
+
+  const poly = currentPoly(app);
+  const d = app.get('d');
+  const maxR = Math.max(0.08, 1 - d - 0.025);
+  const r = Math.min(maxR, app.get('r'));
+  const locked = app.get('lock');
+
+  // Subtle compass dial & coaxial axis
+  DM.circle(ctx, cx, cy, S, P.hairlineStrong, 1.15);
+  for (let k = 0; k < 24; k++) {
+    const a = (k * Math.PI) / 12;
+    const tickIn = k % 6 === 0 ? 7 : 3.5;
+    DM.line(
+      ctx,
+      cx + (S - tickIn) * Math.cos(a),
+      cy - (S - tickIn) * Math.sin(a),
+      cx + S * Math.cos(a),
+      cy - S * Math.sin(a),
+      DM.rgba(P.ink, k % 6 === 0 ? 0.28 : 0.14),
+      0.85
+    );
+  }
+  DM.dashed(ctx, cx - S * 1.07, cy, cx + S * 1.07, cy, DM.rgba(P.ink, 0.16), 0.85, [4, 4]);
+
+  // Inner circle
+  const [ox, oy] = toScreen(d, 0);
+  DM.circle(ctx, ox, oy, r * S, P.ochre, 1.4, {
+    fill: DM.rgba(P.ochre, isDark ? 0.09 : 0.065),
+  });
+
+  // Porism ghost family when Cayley lock is active, or extended caustic web when unlocked
+  if (locked) {
+    const familyCount = 10;
+    for (let k = 1; k < familyCount; k++) {
+      const th = theta0 + (2 * Math.PI * k) / familyCount;
+      const orb = traceOrbit(th, poly.n, 1, r, d);
+      const sPts = orb.pts.slice(0, poly.n).map(([x, y]) => toScreen(x, y));
+      DM.polyline(ctx, sPts, DM.rgba(P.cobalt, isDark ? 0.16 : 0.13), 0.9, { close: true });
+    }
+  } else {
+    const caustic = traceOrbit(theta0, 18, 1, r, d);
+    for (let i = poly.n; i + 1 < caustic.pts.length; i++) {
+      const fade = Math.max(0.06, 0.34 * (1 - (i - poly.n) / 14));
+      const p1 = toScreen(caustic.pts[i][0], caustic.pts[i][1]);
+      const p2 = toScreen(caustic.pts[i + 1][0], caustic.pts[i + 1][1]);
+      DM.line(ctx, p1[0], p1[1], p2[0], p2[1], DM.rgba(P.slate, fade), 1.05);
+    }
+  }
+
+  // Primary Poncelet orbit from P_0
+  const main = traceOrbit(theta0, poly.n, 1, r, d);
+  const sMain = main.pts.map(([x, y]) => toScreen(x, y));
+  const p0 = main.pts[0];
+  const pn = main.pts[main.pts.length - 1];
+  const closureErr = (p0 && pn) ? Math.hypot(pn[0] - p0[0], pn[1] - p0[1]) : 1;
+  const closed = closureErr < 1.2e-3;
+
+  if (sMain.length >= 2) {
+    if (closed) {
+      DM.polygon(
+        ctx,
+        sMain.slice(0, poly.n),
+        DM.rgba(P.cobalt, isDark ? 0.08 : 0.055),
+        P.cobalt,
+        2.1
+      );
+    } else {
+      DM.polyline(ctx, sMain, P.cobalt, 2.0);
+    }
+  }
+
+  // Radius caliper inside inner circle
+  const radAng = -0.68;
+  const [rx, ry] = toScreen(d + r * Math.cos(radAng), r * Math.sin(radAng));
+  DM.arrow(ctx, ox, oy, rx, ry, DM.rgba(P.ochre, 0.72), 1.0, 5.5);
+
+  // Offset d caliper when d >= 0.08
+  if (d >= 0.08) {
+    DM.line(ctx, cx, cy, ox, oy, P.verdigris, 1.5);
+  }
+
+  // Tangency points & vertices
+  for (const [tx, ty] of main.tangents) {
+    const [stx, sty] = toScreen(tx, ty);
+    DM.dot(ctx, stx, sty, 3.1, P.ochre, { stroke: P.surface, strokeWidth: 1 });
+  }
+  for (let i = 1; i < Math.min(sMain.length, poly.n); i++) {
+    DM.dot(ctx, sMain[i][0], sMain[i][1], 3.3, P.cobalt, { stroke: P.surface, strokeWidth: 1 });
+  }
+
+  // Centers O and O'
+  DM.dot(ctx, cx, cy, 3.0, P.ink2);
+  DM.ring(ctx, ox, oy, 7.5, DM.rgba(P.ochre, 0.45), 1);
+  DM.dot(ctx, ox, oy, 3.5, P.ochre);
+
+  // Draggable starting vertex P_0 (and P_n gap marker if open)
+  const [p0x, p0y] = sMain[0] || toScreen(Math.cos(theta0), Math.sin(theta0));
+  if (!closed && sMain.length > poly.n) {
+    const [pnx, pny] = sMain[poly.n];
+    DM.dashed(ctx, p0x, p0y, pnx, pny, DM.rgba(P.vermilion, 0.7), 1.15, [3, 3]);
+    DM.ring(ctx, pnx, pny, 5, P.vermilion, 1.4);
+  }
+  DM.circle(ctx, p0x, p0y, 9.5, DM.rgba(P.vermilion, 0.32), 1.2, {
+    fill: DM.rgba(P.vermilion, isDark ? 0.16 : 0.10),
+  });
+  DM.dot(ctx, p0x, p0y, 4.6, P.vermilion, { stroke: P.surface, strokeWidth: 1.2, glow: isDark ? 5 : 0 });
+
+  // Typeset KaTeX labels pinned cleanly outside geometries
+  if (labels) {
+    const lblList = [
+      {
+        key: 'p0',
+        x: p0x + 19 * Math.cos(theta0),
+        y: p0y - 19 * Math.sin(theta0),
+        tex: 'P_0',
+        color: P.vermilion,
+        size: 13.5,
+      },
+      {
+        key: 'r',
+        x: 0.5 * (ox + rx) + 11 * Math.sin(radAng),
+        y: 0.5 * (oy + ry) + 11 * Math.cos(radAng),
+        tex: 'r',
+        color: P.ochre,
+        size: 13,
+      },
+    ];
+    if (d < 0.08) {
+      lblList.push({ key: 'o', x: cx - 12, y: cy + 14, tex: 'O', color: P.ink2, size: 12.5 });
+    } else {
+      lblList.push({ key: 'o', x: cx - 10, y: cy + 16, tex: 'O', color: P.ink2, size: 12.5 });
+      lblList.push({ key: 'op', x: ox + 11, y: oy + 18, tex: "O'", color: P.ochre, size: 12.5 });
+      if (d >= 0.16) {
+        lblList.push({ key: 'd', x: 0.5 * (cx + ox), y: cy - 13, tex: 'd', color: P.verdigris, size: 12.5 });
+      }
+    }
+    if (!closed && sMain.length > poly.n) {
+      const [pnx, pny] = sMain[poly.n];
+      const angN = Math.atan2(main.pts[poly.n][1], main.pts[poly.n][0]);
+      lblList.push({
+        key: 'pn',
+        x: pnx + 19 * Math.cos(angN),
+        y: pny - 19 * Math.sin(angN),
+        tex: `P_${poly.n}`,
+        color: P.vermilion,
+        size: 12.5,
+      });
+    }
+    labels.set(lblList);
+  }
+
+  // Live mathematical readout
+  const targetR = solvePonceletRadius(poly.n, poly.m, d);
+  const gapStr = closureErr < 1e-11 ? '0' : DM.fmt(closureErr, 4);
+  app.readout(
+    `<span class="big">${DM.tex(poly.tex)}</span> &nbsp; ${DM.check(closed, closed ? 'closed' : 'open')}<br>` +
+    `${DM.tex(poly.formula)}<br>` +
+    `<small>${DM.tex(`|P_${poly.n} - P_0| = ${gapStr}`)} <span style="opacity:.45;margin:0 4px">|</span> ${DM.tex(`r_{\\star} = ${DM.fmt(targetR, 3)}`)}</small>`
+  );
+
+  app.legend([
+    { color: P.cobalt, label: 'tangent orbit', line: true },
+    { color: P.ochre, label: 'caustic circle', line: true },
+    { color: P.vermilion, label: 'start P\u2080' },
+  ]);
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '001',
+  title: "Poncelet's Porism",
+  hook: 'If one tangent polygon closes between two circles, every starting point closes too.',
+  date: '2026-11-23',
+  defaultTheme: 'light',
+  hint: 'drag P\u2080 around the circle or slide O\u2032 along the axis',
+  controls: [
+    { type: 'play' },
+    {
+      type: 'segmented',
+      id: 'n',
+      label: 'Polygon sides',
+      value: '3',
+      options: [
+        { value: '3', label: '3' },
+        { value: '4', label: '4' },
+        { value: '5', label: '5' },
+        { value: '6', label: '6' },
+        { value: '5/2', label: '5/2' },
+      ],
+      onChange: (v, a) => syncLockedRadius(a, true),
+    },
+    {
+      type: 'slider',
+      id: 'd',
+      label: 'd',
+      min: 0,
+      max: 0.55,
+      step: 0.005,
+      value: 0,
+      format: v => DM.fmt(v, 2),
+      onChange: (v, a) => syncLockedRadius(a, true),
+    },
+    {
+      type: 'slider',
+      id: 'r',
+      label: 'r',
+      min: 0.08,
+      max: 0.85,
+      step: 0.002,
+      value: 0.5,
+      format: v => DM.fmt(v, 3),
+      onChange: (v, a) => {
+        if (a.get('lock')) a.set('lock', false, { silent: true });
+      },
+    },
+    {
+      type: 'toggle',
+      id: 'lock',
+      label: 'Cayley lock',
+      value: true,
+      onChange: (v, a) => {
+        if (v) syncLockedRadius(a, true);
+      },
+    },
+  ],
+  tour: [
+    {
+      text: DM.texify('Concentric circles of radii $R=1$ and $r=\\tfrac{1}{2}$ trap an equilateral triangle that turns freely.'),
+      enter: a => {
+        a.set('n', '3', { silent: true });
+        a.set('lock', true, { silent: true });
+        a.set('d', 0, { silent: true });
+        syncLockedRadius(a, true);
+        theta0 = 0.85;
+        a.play();
+      },
+    },
+    {
+      text: DM.texify('Slide the inner circle off-center using Euler’s radius $r = (1-d^2)/2$: every $P_0$ still closes!'),
+      enter: a => {
+        a.set('n', '3', { silent: true });
+        a.set('lock', true, { silent: true });
+        a.play();
+        a.pulse('d');
+        a.tween(950, u => {
+          a.set('d', 0.28 * u, { silent: true });
+          syncLockedRadius(a, true);
+        }, { key: 'd' });
+      },
+    },
+    {
+      text: DM.texify('Unlock Cayley’s curve and nudge $r$: closure fails at once and the chords sweep a caustic.'),
+      enter: a => {
+        a.pause();
+        a.set('n', '3', { silent: true });
+        a.set('d', 0.28, { silent: true });
+        a.set('lock', false, { silent: true });
+        const exact = eulerRadius(0.28);
+        a.pulse('r');
+        a.tween(850, u => {
+          a.set('r', exact - 0.065 * u, { silent: true });
+        }, { key: 'r' });
+      },
+    },
+    {
+      text: DM.texify('Lock onto higher periods or the star pentagram $\\{5/2\\}$: Poncelet’s porism holds for all $(n, m)$.'),
+      enter: a => {
+        a.set('n', '5/2', { silent: true });
+        a.set('lock', true, { silent: true });
+        a.set('d', 0.22, { silent: true });
+        syncLockedRadius(a, true);
+        a.pulse('n');
+        a.play();
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p><b>Jean-Victor Poncelet (1813, published 1822)</b> proved that if a single $n$-gon inscribed in one conic is circumscribed about another, then <i>every</i> point on the outer conic starts a closed $n$-gon.</p>
+    <p>For nested circles of radii $R = 1$, $r$, and center offset $d$, <b>Euler (1765)</b> gave the $n=3$ condition $r = (1-d^2)/2$, and <b>Fuss (1794)</b> found $r = (1-d^2)/\\sqrt{2(1+d^2)}$ for $n=4$. <b>Arthur Cayley (1853)</b> expressed closure for arbitrary $n$ via Hankel determinants of $\\sqrt{((1+t)^2 - d^2)((1-t)^2 - d^2)}$.</p>
+    <p class="ref">Plate 001 · Daily Math Atelier · Euclidean &amp; Projective Geometry.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+  },
+  step: dt => {
+    if (!draggingMode) theta0 = (theta0 + dt * 0.42) % (2 * Math.PI);
+  },
+  draw,
+});
+
+app.onResize(a => {
+  geom = a.fitCircle(24);
+});
+
+app.pointer({
+  down(p) {
+    const d = app.get('d');
+    const ox = geom.x + d * geom.r;
+    const oy = geom.y;
+    const p0x = geom.x + geom.r * Math.cos(theta0);
+    const p0y = geom.y - geom.r * Math.sin(theta0);
+    if (Math.hypot(p.x - ox, p.y - oy) < 26) {
+      draggingMode = 'center';
+      app.cursor('ew-resize');
+    } else if (Math.hypot(p.x - p0x, p.y - p0y) < 34 || Math.hypot(p.x - geom.x, p.y - geom.y) > geom.r * 0.45) {
+      draggingMode = 'p0';
+      theta0 = Math.atan2(geom.y - p.y, p.x - geom.x);
+      app.cursor('grabbing');
+    }
+  },
+  drag(p) {
+    if (draggingMode === 'center') {
+      const nextD = DM.clamp((p.x - geom.x) / geom.r, 0, 0.55);
+      app.set('d', Math.round(nextD * 200) / 200, { silent: true });
+      syncLockedRadius(app, true);
+    } else if (draggingMode === 'p0') {
+      theta0 = Math.atan2(geom.y - p.y, p.x - geom.x);
+    }
+  },
+  up() {
+    draggingMode = null;
+    app.cursor('');
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('Euler relation n=3 closes for every starting angle and offset d', () => {
+  for (const d of [0, 0.18, 0.35, 0.5]) {
+    const r = eulerRadius(d);
+    for (let k = 0; k < 8; k++) {
+      const th = (2 * Math.PI * k) / 8 + 0.13;
+      const orb = traceOrbit(th, 3, 1, r, d);
+      const err = Math.hypot(orb.pts[3][0] - orb.pts[0][0], orb.pts[3][1] - orb.pts[0][1]);
+      if (err > 1e-12) return `Euler failed at d=${d}, err=${err}`;
+    }
+  }
+  return true;
+});
+
+DM.test('Fuss relation n=4 closes for every starting angle and offset d', () => {
+  for (const d of [0, 0.15, 0.32, 0.48]) {
+    const r = fussRadius(d);
+    for (let k = 0; k < 8; k++) {
+      const th = (2 * Math.PI * k) / 8 + 0.29;
+      const orb = traceOrbit(th, 4, 1, r, d);
+      const err = Math.hypot(orb.pts[4][0] - orb.pts[0][0], orb.pts[4][1] - orb.pts[0][1]);
+      if (err > 1e-12) return `Fuss failed at d=${d}, err=${err}`;
+    }
+  }
+  return true;
+});
+
+DM.test('Porism invariance holds for n=5, n=6, and star pentagram {5/2}', () => {
+  for (const [n, m, d] of [[5, 1, 0.25], [6, 1, 0.3], [5, 2, 0.22]]) {
+    const r = solvePonceletRadius(n, m, d);
+    for (const th of [0.1, 1.37, 2.8, 4.55]) {
+      const orb = traceOrbit(th, n, 1, r, d);
+      const err = Math.hypot(orb.pts[n][0] - orb.pts[0][0], orb.pts[n][1] - orb.pts[0][1]);
+      if (err > 1e-10) return `Failed (${n}/${m}) at d=${d}, err=${err}`;
+    }
+  }
+  return true;
+});
+
+DM.test('Tangent contacts T_k lie at distance r and orthogonal to chords', () => {
+  const d = 0.27, r = solvePonceletRadius(5, 1, d);
+  let th = 0.4;
+  for (let i = 0; i < 5; i++) {
+    const s = ponceletStep(th, 1, r, d);
+    const radErr = Math.abs(Math.hypot(s.t[0] - d, s.t[1]) - r);
+    const dot = (s.t[0] - d) * (s.next[0] - s.p[0]) + s.t[1] * (s.next[1] - s.p[1]);
+    if (radErr > 1e-12 || Math.abs(dot) > 1e-12) return `Tangency failed at step ${i}`;
+    th = s.nextTheta;
+  }
+  return true;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>Plate Template · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/tex.js"></script>
+<!-- Optional modules:
+<script src="../atelier/plot.js"></script>
+<script src="../atelier/math-exact.js"></script>
+<script src="../atelier/math-linalg.js"></script>
+<script src="../atelier/math-complex.js"></script>
+<script src="../atelier/space3d.js"></script>
+<script src="../atelier/gl.js"></script>
+-->
+<script>
+'use strict';
+
+/* ---------- pure mathematics ---------- */
+
+function circleChords(n) {
+  const pts = Array.from({ length: n }, (_, k) => {
+    const a = (2 * Math.PI * k) / n - Math.PI / 2;
+    return [Math.cos(a), Math.sin(a)];
+  });
+  const edges = [];
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) edges.push([i, j]);
+  return { pts, edges };
+}
+
+/* ---------- state ---------- */
+
+let geom = { x: 0, y: 0, r: 100 };
+let angle = 0;
+let picked = -1;
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const ctx = app.ctx;
+  const P = app.palette;
+  const n = app.get('n');
+  DM.clear(app);
+
+  const { pts, edges } = circleChords(n);
+  const screenPts = pts.map(([x, y]) => {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    return [geom.x + geom.r * (c * x - s * y), geom.y + geom.r * (s * x + c * y)];
+  });
+
+  DM.ring(ctx, geom.x, geom.y, geom.r, P.hairlineStrong, 1);
+
+  for (const [i, j] of edges) {
+    const active = i === picked || j === picked;
+    const col = active ? P.vermilion : DM.rgba(P.cobalt, app.theme === 'dark' ? 0.34 : 0.24);
+    DM.line(ctx, screenPts[i][0], screenPts[i][1], screenPts[j][0], screenPts[j][1], col, active ? 1.6 : 0.9);
+  }
+
+  screenPts.forEach(([x, y], i) => {
+    DM.dot(ctx, x, y, i === picked ? 5 : 3.2, i === picked ? P.vermilion : P.cobalt);
+  });
+
+  const count = edges.length;
+  const expected = (n * (n - 1)) / 2;
+  app.readout(
+    `<span class="big">${DM.tex(`K_{${n}}`)}</span><br>` +
+    `${DM.tex(`\\binom{${n}}{2} = ${count}`)} ${DM.check(count === expected, 'exact')}`
+  );
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '000',
+  title: 'Chords of a Circle',
+  hook: 'Join every pair of points on a circle to count the complete graph.',
+  date: 'YYYY-MM-DD',
+  defaultTheme: 'light',
+  hint: 'tap a vertex',
+  controls: [
+    { type: 'play' },
+    { type: 'slider', id: 'n', label: 'n', min: 3, max: 18, step: 1, value: 7, format: v => String(v) },
+  ],
+  tour: [
+    { text: DM.texify('Seven vertices on a circle, each pair linked by one chord.'),
+      enter: a => { a.pause(); a.set('n', 7); picked = -1; } },
+    { text: DM.texify('Highlighting one vertex reveals $n - 1$ incident chords from each endpoint.'),
+      enter: a => { picked = 0; a.pause(); } },
+    { text: DM.texify('Sweeping $n$ shows the quadratic count $\\binom{n}{2} = n(n-1)/2$.'),
+      enter: a => { a.pulse('n'); a.play(); a.tween(1400, u => a.set('n', Math.round(7 + 7 * u)), { key: 'n' }); } },
+  ],
+  math: DM.texify(`<p>Every unordered pair among $n$ vertices on a circle forms a distinct chord, giving <b>$\\binom{n}{2} = n(n-1)/2$</b> edges. Each vertex has degree $n - 1$, and summing degrees counts every chord twice.</p><p class="ref">Template Plate · Daily Math Atelier.</p>`),
+  step: dt => { angle += dt * 0.14; },
+  draw,
+});
+
+app.onResize(a => { geom = a.fitCircle(20); });
+
+app.pointer({
+  tap: p => {
+    const n = app.get('n');
+    const { pts } = circleChords(n);
+    let best = -1, bd = 22;
+    pts.forEach(([x, y], i) => {
+      const c = Math.cos(angle), s = Math.sin(angle);
+      const sx = geom.x + geom.r * (c * x - s * y);
+      const sy = geom.y + geom.r * (s * x + c * y);
+      const d = Math.hypot(sx - p.x, sy - p.y);
+      if (d < bd) { bd = d; best = i; }
+    });
+    picked = best;
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('complete graph edge count matches n(n-1)/2', () => {
+  for (let n = 1; n <= 30; n++) {
+    if (circleChords(n).edges.length !== (n * (n - 1)) / 2) return 'mismatch at n=' + n;
+  }
+  return true;
+});
+
+DM.test('vertices lie on the unit circle', () => {
+  const { pts } = circleChords(11);
+  return pts.every(([x, y]) => Math.abs(Math.hypot(x, y) - 1) < 1e-12);
+});
+</script>
+</body>
+</html>
