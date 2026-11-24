@@ -3,7 +3,7 @@ import { kindOf, editable, cleanPath, IMAGE } from './latex/js/kinds.js';
 import { citationKey, paperPath, parseArxiv } from './library/js/references.js';
 
 const BASE = new URL('./', import.meta.url);
-const origFetch = window.fetch.bind(window);
+const origFetch = globalThis.fetch.bind(globalThis);
 const EDITORS = { markdown: 'alphaMarkdown', ink: 'alphaNote', library: 'alphaLibrary', latex: 'alphaTeX', python: 'alphaPy' };
 const MAX_TEXT = 4 * 1024 * 1024;
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -142,15 +142,30 @@ async function save(ed, p, bytes, previous) {
   if (editable(kindOf(p))) history.push({ id: String(now), created: new Date(now).toISOString(), content: dec.decode(bytes) });
   await putChange(ed, p, { bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), mtime: now, history });
 }
+// One check-and-write at a time per file. The revision check and the put both
+// await, so two saves of the same file can otherwise both read the old bytes
+// and both succeed: the later put then drops the earlier one. A highlight
+// click blurs the notes field, and those two saves leave together.
+const writeTails = new Map();
+function exclusive(key, fn) {
+  const prev = writeTails.get(key) || Promise.resolve();
+  const run = prev.then(fn, fn);
+  const settled = run.then(() => {}, () => {});
+  writeTails.set(key, settled);
+  settled.then(() => { if (writeTails.get(key) === settled) writeTails.delete(key); });
+  return run;
+}
 async function write(ed, p, content, baseRevision) {
   p = clean(p);
-  const current = await bytesOf(ed, p);
-  need(current, 404, `${p} was not found.`);
-  if ((await revisionOf(current)) !== baseRevision)
-    throw fault(409, `${p} changed since it was opened.`, { current: { content: dec.decode(current), revision: await revisionOf(current) } });
-  const bytes = enc.encode(content);
-  await save(ed, p, bytes, current);
-  return entry(ed, p, bytes);
+  return exclusive(`${ed}\0${p}`, async () => {
+    const current = await bytesOf(ed, p);
+    need(current, 404, `${p} was not found.`);
+    if ((await revisionOf(current)) !== baseRevision)
+      throw fault(409, `${p} changed since it was opened.`, { current: { content: dec.decode(current), revision: await revisionOf(current) } });
+    const bytes = enc.encode(content);
+    await save(ed, p, bytes, current);
+    return entry(ed, p, bytes);
+  });
 }
 async function create(ed, p, { content = '', base64, overwrite = false } = {}) {
   p = clean(p);
@@ -224,7 +239,9 @@ async function library(key, url, req) {
     case 'POST library/reference': return json(201, await add((await body(req)).record));
     case 'PUT library/reference': {
       const b = await body(req);
-      await write(ed, b.id, text(b.record), b.baseRevision);
+      need(b.record && typeof b.record === 'object', 400, 'Send the reference record.');
+      try { await write(ed, b.id, text(b.record), b.baseRevision); }
+      catch (e) { if (e.status === 409) throw fault(409, 'This reference changed elsewhere.', { current: await reference(b.id) }); throw e; }
       return json(200, await reference(b.id));
     }
     case 'POST library/delete': return json(200, await remove(ed, (await body(req)).id));
@@ -316,20 +333,27 @@ async function handle(ed, route, url, req) {
   return json(404, { error: 'Unsupported route.' });
 }
 
-window.fetch = async function(input, init) {
-  const req = input instanceof Request ? (init ? new Request(input, init) : input) : new Request(new URL(String(input), location.href), init);
-  const url = new URL(req.url);
-  if (url.origin === BASE.origin && url.pathname.startsWith(BASE.pathname)) {
-    const m = /^([a-z]+)\/api\/(.+)$/.exec(url.pathname.slice(BASE.pathname.length));
-    if (m && EDITORS[m[1]]) {
-      try {
-        return await handle(m[1], m[2], url, req);
-      } catch (err) {
-        return json(err.status || 500, { error: err.status ? err.message : String(err.message || err), ...(err.current ? { current: err.current } : {}) });
-      }
-    }
+async function dispatch(ed, route, url, req) {
+  try {
+    return await handle(ed, route, url, req);
+  } catch (err) {
+    return json(err.status || 500, { error: err.status ? err.message : String(err.message || err), ...(err.current ? { current: err.current } : {}) });
   }
-  return origFetch(input, init);
-};
+}
 
-await import(new URL('js/main.js', location.href).href);
+// The editors' pages load this module and then their own js/main.js. A test
+// import has no document, so it can call the store without starting the UI.
+if (typeof window !== 'undefined' && window.document) {
+  window.fetch = async function(input, init) {
+    const req = input instanceof Request ? (init ? new Request(input, init) : input) : new Request(new URL(String(input), location.href), init);
+    const url = new URL(req.url);
+    if (url.origin === BASE.origin && url.pathname.startsWith(BASE.pathname)) {
+      const m = /^([a-z]+)\/api\/(.+)$/.exec(url.pathname.slice(BASE.pathname.length));
+      if (m && EDITORS[m[1]]) return dispatch(m[1], m[2], url, req);
+    }
+    return origFetch(input, init);
+  };
+  await import(new URL('js/main.js', location.href).href);
+}
+
+export { create, read, write, dispatch };
