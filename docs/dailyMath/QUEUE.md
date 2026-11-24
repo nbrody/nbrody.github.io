@@ -4,15 +4,6 @@ Maintained by each daily run: build the TOP entry, remove it from this list, and
 
 ---
 
-## Confocal Caustics of an Ellipse
-- topics: geometry, dynamics · form: 2D stage · theme: light · modules: `draw`, `tex`
-- idea: billiard trajectories inside an ellipse preserve a second conserved quantity and remain tangent to a single confocal conic — either a smaller ellipse or a hyperbola.
-- gesture: drag the initial ray angle from a boundary point or drag eccentricity $e$.
-- aha: crossing the focal line between the two foci switches the caustic catastrophically from a closed confocal ellipse to two branches of a confocal hyperbola.
-- live check: Joachimsthal integral $\frac{\langle p, v\rangle_A}{|p|_A}$ and confocal parameter $\lambda$ preserved across all bounces (`DM.check`).
-- tour: ray grazing an inner confocal ellipse -> aim between the foci to flip to a hyperbola -> launch through a focus to collapse onto the major axis -> eccentric limit.
-- math: Birkhoff billiard integrability and Chasles's theorem; every tangent to a fixed confocal conic reflects across the ellipse normal into another tangent to the exact same confocal conic.
-
 ## The Klein Quartic & {3, 7} Tiling
 - topics: hyperbolic, symmetry · form: WebGL2 Poincaré disk + overlay · theme: dark · modules: `gl`, `math-complex`, `tex`
 - idea: gluing fourteen hyperbolic heptagons in the Poincaré disk creates the Klein quartic — a genus-3 surface saturating Hurwitz's maximum symmetry bound of $168 = 84(g-1)$ automorphisms.
@@ -66,3 +57,12 @@ Maintained by each daily run: build the TOP entry, remove it from this list, and
 - live check: empirical crossing fraction converges toward $\frac{2L}{\pi d}$ (`DM.check`).
 - tour: drop 50 straight needles -> stream 1,000 needles watching the $2/(\pi \hat{p})$ curve converge toward $\pi$ -> bend needle into a noodle -> closed circle of diameter $d$ averages $2$ crossings.
 - math: Georges-Louis Leclerc, Comte de Buffon (1777) and Joseph-Émile Barbier (1860); decomposing any rectifiable curve of length $L$ into tiny segments yields $E[\text{crossings}] = \frac{2L}{\pi d}$ by linearity of expectation.
+
+## Gauss–Bonnet Curvature of a Torus
+- topics: geometry, topology · form: 3D orbit surface · theme: dark · modules: `space3d`, `draw`, `tex`
+- idea: on any torus of revolution, positive outer Gaussian curvature and negative inner saddle curvature cancel to zero identically, independent of shape or thickness.
+- gesture: drag to orbit in 3D or slide the aspect ratio $r/R$ and vertical pinch deformation.
+- aha: flattening or pinching the torus redistributes positive and negative curvature dramatically, yet the integrated positive outer cap always equals $+4\pi$ and the inner saddle $-4\pi$.
+- live check: $\iint_{T^2} K\,dA = 2\pi\chi(T^2) = 0$ computed numerically across the mesh (`DM.check`).
+- tour: standard torus colored by $K > 0$ outer vs $K < 0$ inner -> orbit to inspect the parabolic rings $K = 0$ -> thicken $r/R$ -> deform profile and watch $+4\pi$ and $-4\pi$ still cancel.
+- math: Carl Friedrich Gauss (1827) and Pierre Ossian Bonnet (1848); for any closed orientable surface $M$, $\iint_M K\,dA = 2\pi\chi(M)$, so every embedded torus integrates to $0$.

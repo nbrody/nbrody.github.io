@@ -16,6 +16,16 @@
 
   root.DM_PLATES = [
     {
+      plate: '007',
+      date: '2026-11-24',
+      file: '2026-11-24-confocal-caustics.html',
+      title: 'Confocal Caustics of an Ellipse',
+      hook: 'Billiard rays inside an ellipse stay tangent to one confocal ellipse or hyperbola.',
+      topics: ['geometry', 'dynamics'],
+      defaultTheme: 'light',
+      form: '2d',
+    },
+    {
       plate: '006',
       date: '2026-11-23',
       file: '2026-11-23-modular-j-invariant.html',

@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>Confocal Caustics of an Ellipse · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: elliptic billiard, Joachimsthal integral & confocal caustics ---------- */
+
+function ellipseAxes(e) {
+  const a = 1;
+  const b = Math.sqrt(Math.max(1e-6, 1 - e * e));
+  return { a, b, c: e };
+}
+
+function ellipsePoint(theta, a, b) {
+  return [a * Math.cos(theta), b * Math.sin(theta)];
+}
+
+function inwardNormal(p, a, b) {
+  const nx = -p[0] / (a * a);
+  const ny = -p[1] / (b * b);
+  const len = Math.hypot(nx, ny) || 1;
+  return [nx / len, ny / len];
+}
+
+function launchDir(p, alphaRad, a, b) {
+  const n = inwardNormal(p, a, b);
+  const c = Math.cos(alphaRad);
+  const s = Math.sin(alphaRad);
+  return [n[0] * c - n[1] * s, n[0] * s + n[1] * c];
+}
+
+function angleFromNormal(p, target, a, b) {
+  const n = inwardNormal(p, a, b);
+  const dx = target[0] - p[0];
+  const dy = target[1] - p[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  const dot = n[0] * ux + n[1] * uy;
+  const cross = n[0] * uy - n[1] * ux;
+  return Math.atan2(cross, dot);
+}
+
+function joachimsthal(p, v, a, b) {
+  return -(p[0] * v[0] / (a * a) + p[1] * v[1] / (b * b));
+}
+
+function confocalLambda(p, v, a, b) {
+  const cross = p[0] * v[1] - p[1] * v[0];
+  return b * b * v[0] * v[0] + a * a * v[1] * v[1] - cross * cross;
+}
+
+function billiardStep(p, v, a, b) {
+  const Ax = 1 / (a * a);
+  const Ay = 1 / (b * b);
+  const pav = p[0] * Ax * v[0] + p[1] * Ay * v[1];
+  const vAv = v[0] * Ax * v[0] + v[1] * Ay * v[1];
+  if (vAv <= 1e-15 || pav >= -1e-15) return null;
+  const t = -2 * pav / vAv;
+  const pNext = [p[0] + t * v[0], p[1] + t * v[1]];
+
+  const nx = pNext[0] * Ax;
+  const ny = pNext[1] * Ay;
+  const nLen = Math.hypot(nx, ny) || 1;
+  const u = [nx / nLen, ny / nLen];
+  const vn = v[0] * u[0] + v[1] * u[1];
+  const vNext = [v[0] - 2 * vn * u[0], v[1] - 2 * vn * u[1]];
+  const vLen = Math.hypot(vNext[0], vNext[1]) || 1;
+  vNext[0] /= vLen;
+  vNext[1] /= vLen;
+
+  return { pNext, vNext, t, nOut: u };
+}
+
+function chordTangency(p, v, t, lam, a, b) {
+  const A1 = a * a - lam;
+  const B1 = b * b - lam;
+  const denom = B1 * v[0] * v[0] + A1 * v[1] * v[1];
+  if (Math.abs(denom) < 1e-14) return null;
+  const s = -(B1 * p[0] * v[0] + A1 * p[1] * v[1]) / denom;
+  return {
+    pt: [p[0] + s * v[0], p[1] + s * v[1]],
+    s,
+    onSegment: s >= -1e-7 && s <= t + 1e-7,
+  };
+}
+
+function traceBilliard(theta0, alphaRad, e, bounces) {
+  const { a, b, c } = ellipseAxes(e);
+  let p = ellipsePoint(theta0, a, b);
+  let v = launchDir(p, alphaRad, a, b);
+  const J0 = joachimsthal(p, v, a, b);
+  const lam0 = confocalLambda(p, v, a, b);
+
+  const pts = [p];
+  const dirs = [v];
+  const tangents = [];
+  const segLens = [];
+  let totalLen = 0;
+  let maxJErr = 0;
+  let maxLamErr = 0;
+
+  for (let k = 0; k < bounces; k++) {
+    const step = billiardStep(p, v, a, b);
+    if (!step) break;
+    const tan = chordTangency(p, v, step.t, lam0, a, b);
+    if (tan && tan.onSegment) tangents.push(tan.pt);
+    pts.push(step.pNext);
+    dirs.push(step.vNext);
+    segLens.push(step.t);
+    totalLen += step.t;
+    p = step.pNext;
+    v = step.vNext;
+    const Jk = joachimsthal(p, v, a, b);
+    const lamk = confocalLambda(p, v, a, b);
+    maxJErr = Math.max(maxJErr, Math.abs(Jk - J0));
+    maxLamErr = Math.max(maxLamErr, Math.abs(lamk - lam0));
+  }
+
+  let kind = 'ellipse';
+  if (Math.abs(lam0 - b * b) < 1.5e-4) kind = 'focus';
+  else if (lam0 > b * b) kind = 'hyperbola';
+
+  return { a, b, c, pts, dirs, tangents, segLens, totalLen, J0, lam0, maxJErr, maxLamErr, kind };
+}
+
+function sampleEllipse(rx, ry, n = 160) {
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const th = (2 * Math.PI * i) / n;
+    pts.push([rx * Math.cos(th), ry * Math.sin(th)]);
+  }
+  return pts;
+}
+
+function sampleConfocalHyperbola(lam, a, b, n = 80) {
+  const alpha = Math.sqrt(Math.max(0, a * a - lam));
+  const beta = Math.sqrt(Math.max(0, lam - b * b));
+  const c = Math.sqrt(Math.max(1e-9, a * a - b * b));
+  const uMax = Math.acosh(Math.max(1, a / c));
+  const right = [];
+  const left = [];
+  for (let i = 0; i <= n; i++) {
+    const u = -uMax + (2 * uMax * i) / n;
+    const x = alpha * Math.cosh(u);
+    const y = beta * Math.sinh(u);
+    right.push([x, y]);
+    left.push([-x, y]);
+  }
+  return { left, right };
+}
+
+/* ---------- state ---------- */
+
+const BOUNCES = 32;
+let cam = null;
+let theta0 = 1.08;
+let pulseDist = 0;
+let dragMode = null; // 'p0' | 'aim'
+let labels = null;
+
+function presetAngleDeg(regime, th, e) {
+  const { a, b, c } = ellipseAxes(e);
+  const p = ellipsePoint(th, a, b);
+  const aF1 = angleFromNormal(p, [-c, 0], a, b) * 180 / Math.PI;
+  const aF2 = angleFromNormal(p, [c, 0], a, b) * 180 / Math.PI;
+  const lo = Math.min(aF1, aF2);
+  const hi = Math.max(aF1, aF2);
+  if (regime === 'focus') return aF2;
+  if (regime === 'hyperbola') return 0.5 * (lo + hi);
+  // Confocal ellipse: outside [lo, hi] with a generous woven annulus
+  return DM.clamp(Math.max(hi + 11, 48), -82, 82);
+}
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const ctx = app.ctx;
+  const P = app.palette;
+  const isDark = app.theme === 'dark';
+  DM.clear(app);
+  if (!cam) return;
+
+  const e = app.get('e');
+  const aimDeg = app.get('aim');
+  const showNet = app.get('net');
+  const alphaRad = (aimDeg * Math.PI) / 180;
+
+  const orb = traceBilliard(theta0, alphaRad, e, BOUNCES);
+  const { a, b, c, lam0, J0, kind } = orb;
+  const toS = (x, y) => cam.toScreen(x, y);
+
+  // Subtle coordinate axes
+  const [axL, axY] = toS(-1.12, 0);
+  const [axR] = toS(1.12, 0);
+  const [ayX, ayT] = toS(0, b + 0.14);
+  const [, ayB] = toS(0, -b - 0.14);
+  DM.dashed(ctx, axL, axY, axR, axY, DM.rgba(P.ink, 0.14), 0.85, [4, 4]);
+  DM.dashed(ctx, ayX, ayT, ayX, ayB, DM.rgba(P.ink, 0.14), 0.85, [4, 4]);
+
+  // Outer billiard ellipse interior wash
+  const outerPts = sampleEllipse(a, b, 180).map(([x, y]) => toS(x, y));
+  DM.polygon(ctx, outerPts, DM.rgba(P.surface, isDark ? 0.34 : 0.52), null, 0);
+
+  // Optional orthogonal confocal coordinate net
+  if (showNet) {
+    const ellCount = 5;
+    for (let i = 1; i <= ellCount; i++) {
+      const lam = (b * b * i) / (ellCount + 1);
+      const pts = sampleEllipse(Math.sqrt(a * a - lam), Math.sqrt(b * b - lam), 120).map(([x, y]) => toS(x, y));
+      DM.polyline(ctx, pts, DM.rgba(P.vermilion, isDark ? 0.30 : 0.27), 0.95, { close: true });
+    }
+    const hypCount = 5;
+    for (let i = 1; i <= hypCount; i++) {
+      const lam = b * b + ((a * a - b * b) * i) / (hypCount + 1);
+      const { left, right } = sampleConfocalHyperbola(lam, a, b, 56);
+      DM.polyline(ctx, left.map(([x, y]) => toS(x, y)), DM.rgba(P.ochre, isDark ? 0.32 : 0.29), 0.95);
+      DM.polyline(ctx, right.map(([x, y]) => toS(x, y)), DM.rgba(P.ochre, isDark ? 0.32 : 0.29), 0.95);
+    }
+  }
+
+  // Focal threshold segment [F1, F2]
+  const [f1x, f1y] = toS(-c, 0);
+  const [f2x, f2y] = toS(c, 0);
+  DM.line(ctx, f1x, f1y, f2x, f2y, DM.rgba(P.verdigris, kind === 'focus' ? 0.72 : 0.32), kind === 'focus' ? 2.0 : 1.1, {
+    dash: kind === 'focus' ? null : [3, 3],
+  });
+
+  // Billiard trajectory chords
+  const nSeg = orb.pts.length - 1;
+  for (let k = 0; k < nSeg; k++) {
+    const p1 = toS(orb.pts[k][0], orb.pts[k][1]);
+    const p2 = toS(orb.pts[k + 1][0], orb.pts[k + 1][1]);
+    const fade = k === 0 ? 0.92 : Math.max(0.18, 0.56 * (1 - k / (nSeg * 1.15)));
+    const w = k === 0 ? 1.85 : 1.05;
+    DM.line(ctx, p1[0], p1[1], p2[0], p2[1], DM.rgba(P.cobalt, isDark ? Math.min(1, fade + 0.12) : fade), w);
+  }
+
+  // Exact confocal caustic curve
+  let causticColor = P.vermilion;
+  if (kind === 'ellipse') {
+    const rx = Math.sqrt(Math.max(0, a * a - lam0));
+    const ry = Math.sqrt(Math.max(0, b * b - lam0));
+    const cPts = sampleEllipse(rx, ry, 160).map(([x, y]) => toS(x, y));
+    DM.polygon(ctx, cPts, DM.rgba(P.vermilion, isDark ? 0.10 : 0.065), P.vermilion, 2.0, { glow: isDark ? 6 : 0 });
+  } else if (kind === 'hyperbola') {
+    causticColor = P.ochre;
+    const { left, right } = sampleConfocalHyperbola(lam0, a, b, 72);
+    const sL = left.map(([x, y]) => toS(x, y));
+    const sR = right.map(([x, y]) => toS(x, y));
+    DM.polyline(ctx, sL, P.ochre, 2.1, { glow: isDark ? 6 : 0 });
+    DM.polyline(ctx, sR, P.ochre, 2.1, { glow: isDark ? 6 : 0 });
+  } else {
+    causticColor = P.verdigris;
+  }
+
+  // Tangency points along the caustic
+  for (let i = 0; i < Math.min(orb.tangents.length, 16); i++) {
+    const [tx, ty] = toS(orb.tangents[i][0], orb.tangents[i][1]);
+    DM.dot(ctx, tx, ty, 2.5, causticColor, { stroke: P.surface, strokeWidth: 0.9 });
+  }
+
+  // Outer ellipse boundary stroke (drawn crisp over chords)
+  DM.polyline(ctx, outerPts, P.ink, 1.5, { close: true });
+
+  // Reflection vertices
+  for (let k = 1; k < Math.min(orb.pts.length, 18); k++) {
+    const [bx, by] = toS(orb.pts[k][0], orb.pts[k][1]);
+    DM.dot(ctx, bx, by, 2.3, P.cobalt, { stroke: P.surface, strokeWidth: 0.8 });
+  }
+
+  // Animated billiard pulse along trajectory
+  if (orb.totalLen > 0) {
+    let rem = ((pulseDist % orb.totalLen) + orb.totalLen) % orb.totalLen;
+    let bx = orb.pts[0][0], by = orb.pts[0][1];
+    for (let k = 0; k < orb.segLens.length; k++) {
+      if (rem <= orb.segLens[k]) {
+        const u = rem / Math.max(1e-9, orb.segLens[k]);
+        bx = DM.lerp(orb.pts[k][0], orb.pts[k + 1][0], u);
+        by = DM.lerp(orb.pts[k][1], orb.pts[k + 1][1], u);
+        break;
+      }
+      rem -= orb.segLens[k];
+    }
+    const [spx, spy] = toS(bx, by);
+    DM.circle(ctx, spx, spy, 7, DM.rgba(P.cobalt, 0.3), 1, { fill: DM.rgba(P.cobalt, 0.14) });
+    DM.dot(ctx, spx, spy, 3.4, P.cobalt, { stroke: P.surface, strokeWidth: 1.1, glow: isDark ? 6 : 0 });
+  }
+
+  // Foci F1, F2
+  for (const [fx, fy] of [[f1x, f1y], [f2x, f2y]]) {
+    DM.ring(ctx, fx, fy, 7.5, DM.rgba(P.verdigris, 0.45), 1.0);
+    DM.dot(ctx, fx, fy, 3.5, P.verdigris, { stroke: P.surface, strokeWidth: 1.1 });
+  }
+
+  // Launch vertex P0, inward normal, and draggable aim handle Q
+  const p0 = orb.pts[0];
+  const v0 = orb.dirs[0];
+  const n0 = inwardNormal(p0, a, b);
+  const [p0x, p0y] = toS(p0[0], p0[1]);
+  const aimDist = 0.36;
+  const [nx1, ny1] = toS(p0[0] + n0[0] * aimDist, p0[1] + n0[1] * aimDist);
+  const [qx, qy] = toS(p0[0] + v0[0] * aimDist, p0[1] + v0[1] * aimDist);
+
+  DM.dashed(ctx, p0x, p0y, nx1, ny1, DM.rgba(P.ink2, 0.42), 1.0, [3, 3]);
+  DM.arrow(ctx, p0x, p0y, qx, qy, P.cobalt, 1.8, 7);
+
+  // Aim handle Q
+  DM.circle(ctx, qx, qy, 8.5, DM.rgba(P.cobalt, 0.36), 1.1, {
+    fill: DM.rgba(P.cobalt, isDark ? 0.18 : 0.10),
+  });
+  DM.dot(ctx, qx, qy, 3.6, P.cobalt, { stroke: P.surface, strokeWidth: 1.1 });
+
+  // Launch point P0
+  DM.circle(ctx, p0x, p0y, 9.5, DM.rgba(P.vermilion, 0.34), 1.2, {
+    fill: DM.rgba(P.vermilion, isDark ? 0.18 : 0.10),
+  });
+  DM.dot(ctx, p0x, p0y, 4.5, P.vermilion, { stroke: P.surface, strokeWidth: 1.2, glow: isDark ? 5 : 0 });
+
+  // KaTeX stage labels
+  if (labels) {
+    const outNx = -n0[0], outNy = -n0[1];
+    const lbls = [
+      {
+        key: 'p0',
+        x: p0x + outNx * 20,
+        y: p0y - outNy * 20,
+        tex: 'P_0',
+        color: P.vermilion,
+        size: 13.5,
+      },
+      {
+        key: 'f1',
+        x: f1x,
+        y: f1y + 18,
+        tex: 'F_1',
+        color: P.verdigris,
+        size: 13,
+      },
+      {
+        key: 'f2',
+        x: f2x,
+        y: f2y + 18,
+        tex: 'F_2',
+        color: P.verdigris,
+        size: 13,
+      },
+    ];
+    labels.set(lbls);
+  }
+
+  // Live mathematical readout
+  const invOk = orb.maxJErr < 1e-10 && orb.maxLamErr < 1e-10;
+  const regimeTitle = kind === 'ellipse'
+    ? '\\text{Elliptic caustic}'
+    : kind === 'hyperbola'
+      ? '\\text{Hyperbolic caustic}'
+      : '\\text{Focal collapse}';
+  const cmpTex = kind === 'ellipse' ? '<' : kind === 'hyperbola' ? '>' : '=';
+  const errStr = orb.maxJErr < 1e-13 ? '< 10^{-13}' : DM.fmt(orb.maxJErr, 2);
+
+  app.readout(
+    `<span class="big">${DM.tex(regimeTitle)}</span> &nbsp; ${DM.check(invOk, 'Joachimsthal')}<br>` +
+    `${DM.tex(`\\lambda = ${DM.fmt(lam0, 3)} ${cmpTex} b^2 = ${DM.fmt(b * b, 3)}`)}<br>` +
+    `<small>${DM.tex(`J = ${DM.fmt(J0, 3)}`)} <span style="opacity:.45;margin:0 4px">|</span> ${DM.tex(`\\max|\\Delta J| ${errStr}`)}</small>`
+  );
+
+  app.legend([
+    { color: P.cobalt, label: 'billiard ray', line: true },
+    { color: causticColor, label: kind === 'hyperbola' ? 'hyperbolic caustic' : kind === 'focus' ? 'focal axis' : 'elliptic caustic', line: true },
+    { color: P.verdigris, label: 'foci' },
+  ]);
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '007',
+  title: 'Confocal Caustics of an Ellipse',
+  hook: 'Billiard rays inside an ellipse stay tangent to one confocal ellipse or hyperbola.',
+  date: '2026-11-24',
+  defaultTheme: 'light',
+  hint: 'drag P\u2080 along the ellipse or drag the aim arrow',
+  controls: [
+    { type: 'play' },
+    {
+      type: 'segmented',
+      id: 'regime',
+      label: 'Caustic regime',
+      value: 'ellipse',
+      options: [
+        { value: 'ellipse', label: 'Ellipse' },
+        { value: 'hyperbola', label: 'Hyperbola' },
+        { value: 'focus', label: 'Focus' },
+      ],
+      onChange: (v, a) => {
+        const target = presetAngleDeg(v, theta0, a.get('e'));
+        const start = a.get('aim');
+        a.tween(480, u => a.set('aim', DM.lerp(start, target, u), { silent: true }), { key: 'aim' });
+      },
+    },
+    {
+      type: 'slider',
+      id: 'aim',
+      label: 'α',
+      min: -82,
+      max: 82,
+      step: 0.2,
+      value: 56,
+      format: v => DM.fmt(v, 1) + '°',
+    },
+    {
+      type: 'slider',
+      id: 'e',
+      label: 'e',
+      min: 0.2,
+      max: 0.85,
+      step: 0.005,
+      value: 0.68,
+      format: v => DM.fmt(v, 2),
+    },
+    {
+      type: 'toggle',
+      id: 'net',
+      label: 'Confocal net',
+      value: false,
+    },
+  ],
+  tour: [
+    {
+      text: DM.texify('Launch a ray grazing the ellipse: every bounce stays tangent to an inner confocal ellipse, with $\\lambda < b^2$.'),
+      enter: a => {
+        theta0 = 1.08;
+        a.set('e', 0.68, { silent: true });
+        a.set('net', false, { silent: true });
+        a.set('regime', 'ellipse', { silent: true });
+        a.set('aim', presetAngleDeg('ellipse', theta0, 0.68), { silent: true });
+        a.play();
+      },
+    },
+    {
+      text: DM.texify('Aim between foci $F_1, F_2$: crossing $\\lambda = b^2$ flips the caustic to a confocal hyperbola.'),
+      enter: a => {
+        theta0 = 1.08;
+        a.set('e', 0.68, { silent: true });
+        a.set('net', false, { silent: true });
+        a.set('regime', 'hyperbola', { silent: true });
+        const from = a.get('aim');
+        const to = presetAngleDeg('hyperbola', theta0, 0.68);
+        a.pulse('aim');
+        a.tween(850, u => a.set('aim', DM.lerp(from, to, u), { silent: true }), { key: 'aim' });
+        a.play();
+      },
+    },
+    {
+      text: DM.texify('Aim straight through focus $F_2$ ($\\lambda = b^2$): alternating focal reflections collapse rapidly onto the major axis.'),
+      enter: a => {
+        theta0 = 1.08;
+        a.set('e', 0.68, { silent: true });
+        a.set('net', false, { silent: true });
+        a.set('regime', 'focus', { silent: true });
+        const from = a.get('aim');
+        const to = presetAngleDeg('focus', theta0, 0.68);
+        a.pulse('regime');
+        a.tween(700, u => a.set('aim', DM.lerp(from, to, u), { silent: true }), { key: 'aim' });
+        a.play();
+      },
+    },
+    {
+      text: DM.texify('Reveal the orthogonal confocal net and raise eccentricity $e$ to see both caustic families share foci $F_1, F_2$.'),
+      enter: a => {
+        theta0 = 1.08;
+        a.set('net', true, { silent: true });
+        a.set('regime', 'ellipse', { silent: true });
+        const e0 = a.get('e');
+        a.pulse('net');
+        a.tween(900, u => {
+          const eNow = DM.lerp(e0, 0.78, u);
+          a.set('e', eNow, { silent: true });
+          a.set('aim', presetAngleDeg('ellipse', theta0, eNow), { silent: true });
+        }, { key: 'e' });
+        a.play();
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p><b>Michel Chasles (1824)</b> and <b>George Birkhoff (1927)</b> proved that billiards inside an ellipse $\\frac{x^2}{a^2}+\\frac{y^2}{b^2}=1$ are completely integrable: every reflection preserves <b>Joachimsthal’s integral</b> $J = -\\langle p, A v\\rangle$, where $A = \\mathrm{diag}(a^{-2}, b^{-2})$.</p>
+    <p>Consequently, every chord stays tangent to the single confocal conic $\\frac{x^2}{a^2-\\lambda}+\\frac{y^2}{b^2-\\lambda}=1$ with $\\lambda = a^2 b^2 J^2$. Rays missing the focal segment $[F_1, F_2]$ have $\\lambda < b^2$ and wrap around a confocal ellipse; rays crossing between the foci have $\\lambda > b^2$ and graze a confocal hyperbola.</p>
+    <p class="ref">Plate 007 · Daily Math Atelier · Integrable Billiards &amp; Conic Geometry.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+  },
+  step: dt => {
+    pulseDist += dt * 1.35;
+  },
+  draw,
+});
+
+app.onResize(a => {
+  const rect = a.fitRect(1.48, 18);
+  cam = DM.camera(rect, { xmin: -1.18, xmax: 1.18, ymin: -0.92, ymax: 0.92 });
+});
+
+app.pointer({
+  down(p) {
+    if (!cam) return;
+    const { a, b } = ellipseAxes(app.get('e'));
+    const p0 = ellipsePoint(theta0, a, b);
+    const v0 = launchDir(p0, (app.get('aim') * Math.PI) / 180, a, b);
+    const [p0x, p0y] = cam.toScreen(p0[0], p0[1]);
+    const [qx, qy] = cam.toScreen(p0[0] + v0[0] * 0.36, p0[1] + v0[1] * 0.36);
+
+    if (Math.hypot(p.x - qx, p.y - qy) < 28) {
+      dragMode = 'aim';
+      app.cursor('grabbing');
+    } else if (Math.hypot(p.x - p0x, p.y - p0y) < 30) {
+      dragMode = 'p0';
+      app.cursor('grabbing');
+    } else {
+      // Clicking inside ellipse steers aim toward pointer; outside moves P0
+      const [wx, wy] = cam.toWorld(p.x, p.y);
+      if ((wx * wx) / (a * a) + (wy * wy) / (b * b) < 0.85) {
+        dragMode = 'aim';
+        const deg = DM.clamp((angleFromNormal(p0, [wx, wy], a, b) * 180) / Math.PI, -82, 82);
+        app.set('aim', Math.round(deg * 5) / 5, { silent: true });
+      } else {
+        dragMode = 'p0';
+        theta0 = Math.atan2(wy / b, wx / a);
+      }
+      app.cursor('grabbing');
+    }
+  },
+  drag(p) {
+    if (!cam || !dragMode) return;
+    const { a, b } = ellipseAxes(app.get('e'));
+    const [wx, wy] = cam.toWorld(p.x, p.y);
+    if (dragMode === 'p0') {
+      theta0 = Math.atan2(wy / b, wx / a);
+    } else if (dragMode === 'aim') {
+      const p0 = ellipsePoint(theta0, a, b);
+      const deg = DM.clamp((angleFromNormal(p0, [wx, wy], a, b) * 180) / Math.PI, -82, 82);
+      app.set('aim', Math.round(deg * 5) / 5, { silent: true });
+    }
+  },
+  up() {
+    dragMode = null;
+    app.cursor('');
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('Joachimsthal integral J and confocal parameter lambda are conserved across 40 bounces', () => {
+  for (const [e, aimDeg] of [[0.55, 52], [0.72, -10], [0.8, 65], [0.4, 5]]) {
+    const orb = traceBilliard(0.95, (aimDeg * Math.PI) / 180, e, 40);
+    if (orb.maxJErr > 1e-11) return `J drift ${orb.maxJErr} at e=${e}, aim=${aimDeg}`;
+    if (orb.maxLamErr > 1e-11) return `lambda drift ${orb.maxLamErr} at e=${e}, aim=${aimDeg}`;
+    const expectedLam = orb.a * orb.a * orb.b * orb.b * orb.J0 * orb.J0;
+    if (Math.abs(orb.lam0 - expectedLam) > 1e-12) return `lambda != a^2 b^2 J^2`;
+  }
+  return true;
+});
+
+DM.test('Every chord is tangent to its confocal conic and focal rays pass through alternating foci', () => {
+  const { a, b, c } = ellipseAxes(0.68);
+  // Elliptic caustic tangency check
+  const ell = traceBilliard(1.1, 0.95, 0.68, 20);
+  if (ell.kind !== 'ellipse') return 'expected elliptic caustic';
+  const A1 = a * a - ell.lam0, B1 = b * b - ell.lam0;
+  for (const T of ell.tangents) {
+    const val = (T[0] * T[0]) / A1 + (T[1] * T[1]) / B1;
+    if (Math.abs(val - 1) > 1e-10) return `tangency point off confocal ellipse: ${val}`;
+  }
+  // Focal ray alternating focus check
+  const p0 = ellipsePoint(1.08, a, b);
+  const fAng = angleFromNormal(p0, [c, 0], a, b);
+  const foc = traceBilliard(1.08, fAng, 0.68, 10);
+  if (Math.abs(foc.lam0 - b * b) > 1e-12) return `focal lambda mismatch: ${foc.lam0} vs ${b * b}`;
+  for (let k = 0; k < 6; k++) {
+    const fx = k % 2 === 0 ? c : -c;
+    const p = foc.pts[k], v = foc.dirs[k];
+    const distToFocus = Math.abs((fx - p[0]) * v[1] - (0 - p[1]) * v[0]);
+    if (distToFocus > 1e-11) return `ray ${k} missed focus by ${distToFocus}`;
+  }
+  return true;
+});
+
+DM.test('Reflections preserve unit speed and satisfy specular reflection law', () => {
+  const { a, b } = ellipseAxes(0.65);
+  let p = ellipsePoint(0.7, a, b);
+  let v = launchDir(p, 0.4, a, b);
+  for (let k = 0; k < 15; k++) {
+    const step = billiardStep(p, v, a, b);
+    if (!step) return 'step failed';
+    const onEll = (step.pNext[0] * step.pNext[0]) / (a * a) + (step.pNext[1] * step.pNext[1]) / (b * b);
+    if (Math.abs(onEll - 1) > 1e-12) return `point off ellipse: ${onEll}`;
+    const specDot = (v[0] + step.vNext[0]) * step.nOut[0] + (v[1] + step.vNext[1]) * step.nOut[1];
+    if (Math.abs(specDot) > 1e-12) return `specular law violated: ${specDot}`;
+    if (Math.abs(Math.hypot(step.vNext[0], step.vNext[1]) - 1) > 1e-12) return 'unit speed lost';
+    p = step.pNext;
+    v = step.vNext;
+  }
+  return true;
+});
+</script>
+</body>
+</html>
