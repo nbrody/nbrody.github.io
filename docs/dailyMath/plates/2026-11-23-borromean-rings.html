@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>The Borromean Rings · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/space3d.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: orthogonal Borromean ellipses & Gauss linking ---------- */
+
+function ringCurve(idx, e, sep = 0) {
+  const a = 1.0;
+  const b = Math.sqrt(Math.max(0.0, 1 - e * e));
+  if (idx === 0) {
+    return t => [
+      [a * Math.cos(t), b * Math.sin(t), 0.48 * sep],
+      [-a * Math.sin(t), b * Math.cos(t), 0],
+    ];
+  }
+  if (idx === 1) {
+    return t => [
+      [0, a * Math.cos(t), b * Math.sin(t) - 0.48 * sep],
+      [0, -a * Math.sin(t), b * Math.cos(t)],
+    ];
+  }
+  return t => [
+    [b * Math.sin(t), 0, a * Math.cos(t)],
+    [b * Math.cos(t), 0, -a * Math.sin(t)],
+  ];
+}
+
+function gaussLinking(curveA, curveB, samples = 64) {
+  const dt = (2 * Math.PI) / samples;
+  const A = Array.from({ length: samples }, (_, i) => curveA(i * dt));
+  const B = Array.from({ length: samples }, (_, j) => curveB(j * dt));
+  let sum = 0;
+  for (let i = 0; i < samples; i++) {
+    const [p1, d1] = A[i];
+    for (let j = 0; j < samples; j++) {
+      const [p2, d2] = B[j];
+      const rx = p1[0] - p2[0], ry = p1[1] - p2[1], rz = p1[2] - p2[2];
+      const r2 = rx * rx + ry * ry + rz * rz;
+      if (r2 < 1e-12) continue;
+      const r3 = r2 * Math.sqrt(r2);
+      const cx = d1[1] * d2[2] - d1[2] * d2[1];
+      const cy = d1[2] * d2[0] - d1[0] * d2[2];
+      const cz = d1[0] * d2[1] - d1[1] * d2[0];
+      sum += (rx * cx + ry * cy + rz * cz) / r3;
+    }
+  }
+  return (sum * dt * dt) / (4 * Math.PI);
+}
+
+function minRingClearance(e) {
+  return 1 - Math.sqrt(Math.max(0, 1 - e * e));
+}
+
+const VIEWS = {
+  iso:   { yaw: 0.62, pitch: 0.44 },
+  triad: { yaw: Math.PI / 4, pitch: Math.asin(1 / Math.sqrt(3)) },
+  axis:  { yaw: 0.02, pitch: 1.44 },
+};
+
+/* ---------- state ---------- */
+
+let geom = { x: 0, y: 0, r: 140 };
+let cam = null;
+let sep = 0;
+let labels = null;
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const ctx = app.ctx;
+  const P = app.palette;
+  const isDark = app.theme === 'dark';
+  DM.clear(app);
+
+  if (!cam) return;
+  const e = app.get('e');
+  const ringColors = [P.cobalt, P.vermilion, P.ochre];
+  const ringAlphas = [1.0, 1.0, Math.max(0, 1 - sep * 1.15)];
+  const N = 96;
+
+  // Build depth-sorted tube segments across all visible rings
+  const segs = [];
+  for (let rIdx = 0; rIdx < 3; rIdx++) {
+    const alpha = ringAlphas[rIdx];
+    if (alpha <= 0.02) continue;
+    const fn = ringCurve(rIdx, e, sep);
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const [p] = fn((2 * Math.PI * i) / N);
+      pts.push(cam.project(p, geom));
+    }
+    for (let i = 0; i < N; i++) {
+      const p1 = pts[i], p2 = pts[i + 1];
+      if (!p1 || !p2) continue;
+      segs.push({
+        z: 0.5 * (p1.z + p2.z),
+        p1,
+        p2,
+        color: ringColors[rIdx],
+        alpha,
+        ring: rIdx,
+      });
+    }
+  }
+
+  segs.sort((a, b) => a.z - b.z);
+
+  // Detect true inter-ring over-crossings so bridges have clean halos without striping smooth tubes
+  const overSet = new Set();
+  const bridgeD2 = Math.pow(Math.max(5.5, geom.r * 0.046) * 1.9, 2);
+  for (let i = 0; i < segs.length; i++) {
+    const A = segs[i];
+    const ax = 0.5 * (A.p1.x + A.p2.x), ay = 0.5 * (A.p1.y + A.p2.y);
+    for (let j = 0; j < i; j++) {
+      const B = segs[j];
+      if (A.ring === B.ring || A.z - B.z < 0.04) continue;
+      const bx = 0.5 * (B.p1.x + B.p2.x), by = 0.5 * (B.p1.y + B.p2.y);
+      const dx = ax - bx, dy = ay - by;
+      if (dx * dx + dy * dy < bridgeD2) {
+        overSet.add(i);
+        break;
+      }
+    }
+  }
+
+  const baseW = Math.max(5.8, geom.r * 0.048);
+  for (let i = 0; i < segs.length; i++) {
+    const s = segs[i];
+    const depth = DM.clamp((s.z + 1.35) / 2.7, 0.15, 1.0);
+    const shade = DM.mix(P.bg, s.color, 0.58 + 0.42 * depth);
+    const hi = DM.mix(s.color, P.ink, isDark ? 0.34 : 0.22);
+    ctx.save();
+    ctx.globalAlpha = s.alpha;
+    if (overSet.has(i)) {
+      DM.line(ctx, s.p1.x, s.p1.y, s.p2.x, s.p2.y, P.bg, baseW + 4.4, { cap: 'butt' });
+    }
+    DM.line(ctx, s.p1.x, s.p1.y, s.p2.x, s.p2.y, DM.rgba(shade, 1), baseW);
+    DM.line(ctx, s.p1.x, s.p1.y, s.p2.x, s.p2.y, DM.rgba(hi, 0.48), 1.25);
+    ctx.restore();
+  }
+
+  // Highlight 6 collision nodes when rings flatten toward flat circles (e -> 0)
+  const delta = minRingClearance(e);
+  const embedded = delta > 0.015;
+  if (!embedded && sep < 0.2) {
+    const nodes = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+    for (const nPt of nodes) {
+      const q = cam.project(nPt, geom);
+      if (!q) continue;
+      DM.circle(ctx, q.x, q.y, 9, P.vermilion, 1.4, {
+        fill: DM.rgba(P.vermilion, isDark ? 0.28 : 0.18),
+      });
+      DM.dot(ctx, q.x, q.y, 3.6, P.vermilion);
+    }
+  }
+
+  // Pinned KaTeX labels on representative ring apices
+  if (labels) {
+    const anchors = [
+      { key: 'r1', p: ringCurve(0, e, sep)(Math.PI * 0.12)[0], tex: 'R_1', color: P.cobalt },
+      { key: 'r2', p: ringCurve(1, e, sep)(Math.PI * 0.12)[0], tex: 'R_2', color: P.vermilion },
+    ];
+    if (ringAlphas[2] > 0.25) {
+      anchors.push({ key: 'r3', p: ringCurve(2, e, sep)(Math.PI * 0.12)[0], tex: 'R_3', color: P.ochre });
+    }
+    const lblList = [];
+    for (const a of anchors) {
+      const q = cam.project(a.p, geom);
+      if (q) lblList.push({ key: a.key, x: q.x + 14, y: q.y - 12, tex: a.tex, color: a.color, size: 13 });
+    }
+    labels.set(lblList);
+  }
+
+  const cut = app.get('cut');
+  const statusOk = embedded || cut;
+  const statusTxt = cut ? 'R₁, R₂ unlinked' : (embedded ? 'Brunnian link' : 'circles collide');
+  app.readout(
+    `<span class="big">${DM.tex('\\operatorname{lk}(R_i, R_j) = 0')}</span> &nbsp; ${DM.check(statusOk, statusTxt)}<br>` +
+    `${DM.tex(`\\delta = 1 - \\sqrt{1 - e^2} = ${DM.fmt(delta, 3)}`)}<br>` +
+    `<small>${DM.tex(`e = ${DM.fmt(e, 2)}`)} <span style="opacity:.45;margin:0 4px">|</span> ${DM.tex(cut ? 'R_3\\text{ removed}' : '\\bar{\\mu}(1,2,3) = \\pm 1')}</small>`
+  );
+
+  app.legend([
+    { color: P.cobalt, label: 'ring R₁', line: true },
+    { color: P.vermilion, label: 'ring R₂', line: true },
+    { color: P.ochre, label: 'ring R₃', line: true },
+  ]);
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '005',
+  title: 'The Borromean Rings',
+  hook: 'Three ellipses lock inextricably together, even though no two of them are linked.',
+  date: '2026-11-23',
+  defaultTheme: 'dark',
+  hint: 'drag to orbit in 3D · scroll to zoom',
+  controls: [
+    { type: 'play' },
+    {
+      type: 'slider',
+      id: 'e',
+      label: 'e',
+      min: 0,
+      max: 0.90,
+      step: 0.01,
+      value: 0.78,
+      format: v => DM.fmt(v, 2),
+    },
+    {
+      type: 'toggle',
+      id: 'cut',
+      label: 'Remove R₃',
+      value: false,
+      onChange: (v, a) => {
+        const s0 = sep;
+        const target = v ? 1 : 0;
+        a.tween(480, u => { sep = DM.lerp(s0, target, u); }, { key: 'sep' });
+      },
+    },
+    {
+      type: 'segmented',
+      id: 'view',
+      label: 'Camera view',
+      value: 'iso',
+      options: [
+        { value: 'iso', label: 'Iso' },
+        { value: 'triad', label: 'Triad' },
+        { value: 'axis', label: 'Axis' },
+      ],
+      onChange: (v, a) => {
+        if (!cam || !VIEWS[v]) return;
+        const y0 = cam.yaw, p0 = cam.pitch;
+        const t = VIEWS[v];
+        a.tween(520, u => cam.set(DM.lerp(y0, t.yaw, u), DM.lerp(p0, t.pitch, u)), { key: 'cam' });
+      },
+    },
+  ],
+  tour: [
+    {
+      text: DM.texify('Three orthogonal ellipses of eccentricity $e = 0.78$ interlock so no single ring can escape.'),
+      enter: a => {
+        a.set('e', 0.78, { silent: true });
+        a.set('cut', false, { silent: true });
+        a.set('view', 'iso', { silent: true });
+        sep = 0;
+        cam?.set(VIEWS.iso.yaw, VIEWS.iso.pitch, 3.7);
+        a.play();
+      },
+    },
+    {
+      text: DM.texify('Look down the $(1,1,1)$ triad axis: cyclic symmetry weaves each ellipse cyclically over the next.'),
+      enter: a => {
+        a.pause();
+        a.set('cut', false, { silent: true });
+        a.set('e', 0.78, { silent: true });
+        a.set('view', 'triad', { silent: true });
+        sep = 0;
+        const y0 = cam.yaw, p0 = cam.pitch;
+        a.tween(550, u => cam.set(DM.lerp(y0, VIEWS.triad.yaw, u), DM.lerp(p0, VIEWS.triad.pitch, u)), { key: 'cam' });
+      },
+    },
+    {
+      text: DM.texify('Remove $R_3$: because $\\operatorname{lk}(R_1, R_2) = 0$, the remaining two ellipses drift apart freely.'),
+      enter: a => {
+        a.pause();
+        a.set('e', 0.78, { silent: true });
+        a.set('cut', true, { silent: true });
+        a.pulse('cut');
+        cam?.set(VIEWS.iso.yaw, VIEWS.iso.pitch, 3.7);
+        const s0 = sep;
+        a.tween(550, u => { sep = DM.lerp(s0, 1, u); }, { key: 'sep' });
+      },
+    },
+    {
+      text: DM.texify('Restore $R_3$ and flatten $e \\to 0$: three flat circles collide at six points — circular Borromean rings are impossible!'),
+      enter: a => {
+        a.pause();
+        a.set('cut', false, { silent: true });
+        sep = 0;
+        cam?.set(VIEWS.iso.yaw, VIEWS.iso.pitch, 3.7);
+        const e0 = a.get('e');
+        a.pulse('e');
+        a.tween(600, u => a.set('e', DM.lerp(e0, 0, u), { silent: true }), { key: 'e' });
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p>The <b>Borromean rings</b> are the simplest <i>Brunnian link</i>: three curves inextricably linked together, though every pair has linking number $\\operatorname{lk}(R_i, R_j) = 0$ and unlinks immediately if the third ring is cut (detected by Milnor’s triple invariant $\\bar{\\mu}(1,2,3) = \\pm 1$).</p>
+    <p><b>Lindström &amp; Zetterström (1991)</b> proved no flat circular realization exists in $\\mathbb{R}^3$; squashing $e \\to 0$ collapses the clearance $\\delta = 1 - \\sqrt{1-e^2}$ to zero.</p>
+    <p class="ref">Plate 005 · Daily Math Atelier · Low-Dimensional Topology.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+    cam = DM.orbit3d(a, { yaw: VIEWS.iso.yaw, pitch: VIEWS.iso.pitch, dist: 3.7, fov: 2.25 });
+    cam.attach();
+  },
+  step: dt => {
+    if (cam) {
+      cam.step(dt);
+      cam.spin(dt * 0.34, 0);
+    }
+  },
+  draw,
+});
+
+app.onResize(a => {
+  geom = a.fitCircle(20);
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('Pairwise Gauss linking integrals of all Borromean rings vanish', () => {
+  for (const e of [0.45, 0.78]) {
+    const r1 = ringCurve(0, e, 0);
+    const r2 = ringCurve(1, e, 0);
+    const r3 = ringCurve(2, e, 0);
+    for (const [A, B] of [[r1, r2], [r2, r3], [r3, r1]]) {
+      const lk = gaussLinking(A, B, 56);
+      if (Math.abs(lk) > 1e-11) return `Unexpected non-zero lk=${lk}`;
+    }
+  }
+  return true;
+});
+
+DM.test('Gauss linking integral equals +-1 on a control Hopf link', () => {
+  const h1 = t => [[Math.cos(t), Math.sin(t), 0], [-Math.sin(t), Math.cos(t), 0]];
+  const h2 = t => [[1 + Math.cos(t), 0, Math.sin(t)], [-Math.sin(t), 0, Math.cos(t)]];
+  const lk = gaussLinking(h1, h2, 64);
+  if (Math.abs(Math.abs(lk) - 1) > 1e-11) return `Hopf lk=${lk}`;
+  return true;
+});
+
+DM.test('Clearance delta = 1 - sqrt(1 - e^2) vanishes exclusively at flat circles e=0', () => {
+  if (minRingClearance(0) !== 0) return 'Clearance nonzero at e=0';
+  if (minRingClearance(0.78) <= 0.3) return 'Clearance unexpectedly small at e=0.78';
+  return true;
+});
+</script>
+</body>
+</html>

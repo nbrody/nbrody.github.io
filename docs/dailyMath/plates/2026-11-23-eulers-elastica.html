@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>Euler's Elastica · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/plot.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: Kirchhoff pendulum elastica & elliptic integrals ---------- */
+
+const K_FIG8 = 0.9089085575485415; // root of 2*E(k) = K(k)
+
+const REGIMES = {
+  arch:  0.58,
+  fig8:  K_FIG8,
+  loop:  1.0,
+  coil:  1.22,
+};
+
+function rk4Half(k, halfL, sign, ds = 0.008) {
+  const steps = Math.max(10, Math.ceil(halfL / ds));
+  const h = (sign * halfL) / steps;
+  let th = 0, kap = 2 * k, x = 0, y = 0;
+  const H0 = 2 * k * k - 1;
+  const out = [{ s: 0, x, y, theta: th, kappa: kap, H: 0.5 * kap * kap - Math.cos(th) }];
+
+  const deriv = (sTh, sKap) => [sKap, -Math.sin(sTh), Math.cos(sTh), Math.sin(sTh)];
+  for (let i = 0; i < steps; i++) {
+    const [d1t, d1k, d1x, d1y] = deriv(th, kap);
+    const [d2t, d2k, d2x, d2y] = deriv(th + 0.5 * h * d1t, kap + 0.5 * h * d1k);
+    const [d3t, d3k, d3x, d3y] = deriv(th + 0.5 * h * d2t, kap + 0.5 * h * d2k);
+    const [d4t, d4k, d4x, d4y] = deriv(th + h * d3t, kap + h * d3k);
+    th  += (h / 6) * (d1t + 2 * d2t + 2 * d3t + d4t);
+    kap += (h / 6) * (d1k + 2 * d2k + 2 * d3k + d4k);
+    x   += (h / 6) * (d1x + 2 * d2x + 2 * d3x + d4x);
+    y   += (h / 6) * (d1y + 2 * d2y + 2 * d3y + d4y);
+    out.push({
+      s: (i + 1) * h,
+      x, y,
+      theta: th,
+      kappa: kap,
+      H: 0.5 * kap * kap - Math.cos(th),
+      drift: Math.abs((0.5 * kap * kap - Math.cos(th)) - H0),
+    });
+  }
+  return out;
+}
+
+function integrateElastica(k, L) {
+  const half = L / 2;
+  const neg = rk4Half(k, half, -1).slice(1).reverse();
+  const pos = rk4Half(k, half, 1);
+  const pts = neg.concat(pos);
+  let energy = 0;
+  let maxDrift = 0;
+  const inflections = [];
+  for (let i = 0; i < pts.length; i++) {
+    if (pts[i].drift > maxDrift) maxDrift = pts[i].drift;
+    if (i > 0) {
+      const ds = pts[i].s - pts[i - 1].s;
+      energy += 0.25 * (pts[i].kappa * pts[i].kappa + pts[i - 1].kappa * pts[i - 1].kappa) * ds;
+      if (pts[i - 1].kappa * pts[i].kappa <= 0 && (pts[i - 1].kappa !== 0 || pts[i].kappa !== 0)) {
+        const u = Math.abs(pts[i - 1].kappa) / (Math.abs(pts[i - 1].kappa) + Math.abs(pts[i].kappa));
+        inflections.push([DM.lerp(pts[i - 1].x, pts[i].x, u), DM.lerp(pts[i - 1].y, pts[i].y, u)]);
+      }
+    }
+  }
+  return { pts, energy, maxDrift, inflections };
+}
+
+function ellipticKE(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k)), c = k, sum = 0, pow = 0.5;
+  for (let i = 0; i < 24; i++) {
+    sum += pow * c * c;
+    const an = 0.5 * (a + b), bn = Math.sqrt(a * b);
+    c = 0.5 * (a - b);
+    a = an; b = bn; pow *= 2;
+    if (Math.abs(c) < 1e-15) break;
+  }
+  const K = Math.PI / (2 * a);
+  return { K, E: K * (1 - sum) };
+}
+
+function wrapPi(th) {
+  let a = (th + Math.PI) % (2 * Math.PI);
+  if (a < 0) a += 2 * Math.PI;
+  return a - Math.PI;
+}
+
+/* ---------- state ---------- */
+
+let tracerU = 0.62;
+let draggingMode = null; // 'rod' | 'phase'
+let labels = null;
+let lastPlot = null;
+
+function regimeLabel(k) {
+  if (Math.abs(k - K_FIG8) < 0.015) return 'figure-8';
+  if (Math.abs(k - 1.0) < 0.015) return 'homoclinic loop';
+  return k < 1 ? 'inflectional' : 'coiling';
+}
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const ctx = app.ctx;
+  const P = app.palette;
+  const isDark = app.theme === 'dark';
+  DM.clear(app);
+
+  const rodPane = app.pane('rod');
+  const phasePane = app.pane('phase');
+  if (!rodPane || !phasePane) return;
+
+  const k = app.get('k');
+  const L = app.get('L');
+  const sol = integrateElastica(k, L);
+  const pts = sol.pts;
+
+  /* ---- Left pane: Elastic Rod ---- */
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+  for (const p of pts) {
+    if (p.x < xmin) xmin = p.x;
+    if (p.x > xmax) xmax = p.x;
+    if (p.y < ymin) ymin = p.y;
+    if (p.y > ymax) ymax = p.y;
+  }
+  const cxW = 0.5 * (xmin + xmax);
+  const cyW = 0.5 * (ymin + ymax);
+  const span = Math.max(2.6, xmax - xmin, ymax - ymin);
+  const rBox = rodPane.fitRect(1.05, 22);
+  const scale = (Math.min(rBox.w, rBox.h) * 0.84) / span;
+  const toRod = (wx, wy) => [rBox.cx + (wx - cxW) * scale, rBox.cy - (wy - cyW) * scale];
+
+  app.clip(rodPane, () => {
+    // Line of action of the end force (along x-axis in midpoint frame)
+    const pStart = pts[0], pEnd = pts[pts.length - 1];
+    const [sLx, sLy] = toRod(xmin - 0.5, 0);
+    const [sRx] = toRod(xmax + 0.5, 0);
+    DM.dashed(ctx, sLx, sLy, sRx, sLy, DM.rgba(P.ink, 0.18), 0.9, [4, 4]);
+
+    // End compression arrows
+    const [e1x, e1y] = toRod(pStart.x, pStart.y);
+    const [e2x, e2y] = toRod(pEnd.x, pEnd.y);
+    DM.arrow(ctx, e1x - 24, e1y, e1x - 4, e1y, P.vermilion, 1.35, 6);
+    DM.arrow(ctx, e2x + 24, e2y, e2x + 4, e2y, P.vermilion, 1.35, 6);
+
+    // Curvature-colored ribbon segments
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const [ax, ay] = toRod(a.x, a.y);
+      const [bx, by] = toRod(b.x, b.y);
+      const t = DM.clamp(Math.abs(a.kappa + b.kappa) * 0.22, 0, 1);
+      const rgb = DM.mix(P.cobalt, P.vermilion, t);
+      DM.line(ctx, ax, ay, bx, by, DM.rgba(rgb, 0.95), 3.0);
+    }
+
+    // Inflection markers (kappa = 0)
+    for (const [ix, iy] of sol.inflections) {
+      const [sx, sy] = toRod(ix, iy);
+      DM.dot(ctx, sx, sy, 3.6, P.ochre, { stroke: P.surface, strokeWidth: 1.1 });
+    }
+
+    // Endpoint anchors
+    DM.dot(ctx, e1x, e1y, 3.8, P.ink, { stroke: P.surface, strokeWidth: 1.1 });
+    DM.dot(ctx, e2x, e2y, 3.8, P.ink, { stroke: P.surface, strokeWidth: 1.1 });
+
+    // Synced arc-length tracer bead
+    const idx = Math.min(pts.length - 1, Math.floor(tracerU * (pts.length - 1)));
+    const tp = pts[idx];
+    const [tx, ty] = toRod(tp.x, tp.y);
+    DM.circle(ctx, tx, ty, 9, DM.rgba(P.vermilion, 0.35), 1.3, {
+      fill: DM.rgba(P.vermilion, isDark ? 0.18 : 0.12),
+    });
+    DM.dot(ctx, tx, ty, 4.4, P.vermilion, { stroke: P.surface, strokeWidth: 1.2 });
+  });
+
+  /* ---- Right pane: Pendulum Phase Portrait ---- */
+  DM.polygon(
+    ctx,
+    [
+      [phasePane.x + 2, phasePane.y + 2],
+      [phasePane.x + phasePane.w - 2, phasePane.y + 2],
+      [phasePane.x + phasePane.w - 2, phasePane.y + phasePane.h - 2],
+      [phasePane.x + 2, phasePane.y + phasePane.h - 2],
+    ],
+    DM.rgba(P.surface, isDark ? 0.38 : 0.56),
+    P.hairline,
+    1
+  );
+
+  // Compute pendulum background contours
+  const bgContours = [];
+  for (const ck of [0.4, 0.72, 1.0, 1.24]) {
+    const Hc = 2 * ck * ck - 1;
+    const upper = [], lower = [];
+    for (let j = 0; j <= 100; j++) {
+      const th = -Math.PI + (2 * Math.PI * j) / 100;
+      const rad = 2 * (Hc + Math.cos(th));
+      if (rad >= 0) {
+        const kap = Math.sqrt(rad);
+        upper.push([th, kap]);
+        lower.push([th, -kap]);
+      }
+    }
+    const isSep = Math.abs(ck - 1) < 0.01;
+    const col = isSep ? DM.rgba(P.ochre, 0.55) : DM.rgba(P.ink, 0.13);
+    const dash = isSep ? [4, 4] : null;
+    if (upper.length > 2) bgContours.push({ data: upper, color: col, width: isSep ? 1.15 : 0.85, dash });
+    if (lower.length > 2) bgContours.push({ data: lower, color: col, width: isSep ? 1.15 : 0.85, dash });
+  }
+
+  lastPlot = DM.plot(ctx, phasePane, {
+    xlim: [-Math.PI, Math.PI],
+    ylim: [-3.1, 3.1],
+    xticks: [-Math.PI, -Math.PI / 2, 0, Math.PI / 2, Math.PI],
+    yticks: [-2, 0, 2],
+    pad: { top: 28, right: 16, bottom: 26, left: 38 },
+    series: bgContours,
+  });
+
+  // Draw active wrapped phase trajectory + synced tracer dot inside plot clip
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(lastPlot.px, lastPlot.py, lastPlot.pw, lastPlot.ph);
+  ctx.clip();
+
+  let seg = [];
+  let prevW = null;
+  for (const p of pts) {
+    const w = wrapPi(p.theta);
+    if (prevW !== null && Math.abs(w - prevW) > Math.PI) {
+      if (seg.length > 1) DM.polyline(ctx, seg, P.cobalt, 2.1);
+      seg = [];
+    }
+    seg.push([lastPlot.sx(w), lastPlot.sy(p.kappa)]);
+    prevW = w;
+  }
+  if (seg.length > 1) DM.polyline(ctx, seg, P.cobalt, 2.1);
+
+  const idx = Math.min(pts.length - 1, Math.floor(tracerU * (pts.length - 1)));
+  const tp = pts[idx];
+  const ptx = lastPlot.sx(wrapPi(tp.theta));
+  const pty = lastPlot.sy(tp.kappa);
+  DM.circle(ctx, ptx, pty, 8, DM.rgba(P.vermilion, 0.35), 1.2, {
+    fill: DM.rgba(P.vermilion, isDark ? 0.18 : 0.12),
+  });
+  DM.dot(ctx, ptx, pty, 4, P.vermilion, { stroke: P.surface, strokeWidth: 1.1 });
+  ctx.restore();
+
+  if (labels) {
+    const lbls = [];
+    if (pts[0] && rodPane.w > 200) {
+      const [tx, ty] = toRod(tp.x, tp.y);
+      lbls.push({ key: 'pt', x: tx, y: ty - 16, tex: 's', color: P.vermilion, size: 12.5 });
+    }
+    lbls.push({ key: 'pk', x: ptx + 12, y: pty - 12, tex: '(\\theta, \\kappa)', color: P.vermilion, size: 11.5 });
+    labels.set(lbls);
+  }
+
+  // Live readout
+  const H0 = 2 * k * k - 1;
+  app.readout(
+    `<span class="big">${regimeLabel(k)}</span> &nbsp; ${DM.check(sol.maxDrift < 1e-8, 'H conserved')}<br>` +
+    `${DM.tex(`k = ${DM.fmt(k, 4)}`)} <span style="opacity:.45;margin:0 4px">|</span> ${DM.tex(`\\mathcal{E} = ${DM.fmt(sol.energy, 2)}`)}<br>` +
+    `<small>${DM.tex(`\\tfrac{1}{2}\\kappa^2 - \\cos\\theta = ${DM.fmt(H0, 3)}`)}</small>`
+  );
+
+  app.legend([
+    { color: P.cobalt, label: 'low curvature', line: true },
+    { color: P.vermilion, label: 'high curvature', line: true },
+    { color: P.ochre, label: 'inflection / sep.' },
+  ]);
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '004',
+  title: "Euler's Elastica",
+  hook: 'An elastic rod under compression traces the exact phase trajectories of a nonlinear pendulum.',
+  date: '2026-11-23',
+  defaultTheme: 'light',
+  hint: 'drag the rod pane to bend, or pick an orbit in phase space',
+  panes: [
+    { id: 'rod', weight: 3, label: 'elastic rod' },
+    { id: 'phase', weight: 2, label: 'pendulum phase' },
+  ],
+  controls: [
+    { type: 'play' },
+    {
+      type: 'segmented',
+      id: 'regime',
+      label: 'Elastica regime',
+      value: 'arch',
+      options: [
+        { value: 'arch', label: 'Arch' },
+        { value: 'fig8', label: 'Figure-8' },
+        { value: 'loop', label: 'Loop' },
+        { value: 'coil', label: 'Coil' },
+      ],
+      onChange: (v, a) => {
+        if (REGIMES[v] == null) return;
+        const start = a.get('k');
+        const target = REGIMES[v];
+        a.tween(480, u => a.set('k', DM.lerp(start, target, u), { silent: true }), { key: 'k' });
+      },
+    },
+    {
+      type: 'slider',
+      id: 'k',
+      label: 'k',
+      min: 0.15,
+      max: 1.40,
+      step: 0.002,
+      value: REGIMES.arch,
+      format: v => DM.fmt(v, 3),
+    },
+    {
+      type: 'slider',
+      id: 'L',
+      label: 'L',
+      min: 4.5,
+      max: 14,
+      step: 0.25,
+      value: 9.0,
+      format: v => DM.fmt(v, 1),
+    },
+  ],
+  tour: [
+    {
+      text: DM.texify('Under light compression ($k = 0.58$), the rod buckles into a gentle inflectional arch oscillating in the pendulum well.'),
+      enter: a => {
+        a.set('regime', 'arch', { silent: true });
+        a.set('k', REGIMES.arch, { silent: true });
+        a.set('L', 9.0, { silent: true });
+        a.play();
+      },
+    },
+    {
+      text: DM.texify('At $k_* \\approx 0.9089$, where $2E(k_*) = K(k_*)$, the rod closes onto itself as Euler’s figure-eight.'),
+      enter: a => {
+        a.set('regime', 'fig8', { silent: true });
+        a.set('L', 9.25, { silent: true });
+        a.pulse('regime');
+        const start = a.get('k');
+        a.tween(550, u => a.set('k', DM.lerp(start, K_FIG8, u), { silent: true }), { key: 'k' });
+      },
+    },
+    {
+      text: DM.texify('On the homoclinic separatrix $k = 1$, curvature decays exponentially: $\\kappa(s) = 2\\operatorname{sech} s$.'),
+      enter: a => {
+        a.set('regime', 'loop', { silent: true });
+        a.set('L', 10.0, { silent: true });
+        const k0 = a.get('k');
+        a.tween(500, u => a.set('k', DM.lerp(k0, 1.0, u), { silent: true }), { key: 'k' });
+      },
+    },
+    {
+      text: DM.texify('Push past $k > 1$: the pendulum swings completely over the top and the rod winds into non-inflectional coils.'),
+      enter: a => {
+        a.set('regime', 'coil', { silent: true });
+        a.set('L', 10.5, { silent: true });
+        const k0 = a.get('k');
+        a.tween(550, u => a.set('k', DM.lerp(k0, 1.22, u), { silent: true }), { key: 'k' });
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p><b>Leonhard Euler (1744)</b> classified plane elastic curves minimizing total squared curvature $\\int \\kappa(s)^2\\,ds$ at fixed length. By <b>Kirchhoff’s kinetic analogy</b>, the turning angle $\\theta(s)$ satisfies the mathematical pendulum ODE $\\theta''(s) = -\\sin\\theta(s)$ with conserved first integral $H = \\tfrac{1}{2}\\kappa^2 - \\cos\\theta = 2k^2 - 1$.</p>
+    <p>Moduli $k < 1$ give inflectional waves (including the closed figure-eight at $2E(k_*)=K(k_*)$), $k = 1$ gives the solitary loop $\\kappa = 2\\operatorname{sech} s$, and $k > 1$ winds into loops.</p>
+    <p class="ref">Plate 004 · Daily Math Atelier · Calculus of Variations.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+  },
+  step: dt => {
+    if (!draggingMode) tracerU = (tracerU + dt * 0.22) % 1;
+  },
+  draw,
+});
+
+function pickPhaseK(p) {
+  if (!lastPlot) return;
+  const th = -Math.PI + ((p.x - lastPlot.px) / lastPlot.pw) * (2 * Math.PI);
+  const kap = 3.1 - ((p.y - lastPlot.py) / lastPlot.ph) * 6.2;
+  const H = 0.5 * kap * kap - Math.cos(DM.clamp(th, -Math.PI, Math.PI));
+  const kNext = DM.clamp(Math.sqrt(Math.max(0.02, (H + 1) / 2)), 0.15, 1.40);
+  app.set('k', kNext, { silent: true });
+}
+
+app.pointer({
+  down(p) {
+    if (p.pane && p.pane.id === 'phase' && lastPlot) {
+      draggingMode = 'phase';
+      pickPhaseK(p);
+      app.cursor('crosshair');
+    } else if (p.pane && p.pane.id === 'rod') {
+      draggingMode = 'rod';
+      app.cursor('ew-resize');
+    }
+  },
+  drag(p, d) {
+    if (draggingMode === 'phase') {
+      pickPhaseK(p);
+    } else if (draggingMode === 'rod') {
+      app.set('k', DM.clamp(app.get('k') + d.dx * 0.004, 0.15, 1.40), { silent: true });
+    }
+  },
+  up() {
+    draggingMode = null;
+    app.cursor('');
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('Kirchhoff Hamiltonian H = kappa^2/2 - cos(theta) is conserved to < 1e-9', () => {
+  for (const k of [0.45, K_FIG8, 1.0, 1.28]) {
+    const sol = integrateElastica(k, 10);
+    if (sol.maxDrift > 1e-9) return `Drift ${sol.maxDrift} at k=${k}`;
+  }
+  return true;
+});
+
+DM.test('Homoclinic separatrix k=1 matches analytic sech loop to < 1e-8', () => {
+  const sol = integrateElastica(1.0, 8);
+  for (const p of sol.pts) {
+    const xExact = 2 * Math.tanh(p.s) - p.s;
+    const yExact = 2 - 2 / Math.cosh(p.s);
+    const err = Math.hypot(p.x - xExact, p.y - yExact);
+    if (err > 1e-8) return `Separatrix error ${err} at s=${p.s}`;
+  }
+  return true;
+});
+
+DM.test('Figure-eight modulus k* satisfies 2E(k*) = K(k*) and endpoint x-closure', () => {
+  const { K, E } = ellipticKE(K_FIG8);
+  if (Math.abs(2 * E - K) > 1e-11) return `2E - K = ${2 * E - K}`;
+  const half = rk4Half(K_FIG8, 2 * K, 1, 0.004);
+  const end = half[half.length - 1];
+  if (Math.abs(end.x) > 1e-7) return `Figure-8 end x = ${end.x}`;
+  return true;
+});
+</script>
+</body>
+</html>

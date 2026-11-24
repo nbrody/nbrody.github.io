@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>Volume of an Ideal Tetrahedron · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/math-complex.js"></script>
+<script src="../atelier/gl.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: Lobachevsky & Bloch-Wigner volume ---------- */
+
+const V_MAX = 1.0149416064096536; // 3 * Lambda(pi/3), regular ideal tetrahedron
+const CATALAN = 0.9159655941772190;
+
+const GL16_X = [
+  -0.9894009349916499, -0.9445750230732326, -0.8656312023878318, -0.7554044083550030,
+  -0.6178762444026438, -0.4580167776572274, -0.2816035507792589, -0.0950125098376374,
+   0.0950125098376374,  0.2816035507792589,  0.4580167776572274,  0.6178762444026438,
+   0.7554044083550030,  0.8656312023878318,  0.9445750230732326,  0.9894009349916499,
+];
+const GL16_W = [
+  0.0271524594117541, 0.0622535239386479, 0.0951585116824928, 0.1246289712555339,
+  0.1495959888165767, 0.1691565193950025, 0.1826034150449236, 0.1894506104550685,
+  0.1894506104550685, 0.1826034150449236, 0.1691565193950025, 0.1495959888165767,
+  0.1246289712555339, 0.0951585116824928, 0.0622535239386479, 0.0271524594117541,
+];
+
+// Milnor's Lobachevsky function Lambda(theta) = -int_0^theta log|2 sin t| dt
+function lobachevsky(th) {
+  let t = ((th % Math.PI) + Math.PI) % Math.PI;
+  if (t < 1e-15 || Math.PI - t < 1e-15) return 0;
+  if (t > Math.PI / 2) return -lobachevsky(Math.PI - t);
+  let sum = 0;
+  for (let i = 0; i < 16; i++) {
+    const u = 0.5 * t * (GL16_X[i] + 1);
+    sum += GL16_W[i] * Math.log(Math.sin(u) / u);
+  }
+  return t * (1 - Math.log(2 * t)) - 0.5 * t * sum;
+}
+
+function dihedralAngles(z) {
+  const alpha = Math.atan2(z[1], z[0]);
+  const w = DM.cx.div([z[0] - 1, z[1]], z);
+  const beta = Math.atan2(w[1], w[0]);
+  const gamma = Math.PI - alpha - beta;
+  return [alpha, beta, gamma];
+}
+
+function milnorVolume(z) {
+  if (z[1] <= 1e-13) return 0;
+  const [a, b, c] = dihedralAngles(z);
+  return lobachevsky(a) + lobachevsky(b) + lobachevsky(c);
+}
+
+// Independent Bloch-Wigner dilogarithm D(z) = Im(Li2(z)) + arg(1-z)*log|z|
+function blochWigner(z) {
+  const [x, y] = z;
+  const r2 = x * x + y * y;
+  if (r2 < 1e-24 || Math.hypot(x - 1, y) < 1e-12) return 0;
+  if (r2 > 1.0001) return -blochWigner([x / r2, -y / r2]);
+  if (x > 0.5001) return -blochWigner([1 - x, -y]);
+  let imLi2 = 0;
+  let zk = [1, 0];
+  for (let k = 1; k <= 120; k++) {
+    zk = DM.cx.mul(zk, z);
+    imLi2 += zk[1] / (k * k);
+  }
+  return imLi2 + Math.atan2(-y, 1 - x) * 0.5 * Math.log(r2);
+}
+
+// S3 symmetry orbit in the upper half-plane (6 shapes sharing identical |D(z)|)
+function s3Orbit(z) {
+  const c1 = [1, 0];
+  const zBar = DM.cx.conj(z);
+  const inv1mZ = DM.cx.div(c1, DM.cx.sub(c1, z));
+  const oneMInvZ = DM.cx.sub(c1, DM.cx.div(c1, z));
+  const invZBar = DM.cx.div(c1, zBar);
+  const oneMZBar = DM.cx.sub(c1, zBar);
+  const zBarOver = DM.cx.div(zBar, DM.cx.sub(zBar, c1));
+  return [z, inv1mZ, oneMInvZ, oneMZBar, invZBar, zBarOver];
+}
+
+const PRESETS = {
+  regular: [0.5, Math.sqrt(3) / 2],
+  right:   [0, 1],
+  flat:    [0.5, 0.18],
+  tall:    [0.32, 1.38],
+};
+
+/* ---------- WebGL2 shader ---------- */
+
+const FRAG = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 fragColor;
+
+uniform vec4 u_bounds; // xmin, xmax, ymin, ymax
+uniform float u_contours;
+//#DM_PALETTE
+
+float lob(float th) {
+  float t = clamp(th, 0.0, 3.14159265);
+  float s = 0.0;
+  for (int k = 1; k <= 20; k++) {
+    float fk = float(k);
+    s += sin(2.0 * fk * t) / (fk * fk);
+  }
+  return 0.5 * s;
+}
+
+float tetVol(vec2 z) {
+  if (z.y <= 0.0005) return 0.0;
+  float a = atan(z.y, z.x);
+  vec2 zm1 = z - vec2(1.0, 0.0);
+  float r2 = dot(z, z);
+  vec2 w = vec2(dot(zm1, z), zm1.y * z.x - zm1.x * z.y) / max(r2, 1e-8);
+  float b = atan(w.y, w.x);
+  float g = 3.14159265 - a - b;
+  return max(0.0, lob(a) + lob(b) + lob(g));
+}
+
+void main() {
+  float x = mix(u_bounds.x, u_bounds.y, v_uv.x);
+  float y = mix(u_bounds.z, u_bounds.w, v_uv.y);
+
+  if (y < 0.0) {
+    vec3 below = mix(dm_bg_alt(), dm_bg(), 0.55);
+    fragColor = vec4(below, 1.0);
+    return;
+  }
+
+  float vol = tetVol(vec2(x, y));
+  float t = clamp(vol / 1.0149416, 0.0, 1.0);
+  vec3 col = dm_ramp(pow(t, 0.88));
+  col = mix(col, dm_ochre(), smoothstep(0.82, 1.0, t) * 0.42);
+
+  if (u_contours > 0.5) {
+    float levels = t * 12.0;
+    float d = abs(fract(levels - 0.5) - 0.5) / max(fwidth(levels), 0.002);
+    float line = 1.0 - smoothstep(0.0, 1.35, d);
+    col = mix(col, dm_ink(), line * mix(0.16, 0.24, u_dark));
+  }
+
+  fragColor = vec4(col, 1.0);
+}`;
+
+/* ---------- state ---------- */
+
+let prog = null, quad = null;
+let z = PRESETS.regular.slice();
+let draggingZ = false;
+let labels = null;
+let fieldRect = { x: 0, y: 0, w: 400, h: 300 };
+let spinPhase = 0;
+
+const BOUNDS = { xmin: -0.95, xmax: 1.95, ymin: -0.14, ymax: 1.82 };
+
+function toScreen(wx, wy) {
+  return [
+    fieldRect.x + ((wx - BOUNDS.xmin) / (BOUNDS.xmax - BOUNDS.xmin)) * fieldRect.w,
+    fieldRect.y + (1 - (wy - BOUNDS.ymin) / (BOUNDS.ymax - BOUNDS.ymin)) * fieldRect.h,
+  ];
+}
+
+function toWorld(px, py) {
+  return [
+    BOUNDS.xmin + ((px - fieldRect.x) / fieldRect.w) * (BOUNDS.xmax - BOUNDS.xmin),
+    BOUNDS.ymin + (1 - (py - fieldRect.y) / fieldRect.h) * (BOUNDS.ymax - BOUNDS.ymin),
+  ];
+}
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const gl = app.gl;
+  const ctx = app.octx;
+  const P = app.palette;
+  const isDark = app.theme === 'dark';
+
+  // 1. WebGL2 volume landscape inside framed stage, outer margin pure P.bg
+  if (gl && prog && quad) {
+    const bg = DM.hexToRgb(P.bg);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.viewport(0, 0, Math.round(app.W * app.dpr), Math.round(app.H * app.dpr));
+    gl.clearColor(bg[0] / 255, bg[1] / 255, bg[2] / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    DM.gl.viewport(gl, app, fieldRect);
+    prog.use(app);
+    prog.f4('u_bounds', BOUNDS.xmin, BOUNDS.xmax, BOUNDS.ymin, BOUNDS.ymax);
+    prog.f1('u_contours', app.get('contours') ? 1 : 0);
+    quad.draw();
+    gl.disable(gl.SCISSOR_TEST);
+  }
+
+  // 2. Transparent 2D overlay (NEVER call opaque DM.clear here!)
+  ctx.clearRect(0, 0, app.W, app.H);
+
+  // Subtle plate border around fieldRect
+  DM.polygon(
+    ctx,
+    [
+      [fieldRect.x, fieldRect.y],
+      [fieldRect.x + fieldRect.w, fieldRect.y],
+      [fieldRect.x + fieldRect.w, fieldRect.y + fieldRect.h],
+      [fieldRect.x, fieldRect.y + fieldRect.h],
+    ],
+    null,
+    P.hairlineStrong,
+    1
+  );
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(fieldRect.x, fieldRect.y, fieldRect.w, fieldRect.h);
+  ctx.clip();
+
+  // Real axis and symmetry locus lines |z|=1, |z-1|=1, Re(z)=1/2
+  const [axL, axY] = toScreen(BOUNDS.xmin, 0);
+  const [axR] = toScreen(BOUNDS.xmax, 0);
+  DM.line(ctx, axL, axY, axR, axY, DM.rgba(P.ink, 0.48), 1.1);
+
+  const [s0x, s0y] = toScreen(0, 0);
+  const [s1x, s1y] = toScreen(1, 0);
+  const unitPx = s1x - s0x;
+  DM.arc(ctx, s0x, s0y, unitPx, Math.PI, 0, DM.rgba(P.ink, 0.22), 0.9, false);
+  DM.arc(ctx, s1x, s1y, unitPx, Math.PI, 0, DM.rgba(P.ink, 0.22), 0.9, false);
+  const [hxTop, hyTop] = toScreen(0.5, BOUNDS.ymax);
+  DM.dashed(ctx, 0.5 * (s0x + s1x), hyTop, 0.5 * (s0x + s1x), axY, DM.rgba(P.ink, 0.20), 0.9, [4, 4]);
+
+  // Base triangle (0, 1, z)
+  const [zx, zy] = toScreen(z[0], z[1]);
+  DM.polygon(
+    ctx,
+    [[s0x, s0y], [s1x, s1y], [zx, zy]],
+    DM.rgba(P.cobalt, isDark ? 0.16 : 0.14),
+    P.cobalt,
+    1.75
+  );
+
+  // S3 equal-volume orbit
+  if (app.get('orbit')) {
+    const orb = s3Orbit(z);
+    for (let i = 1; i < orb.length; i++) {
+      const [ox, oy] = toScreen(orb[i][0], orb[i][1]);
+      DM.dashed(ctx, zx, zy, ox, oy, DM.rgba(P.ochre, 0.34), 0.9, [3, 3]);
+      DM.dot(ctx, ox, oy, 3.8, P.ochre, { stroke: P.surface, strokeWidth: 1 });
+    }
+  }
+
+  // Peak marker at e^{i pi / 3}
+  const [pxMax, pyMax] = toScreen(0.5, Math.sqrt(3) / 2);
+  DM.ring(ctx, pxMax, pyMax, 5.5, DM.rgba(P.ochre, 0.72), 1.15);
+
+  // Base vertices 0, 1 and draggable z
+  DM.dot(ctx, s0x, s0y, 3.8, P.ink, { stroke: P.surface, strokeWidth: 1 });
+  DM.dot(ctx, s1x, s1y, 3.8, P.ink, { stroke: P.surface, strokeWidth: 1 });
+  DM.circle(ctx, zx, zy, 10, DM.rgba(P.vermilion, 0.35), 1.3, {
+    fill: DM.rgba(P.vermilion, isDark ? 0.18 : 0.12),
+  });
+  DM.dot(ctx, zx, zy, 4.6, P.vermilion, { stroke: P.surface, strokeWidth: 1.2 });
+
+  // Small 3D wireframe inset of the ideal tetrahedron inside upper-right of fieldRect
+  if (fieldRect.w > 340) {
+    const iw = 96, ih = 96;
+    const ix = fieldRect.x + fieldRect.w - iw - 14;
+    const iy = fieldRect.y + 14;
+    DM.polygon(
+      ctx,
+      [[ix, iy], [ix + iw, iy], [ix + iw, iy + ih], [ix, iy + ih]],
+      DM.rgba(P.surface, isDark ? 0.72 : 0.80),
+      P.hairlineStrong,
+      1
+    );
+    const p3 = (vx, vy, vz) => {
+      const a = 0.55;
+      const rx = vx * Math.cos(a) - vz * Math.sin(a);
+      const rz = vx * Math.sin(a) + vz * Math.cos(a);
+      return [ix + iw * 0.5 + rx * 28, iy + ih * 0.74 - vy * 34 + rz * 10];
+    };
+    const cCen = [(0 + 1 + z[0]) / 3, z[1] / 3];
+    const b0 = p3(-cCen[0], 0, -cCen[1]);
+    const b1 = p3(1 - cCen[0], 0, -cCen[1]);
+    const b2 = p3(z[0] - cCen[0], 0, z[1] - cCen[1]);
+    const topInf = [ix + iw * 0.5, iy + 13];
+    DM.polygon(ctx, [b0, b1, b2], DM.rgba(P.cobalt, 0.20), P.cobalt, 1.3);
+    DM.line(ctx, b0[0], b0[1], topInf[0], topInf[1], P.ink2, 1);
+    DM.line(ctx, b1[0], b1[1], topInf[0], topInf[1], P.ink2, 1);
+    DM.line(ctx, b2[0], b2[1], topInf[0], topInf[1], P.vermilion, 1.35);
+    DM.dot(ctx, b2[0], b2[1], 2.8, P.vermilion);
+    DM.dot(ctx, topInf[0], topInf[1], 2.5, P.ochre);
+  }
+
+  ctx.restore();
+
+  if (labels) {
+    labels.set([
+      { key: '0', x: s0x, y: s0y + 15, tex: '0', color: P.ink, size: 12.5 },
+      { key: '1', x: s1x, y: s1y + 15, tex: '1', color: P.ink, size: 12.5 },
+      { key: 'z', x: zx + 15, y: zy - 15, tex: 'z', color: P.vermilion, size: 14 },
+      { key: 'peak', x: pxMax, y: pyMax - 16, tex: 'e^{i\\pi/3}', color: P.ink, size: 11.5 },
+    ]);
+  }
+
+  // Live volume & identity check
+  const vol = milnorVolume(z);
+  const pct = (vol / V_MAX) * 100;
+  const bw = blochWigner(z);
+  const diff = Math.abs(vol - bw);
+  const atPeak = Math.hypot(z[0] - 0.5, z[1] - Math.sqrt(3) / 2) < 0.02;
+
+  app.readout(
+    `<span class="big">${DM.tex(`D(z) = ${DM.fmt(vol, 5)}`)}</span> &nbsp; ${DM.check(diff < 1e-8 && vol <= V_MAX + 1e-12, atPeak ? 'regular peak' : `${DM.fmt(pct, 1)}% max`)}<br>` +
+    `${DM.tex('D(z) = \\Lambda(\\alpha)+\\Lambda(\\beta)+\\Lambda(\\gamma)')}<br>` +
+    `<small>${DM.tex(`z = ${DM.fmt(z[0], 2)} + ${DM.fmt(z[1], 2)}i`)} <span style="opacity:.45;margin:0 4px">|</span> ${DM.tex(`V_{\\max} \\approx 1.01494`)}</small>`
+  );
+
+  app.legend([
+    { color: P.vermilion, label: 'shape z' },
+    { color: P.ochre, label: 'S₃ orbit' },
+    { color: P.cobalt, label: 'base (0,1,z)', line: true },
+  ]);
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '003',
+  title: 'Volume of an Ideal Tetrahedron',
+  hook: 'One complex shape parameter fixes an ideal hyperbolic tetrahedron and its Bloch-Wigner volume.',
+  date: '2026-11-23',
+  defaultTheme: 'dark',
+  hint: 'drag z across the upper half-plane',
+  stage: 'webgl2',
+  overlay: true,
+  posterStep: 2,
+  controls: [
+    { type: 'play' },
+    {
+      type: 'segmented',
+      id: 'preset',
+      label: 'Shape preset',
+      value: 'regular',
+      options: [
+        { value: 'regular', label: DM.tex('e^{i\\pi/3}') },
+        { value: 'right', label: DM.tex('i') },
+        { value: 'flat', label: 'flat' },
+        { value: 'tall', label: 'tall' },
+      ],
+      onChange: (v, a) => {
+        if (!PRESETS[v]) return;
+        const target = PRESETS[v];
+        const start = z.slice();
+        a.tween(480, u => {
+          z = [DM.lerp(start[0], target[0], u), DM.lerp(start[1], target[1], u)];
+        }, { key: 'z' });
+      },
+    },
+    { type: 'toggle', id: 'orbit', label: 'S₃ orbit', value: true },
+    { type: 'toggle', id: 'contours', label: 'Contours', value: true },
+  ],
+  tour: [
+    {
+      text: DM.texify('A nearly flat shape $z = 0.5 + 0.18i$ collapses toward $\\mathbb{R}$, holding tiny hyperbolic volume.'),
+      enter: a => {
+        a.pause();
+        a.set('preset', 'flat', { silent: true });
+        a.set('orbit', false, { silent: true });
+        a.set('contours', true, { silent: true });
+        z = PRESETS.flat.slice();
+      },
+    },
+    {
+      text: DM.texify('Move onto $z = e^{i\\pi/3}$: every dihedral angle equals $\\pi/3$, hitting the unique maximum volume.'),
+      enter: a => {
+        a.pause();
+        a.set('preset', 'regular', { silent: true });
+        a.set('orbit', false, { silent: true });
+        const start = z.slice();
+        a.tween(650, u => {
+          z = [DM.lerp(start[0], PRESETS.regular[0], u), DM.lerp(start[1], PRESETS.regular[1], u)];
+        }, { key: 'z' });
+      },
+    },
+    {
+      text: DM.texify('Move off-peak with the $S_3$ orbit lit: permuting vertices gives six shapes sharing the exact same volume.'),
+      enter: a => {
+        a.pause();
+        a.set('orbit', true, { silent: true });
+        a.pulse('orbit');
+        z = [0.22, 0.56];
+      },
+    },
+    {
+      text: DM.texify('Visit $z = i$ where volume equals Catalan’s constant $G \\approx 0.91597$, or press play to orbit.'),
+      enter: a => {
+        a.set('preset', 'right', { silent: true });
+        a.set('orbit', true, { silent: true });
+        z = [0, 1];
+        spinPhase = 0;
+        a.play();
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p>An ideal tetrahedron in $\\mathbb{H}^3$ with vertices $(0, 1, \\infty, z)$ is classified up to orientation-preserving isometry by its cross-ratio $z \\in \\mathbb{H}$.</p>
+    <p><b>John Milnor (1982)</b> expressed its volume as the sum of Lobachevsky functions $\\Lambda(\\alpha) + \\Lambda(\\beta) + \\Lambda(\\gamma)$ over its three dihedral angles, which coincides with the <b>Bloch–Wigner dilogarithm</b> $D(z) = \\operatorname{Im}\\operatorname{Li}_2(z) + \\arg(1-z)\\log|z|$. The regular tetrahedron $z = e^{i\\pi/3}$ uniquely maximizes volume.</p>
+    <p class="ref">Plate 003 · Daily Math Atelier · Hyperbolic 3-Geometry.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+    if (a.gl) {
+      prog = DM.gl.program(a.gl, FRAG);
+      quad = DM.gl.quad(a.gl);
+    }
+  },
+  step: dt => {
+    if (!draggingZ) {
+      spinPhase += dt * 0.75;
+      z = [0.5 + 0.36 * Math.cos(spinPhase), 0.88 + 0.32 * Math.sin(spinPhase)];
+    }
+  },
+  draw,
+});
+
+app.onResize(a => {
+  fieldRect = a.fitRect(1.52, 16);
+});
+
+app.pointer({
+  down(p) {
+    if (p.x >= fieldRect.x && p.x <= fieldRect.x + fieldRect.w && p.y >= fieldRect.y && p.y <= fieldRect.y + fieldRect.h) {
+      draggingZ = true;
+      const w = toWorld(p.x, p.y);
+      z = [DM.clamp(w[0], -0.85, 1.85), DM.clamp(w[1], 0.05, 1.75)];
+      app.cursor('grabbing');
+    }
+  },
+  drag(p) {
+    if (!draggingZ) return;
+    const w = toWorld(p.x, p.y);
+    z = [DM.clamp(w[0], -0.85, 1.85), DM.clamp(w[1], 0.05, 1.75)];
+  },
+  up() {
+    draggingZ = false;
+    app.cursor('');
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('Regular ideal tetrahedron z = exp(i*pi/3) attains global maximum 1.0149416...', () => {
+  const peak = milnorVolume(PRESETS.regular);
+  if (Math.abs(peak - V_MAX) > 1e-11) return `Expected ${V_MAX}, got ${peak}`;
+  for (const [dx, dy] of [[0.03, 0], [-0.03, 0], [0, 0.03], [0, -0.03]]) {
+    const nb = milnorVolume([PRESETS.regular[0] + dx, PRESETS.regular[1] + dy]);
+    if (nb >= peak) return `Neighbor exceeds peak: ${nb}`;
+  }
+  return true;
+});
+
+DM.test('Right-angled ideal tetrahedron at z = i has volume equal to Catalan constant G', () => {
+  const vi = milnorVolume([0, 1]);
+  if (Math.abs(vi - CATALAN) > 1e-11) return `Expected ${CATALAN}, got ${vi}`;
+  return true;
+});
+
+DM.test('Bloch-Wigner D(z) agrees with Milnor volume and is S3-invariant', () => {
+  const sample = [0.27, 0.64];
+  const v = milnorVolume(sample);
+  const d = blochWigner(sample);
+  if (Math.abs(v - d) > 1e-12) return `Milnor vs Bloch-Wigner diff ${Math.abs(v - d)}`;
+  for (const q of s3Orbit(sample)) {
+    if (Math.abs(milnorVolume(q) - v) > 1e-12) return 'S3 invariance broken';
+  }
+  return true;
+});
+</script>
+</body>
+</html>

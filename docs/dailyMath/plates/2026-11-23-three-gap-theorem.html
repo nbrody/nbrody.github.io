@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>The Three-Gap Theorem · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/math-exact.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: circle rotation gaps & continued-fraction convergents ---------- */
+
+const PRESETS = {
+  phi:   { label: '\\varphi^{-1}', val: (Math.sqrt(5) - 1) / 2 },
+  sqrt2: { label: '\\sqrt{2}-1',   val: Math.SQRT2 - 1 },
+  pi:    { label: '\\pi - 3',      val: Math.PI - 3 },
+  e:     { label: 'e - 2',         val: Math.E - 2 },
+};
+
+function computeCircleGaps(alpha, N) {
+  const pts = [];
+  for (let k = 0; k < N; k++) {
+    const raw = (k * alpha) % 1;
+    const x = raw < 0 ? raw + 1 : raw;
+    pts.push({ x, k });
+  }
+  const sorted = pts.slice().sort((a, b) => a.x - b.x);
+  const arcs = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const a = sorted[i];
+    const b = i + 1 < sorted.length ? sorted[i + 1] : { x: sorted[0].x + 1, k: sorted[0].k };
+    const len = b.x - a.x;
+    if (len > 1e-12) arcs.push({ start: a.x, end: b.x, len, kStart: a.k });
+  }
+
+  // Cluster gap lengths within tolerance 1e-8
+  const lengths = arcs.map(a => a.len).sort((u, v) => u - v);
+  const classes = [];
+  for (const len of lengths) {
+    const last = classes[classes.length - 1];
+    if (!last || Math.abs(len - last.len) > 1e-8) {
+      classes.push({ len, count: 1, sum: len });
+    } else {
+      last.count++;
+      last.sum += len;
+      last.len = last.sum / last.count;
+    }
+  }
+  for (const a of arcs) {
+    let bestIdx = 0, bestD = Infinity;
+    for (let j = 0; j < classes.length; j++) {
+      const d = Math.abs(a.len - classes[j].len);
+      if (d < bestD) { bestD = d; bestIdx = j; }
+    }
+    a.cls = bestIdx;
+  }
+
+  return { pts, sorted, arcs, classes };
+}
+
+function exactRationalGaps(pBig, qBig, N) {
+  const pos = [];
+  for (let k = 0n; k < BigInt(N); k++) {
+    let r = (k * pBig) % qBig;
+    if (r < 0n) r += qBig;
+    pos.push(r);
+  }
+  pos.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const unique = [];
+  for (let i = 0; i < pos.length; i++) {
+    const g = i + 1 < pos.length ? pos[i + 1] - pos[i] : qBig - pos[i] + pos[0];
+    if (g > 0n && !unique.some(u => u === g)) unique.push(g);
+  }
+  unique.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return unique;
+}
+
+function convergentDenoms(alpha, maxQ = 89) {
+  const terms = DM.ex.cfracFloat(alpha, 12, 1e-10);
+  const convs = DM.ex.convergents(terms);
+  const qs = [];
+  for (const c of convs) {
+    const q = Number(c.d);
+    if (q >= 2 && q <= maxQ && !qs.includes(q)) qs.push(q);
+  }
+  return qs;
+}
+
+/* ---------- state ---------- */
+
+let draggingAlpha = false;
+let labels = null;
+
+function angleOf(x) {
+  return Math.PI / 2 - 2 * Math.PI * x; // 0 at top, clockwise
+}
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const ctx = app.ctx;
+  const P = app.palette;
+  const isDark = app.theme === 'dark';
+  DM.clear(app);
+
+  const dialPane = app.pane('dial');
+  const barsPane = app.pane('bars');
+  if (!dialPane || !barsPane) return;
+
+  const alpha = app.get('alpha');
+  const N = Math.round(app.get('N'));
+  const showSpiral = app.get('spiral');
+  const { pts, arcs, classes } = computeCircleGaps(alpha, N);
+  const classCols = [P.cobalt, P.verdigris, P.vermilion];
+
+  const lbls = [];
+
+  /* ---- Left pane: circle dial ---- */
+  const cGeom = dialPane.fitCircle(24);
+  const cx = cGeom.x, cy = cGeom.y, R = cGeom.r;
+
+  // Base dial ring & ticks
+  DM.circle(ctx, cx, cy, R, P.hairline, 1);
+  for (let k = 0; k < 12; k++) {
+    const a = (k * Math.PI) / 6;
+    DM.line(
+      ctx,
+      cx + (R - 5) * Math.cos(a), cy - (R - 5) * Math.sin(a),
+      cx + (R + 2) * Math.cos(a), cy - (R + 2) * Math.sin(a),
+      P.hairlineStrong, 0.85
+    );
+  }
+
+  // Colored gap arcs around circle
+  const arcR = R;
+  for (const arc of arcs) {
+    const a0 = angleOf(arc.start);
+    const a1 = angleOf(arc.end);
+    // Canvas arc angles are y-down, so negate math angles
+    const ca0 = -a0;
+    const ca1 = -a1;
+    const col = classCols[Math.min(2, arc.cls)];
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, arcR, ca0, ca1, false);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = app.W <= 680 ? 5.5 : 7;
+    ctx.lineCap = 'butt';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Subtle gap boundary tick marks
+  for (const p of pts) {
+    const a = angleOf(p.x);
+    DM.line(
+      ctx,
+      cx + (R - 7) * Math.cos(a), cy - (R - 7) * Math.sin(a),
+      cx + (R + 7) * Math.cos(a), cy - (R + 7) * Math.sin(a),
+      P.bg, 1.8
+    );
+  }
+
+  // Insertion-order polygonal trail
+  if (showSpiral && pts.length > 2) {
+    const spiralPts = pts.map((p, idx) => {
+      const a = angleOf(p.x);
+      const rad = R * (0.26 + 0.62 * (idx / (pts.length - 1)));
+      return [cx + rad * Math.cos(a), cy - rad * Math.sin(a)];
+    });
+    DM.polyline(ctx, spiralPts, DM.rgba(P.slate, isDark ? 0.32 : 0.28), 1.0);
+    for (let i = 0; i < spiralPts.length; i++) {
+      DM.dot(ctx, spiralPts[i][0], spiralPts[i][1], 1.8, DM.rgba(P.slate, 0.55));
+    }
+  }
+
+  // Dots for 0, alpha (draggable), and (N-1)*alpha
+  const p0A = angleOf(0);
+  const p1A = angleOf(pts[1].x);
+  const pLastA = angleOf(pts[pts.length - 1].x);
+
+  const p0x = cx + R * Math.cos(p0A), p0y = cy - R * Math.sin(p0A);
+  const p1x = cx + R * Math.cos(p1A), p1y = cy - R * Math.sin(p1A);
+  const plx = cx + R * Math.cos(pLastA), ply = cy - R * Math.sin(pLastA);
+
+  DM.dot(ctx, p0x, p0y, 3.6, P.ink, { stroke: P.surface, strokeWidth: 1.2 });
+  DM.ring(ctx, plx, ply, 6.2, P.ochre, 1.5);
+  DM.dot(ctx, plx, ply, 3.0, P.ochre);
+
+  DM.circle(ctx, p1x, p1y, 10, DM.rgba(P.vermilion, 0.28), 1.2, {
+    fill: DM.rgba(P.vermilion, isDark ? 0.16 : 0.10),
+  });
+  DM.dot(ctx, p1x, p1y, 4.4, P.vermilion, { stroke: P.surface, strokeWidth: 1.2 });
+
+  lbls.push({ key: 'zero', x: p0x, y: p0y - 16, tex: '0', color: P.ink, size: 12.5 });
+  lbls.push({
+    key: 'alpha',
+    x: p1x + 19 * Math.cos(p1A),
+    y: p1y - 19 * Math.sin(p1A),
+    tex: '\\alpha',
+    color: P.vermilion,
+    size: 13.5,
+  });
+  if (Math.hypot(plx - p0x, ply - p0y) > 28 && Math.hypot(plx - p1x, ply - p1y) > 28) {
+    lbls.push({
+      key: 'last',
+      x: plx + 21 * Math.cos(pLastA),
+      y: ply - 21 * Math.sin(pLastA),
+      tex: `${N - 1}\\alpha`,
+      color: P.ochre,
+      size: 11.5,
+    });
+  }
+
+  /* ---- Right pane: gap spectrum & convergent strip ---- */
+  const bRect = barsPane.fitRect(1.15, 16);
+  const bx = bRect.x + 28;
+  const bw = Math.max(80, bRect.w - 42);
+  const maxL = classes.length ? classes[classes.length - 1].len : 1;
+
+  // Subtle card backdrop inside bars pane
+  DM.polygon(
+    ctx,
+    [
+      [barsPane.x + 2, barsPane.y + 2],
+      [barsPane.x + barsPane.w - 2, barsPane.y + 2],
+      [barsPane.x + barsPane.w - 2, barsPane.y + barsPane.h - 2],
+      [barsPane.x + 2, barsPane.y + barsPane.h - 2],
+    ],
+    DM.rgba(P.surface, isDark ? 0.35 : 0.52),
+    P.hairline,
+    1
+  );
+
+  const rowH = Math.max(34, Math.min(46, bRect.h * 0.24));
+  const startY = bRect.y + 24;
+  const barH = Math.min(16, rowH * 0.42);
+
+  for (let j = 0; j < 3; j++) {
+    const ry = startY + j * rowH;
+    const cl = classes[j];
+    lbls.push({ key: `L${j}`, x: bx - 10, y: ry + barH / 2, tex: `L_${j + 1}`, align: 'right', color: cl ? classCols[j] : P.muted, size: 12.5 });
+    // Ghost track
+    DM.polygon(
+      ctx,
+      [[bx, ry], [bx + bw, ry], [bx + bw, ry + barH], [bx, ry + barH]],
+      DM.rgba(P.ink, 0.05),
+      null,
+      0
+    );
+    if (cl) {
+      const w = (cl.len / maxL) * bw;
+      DM.polygon(
+        ctx,
+        [[bx, ry], [bx + w, ry], [bx + w, ry + barH], [bx, ry + barH]],
+        DM.rgba(classCols[j], isDark ? 0.85 : 0.88),
+        null,
+        0
+      );
+      if (j === 2 && classes.length === 3) {
+        const splitX = bx + (classes[0].len / maxL) * bw;
+        DM.dashed(ctx, splitX, ry - 3, splitX, ry + barH + 3, P.surface, 1.5, [2, 2]);
+      }
+      DM.label(
+        ctx,
+        `${DM.fmt(cl.len, 4)}  (×${cl.count})`,
+        bx + w + 6 <= bx + bw ? bx + 6 : bx + 6,
+        ry + barH + 10,
+        { align: 'left', color: P.ink2, font: '500 10.5px ui-monospace, monospace' }
+      );
+    } else {
+      DM.label(ctx, 'absent', bx + 8, ry + barH / 2, {
+        align: 'left',
+        color: P.muted,
+        font: '400 10.5px ui-monospace, monospace',
+      });
+    }
+  }
+
+  // Convergent denominators ruler
+  const qs = convergentDenoms(alpha, 55);
+  const ryRule = startY + 3 * rowH + 26;
+  if (ryRule + 24 < barsPane.y + barsPane.h) {
+    DM.line(ctx, bx, ryRule, bx + bw, ryRule, P.hairlineStrong, 1);
+    const nx = bx + ((N - 3) / 52) * bw;
+    DM.line(ctx, nx, ryRule - 9, nx, ryRule + 9, P.vermilion, 1.8);
+    for (const q of qs) {
+      if (q < 3 || q > 55) continue;
+      const qx = bx + ((q - 3) / 52) * bw;
+      const hit = q === N;
+      DM.dot(ctx, qx, ryRule, hit ? 4.2 : 2.8, hit ? P.vermilion : P.verdigris);
+      if (q <= 34) {
+        DM.label(ctx, String(q), qx, ryRule + 15, {
+          color: hit ? P.vermilion : P.muted,
+          font: '600 10px ui-monospace, monospace',
+        });
+      }
+    }
+    lbls.push({ key: 'qk', x: bx - 10, y: ryRule, tex: 'q_k', align: 'right', color: P.muted, size: 12 });
+  }
+
+  if (labels) labels.set(lbls);
+
+  // Live mathematical verification readout
+  const m = classes.length;
+  const sumOk = m === 3 ? Math.abs(classes[2].len - (classes[0].len + classes[1].len)) < 1e-8 : true;
+  const atConv = qs.includes(N);
+  const detail = m === 3
+    ? `${DM.tex('L_3 = L_1 + L_2')} ${DM.check(sumOk, 'sum exact')}`
+    : `${DM.tex(atConv ? `N = ${N} = q_k` : `N = ${N}`)} ${DM.check(true, m === 2 ? 'two-gap drop' : 'uniform')}`;
+
+  app.readout(
+    `<span class="big">${DM.tex(`m = ${m}`)}</span> &nbsp; ${DM.check(m <= 3, m === 1 ? '1 gap' : `${m} gaps`)}<br>` +
+    `${detail}<br>` +
+    `<small>${DM.tex(`\\alpha = ${DM.fmt(alpha, 5)}`)} <span style="opacity:.45;margin:0 4px">|</span> ${DM.tex(`N = ${N}`)}</small>`
+  );
+
+  app.legend([
+    { color: P.cobalt, label: 'short L₁', line: true },
+    { color: P.verdigris, label: 'medium L₂', line: true },
+    { color: P.vermilion, label: 'sum L₃', line: true },
+  ]);
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '002',
+  title: 'The Three-Gap Theorem',
+  hook: 'Place N multiples of any angle around a circle: at most three gap sizes appear.',
+  date: '2026-11-23',
+  defaultTheme: 'light',
+  hint: 'drag α around the circle',
+  panes: [
+    { id: 'dial', weight: 3 },
+    { id: 'bars', weight: 2, label: 'gap spectrum' },
+  ],
+  controls: [
+    { type: 'play' },
+    {
+      type: 'segmented',
+      id: 'preset',
+      label: 'Angle preset',
+      value: 'phi',
+      options: [
+        { value: 'phi', label: 'φ⁻¹' },
+        { value: 'sqrt2', label: '√2−1' },
+        { value: 'pi', label: 'π−3' },
+        { value: 'e', label: 'e−2' },
+      ],
+      onChange: (v, a) => {
+        if (PRESETS[v]) a.set('alpha', PRESETS[v].val, { silent: true });
+      },
+    },
+    {
+      type: 'slider',
+      id: 'N',
+      label: 'N',
+      min: 3,
+      max: 55,
+      step: 1,
+      value: 11,
+      format: v => String(Math.round(v)),
+    },
+    {
+      type: 'slider',
+      id: 'alpha',
+      label: 'α',
+      min: 0.02,
+      max: 0.98,
+      step: 0.0005,
+      value: PRESETS.phi.val,
+      format: v => DM.fmt(v, 4),
+    },
+    { type: 'toggle', id: 'spiral', label: 'Order trail', value: true },
+  ],
+  tour: [
+    {
+      text: DM.texify('Seven points at golden step $\\alpha = \\varphi^{-1}$ split the circle into three gap lengths.'),
+      enter: a => {
+        a.pause();
+        a.set('preset', 'phi', { silent: true });
+        a.set('alpha', PRESETS.phi.val, { silent: true });
+        a.set('N', 7, { silent: true });
+        a.set('spiral', true, { silent: true });
+      },
+    },
+    {
+      text: DM.texify('Step $N$ onto Fibonacci $q_k = 8$: the longest gap $L_3$ vanishes, leaving two golden gaps.'),
+      enter: a => {
+        a.pause();
+        a.set('preset', 'phi', { silent: true });
+        a.set('alpha', PRESETS.phi.val, { silent: true });
+        a.pulse('N');
+        a.tween(650, u => a.set('N', Math.round(11 - 3 * u), { silent: true }), { key: 'n' });
+      },
+    },
+    {
+      text: DM.texify('Try $\\alpha = \\pi - 3$ with $N = 12$: whenever three gaps coexist, always $L_3 = L_1 + L_2$.'),
+      enter: a => {
+        a.pause();
+        a.set('preset', 'pi', { silent: true });
+        a.set('alpha', PRESETS.pi.val, { silent: true });
+        a.set('N', 12, { silent: true });
+        a.pulse('preset');
+      },
+    },
+    {
+      text: DM.texify('Sweep $\\alpha$ smoothly: gaps swap and recolor continuously, yet a fourth length never appears.'),
+      enter: a => {
+        a.set('N', 17, { silent: true });
+        a.play();
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p>Conjectured by <b>Hugo Steinhaus</b> and proved independently by <b>Vera Sós (1957)</b>, <b>Stanisław Świerczkowski (1958)</b>, and <b>János Surányi (1958)</b>: for any $\\alpha \\in \\mathbb{R}$ and integer $N \\ge 1$, the $N$ points $\\{0, \\alpha, \\dots, (N-1)\\alpha\\} \\bmod 1$ partition the circle into intervals of <b>at most three distinct lengths</b>.</p>
+    <p>When three lengths appear, the longest equals the sum of the two shorter ($L_3 = L_1 + L_2$). At the continued-fraction convergent denominators $N = q_k$ of $\\alpha$, only two lengths remain.</p>
+    <p class="ref">Plate 002 · Daily Math Atelier · Diophantine Approximation &amp; Circle Rotations.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+  },
+  step: (dt, a) => {
+    if (!draggingAlpha) {
+      let next = a.get('alpha') + dt * 0.035;
+      if (next > 0.98) next = 0.02 + (next - 0.98);
+      a.set('alpha', next, { silent: true });
+    }
+  },
+  draw,
+});
+
+app.pointer({
+  down(p) {
+    const dial = app.pane('dial');
+    if (!dial || !dial.contains(p)) return;
+    const c = dial.fitCircle(24);
+    if (Math.hypot(p.x - c.x, p.y - c.y) <= c.r + 30) {
+      draggingAlpha = true;
+      const a = Math.atan2(c.y - p.y, p.x - c.x);
+      let x = (Math.PI / 2 - a) / (2 * Math.PI);
+      x = ((x % 1) + 1) % 1;
+      app.set('alpha', DM.clamp(x, 0.02, 0.98), { silent: true });
+      app.cursor('grabbing');
+    }
+  },
+  drag(p) {
+    if (!draggingAlpha) return;
+    const dial = app.pane('dial');
+    const c = dial.fitCircle(24);
+    const a = Math.atan2(c.y - p.y, p.x - c.x);
+    let x = (Math.PI / 2 - a) / (2 * Math.PI);
+    x = ((x % 1) + 1) % 1;
+    app.set('alpha', DM.clamp(x, 0.02, 0.98), { silent: true });
+  },
+  up() {
+    draggingAlpha = false;
+    app.cursor('');
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('At most 3 gap lengths and L3 = L1 + L2 across 8 angles and N <= 60', () => {
+  const alphas = [
+    PRESETS.phi.val, PRESETS.sqrt2.val, PRESETS.pi.val, PRESETS.e.val,
+    Math.sqrt(3) - 1, Math.LN2, 0.27182818, 0.43,
+  ];
+  for (const a of alphas) {
+    for (let N = 2; N <= 60; N++) {
+      const { classes } = computeCircleGaps(a, N);
+      if (classes.length > 3) return `Found ${classes.length} gaps at alpha=${a}, N=${N}`;
+      if (classes.length === 3 && Math.abs(classes[2].len - (classes[0].len + classes[1].len)) > 1e-10) {
+        return `Sum rule violated at alpha=${a}, N=${N}`;
+      }
+    }
+  }
+  return true;
+});
+
+DM.test('Exact BigInt rational rotation 21/34 for N=17 obeys three-gap sum identity', () => {
+  const g = exactRationalGaps(21n, 34n, 17);
+  if (g.length !== 3) return `Expected 3 gaps, got ${g.length}`;
+  if (g[2] !== g[0] + g[1]) return `Exact sum failed: ${g[2]} != ${g[0]} + ${g[1]}`;
+  return true;
+});
+
+DM.test('Golden ratio at Fibonacci denominators leaves 2 gaps in golden ratio', () => {
+  const phi = (1 + Math.sqrt(5)) / 2;
+  for (const N of [5, 8, 13, 21, 34]) {
+    const { classes } = computeCircleGaps(PRESETS.phi.val, N);
+    if (classes.length !== 2) return `Expected 2 gaps at F=${N}, got ${classes.length}`;
+    if (Math.abs(classes[1].len / classes[0].len - phi) > 1e-10) return `Golden ratio mismatch at N=${N}`;
+  }
+  return true;
+});
+</script>
+</body>
+</html>

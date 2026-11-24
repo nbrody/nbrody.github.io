@@ -4,51 +4,6 @@ Maintained by each daily run: build the TOP entry, remove it from this list, and
 
 ---
 
-## The Three-Gap Theorem
-- topics: numbers, dynamics · form: 2D circle + gap-length strip · theme: light · modules: `draw`, `math-exact`, `tex`
-- idea: placing $0, \alpha, 2\alpha, \dots, (N-1)\alpha$ around the unit circle always cuts it into arcs of at most three distinct lengths.
-- gesture: drag $\alpha$ around the circle; slider for $N$.
-- aha: gaps constantly reshuffle colors, yet never show a fourth length, and when three appear the longest equals the sum of the two shorter; at convergent denominators of $\alpha$ only two lengths survive.
-- live check: distinct gap count $\le 3$ and $g_{\max} = g_1 + g_2$ (`DM.check`, exact BigInt arithmetic for rational $\alpha$).
-- tour: $N = 5$ generic angle -> drag $\alpha$ -> $N = 8$ with golden ratio $\varphi^{-1}$ -> convergent denominator collapses 3 gaps to 2.
-- math: Steinhaus's conjecture, proved independently by Vera Sós (1957), Świerczkowski (1958), and Surányi (1958); the gap sizes reflect best rational approximations from the continued fraction of $\alpha$.
-
-## Volume of an Ideal Tetrahedron
-- topics: hyperbolic, topology · form: WebGL2 shader + 2D overlay · theme: dark · modules: `gl`, `math-complex`, `tex`
-- idea: every ideal hyperbolic tetrahedron is determined by a single complex shape parameter $z \in \mathbb{H}$, and its volume is the Bloch-Wigner dilogarithm $D(z)$.
-- gesture: drag the shape parameter $z$ across the upper half-plane.
-- aha: the volume landscape peaks uniquely at the regular ideal tetrahedron $z = e^{i\pi/3}$, while the six symmetry-equivalent shapes $z, 1/(1-z), 1-1/z$ and their reflections share the same $|D(z)|$.
-- live check: $D(z) = \Lambda(\alpha) + \Lambda(\beta) + \Lambda(\gamma)$ across dihedral angles $\le 1.0149416$ (`DM.check`).
-- tour: flat degenerate shape ($D \to 0$) -> drag toward $e^{i\pi/3}$ -> peak regular tetrahedron ($V_{\max} \approx 1.01494$) -> the sixfold orbit of equivalent shapes.
-- math: Lobachevsky and Milnor (1982); $D(z) = \operatorname{Im}\operatorname{Li}_2(z) + \arg(1-z)\log|z|$ equals the sum of Lobachevsky functions of the dihedral angles, uniquely maximized by the equilateral ideal tetrahedron.
-
-## Euler's Elastica
-- topics: geometry, dynamics · form: panes (elastica curve | phase portrait) · theme: light · modules: `draw`, `plot`, `tex`
-- idea: bending an elastic rod under end compression produces inflectional, figure-eight, and non-inflectional elasticae whose turning angle obeys the pendulum equation.
-- gesture: drag the compression / modulus parameter $k$ or tap boundary presets.
-- aha: at the critical separatrix $k^2 \approx 0.8261$ ($2E(k) = K(k)$), the rod's two ends touch to form a perfect closed figure-eight.
-- live check: bending energy $\int \kappa^2\,ds$ and total curvature match pendulum first integral $\kappa^2/2 + \cos\theta = \text{const}$ (`DM.check`).
-- tour: gentle buckled arch -> increase compression -> critical figure-eight separatrix -> non-inflectional looping coils.
-- math: Leonhard Euler (1744, *Methodus Inveniendi*) classified plane elastic curves minimizing $\int \kappa^2\,ds$; Kirchhoff's kinetic analogy links arc-length curvature to the nonlinear mathematical pendulum.
-
-## The Borromean Rings
-- topics: topology, geometry · form: 3D orbit stage · theme: dark · modules: `draw`, `space3d`, `tex`
-- idea: three mutually unlinked closed loops in $\mathbb{R}^3$ can nonetheless be inextricably linked together, and cannot be built from three flat circles.
-- gesture: drag to orbit in 3D; slider for ellipse eccentricity $e$.
-- aha: cutting or fading any single ring leaves the remaining two completely unlinked ($lk = 0$), yet as three flat circles ($e \to 0$) they cannot realize the link without intersecting.
-- live check: all pairwise linking numbers $\operatorname{lk}(R_i, R_j) = 0$ while the Milnor triple invariant $\bar{\mu}(1,2,3) = \pm 1$ (`DM.check`).
-- tour: orthogonal elliptical triad -> orbit along an axis -> fade one ring to free the others -> flatten eccentricity to see why circular Borromean rings are impossible.
-- math: Brunnian link invariant studied via Massey products and Milnor's $\bar{\mu}$-invariants (1954); Lindström and Zetterström (1991) proved no realization exists using three flat circles.
-
-## The Modular j-Invariant
-- topics: numbers, hyperbolic · form: WebGL2 domain coloring + overlay fundamental domain · theme: dark · modules: `gl`, `math-complex`, `tex`
-- idea: Klein's $j(\tau)$ maps the modular surface $\mathrm{SL}_2(\mathbb{Z})\backslash\mathbb{H}$ bijectively onto $\mathbb{C}$, revealing a fractal mosaic of fundamental domains under domain coloring.
-- gesture: drag $\tau$ in the upper half-plane to evaluate $j(\tau)$ and highlight its $\mathrm{SL}_2(\mathbb{Z})$ orbit.
-- aha: moving $\tau$ onto $\tau = i$ or $\tau = e^{2\pi i/3}$ hits exact algebraic values $j(i) = 1728$ and $j(\rho) = 0$ where the tiling angles double and triple.
-- live check: $j(-1/\tau) = j(\tau)$ and $j(\tau+1) = j(\tau)$ to machine precision (`DM.check`).
-- tour: fundamental keyhole domain -> drag $\tau$ across a boundary to see $S$ and $T$ invariance -> elliptic point $\tau = i$ ($1728$) -> cube-root corner $\tau = \rho$ ($0$).
-- math: Dedekind and Klein (1877); $j(\tau) = 1728\,g_2(\tau)^3 / \Delta(\tau)$ is the unique normalized modular function of weight $0$, generating all rational functions on the moduli stack of elliptic curves.
-
 ## Confocal Caustics of an Ellipse
 - topics: geometry, dynamics · form: 2D stage · theme: light · modules: `draw`, `tex`
 - idea: billiard trajectories inside an ellipse preserve a second conserved quantity and remain tangent to a single confocal conic — either a smaller ellipse or a hyperbola.
@@ -58,11 +13,56 @@ Maintained by each daily run: build the TOP entry, remove it from this list, and
 - tour: ray grazing an inner confocal ellipse -> aim between the foci to flip to a hyperbola -> launch through a focus to collapse onto the major axis -> eccentric limit.
 - math: Birkhoff billiard integrability and Chasles's theorem; every tangent to a fixed confocal conic reflects across the ellipse normal into another tangent to the exact same confocal conic.
 
+## The Klein Quartic & {3, 7} Tiling
+- topics: hyperbolic, symmetry · form: WebGL2 Poincaré disk + overlay · theme: dark · modules: `gl`, `math-complex`, `tex`
+- idea: gluing fourteen hyperbolic heptagons in the Poincaré disk creates the Klein quartic — a genus-3 surface saturating Hurwitz's maximum symmetry bound of $168 = 84(g-1)$ automorphisms.
+- gesture: drag a base vertex or tap any generator to see the heptagonal reflections tile $\mathbb{D}$.
+- aha: seven equilateral triangles meet at every vertex ($7 \cdot \pi/3 > 2\pi$), curving the surface negatively so $24$ heptagons fold into a closed surface of genus $3$.
+- live check: vertex angle sum $\frac{2\pi}{3} \cdot \frac{3}{7}$ deficit and Euler characteristic $\chi = V - E + F = -4 = 2 - 2(3)$ (`DM.check`).
+- tour: fundamental 14-gon in $\mathbb{D}$ -> zoom out along the $\{3,7\}$ hyperbolic tiling -> highlight paired boundary edges -> count $24$ heptagons giving $168$ symmetries.
+- math: Felix Klein (1879) and Adolf Hurwitz (1893); no Riemann surface of genus $g \ge 2$ admits more than $84(g-1)$ conformal automorphisms, and the Klein quartic $x^3y + y^3z + z^3x = 0$ attains $168$ at $g=3$.
+
 ## Gershgorin's Circle Theorem
-- topics: linear, geometry · form: panes (complex eigenvalue plane | perturbation controls) · theme: light · modules: `draw`, `math-linalg`, `math-complex`, `tex`
+- topics: linear, geometry · form: panes (complex eigenvalue plane | coupling plot) · theme: light · modules: `draw`, `math-linalg`, `math-complex`, `tex`
 - idea: every eigenvalue of an $n\times n$ matrix $A$ must lie inside the union of $n$ disks centered at its diagonal entries with radii equal to the off-diagonal row sums.
 - gesture: drag the off-diagonal coupling scale $\varepsilon \in [0, 1.5]$.
 - aha: as $\varepsilon \to 0$, each Gershgorin disk shrinks smoothly onto its diagonal entry; when a disk isolates itself from the others, it captures exactly one eigenvalue by continuity.
 - live check: $\forall \lambda \in \sigma(A),\ \min_i |\lambda - a_{ii}| / R_i \le 1$ (`DM.check`).
 - tour: decoupled diagonal matrix ($\varepsilon = 0$) -> grow off-diagonal coupling -> watch disconnected islands trap one eigenvalue each -> merge disks so eigenvalues cross components.
 - math: Semyon Aranovich Gershgorin (1931); if a union of $k$ Gershgorin disks is disjoint from the remaining $n - k$ disks, continuity of eigenvalues implies it contains precisely $k$ eigenvalues counted with multiplicity.
+
+## Steiner's Porism
+- topics: geometry, hyperbolic · form: 2D inversive circle chain · theme: dark · modules: `draw`, `math-complex`, `tex`
+- idea: if a ring of tangent circles closes smoothly around an inner circle inside an outer circle, every starting circle closes a chain of the exact same length.
+- gesture: drag the first tangent circle around the annulus or drag the inner circle off-center.
+- aha: applying a Möbius inversion maps the eccentric annulus to two concentric circles where all tangent circles have identical radius, revealing closure immediately.
+- live check: inversive invariant $\Delta = \frac{(R - r)^2 - d^2}{4Rr} = \tan^2(\pi/n)$ (`DM.check`).
+- tour: concentric $n=6$ Steiner chain -> slide inner circle off-center using exact inversive radius -> toggle inversion ghosts -> break closure between periods.
+- math: Jakob Steiner (1826); Möbius inversion sends any pair of non-intersecting circles to concentric circles, reducing chain closure to the trivial angular condition $\Delta = \tan^2(\pi/n)$.
+
+## The Perron–Frobenius Eigenmode
+- topics: linear, dynamics · form: panes (Markov chain graph | probability simplex) · theme: light · modules: `draw`, `math-linalg`, `tex`
+- idea: repeated multiplication by a positive transition matrix contracts every probability distribution exponentially onto a unique positive eigenvector with eigenvalue $1$.
+- gesture: drag the starting probability vector inside the $3$-state simplex triangle.
+- aha: a cloud of initial states across the entire triangle collapses along the subdominant eigen-directions onto a single glowing stationary point $\pi$.
+- live check: $\pi P = \pi$ residual $< 10^{-12}$ and contraction ratio $|\lambda_2| < 1$ (`DM.check`).
+- tour: scatter 12 states across the probability triangle -> iterate $P^k$ step by step -> inspect spectral gap $|\lambda_2|$ -> tune transition edge toward near-reducible slowdown.
+- math: Oskar Perron (1907) and Georg Frobenius (1912); an irreducible aperiodic stochastic matrix has simple leading eigenvalue $\lambda_1 = 1$, strictly positive stationary distribution $\pi$, and $|\lambda_k| < 1$ for all $k \ge 2$.
+
+## The Brachistochrone & Tautochrone
+- topics: geometry, dynamics · form: 2D race + arrival-time chart · theme: dark · modules: `draw`, `plot`, `tex`
+- idea: an inverted cycloid is both the curve of fastest gravity descent between two points and the unique ramp where balls released from any height arrive at the bottom simultaneously.
+- gesture: drag the endpoint $(x_1, y_1)$ or toggle release heights along the cycloid.
+- aha: the cycloid bead dives steeply first and overtakes straight-line, circular, and parabolic tracks; released from three different heights on the cycloid, all beads hit bottom in unison.
+- live check: arrival time $T = \pi\sqrt{R/g}$ independent of release angle $\theta_0$ (`DM.check`).
+- tour: race straight line, circle arc, and cycloid -> watch cycloid overtake halfway -> switch to tautochrone mode: three heights hit bottom together -> vary target endpoint.
+- math: Johann Bernoulli (1696) and Christiaan Huygens (1673); Euler–Lagrange minimization of $\int \sqrt{(1+y'^2)/(2gy)}\,dx$ yields a cycloid $x = R(\theta - \sin\theta),\ y = R(1 - \cos\theta)$.
+
+## Buffon's Needle & Barbier's Theorem
+- topics: combinatorics, geometry · form: panes (needle board | π convergence plot) · theme: light · modules: `draw`, `plot`, `tex`
+- idea: dropping needles of length $\ell \le d$ onto parallel strips crosses a line with probability $2\ell/(\pi d)$ — and bending the needle into any shape leaves the expected crossings unchanged.
+- gesture: drag needle length $\ell/d$ or switch between straight needle, circle, and bent noodle.
+- aha: by linearity of expectation ("Buffon's noodle"), every curve of total perimeter $\pi d$ averages exact $1$ crossing — immediately yielding Barbier's theorem that every constant-width curve has perimeter $\pi d$.
+- live check: empirical crossing fraction converges toward $\frac{2L}{\pi d}$ (`DM.check`).
+- tour: drop 50 straight needles -> stream 1,000 needles watching the $2/(\pi \hat{p})$ curve converge toward $\pi$ -> bend needle into a noodle -> closed circle of diameter $d$ averages $2$ crossings.
+- math: Georges-Louis Leclerc, Comte de Buffon (1777) and Joseph-Émile Barbier (1860); decomposing any rectifiable curve of length $L$ into tiny segments yields $E[\text{crossings}] = \frac{2L}{\pi d}$ by linearity of expectation.

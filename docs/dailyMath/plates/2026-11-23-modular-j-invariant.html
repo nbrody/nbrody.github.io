@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>The Modular j-Invariant · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/math-complex.js"></script>
+<script src="../atelier/gl.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: SL2(Z) reduction & Klein j-invariant ---------- */
+
+function reduceSL2Z(tau) {
+  let [x, y] = tau;
+  if (y <= 1e-12) return [0, 1];
+  for (let i = 0; i < 64; i++) {
+    x -= Math.round(x);
+    const r2 = x * x + y * y;
+    if (r2 >= 1 - 1e-13) break;
+    x = -x / r2;
+    y = y / r2;
+  }
+  return [x, y];
+}
+
+function jInvariant(tau) {
+  const [x, y] = reduceSL2Z(tau);
+  const r = Math.exp(-2 * Math.PI * y);
+  const ang = 2 * Math.PI * x;
+  const q = [r * Math.cos(ang), r * Math.sin(ang)];
+  const sig3 = [0, 1, 9, 28, 73, 126, 252, 344];
+
+  let e4 = [1, 0];
+  let prod = [1, 0];
+  let qn = [1, 0];
+  for (let n = 1; n <= 7; n++) {
+    qn = DM.cx.mul(qn, q);
+    e4 = [e4[0] + 240 * sig3[n] * qn[0], e4[1] + 240 * sig3[n] * qn[1]];
+    prod = DM.cx.mul(prod, [1 - qn[0], -qn[1]]);
+  }
+  const p2 = DM.cx.mul(prod, prod);
+  const p4 = DM.cx.mul(p2, p2);
+  const p8 = DM.cx.mul(p4, p4);
+  const p16 = DM.cx.mul(p8, p8);
+  const delta = DM.cx.mul(q, DM.cx.mul(p16, p8));
+  const e4Cubed = DM.cx.mul(DM.cx.mul(e4, e4), e4);
+  return DM.cx.div(e4Cubed, delta);
+}
+
+const SPOTS = {
+  free: [0.34, 0.78],
+  i:    [0, 1],
+  rho:  [-0.5, Math.sqrt(3) / 2],
+  '2i': [0, 2],
+};
+
+/* ---------- WebGL2 domain-coloring shader ---------- */
+
+const FRAG = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 fragColor;
+
+uniform vec4 u_uhp;      // xmin, xmax, ymin, ymax
+uniform float u_model;   // 0 = H, 1 = D
+uniform float u_tiling;
+uniform float u_aspect;  // rect.w / rect.h
+//#DM_PALETTE
+
+vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+vec2 cdiv(vec2 a, vec2 b) { return vec2(dot(a, b), a.y * b.x - a.x * b.y) / max(dot(b, b), 1e-12); }
+
+void main() {
+  vec2 z;
+  float mask = 1.0;
+
+  if (u_model < 0.5) {
+    z = vec2(mix(u_uhp.x, u_uhp.y, v_uv.x), mix(u_uhp.z, u_uhp.w, v_uv.y));
+    if (z.y <= 0.002) {
+      fragColor = vec4(dm_bg(), 1.0);
+      return;
+    }
+  } else {
+    vec2 w = (v_uv - 0.5) * 2.08;
+    if (u_aspect >= 1.0) w.x *= u_aspect;
+    else w.y /= u_aspect;
+    float rw = length(w);
+    if (rw >= 0.996) {
+      fragColor = vec4(dm_bg(), 1.0);
+      return;
+    }
+    mask = 1.0 - smoothstep(0.985, 0.996, rw);
+    // Inverse Cayley: tau = i * (1 + w) / (1 - w)
+    vec2 frac = cdiv(vec2(1.0 + w.x, w.y), vec2(1.0 - w.x, -w.y));
+    z = vec2(-frac.y, frac.x);
+  }
+
+  // SL2(Z) reduction into fundamental domain F
+  for (int i = 0; i < 30; i++) {
+    z.x -= floor(z.x + 0.5);
+    float r2 = dot(z, z);
+    if (r2 >= 1.0) break;
+    z = vec2(-z.x, z.y) / max(r2, 1e-10);
+  }
+
+  // Fundamental-domain tile boundary distance
+  float edgeX = abs(abs(z.x) - 0.5);
+  float edgeC = abs(length(z) - 1.0);
+  float edge = min(edgeX, edgeC);
+  float fw = max(fwidth(z.x) + fwidth(z.y), 0.004);
+  float lineMask = 1.0 - smoothstep(0.0, fw * 1.4, edge);
+
+  // Evaluate j(z) = (E4^3 / prod^24) / q without underflow near cusps
+  float r = exp(-6.2831853 * z.y);
+  float ang = 6.2831853 * z.x;
+  vec2 q = r * vec2(cos(ang), sin(ang));
+  vec2 q2 = cmul(q, q);
+  vec2 q3 = cmul(q2, q);
+  vec2 e4 = vec2(1.0, 0.0) + 240.0 * (q + 9.0 * q2 + 28.0 * q3);
+  vec2 p1 = vec2(1.0, 0.0) - q;
+  vec2 p2 = vec2(1.0, 0.0) - q2;
+  vec2 prod = cmul(p1, p2);
+  vec2 p = cmul(prod, prod); p = cmul(p, p); p = cmul(p, p);
+  vec2 p24 = cmul(cmul(p, p), p);
+  vec2 e4c = cmul(cmul(e4, e4), e4);
+  vec2 ratio = cdiv(e4c, p24);
+
+  float phase = (atan(ratio.y, ratio.x) - 6.2831853 * z.x) / 6.2831853;
+  float magOver1728 = exp(min(18.0, 6.2831853 * z.y - 7.45472)) * length(ratio);
+  float logMag = log(1.0 + magOver1728);
+
+  vec3 base = dm_cycle(phase + 0.08);
+  // Modulate luminance smoothly around zeros (j=0) and cusps (j->inf)
+  float luma = clamp(0.18 + 0.72 * (1.0 - exp(-0.42 * logMag)), 0.14, 0.96);
+  vec3 col = mix(dm_bg_alt(), base, luma);
+  col = mix(col, dm_ink(), smoothstep(3.5, 9.0, logMag) * mix(0.28, 0.45, u_dark));
+
+  // Subtle magnitude contour rings
+  float ring = 1.0 - smoothstep(0.0, 0.08, abs(fract(logMag * 1.4) - 0.5));
+  col = mix(col, dm_ink(), ring * 0.08);
+
+  if (u_tiling > 0.5) {
+    col = mix(col, dm_ink(), lineMask * mix(0.32, 0.48, u_dark));
+  }
+
+  col = mix(dm_bg(), col, mask);
+  fragColor = vec4(col, 1.0);
+}`;
+
+/* ---------- state ---------- */
+
+let prog = null, quad = null;
+let tau = [0.34, 0.78];
+let draggingTau = false;
+let orbitPhase = 0;
+let labels = null;
+let fieldRect = { x: 0, y: 0, w: 400, h: 300 };
+
+const UHP = { xmin: -1.65, xmax: 1.65, ymin: 0.02, ymax: 1.96 };
+
+function tauToScreen(z, model) {
+  if (model === 'uhp') {
+    return [
+      fieldRect.x + ((z[0] - UHP.xmin) / (UHP.xmax - UHP.xmin)) * fieldRect.w,
+      fieldRect.y + (1 - (z[1] - UHP.ymin) / (UHP.ymax - UHP.ymin)) * fieldRect.h,
+    ];
+  }
+  const w = DM.hyp.toDisk(z);
+  const rad = Math.min(fieldRect.w, fieldRect.h) / 2.08;
+  return [fieldRect.cx + w[0] * rad, fieldRect.cy - w[1] * rad];
+}
+
+function screenToTau(px, py, model) {
+  if (model === 'uhp') {
+    return [
+      DM.clamp(UHP.xmin + ((px - fieldRect.x) / fieldRect.w) * (UHP.xmax - UHP.xmin), -1.55, 1.55),
+      DM.clamp(UHP.ymin + (1 - (py - fieldRect.y) / fieldRect.h) * (UHP.ymax - UHP.ymin), 0.14, 1.88),
+    ];
+  }
+  const rad = Math.min(fieldRect.w, fieldRect.h) / 2.08;
+  let wx = (px - fieldRect.cx) / rad;
+  let wy = (fieldRect.cy - py) / rad;
+  const r = Math.hypot(wx, wy);
+  if (r > 0.92) { wx *= 0.92 / r; wy *= 0.92 / r; }
+  const z = DM.hyp.toUHP([wx, wy]);
+  return z ? [z[0], Math.max(0.08, z[1])] : [0, 1];
+}
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const gl = app.gl;
+  const ctx = app.octx;
+  const P = app.palette;
+  const isDark = app.theme === 'dark';
+  const model = app.get('model') || 'uhp';
+
+  if (gl && prog && quad) {
+    const bg = DM.hexToRgb(P.bg);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.viewport(0, 0, Math.round(app.W * app.dpr), Math.round(app.H * app.dpr));
+    gl.clearColor(bg[0] / 255, bg[1] / 255, bg[2] / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    DM.gl.viewport(gl, app, fieldRect);
+    prog.use(app);
+    prog.f4('u_uhp', UHP.xmin, UHP.xmax, UHP.ymin, UHP.ymax);
+    prog.f1('u_model', model === 'disk' ? 1 : 0);
+    prog.f1('u_tiling', app.get('tiling') ? 1 : 0);
+    prog.f1('u_aspect', fieldRect.w / Math.max(1, fieldRect.h));
+    quad.draw();
+    gl.disable(gl.SCISSOR_TEST);
+  }
+
+  // Clear transparent 2D overlay (never opaque DM.clear)
+  ctx.clearRect(0, 0, app.W, app.H);
+
+  // Outer geometry frame
+  if (model === 'uhp') {
+    DM.polygon(
+      ctx,
+      [
+        [fieldRect.x, fieldRect.y],
+        [fieldRect.x + fieldRect.w, fieldRect.y],
+        [fieldRect.x + fieldRect.w, fieldRect.y + fieldRect.h],
+        [fieldRect.x, fieldRect.y + fieldRect.h],
+      ],
+      null,
+      P.hairlineStrong,
+      1
+    );
+  } else {
+    const rad = Math.min(fieldRect.w, fieldRect.h) / 2.08;
+    DM.ring(ctx, fieldRect.cx, fieldRect.cy, rad * 0.994, P.hairlineStrong, 1.25);
+  }
+
+  // Highlight standard fundamental domain F boundary in ochre
+  const fPts = [];
+  for (let i = 0; i <= 20; i++) fPts.push([-0.5, 1.95 - (1.95 - Math.sqrt(3) / 2) * (i / 20)]);
+  for (let i = 1; i <= 24; i++) {
+    const a = (2 * Math.PI) / 3 - (Math.PI / 3) * (i / 24);
+    fPts.push([Math.cos(a), Math.sin(a)]);
+  }
+  for (let i = 1; i <= 20; i++) fPts.push([0.5, Math.sqrt(3) / 2 + (1.95 - Math.sqrt(3) / 2) * (i / 20)]);
+  const sFPts = fPts.map(pt => tauToScreen(pt, model));
+
+  ctx.save();
+  if (model === 'uhp') {
+    ctx.beginPath();
+    ctx.rect(fieldRect.x, fieldRect.y, fieldRect.w, fieldRect.h);
+    ctx.clip();
+  }
+  DM.polyline(ctx, sFPts, P.ochre, 1.75);
+
+  // Orbit equivalence: tau, -1/tau, reduced tau_0 in F
+  const tau0 = reduceSL2Z(tau);
+  const invTau = DM.cx.div([-1, 0], tau);
+  const [tx, ty] = tauToScreen(tau, model);
+  const [t0x, t0y] = tauToScreen(tau0, model);
+  const [ix, iy] = tauToScreen(invTau, model);
+
+  if (Math.hypot(tx - t0x, ty - t0y) > 4) {
+    DM.dashed(ctx, tx, ty, t0x, t0y, DM.rgba(P.ochre, 0.8), 1.1, [4, 3]);
+    DM.dot(ctx, t0x, t0y, 4.0, P.ochre, { stroke: P.surface, strokeWidth: 1.2 });
+  }
+  if (Math.hypot(tx - ix, ty - iy) > 4) {
+    DM.dashed(ctx, tx, ty, ix, iy, DM.rgba(P.ink, 0.45), 1.0, [3, 3]);
+    DM.ring(ctx, ix, iy, 4.5, P.ink, 1.2);
+  }
+
+  // Elliptic points i and rho
+  const [siX, siY] = tauToScreen(SPOTS.i, model);
+  const [srX, srY] = tauToScreen(SPOTS.rho, model);
+  DM.dot(ctx, siX, siY, 3.2, P.surface, { stroke: P.ink, strokeWidth: 1.1 });
+  DM.dot(ctx, srX, srY, 3.2, P.surface, { stroke: P.ink, strokeWidth: 1.1 });
+
+  // Draggable tau cursor
+  DM.circle(ctx, tx, ty, 10, DM.rgba(P.vermilion, 0.4), 1.4, {
+    fill: DM.rgba(P.vermilion, isDark ? 0.22 : 0.14),
+  });
+  DM.dot(ctx, tx, ty, 4.6, P.vermilion, { stroke: P.surface, strokeWidth: 1.3 });
+  ctx.restore();
+
+  if (labels) {
+    const [fLblX, fLblY] = tauToScreen([0, 1.45], model);
+    labels.set([
+      { key: 'F', x: fLblX, y: fLblY, tex: '\\mathcal{F}', color: P.ochre, size: 13.5 },
+      { key: 'i', x: siX + 12, y: siY + 12, tex: 'i', color: P.ink, size: 12 },
+      { key: 'rho', x: srX - 14, y: srY + 12, tex: '\\rho', color: P.ink, size: 12 },
+      { key: 'tau', x: tx + 15, y: ty - 14, tex: '\\tau', color: P.vermilion, size: 14 },
+    ]);
+  }
+
+  // Live modular invariance verification
+  const jVal = jInvariant(tau);
+  const jInvVal = jInvariant(invTau);
+  const jErr = Math.hypot(jVal[0] - jInvVal[0], jVal[1] - jInvVal[1]);
+  const jStr = Math.abs(jVal[1]) < 0.05
+    ? DM.fmt(jVal[0], 2)
+    : `${DM.fmt(jVal[0], 1)} ${jVal[1] >= 0 ? '+' : '-'} ${DM.fmt(Math.abs(jVal[1]), 1)}i`;
+
+  app.readout(
+    `<span class="big">${DM.tex(`j(\\tau) \\approx ${jStr}`)}</span> &nbsp; ${DM.check(jErr < 1e-8, 'SL₂(ℤ) invariant')}<br>` +
+    `${DM.tex('j(-1/\\tau) = j(\\tau+1) = j(\\tau)')}<br>` +
+    `<small>${DM.tex(`\\tau = ${DM.fmt(tau[0], 2)} + ${DM.fmt(tau[1], 2)}i`)} <span style="opacity:.45;margin:0 4px">|</span> ${DM.tex(`\\tau_0 \\in \\mathcal{F}`)}</small>`
+  );
+
+  app.legend([
+    { color: P.ochre, label: 'domain ℱ', line: true },
+    { color: P.vermilion, label: 'point τ' },
+  ]);
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '006',
+  title: 'The Modular j-Invariant',
+  hook: "Klein's j-function tiles the hyperbolic plane with identical copies of one fundamental keyhole.",
+  date: '2026-11-23',
+  defaultTheme: 'dark',
+  hint: 'drag τ across the hyperbolic plane',
+  stage: 'webgl2',
+  overlay: true,
+  controls: [
+    { type: 'play' },
+    {
+      type: 'segmented',
+      id: 'model',
+      label: 'Hyperbolic model',
+      value: 'uhp',
+      options: [
+        { value: 'uhp', label: DM.tex('\\mathbb{H}') },
+        { value: 'disk', label: DM.tex('\\mathbb{D}') },
+      ],
+    },
+    {
+      type: 'segmented',
+      id: 'spot',
+      label: 'Special point',
+      value: 'free',
+      options: [
+        { value: 'free', label: 'Orbit' },
+        { value: 'i', label: DM.tex('i') },
+        { value: 'rho', label: DM.tex('\\rho') },
+        { value: '2i', label: DM.tex('2i') },
+      ],
+      onChange: (v, a) => {
+        if (!SPOTS[v]) return;
+        const start = tau.slice();
+        const target = SPOTS[v];
+        if (v !== 'free') a.pause();
+        a.tween(480, u => {
+          tau = [DM.lerp(start[0], target[0], u), DM.lerp(start[1], target[1], u)];
+        }, { key: 'tau' });
+      },
+    },
+    { type: 'toggle', id: 'tiling', label: DM.tex('\\mathrm{SL}_2(\\mathbb{Z})') + ' mesh', value: true },
+  ],
+  tour: [
+    {
+      text: DM.texify('The gold keyhole $\\mathcal{F}$ is one fundamental domain; every tile in $\\mathbb{H}$ repeats the exact same complex values.'),
+      enter: a => {
+        a.set('model', 'uhp', { silent: true });
+        a.set('spot', 'free', { silent: true });
+        a.set('tiling', true, { silent: true });
+        tau = [0.34, 0.78];
+        a.play();
+      },
+    },
+    {
+      text: DM.texify('Snap to $\\tau = i$: twofold elliptic symmetry forces $j(i) = 1728$ and doubles the color wheel around $i$.'),
+      enter: a => {
+        a.pause();
+        a.set('model', 'uhp', { silent: true });
+        a.set('spot', 'i', { silent: true });
+        const s = tau.slice();
+        a.tween(500, u => { tau = [DM.lerp(s[0], 0, u), DM.lerp(s[1], 1, u)]; }, { key: 'tau' });
+      },
+    },
+    {
+      text: DM.texify('Move to the corner $\\rho = e^{2\\pi i/3}$: threefold symmetry creates a triple zero where $j(\\rho) = 0$.'),
+      enter: a => {
+        a.pause();
+        a.set('model', 'uhp', { silent: true });
+        a.set('spot', 'rho', { silent: true });
+        const s = tau.slice();
+        a.tween(500, u => {
+          tau = [DM.lerp(s[0], SPOTS.rho[0], u), DM.lerp(s[1], SPOTS.rho[1], u)];
+        }, { key: 'tau' });
+      },
+    },
+    {
+      text: DM.texify('Switch to the Poincaré disk $\\mathbb{D}$: the entire infinite $\\mathrm{SL}_2(\\mathbb{Z})$ fractal tessellation converges toward the circle boundary.'),
+      enter: a => {
+        a.set('model', 'disk', { silent: true });
+        a.set('spot', 'free', { silent: true });
+        a.pulse('model');
+        a.play();
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p><b>Felix Klein (1877)</b> constructed $j(\\tau) = E_4(\\tau)^3 / \\Delta(\\tau)$ as the unique modular function of weight $0$ on $\\mathrm{SL}_2(\\mathbb{Z}) \\backslash \\mathbb{H}$ with a simple pole at $\\infty$, normalized by $j(i) = 1728$ and $j(e^{2\\pi i/3}) = 0$.</p>
+    <p>Under the generators $T(\\tau) = \\tau + 1$ and $S(\\tau) = -1/\\tau$, every point $\\tau \\in \\mathbb{H}$ maps into the fundamental keyhole $\\mathcal{F}$ with identical value $j(\\tau)$, classifying complex elliptic curves up to isomorphism.</p>
+    <p class="ref">Plate 006 · Daily Math Atelier · Modular Forms &amp; Hyperbolic Geometry.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+    if (a.gl) {
+      prog = DM.gl.program(a.gl, FRAG);
+      quad = DM.gl.quad(a.gl);
+    }
+  },
+  step: (dt, a) => {
+    if (!draggingTau && a.get('spot') === 'free') {
+      orbitPhase += dt * 0.72;
+      tau = [0.68 * Math.sin(orbitPhase), 0.96 + 0.36 * Math.sin(2 * orbitPhase)];
+    }
+  },
+  draw,
+});
+
+app.onResize(a => {
+  fieldRect = a.fitRect(1.45, 16);
+});
+
+app.pointer({
+  down(p) {
+    if (p.x >= fieldRect.x && p.x <= fieldRect.x + fieldRect.w && p.y >= fieldRect.y && p.y <= fieldRect.y + fieldRect.h) {
+      draggingTau = true;
+      tau = screenToTau(p.x, p.y, app.get('model') || 'uhp');
+      app.cursor('grabbing');
+    }
+  },
+  drag(p) {
+    if (!draggingTau) return;
+    tau = screenToTau(p.x, p.y, app.get('model') || 'uhp');
+  },
+  up() {
+    draggingTau = false;
+    app.cursor('');
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('Special values j(i) = 1728 and j(e^{2pi*i/3}) = 0', () => {
+  const ji = jInvariant([0, 1]);
+  const jrho = jInvariant([-0.5, Math.sqrt(3) / 2]);
+  if (Math.hypot(ji[0] - 1728, ji[1]) > 1e-8) return `j(i) = ${ji}`;
+  if (Math.hypot(jrho[0], jrho[1]) > 1e-10) return `j(rho) = ${jrho}`;
+  return true;
+});
+
+DM.test('Modular invariance j(tau+1) = j(tau) and j(-1/tau) = j(tau)', () => {
+  for (const z of [[0.37, 0.42], [-0.81, 0.29], [1.2, 0.55], [0.14, 1.35]]) {
+    const j0 = jInvariant(z);
+    const jT = jInvariant([z[0] + 1, z[1]]);
+    const jS = jInvariant(DM.cx.div([-1, 0], z));
+    if (Math.hypot(j0[0] - jT[0], j0[1] - jT[1]) > 1e-8) return `T invariance failed at ${z}`;
+    if (Math.hypot(j0[0] - jS[0], j0[1] - jS[1]) > 1e-8) return `S invariance failed at ${z}`;
+  }
+  return true;
+});
+
+DM.test('SL2(Z) reduction always lands inside fundamental domain F', () => {
+  for (const z of [[0.49, 0.11], [-0.33, 0.08], [2.71, 0.15], [-1.9, 0.21]]) {
+    const [x, y] = reduceSL2Z(z);
+    if (Math.abs(x) > 0.5 + 1e-12 || Math.hypot(x, y) < 1 - 1e-12) {
+      return `Outside F: (${x}, ${y})`;
+    }
+  }
+  return true;
+});
+</script>
+</body>
+</html>

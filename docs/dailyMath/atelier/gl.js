@@ -32,7 +32,7 @@ vec3 dm_cycle(float t) {
 `;
 
   const DEFAULT_VERT = `#version 300 es
-in vec2 a_pos;
+layout(location = 0) in vec2 a_pos;
 out vec2 v_uv;
 void main() {
   v_uv = 0.5 * (a_pos + 1.0);
