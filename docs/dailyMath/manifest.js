@@ -16,6 +16,16 @@
 
   root.DM_PLATES = [
     {
+      plate: '008',
+      date: '2026-11-25',
+      file: '2026-11-25-klein-quartic.html',
+      title: 'The Klein Quartic & {3, 7} Tiling',
+      hook: 'Seven equilateral triangles meet at every vertex, folding twenty-four heptagons into a genus-3 surface.',
+      topics: ['hyperbolic', 'symmetry'],
+      defaultTheme: 'dark',
+      form: 'webgl2',
+    },
+    {
       plate: '007',
       date: '2026-11-24',
       file: '2026-11-24-confocal-caustics.html',

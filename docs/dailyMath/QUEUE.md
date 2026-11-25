@@ -6,15 +6,6 @@ Maintained by each daily run: build the TOP entry, remove it from this list, and
 
 ---
 
-## The Klein Quartic & {3, 7} Tiling
-- topics: hyperbolic, symmetry · form: WebGL2 Poincaré disk + overlay · theme: dark · modules: `gl`, `math-complex`, `tex`
-- idea: gluing fourteen hyperbolic heptagons in the Poincaré disk creates the Klein quartic — a genus-3 surface saturating Hurwitz's maximum symmetry bound of $168 = 84(g-1)$ automorphisms.
-- gesture: drag a base vertex or tap any generator to see the heptagonal reflections tile $\mathbb{D}$.
-- aha: seven equilateral triangles meet at every vertex ($7 \cdot \pi/3 > 2\pi$), curving the surface negatively so $24$ heptagons fold into a closed surface of genus $3$.
-- live check: vertex angle deficit and Euler characteristic $\chi = V - E + F = -4 = 2 - 2(3)$ (`DM.check`).
-- tour: fundamental 14-gon in $\mathbb{D}$ -> zoom out along the $\{3,7\}$ hyperbolic tiling -> highlight paired boundary edges -> count $24$ heptagons giving $168$ symmetries.
-- math: Felix Klein (1879) and Adolf Hurwitz (1893); no Riemann surface of genus $g \ge 2$ admits more than $84(g-1)$ conformal automorphisms, and the Klein quartic $x^3y + y^3z + z^3x = 0$ attains $168$ at $g=3$.
-
 ## Dehn Surgery on the Figure-Eight Knot
 - topics: topology, hyperbolic · form: panes (surgery grid | complex shape plane) · theme: light · modules: `draw`, `math-complex`, `plot`, `tex`
 - idea: almost every $(p, q)$ Dehn filling of the figure-eight knot complement admits a hyperbolic metric whose volume climbs monotonically toward the complete structure's $2.0298832\ldots$

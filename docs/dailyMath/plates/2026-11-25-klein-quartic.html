@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>The Klein Quartic &amp; {3, 7} Tiling · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/math-complex.js"></script>
+<script src="../atelier/gl.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: (2,3,7) Coxeter group, PGL(2,7) & Klein 14-gon ---------- */
+
+const PI = Math.PI;
+const ALPHA_7 = PI / 7;
+const BETA_3 = PI / 3;
+const COS_A7 = Math.cos(ALPHA_7);
+const SIN_A7 = Math.sin(ALPHA_7);
+
+// Hyperbolic distances and Poincare disk radii for {7,3} / {3,7} and the Klein 14-gon
+const D_CM = Math.acosh(0.5 / SIN_A7);
+const D_CV = Math.acosh(1 / (Math.tan(ALPHA_7) * Math.tan(BETA_3)));
+const R_M = Math.tanh(D_CM / 2);
+const R_V = Math.tanh(D_CV / 2);
+const R_C = 0.5 * (R_M + 1 / R_M);
+const R_E = 0.5 * (1 / R_M - R_M);
+
+const D_OM14 = Math.acosh(COS_A7 / Math.sin(PI / 14));
+const D_OV14 = Math.acosh(1 / (Math.tan(PI / 14) * Math.tan(ALPHA_7)));
+const R_M14 = Math.tanh(D_OM14 / 2);
+const R_V14 = Math.tanh(D_OV14 / 2);
+const R_C14 = 0.5 * (R_M14 + 1 / R_M14);
+const R_E14 = 0.5 * (1 / R_M14 - R_M14);
+
+const KLEIN_VERTS = Array.from({ length: 14 }, (_, k) => [
+  R_V14 * Math.cos((PI * k) / 7),
+  R_V14 * Math.sin((PI * k) / 7),
+]);
+
+// PGL(2, 7) reflection generators matching the (2,3,7) triangle sides:
+// R1: y = 0, R2: arg(z) = pi/7, R3: circle (R_C, 0) of radius R_E
+const PGL_R1 = [1, 0, 0, 6];
+const PGL_R2 = [1, 1, 0, 6];
+const PGL_R3 = [0, 1, 1, 0];
+
+function mulMod7(A, B) {
+  return [
+    (A[0] * B[0] + A[1] * B[2]) % 7,
+    (A[0] * B[1] + A[1] * B[3]) % 7,
+    (A[2] * B[0] + A[3] * B[2]) % 7,
+    (A[2] * B[1] + A[3] * B[3]) % 7,
+  ];
+}
+
+function normPGL7(A) {
+  for (let i = 0; i < 4; i++) {
+    if (A[i] !== 0) {
+      const inv = [0, 1, 4, 5, 2, 3, 6][A[i]];
+      return A.map(v => (v * inv) % 7);
+    }
+  }
+  return A;
+}
+
+// Map g in PGL(2,7) to its unique heptagon index 0..23 and P^1(F_7) 8-color 0..7
+function heptagonInvariant(g) {
+  const det = ((g[0] * g[3] - g[1] * g[2]) % 7 + 7) % 7;
+  const s = (det === 2 || det === 5) ? 2 : (det === 3 || det === 4) ? 4 : 1;
+  let a = (g[0] * s) % 7;
+  let c = (g[2] * s) % 7;
+  if (a === 0) {
+    if (c > 3) c = 7 - c;
+  } else if (a > 3) {
+    a = 7 - a;
+    c = (7 - c) % 7;
+  }
+  const id = a === 0 ? c - 1 : 3 + (a - 1) * 7 + c;
+  const p1 = c === 0 ? 7 : (a * [0, 1, 4, 5, 2, 3, 6][c]) % 7;
+  return { id, ac: [a, c], p1 };
+}
+
+function fold237(zIn) {
+  let x = zIn[0], y = zIn[1];
+  if (x * x + y * y >= 0.999999) return null;
+  let g = [1, 0, 0, 1];
+  let flips = 0;
+  const c2 = Math.cos((2 * PI) / 7);
+  const s2 = Math.sin((2 * PI) / 7);
+  const re2 = R_E * R_E;
+
+  for (let i = 0; i < 64; i++) {
+    if (y < -1e-12) {
+      y = -y;
+      g = [g[0], (7 - g[1]) % 7, g[2], (7 - g[3]) % 7];
+      flips++;
+      continue;
+    }
+    if (x * SIN_A7 - y * COS_A7 < -1e-12) {
+      const nx = c2 * x + s2 * y;
+      const ny = s2 * x - c2 * y;
+      x = nx; y = ny;
+      g = [g[0], (g[0] + 7 - g[1]) % 7, g[2], (g[2] + 7 - g[3]) % 7];
+      flips++;
+      continue;
+    }
+    const dx = x - R_C;
+    const d2 = dx * dx + y * y;
+    if (d2 < re2 - 1e-12) {
+      const k = re2 / d2;
+      x = R_C + dx * k;
+      y = y * k;
+      g = [g[1], g[0], g[3], g[2]];
+      flips++;
+      continue;
+    }
+    break;
+  }
+  return { z: [x, y], g, flips };
+}
+
+function isInside14gon(z) {
+  let ang = Math.atan2(z[1], z[0]);
+  const sector = PI / 7;
+  ang = ((ang % sector) + sector) % sector;
+  const r = Math.hypot(z[0], z[1]);
+  const wx = r * Math.cos(ang);
+  const wy = r * Math.sin(ang);
+  const cx = R_C14 * Math.cos(PI / 14);
+  const cy = R_C14 * Math.sin(PI / 14);
+  return Math.hypot(wx - cx, wy - cy) > R_E14;
+}
+
+// SU(1,1) pairing map P_m sending edge 2m -> edge (2m+5)%14 with reversed orientation
+function pairingSU11(m) {
+  const k = (2 * m) % 14;
+  const l = (k + 5) % 14;
+  const z0 = KLEIN_VERTS[k];
+  const z1 = KLEIN_VERTS[(k + 1) % 14];
+  const w0 = KLEIN_VERTS[(l + 1) % 14];
+  const w1 = KLEIN_VERTS[l];
+
+  const Tz = DM.mob.of([1, 0], DM.cx.scale(z0, -1), DM.cx.scale(DM.cx.conj(z0), -1), [1, 0], false);
+  const dz = DM.mob.apply(Tz, z1);
+  const TwInv = DM.mob.of([1, 0], DM.cx.scale(w0, -1), DM.cx.scale(DM.cx.conj(w0), -1), [1, 0], false);
+  const dw = DM.mob.apply(TwInv, w1);
+  const phi = DM.cx.arg(dw) - DM.cx.arg(dz);
+  const R = DM.mob.of([Math.cos(phi), Math.sin(phi)], [0, 0], [0, 0], [1, 0], false);
+  const Tw = DM.mob.of([1, 0], w0, DM.cx.conj(w0), [1, 0], false);
+  return DM.mob.of(...DM.mob.mul(Tw, DM.mob.mul(R, Tz)), true);
+}
+
+// Compute vertex orbits under the 7 edge pairings (2m <-> 2m+5)
+function kleinVertexOrbits() {
+  const adj = Array.from({ length: 14 }, () => []);
+  for (let m = 0; m < 7; m++) {
+    const k = (2 * m) % 14;
+    const l = (k + 5) % 14;
+    const kNext = (k + 1) % 14;
+    const lNext = (l + 1) % 14;
+    adj[k].push(lNext); adj[lNext].push(k);
+    adj[kNext].push(l); adj[l].push(kNext);
+  }
+  const seen = new Array(14).fill(false);
+  const orbits = [];
+  for (let i = 0; i < 14; i++) {
+    if (seen[i]) continue;
+    const orb = [];
+    const stack = [i];
+    seen[i] = true;
+    while (stack.length) {
+      const u = stack.pop();
+      orb.push(u);
+      for (const v of adj[u]) {
+        if (!seen[v]) { seen[v] = true; stack.push(v); }
+      }
+    }
+    orbits.push(orb);
+  }
+  return orbits;
+}
+
+/* ---------- WebGL2 domain shader ---------- */
+
+const FRAG = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 fragColor;
+
+uniform vec2 u_va;
+uniform vec2 u_vb;
+uniform float u_mesh;     // 0: both, 1: {7,3}, 2: {3,7}
+uniform float u_domain;   // 1: highlight 14-gon, 0: infinite
+uniform int u_selHept;    // -1 or 0..23
+uniform float u_rM;
+uniform float u_rC;
+uniform float u_rE;
+uniform float u_rC14;
+uniform float u_rE14;
+//#DM_PALETTE
+
+vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+vec2 cdiv(vec2 a, vec2 b) { return vec2(dot(a, b), a.y * b.x - a.x * b.y) / max(dot(b, b), 1e-12); }
+
+vec3 p1Color(int p1) {
+  vec3 bg = dm_bg_alt();
+  vec3 c0 = dm_cobalt();
+  vec3 c1 = dm_verdigris();
+  vec3 c2 = dm_ochre();
+  vec3 c3 = dm_vermilion();
+  vec3 c4 = dm_plum();
+  vec3 c5 = mix(dm_cobalt(), dm_verdigris(), 0.5);
+  vec3 c6 = mix(dm_ochre(), dm_vermilion(), 0.45);
+  vec3 c7 = mix(dm_cobalt(), dm_plum(), 0.42);
+  if (p1 == 0) return c0;
+  if (p1 == 1) return c1;
+  if (p1 == 2) return c2;
+  if (p1 == 3) return c3;
+  if (p1 == 4) return c4;
+  if (p1 == 5) return c5;
+  if (p1 == 6) return c6;
+  return mix(c7, bg, 0.08);
+}
+
+void main() {
+  vec2 w = (v_uv - 0.5) * 2.08;
+  float rw = length(w);
+  float fw = max(fwidth(rw), 0.002);
+  if (rw >= 0.998) {
+    fragColor = vec4(dm_bg(), 1.0);
+    return;
+  }
+  float diskMask = 1.0 - smoothstep(0.992 - fw, 0.998, rw);
+
+  // Apply inverse view Mobius map z = (a w + b) / (conj(b) w + conj(a))
+  vec2 num = cmul(u_va, w) + u_vb;
+  vec2 den = cmul(vec2(u_vb.x, -u_vb.y), w) + vec2(u_va.x, -u_va.y);
+  vec2 z = cdiv(num, den);
+
+  // Check if z lies inside the fundamental 14-gon before folding
+  float ang14 = mod(atan(z.y, z.x) + 6.28318530718, 0.4487989505128276);
+  vec2 w14 = length(z) * vec2(cos(ang14), sin(ang14));
+  vec2 c14 = u_rC14 * vec2(cos(0.2243994752564138), sin(0.2243994752564138));
+  float d14 = length(w14 - c14) - u_rE14;
+  float in14 = smoothstep(-0.001, 0.001, d14);
+
+  // Fold into fundamental (2,3,7) Schwarz triangle while tracking PGL(2,7) matrix mod 7
+  ivec4 g = ivec4(1, 0, 0, 1);
+  int flips = 0;
+  float sinA = 0.4338837391175581;
+  float cosA = 0.9009688679024191;
+  float cos2A = 0.6234898018587335;
+  float sin2A = 0.7818314824680298;
+  float re2 = u_rE * u_rE;
+
+  for (int i = 0; i < 52; i++) {
+    if (z.y < 0.0) {
+      z.y = -z.y;
+      g = ivec4(g.x, (7 - g.y) % 7, g.z, (7 - g.w) % 7);
+      flips++;
+      continue;
+    }
+    if (z.x * sinA - z.y * cosA < 0.0) {
+      z = vec2(cos2A * z.x + sin2A * z.y, sin2A * z.x - cos2A * z.y);
+      g = ivec4(g.x, (g.x + 7 - g.y) % 7, g.z, (g.z + 7 - g.w) % 7);
+      flips++;
+      continue;
+    }
+    vec2 dz = vec2(z.x - u_rC, z.y);
+    float d2 = dot(dz, dz);
+    if (d2 < re2) {
+      float k = re2 / max(d2, 1e-8);
+      z = vec2(u_rC + dz.x * k, dz.y * k);
+      g = ivec4(g.y, g.x, g.w, g.z);
+      flips++;
+      continue;
+    }
+    break;
+  }
+
+  // Exact heptagon ID (0..23) & P^1(F_7) 8-color (0..7)
+  int det = ((g.x * g.w - g.y * g.z) % 7 + 7) % 7;
+  int s = (det == 2 || det == 5) ? 2 : ((det == 3 || det == 4) ? 4 : 1);
+  int ha = (g.x * s) % 7;
+  int hc = (g.z * s) % 7;
+  if (ha == 0) {
+    if (hc > 3) hc = 7 - hc;
+  } else if (ha > 3) {
+    ha = 7 - ha;
+    hc = (7 - hc) % 7;
+  }
+  int heptId = (ha == 0) ? (hc - 1) : (3 + (ha - 1) * 7 + hc);
+  int invC = 0;
+  if (hc == 1) invC = 1;
+  else if (hc == 2) invC = 4;
+  else if (hc == 3) invC = 5;
+  else if (hc == 4) invC = 2;
+  else if (hc == 5) invC = 3;
+  else if (hc == 6) invC = 6;
+  int p1 = (hc == 0) ? 7 : (ha * invC) % 7;
+
+  // Distances in the folded fundamental triangle (approx hyperbolic scaled by local metric)
+  float metric = 2.0 / max(1.0 - dot(z, z), 0.05);
+  float distR1 = abs(z.y);                                  // {3,7} triangle edge
+  float distR2 = abs(z.x * sinA - z.y * cosA);              // altitude / symmetry axis
+  float distR3 = abs(length(vec2(z.x - u_rC, z.y)) - u_rE); // {7,3} heptagon edge
+
+  float pxScale = max(fwidth(w.x) + fwidth(w.y), 0.003) * 0.55;
+  float hScale = pxScale * (1.0 - rw * rw);
+  // Measure edge sharpness smoothly from folded local metric
+  float eHept = 1.0 - smoothstep(0.0, max(0.0032, pxScale * 1.15 * (1.0 + 0.65 * float(flips > 10))), distR3 * (1.0 - 0.35 * rw));
+  float eTri  = 1.0 - smoothstep(0.0, max(0.0028, pxScale * 1.05 * (1.0 + 0.65 * float(flips > 10))), distR1 * (1.0 - 0.35 * rw));
+  float eSub  = 1.0 - smoothstep(0.0, max(0.0022, pxScale * 0.90), distR2);
+
+  // Base mineral/luminous fill per heptagon
+  vec3 hue = p1Color(p1);
+  float parityBoost = ((flips & 1) == 0) ? 0.04 : -0.04;
+  float domainFactor = mix(1.0, mix(0.42, 1.0, in14), u_domain);
+  float baseAlpha = mix(0.26, 0.36, u_dark) * domainFactor + parityBoost * 0.4;
+
+  vec3 col = mix(dm_bg_alt(), hue, clamp(baseAlpha, 0.08, 0.85));
+
+  // Subtle radial shading inside each triangle for engraved depth
+  float rFold = length(z) / 0.301;
+  col = mix(col, dm_bg(), clamp(0.10 * (1.0 - rFold), 0.0, 0.14));
+
+  // Highlight selected heptagon coset across the infinite disk
+  if (heptId == u_selHept) {
+    vec3 hiCol = mix(dm_ochre(), dm_vermilion(), 0.42);
+    col = mix(col, hiCol, mix(0.52, 0.62, u_dark));
+    col = mix(col, dm_vermilion(), eHept * 0.85);
+  }
+
+  // Draw {7,3} heptagon edges & {3,7} triangle edges
+  vec3 ink = dm_ink();
+  float lineFade = (1.0 - smoothstep(0.86, 0.995, rw) * 0.45) * mix(1.0, mix(0.52, 1.0, in14), u_domain);
+  if (u_mesh < 1.5) {
+    // Both (0) or {7,3} (1): crisp heptagon edges
+    float wHept = (u_mesh < 0.5) ? 0.62 : 0.72;
+    col = mix(col, ink, eHept * wHept * lineFade);
+  }
+  if (u_mesh < 0.5 || u_mesh > 1.5) {
+    // Both (0) or {3,7} (2): equilateral triangle edges
+    float wTri = (u_mesh > 1.5) ? 0.68 : 0.34;
+    vec3 triCol = (u_mesh > 1.5) ? ink : dm_ochre();
+    col = mix(col, triCol, eTri * wTri * lineFade);
+  }
+  if (u_mesh > 1.5) {
+    col = mix(col, ink, eSub * 0.08 * lineFade);
+  }
+
+  // Subtle 14-gon boundary glow in shader
+  if (u_domain > 0.5) {
+    float b14 = 1.0 - smoothstep(0.0, 0.0055, abs(d14));
+    col = mix(col, dm_ochre(), b14 * 0.45);
+  }
+
+  col = mix(dm_bg(), col, diskMask);
+  fragColor = vec4(col, 1.0);
+}`;
+
+/* ---------- state ---------- */
+
+let prog = null, quad = null;
+let labels = null;
+let disk = { x: 200, y: 200, r: 160 };
+let glRect = { x: 40, y: 40, w: 320, h: 320 };
+
+let viewCenter = [0, 0];
+let viewRot = 0;
+let activePair = 0;
+let selHept = -1;
+let dragging = false;
+let dragMoved = false;
+let downW = [0, 0];
+let downView = [0, 0];
+let downRot = 0;
+
+function currentViewMobius() {
+  return DM.hyp.diskIsometry(viewCenter, viewRot);
+}
+
+function viewInverseSU11() {
+  const M = currentViewMobius();
+  const inv = DM.mob.inv(M);
+  // Normalize so inv = [[a, b], [conj(b), conj(a)]] with det = 1
+  return { a: inv[0], b: inv[1], M, inv };
+}
+
+function screenToDisk(px, py) {
+  const rad = disk.r;
+  return [(px - disk.x) / rad, (disk.y - py) / rad];
+}
+
+function diskToScreen(w) {
+  return [disk.x + w[0] * disk.r, disk.y - w[1] * disk.r];
+}
+
+function drawDiskGeodesic(ctx, w1, w2, color, width, opts = {}) {
+  const g = DM.hyp.diskGeodesic(w1, w2);
+  if (g.kind === 'line') {
+    const p1 = diskToScreen(g.p1);
+    const p2 = diskToScreen(g.p2);
+    DM.line(ctx, p1[0], p1[1], p2[0], p2[1], color, width, opts);
+  } else {
+    const sc = diskToScreen([g.cx, g.cy]);
+    const sr = g.r * disk.r;
+    // Note screen y flips sign, so angles negate and ccw flips
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(sc[0], sc[1], sr, -g.a1, -g.a2, !g.ccw);
+    if (opts.dash) ctx.setLineDash(opts.dash);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function geodesicMidpoint(z1, z2) {
+  // Hyperbolic midpoint in D via Mobius shift of z1 -> 0
+  const Tz = DM.mob.of([1, 0], DM.cx.scale(z1, -1), DM.cx.scale(DM.cx.conj(z1), -1), [1, 0], true);
+  const w = DM.mob.apply(Tz, z2);
+  const r = Math.hypot(w[0], w[1]);
+  if (r < 1e-12) return z1;
+  const d = 2 * Math.atanh(r);
+  const rm = Math.tanh(d / 4);
+  const midW = [(w[0] / r) * rm, (w[1] / r) * rm];
+  const TzInv = DM.mob.inv(Tz);
+  return DM.mob.apply(TzInv, midW);
+}
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const gl = app.gl;
+  const ctx = app.octx;
+  const P = app.palette;
+  const meshMode = app.get('mesh') || 'both';
+  const showDomain = !!app.get('domain');
+  const { a, b, M } = viewInverseSU11();
+
+  if (gl && prog && quad) {
+    const bg = DM.hexToRgb(P.bg);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.viewport(0, 0, Math.round(app.W * app.dpr), Math.round(app.H * app.dpr));
+    gl.clearColor(bg[0] / 255, bg[1] / 255, bg[2] / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    DM.gl.viewport(gl, app, glRect);
+    prog.use(app);
+    prog.f2('u_va', a[0], a[1]);
+    prog.f2('u_vb', b[0], b[1]);
+    prog.f1('u_mesh', meshMode === 'hept' ? 1 : meshMode === 'tri' ? 2 : 0);
+    prog.f1('u_domain', showDomain ? 1 : 0);
+    gl.uniform1i(gl.getUniformLocation(prog.raw, 'u_selHept'), selHept);
+    prog.f1('u_rM', R_M);
+    prog.f1('u_rC', R_C);
+    prog.f1('u_rE', R_E);
+    prog.f1('u_rC14', R_C14);
+    prog.f1('u_rE14', R_E14);
+    quad.draw();
+    gl.disable(gl.SCISSOR_TEST);
+  }
+
+  ctx.clearRect(0, 0, app.W, app.H);
+  DM.ring(ctx, disk.x, disk.y, disk.r * 1.002, P.hairlineStrong, 1.3);
+
+  const labelItems = [];
+  if (showDomain) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(disk.x, disk.y, disk.r, 0, 2 * PI);
+    ctx.clip();
+
+    const wVerts = KLEIN_VERTS.map(v => DM.mob.apply(M, v));
+    const pairA = (2 * activePair) % 14;
+    const pairB = (pairA + 5) % 14;
+
+    for (let k = 0; k < 14; k++) {
+      const w0 = wVerts[k];
+      const w1 = wVerts[(k + 1) % 14];
+      const isA = k === pairA;
+      const isB = k === pairB;
+      const col = isA ? P.vermilion : isB ? P.verdigris : DM.rgba(P.ochre, 0.85);
+      const wid = (isA || isB) ? 2.8 : 1.5;
+      drawDiskGeodesic(ctx, w0, w1, col, wid);
+
+      // Draw orientation arrows on the active paired edges (reversed gluing!)
+      if (isA || isB) {
+        const midZ = geodesicMidpoint(KLEIN_VERTS[k], KLEIN_VERTS[(k + 1) % 14]);
+        const dirZ = geodesicMidpoint(midZ, isA ? KLEIN_VERTS[(k + 1) % 14] : KLEIN_VERTS[k]);
+        const midW = DM.mob.apply(M, midZ);
+        const dirW = DM.mob.apply(M, dirZ);
+        const sm = diskToScreen(midW);
+        const sd = diskToScreen(dirW);
+        const ang = Math.atan2(sd[1] - sm[1], sd[0] - sm[0]);
+        const head = 9.5;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(sm[0] + head * 0.62 * Math.cos(ang), sm[1] + head * 0.62 * Math.sin(ang));
+        ctx.lineTo(sm[0] - head * 0.65 * Math.cos(ang - 0.52), sm[1] - head * 0.65 * Math.sin(ang - 0.52));
+        ctx.lineTo(sm[0] - head * 0.65 * Math.cos(ang + 0.52), sm[1] - head * 0.65 * Math.sin(ang + 0.52));
+        ctx.closePath();
+        ctx.fillStyle = col;
+        ctx.strokeStyle = P.surface;
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+        ctx.fill();
+        ctx.restore();
+
+        // Place KaTeX edge label cleanly outside the curved edge
+        if (Math.hypot(midW[0], midW[1]) < 0.89) {
+          const outLen = Math.hypot(midW[0], midW[1]) || 1;
+          const off = Math.max(19, disk.r * 0.095);
+          const lx = sm[0] + (midW[0] / outLen) * off;
+          const ly = sm[1] - (midW[1] / outLen) * off;
+          labelItems.push({
+            key: isA ? 'pairA' : 'pairB',
+            x: lx,
+            y: ly,
+            tex: `e_{${k}}`,
+            color: col,
+            size: 13,
+          });
+        }
+      }
+    }
+
+    // Highlight the 14 vertices of the fundamental 14-gon (2 orbits of 7!)
+    for (let k = 0; k < 14; k++) {
+      const s = diskToScreen(wVerts[k]);
+      const col = (k % 2 === 0) ? P.ochre : P.cobalt;
+      DM.dot(ctx, s[0], s[1], 3.5, col, { stroke: P.surface, strokeWidth: 1.2 });
+    }
+    ctx.restore();
+  }
+
+  if (labels) labels.set(labelItems);
+
+  // Live mathematical verification
+  const Pmap = pairingSU11(activePair);
+  const pA = (2 * activePair) % 14;
+  const pB = (pA + 5) % 14;
+  const testZ = [0.11, 0.03];
+  const imgZ = DM.mob.apply(Pmap, testZ);
+  const f0 = fold237(testZ);
+  const f1 = fold237(imgZ);
+  const glueErr = (f0 && f1) ? Math.hypot(f0.z[0] - f1.z[0], f0.z[1] - f1.z[1]) : 1;
+  const g1Norm = f1 ? normPGL7(f1.g) : [0, 0, 0, 0];
+  const glueOk = glueErr < 1e-10 && g1Norm[0] === 1 && g1Norm[1] === 0 && g1Norm[2] === 0 && g1Norm[3] === 1;
+
+  const statsTex = meshMode === 'tri'
+    ? '\\chi = 24 - 84 + 56 = -4'
+    : '\\chi = 56 - 84 + 24 = -4';
+
+  const detailLine = selHept >= 0
+    ? `${DM.tex(`\\text{Heptagon } \\#${selHept + 1}/24`)} <span style="opacity:.45;margin:0 4px">|</span> ${DM.tex(`e_{${pA}} \\leftrightarrow e_{${pB}}`)}`
+    : `${DM.tex(`e_{${pA}} \\leftrightarrow e_{${pB}}`)} <span style="opacity:.45;margin:0 4px">|</span> ${DM.tex('\\text{Area} = 8\\pi')}`;
+
+  app.readout(
+    `<span class="big">${DM.tex(statsTex)}</span> &nbsp; ${DM.check(glueOk, 'g = 3')}<br>` +
+    `${DM.tex('|\\mathrm{PSL}_2(\\mathbb{F}_7)| = 168 = 84(g-1)')}<br>` +
+    `<small>${detailLine}</small>`
+  );
+
+  app.legend([
+    { color: P.ochre, label: '14-gon', line: true },
+    { color: P.vermilion, label: DM.tex(`e_{${pA}}`) },
+    { color: P.verdigris, label: DM.tex(`e_{${pB}}`) },
+  ]);
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '008',
+  title: 'The Klein Quartic & {3, 7} Tiling',
+  hook: 'Seven equilateral triangles meet at every vertex, folding twenty-four heptagons into a genus-3 surface.',
+  date: '2026-11-25',
+  defaultTheme: 'dark',
+  hint: 'drag to pan · tap a heptagon',
+  stage: 'webgl2',
+  overlay: true,
+  controls: [
+    { type: 'play' },
+    {
+      type: 'segmented',
+      id: 'mesh',
+      label: 'Tiling mesh',
+      value: 'both',
+      options: [
+        { value: 'both', label: 'Both' },
+        { value: 'hept', label: DM.tex('\\{7,3\\}') },
+        { value: 'tri', label: DM.tex('\\{3,7\\}') },
+      ],
+    },
+    { type: 'toggle', id: 'domain', label: '14-gon', value: true },
+    {
+      type: 'button',
+      id: 'pair',
+      label: 'Next pair',
+      title: 'Cycle paired 14-gon edges',
+      onClick: a => {
+        a.set('domain', true, { silent: true });
+        activePair = (activePair + 1) % 7;
+        a.pulse('pair');
+      },
+    },
+  ],
+  tour: [
+    {
+      text: DM.texify('Twenty-four heptagons fill this 14-gon, whose paired edges fold into the genus-$3$ Klein quartic.'),
+      enter: a => {
+        a.pause();
+        a.set('mesh', 'both', { silent: true });
+        a.set('domain', true, { silent: true });
+        selHept = -1;
+        activePair = 0;
+        const sC = viewCenter.slice(), sR = viewRot;
+        a.tween(420, u => {
+          viewCenter = [DM.lerp(sC[0], 0, u), DM.lerp(sC[1], 0, u)];
+          viewRot = DM.lerp(sR, 0, u);
+        }, { key: 'view' });
+      },
+    },
+    {
+      text: DM.texify('In the dual $\\{3,7\\}$ mesh, seven triangles meet at each vertex, curving the surface negatively.'),
+      enter: a => {
+        a.pause();
+        a.set('mesh', 'tri', { silent: true });
+        a.set('domain', false, { silent: true });
+        a.pulse('mesh');
+        const sC = viewCenter.slice();
+        a.tween(520, u => {
+          viewCenter = [DM.lerp(sC[0], 0.34, u), DM.lerp(sC[1], 0.16, u)];
+        }, { key: 'view' });
+      },
+    },
+    {
+      text: DM.texify('Each edge glues five steps around ($e_2 \\leftrightarrow e_7$), uniting fourteen vertices into two orbits of seven.'),
+      enter: a => {
+        a.pause();
+        a.set('mesh', 'hept', { silent: true });
+        a.set('domain', true, { silent: true });
+        activePair = 1;
+        a.pulse('pair');
+        const sC = viewCenter.slice();
+        a.tween(480, u => {
+          viewCenter = [DM.lerp(sC[0], 0, u), DM.lerp(sC[1], 0, u)];
+        }, { key: 'view' });
+      },
+    },
+    {
+      text: DM.texify('Tap any heptagon to trace its coset across $\\mathbb{D}$; $24$ tiles carry all $168$ symmetries.'),
+      enter: a => {
+        a.set('mesh', 'both', { silent: true });
+        a.set('domain', true, { silent: true });
+        selHept = 12;
+        a.play();
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p><b>Felix Klein (1879)</b> discovered that the quartic curve $x^3y + y^3z + z^3x = 0$ is a compact genus-$3$ surface tiled by $24$ regular hyperbolic heptagons (or $56$ equilateral triangles in $\\{3,7\\}$), formed by gluing opposite-shifted edges $e_{2m} \\leftrightarrow e_{2m+5}$ of a regular $14$-gon in $\\mathbb{D}$.</p>
+    <p><b>Adolf Hurwitz (1893)</b> proved that any genus-$g \\ge 2$ Riemann surface has at most $84(g-1)$ conformal automorphisms. The Klein quartic attains this bound with $|\\mathrm{PSL}_2(\\mathbb{F}_7)| = 168$ symmetries at $g=3$.</p>
+    <p class="ref">Plate 008 · Daily Math Atelier · Hyperbolic Geometry &amp; Group Theory.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+    if (a.gl) {
+      prog = DM.gl.program(a.gl, FRAG);
+      quad = DM.gl.quad(a.gl);
+    }
+  },
+  step: (dt, a) => {
+    if (!dragging && !a.busy()) {
+      viewRot += dt * 0.14;
+    }
+  },
+  draw,
+});
+
+app.onResize(a => {
+  disk = a.fitCircle(18);
+  const pad = disk.r * 1.04;
+  glRect = { x: disk.x - pad, y: disk.y - pad, w: pad * 2, h: pad * 2 };
+});
+
+app.pointer({
+  down(p) {
+    const w = screenToDisk(p.x, p.y);
+    if (Math.hypot(w[0], w[1]) >= 0.995) return;
+    dragging = true;
+    dragMoved = false;
+    downW = w;
+    downView = viewCenter.slice();
+    downRot = viewRot;
+    app.cursor('grabbing');
+  },
+  drag(p) {
+    if (!dragging) return;
+    const w = screenToDisk(p.x, p.y);
+    if (Math.hypot(w[0] - downW[0], w[1] - downW[1]) > 0.015) dragMoved = true;
+    const r = Math.hypot(w[0], w[1]);
+    const clamped = r > 0.92 ? [w[0] * (0.92 / r), w[1] * (0.92 / r)] : w;
+    // Apply hyperbolic shift keeping downW under pointer
+    const mDown = DM.hyp.diskIsometry(downView, downRot);
+    const zTarget = DM.mob.apply(DM.mob.inv(mDown), downW);
+    const rotMat = DM.mob.of([Math.cos(downRot), Math.sin(downRot)], [0, 0], [0, 0], [1, 0], false);
+    const rZ = DM.mob.apply(rotMat, zTarget);
+    // Solve (rZ + p) / (conj(p)*rZ + 1) = clamped -> p = (clamped - rZ) / (1 - conj(clamped)*rZ)
+    const num = DM.cx.sub(clamped, rZ);
+    const den = DM.cx.sub([1, 0], DM.cx.mul(DM.cx.conj(clamped), rZ));
+    const pNew = DM.cx.div(num, den);
+    const rp = Math.hypot(pNew[0], pNew[1]);
+    viewCenter = rp > 0.93 ? [pNew[0] * (0.93 / rp), pNew[1] * (0.93 / rp)] : pNew;
+  },
+  up() {
+    dragging = false;
+    app.cursor('');
+  },
+  tap(p) {
+    if (dragMoved) return;
+    const w = screenToDisk(p.x, p.y);
+    if (Math.hypot(w[0], w[1]) >= 0.98) return;
+    const { inv } = viewInverseSU11();
+    const z = DM.mob.apply(inv, w);
+    const folded = fold237(z);
+    if (!folded) return;
+    const info = heptagonInvariant(folded.g);
+    selHept = selHept === info.id ? -1 : info.id;
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('Gauss-Bonnet area of 24 heptagons and 56 triangles equals 8*pi (g=3)', () => {
+  const areaTri = PI - 3 * ((2 * PI) / 7);
+  const areaHept = (7 - 2) * PI - 7 * ((2 * PI) / 3);
+  const area14 = (14 - 2) * PI - 14 * ((2 * PI) / 7);
+  const target = 8 * PI;
+  return (
+    Math.abs(56 * areaTri - target) < 1e-12 &&
+    Math.abs(24 * areaHept - target) < 1e-12 &&
+    Math.abs(area14 - target) < 1e-12
+  );
+});
+
+DM.test('PGL(2,7) reflection group has order 336, 24 heptagons, and valid 8-coloring', () => {
+  const seen = new Map();
+  const heptReps = new Map();
+  const keyOf = m => normPGL7(m).join(',');
+  const q = [[1, 0, 0, 1]];
+  seen.set(keyOf(q[0]), q[0]);
+  while (q.length) {
+    const g = q.shift();
+    const inv = heptagonInvariant(g);
+    if (!heptReps.has(inv.id)) heptReps.set(inv.id, g);
+    for (const R of [PGL_R1, PGL_R2, PGL_R3]) {
+      const gn = normPGL7(mulMod7(g, R));
+      const k = keyOf(gn);
+      if (!seen.has(k)) { seen.set(k, gn); q.push(gn); }
+    }
+  }
+  if (seen.size !== 336) return `order ${seen.size} != 336`;
+  if (heptReps.size !== 24) return `heptagons ${heptReps.size} != 24`;
+  // Check adjacent heptagons never share a P^1(F_7) color
+  const R7 = mulMod7(PGL_R1, PGL_R2);
+  for (const [, g] of heptReps) {
+    const c0 = heptagonInvariant(g).p1;
+    let gk = g;
+    for (let s = 0; s < 7; s++) {
+      const gn = mulMod7(gk, PGL_R3);
+      if (heptagonInvariant(gn).p1 === c0) return 'adjacent heptagons share color';
+      gk = mulMod7(gk, R7);
+    }
+  }
+  return true;
+});
+
+DM.test('All 7 Klein 14-gon edge pairings lie in Ker(Delta -> PSL(2,7))', () => {
+  const z0 = [0.11, 0.03];
+  for (let m = 0; m < 7; m++) {
+    const P = pairingSU11(m);
+    const z1 = DM.mob.apply(P, z0);
+    const f = fold237(z1);
+    if (!f) return `pair ${m} left disk`;
+    const dz = Math.hypot(f.z[0] - z0[0], f.z[1] - z0[1]);
+    const g = normPGL7(f.g);
+    if (dz > 1e-10) return `pair ${m} residual ${dz}`;
+    if (g[0] !== 1 || g[1] !== 0 || g[2] !== 0 || g[3] !== 1) return `pair ${m} nontrivial g=${g}`;
+  }
+  return true;
+});
+
+DM.test('14-gon vertex gluings form 2 orbits of 7 giving chi = -4', () => {
+  const orbs = kleinVertexOrbits();
+  const chi = orbs.length - 7 + 1;
+  return orbs.length === 2 && orbs.every(o => o.length === 7) && chi === -4;
+});
+</script>
+</body>
+</html>
