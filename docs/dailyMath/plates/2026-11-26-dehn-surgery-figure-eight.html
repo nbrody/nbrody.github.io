@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>Dehn Surgery on the Figure-Eight Knot · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/math-complex.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: Thurston gluing & Bloch-Wigner volume ---------- */
+
+const cx = DM.cx;
+const OMEGA = [0.5, Math.sqrt(3) / 2];
+const V3 = 1.0149416064096536; // regular ideal tetrahedron volume
+const V_COMPLETE = 2 * V3;     // 2.0298832128193072
+
+function gcd(a, b) {
+  a = Math.abs(a);
+  b = Math.abs(b);
+  while (b) { const t = a % b; a = b; b = t; }
+  return a;
+}
+
+// 16-point Gauss-Legendre quadrature for Milnor's Lobachevsky function Lambda(theta)
+const GL16_X = [
+  -0.9894009349916499, -0.9445750230732326, -0.8656312023878318, -0.7554044083550030,
+  -0.6178762444026438, -0.4580167776572274, -0.2816035507792589, -0.0950125098376374,
+   0.0950125098376374,  0.2816035507792589,  0.4580167776572274,  0.6178762444026438,
+   0.7554044083550030,  0.8656312023878318,  0.9445750230732326,  0.9894009349916499,
+];
+const GL16_W = [
+  0.0271524594117541, 0.0622535239386479, 0.0951585116824928, 0.1246289712555339,
+  0.1495959888165767, 0.1691565193950025, 0.1826034150449236, 0.1894506104550685,
+  0.1894506104550685, 0.1826034150449236, 0.1691565193950025, 0.1495959888165767,
+  0.1246289712555339, 0.0951585116824928, 0.0622535239386479, 0.0271524594117541,
+];
+
+function lobachevsky(th) {
+  const t = ((th % Math.PI) + Math.PI) % Math.PI;
+  if (t < 1e-15 || Math.PI - t < 1e-15) return 0;
+  if (t > Math.PI / 2) return -lobachevsky(Math.PI - t);
+  let sum = 0;
+  for (let i = 0; i < 16; i++) {
+    const u = 0.5 * t * (GL16_X[i] + 1);
+    sum += GL16_W[i] * Math.log(Math.sin(u) / u);
+  }
+  return t * (1 - Math.log(2 * t)) - 0.5 * t * sum;
+}
+
+// Bloch-Wigner volume D(z) = Lambda(a) + Lambda(b) + Lambda(c) via dihedral angles
+function blochWigner(z) {
+  if (Math.abs(z[1]) < 1e-13 || Math.hypot(z[0], z[1]) < 1e-14 || Math.hypot(z[0] - 1, z[1]) < 1e-14) return 0;
+  const alpha = Math.atan2(z[1], z[0]);
+  const w = cx.div([z[0] - 1, z[1]], z);
+  const beta = Math.atan2(w[1], w[0]);
+  const gamma = Math.PI - alpha - beta;
+  return Math.abs(lobachevsky(alpha) + lobachevsky(beta) + lobachevsky(gamma));
+}
+
+// Thurston edge-gluing and Dehn surgery completeness residual at parameter t in [0, 1]
+function gluingResidual(z, w, p, q, t) {
+  const omz = [1 - z[0], -z[1]];
+  const zm1 = [z[0] - 1, z[1]];
+  const wm1 = [w[0] - 1, w[1]];
+  const e1 = cx.sub(
+    cx.add(cx.add(cx.log(z), cx.log(zm1)), cx.add(cx.log(w), cx.log(wm1))),
+    [0, 2 * Math.PI]
+  );
+  const logM = cx.add(cx.log(w), cx.log(omz));
+  const logL = cx.scale(cx.add(cx.log(z), cx.log(omz)), 2);
+  const e2 = cx.sub(cx.add(cx.scale(logM, p), cx.scale(logL, q)), [0, 2 * Math.PI * t]);
+  return { e1, e2, norm: Math.hypot(e1[0], e1[1], e2[0], e2[1]) };
+}
+
+function newtonStep(z, w, p, q, t) {
+  const { e1, e2, norm } = gluingResidual(z, w, p, q, t);
+  if (norm < 1e-13) return { z, w, norm, done: true };
+  const iz = cx.div([1, 0], z);
+  const izm1 = cx.div([1, 0], [z[0] - 1, z[1]]);
+  const iw = cx.div([1, 0], w);
+  const iwm1 = cx.div([1, 0], [w[0] - 1, w[1]]);
+  const j11 = cx.add(iz, izm1);
+  const j12 = cx.add(iw, iwm1);
+  const j21 = cx.add(cx.scale(izm1, p), cx.scale(j11, 2 * q));
+  const j22 = cx.scale(iw, p);
+  const det = cx.sub(cx.mul(j11, j22), cx.mul(j12, j21));
+  if (cx.abs(det) < 1e-14) return null;
+  const dz = cx.div(cx.sub(cx.mul(j22, e1), cx.mul(j12, e2)), det);
+  const dw = cx.div(cx.sub(cx.mul(j11, e2), cx.mul(j21, e1)), det);
+  const stepMax = Math.max(cx.abs(dz), cx.abs(dw));
+  const damp = stepMax > 0.22 ? 0.22 / stepMax : 1;
+  return {
+    z: cx.sub(z, cx.scale(dz, damp)),
+    w: cx.sub(w, cx.scale(dw, damp)),
+    norm,
+    done: false,
+  };
+}
+
+function solveAt(zInit, wInit, p, q, t) {
+  let z = zInit, w = wInit;
+  for (let it = 0; it < 42; it++) {
+    const nxt = newtonStep(z, w, p, q, t);
+    if (!nxt) return null;
+    z = nxt.z;
+    w = nxt.w;
+    if (z[1] <= 1e-7 || w[1] <= 1e-7 || cx.abs(z) > 14 || cx.abs(w) > 14) return null;
+    if (nxt.done) return { z, w, res: nxt.norm };
+  }
+  const final = gluingResidual(z, w, p, q, t);
+  return final.norm < 1e-9 ? { z, w, res: final.norm } : null;
+}
+
+// Homotopy continuation from complete cusp (t = 0) to Dehn filling (t = 1)
+function solveSlope(p, q, steps = 64) {
+  if (p === 0 && q === 0) {
+    return { p: 0, q: 0, degenerate: false, degT: null, z: OMEGA, w: OMEGA, vol: V_COMPLETE, res: 0, path: [{ t: 0, z: OMEGA, w: OMEGA }] };
+  }
+  let z = OMEGA, w = OMEGA;
+  const path = [{ t: 0, z: OMEGA, w: OMEGA }];
+  let lastValidT = 0;
+
+  for (let s = 1; s <= steps; s++) {
+    const t = s / steps;
+    const sol = solveAt(z, w, p, q, t);
+    if (!sol) {
+      // Bisect to locate the exact degeneration frontier on Im = 0
+      let lo = lastValidT, hi = t, zB = z, wB = w;
+      for (let b = 0; b < 14; b++) {
+        const mid = 0.5 * (lo + hi);
+        const mSol = solveAt(zB, wB, p, q, mid);
+        if (mSol) { lo = mid; zB = mSol.z; wB = mSol.w; }
+        else hi = mid;
+      }
+      const zFlat = zB[1] < wB[1] ? [zB[0], 0] : zB;
+      const wFlat = wB[1] <= zB[1] ? [wB[0], 0] : wB;
+      path.push({ t: lo, z: zFlat, w: wFlat });
+      return { p, q, degenerate: true, degT: lo, z: zFlat, w: wFlat, vol: 0, res: 0, path };
+    }
+    z = sol.z;
+    w = sol.w;
+    lastValidT = t;
+    path.push({ t, z, w });
+  }
+
+  const end = path[path.length - 1];
+  const res = gluingResidual(end.z, end.w, p, q, 1).norm;
+  const vol = blochWigner(end.z) + blochWigner(end.w);
+  const degenerate = vol < 1e-4 || end.z[1] < 1e-4 || end.w[1] < 1e-4;
+  return {
+    p, q,
+    degenerate,
+    degT: degenerate ? 1 : null,
+    z: end.z,
+    w: end.w,
+    vol: degenerate ? 0 : vol,
+    res,
+    path,
+  };
+}
+
+// Sample the precomputed homotopy path continuously at t in [0, 1]
+function samplePath(entry, t) {
+  const path = entry.path;
+  if (!path || path.length === 0) return { z: OMEGA, w: OMEGA, vol: V_COMPLETE, res: 0, flat: false };
+  if (t <= 0) return { z: OMEGA, w: OMEGA, vol: V_COMPLETE, res: 0, flat: false };
+  const maxT = path[path.length - 1].t;
+  if (entry.degenerate && t >= maxT - 1e-6) {
+    const end = path[path.length - 1];
+    return { z: end.z, w: end.w, vol: 0, res: 0, flat: true };
+  }
+  const tc = DM.clamp(t, 0, maxT);
+  // Find segment and polish once with Newton for exact gluing identity at intermediate t
+  let lo = 0;
+  while (lo + 1 < path.length - 1 && path[lo + 1].t < tc) lo++;
+  const a = path[lo], b = path[Math.min(lo + 1, path.length - 1)];
+  const span = Math.max(1e-9, b.t - a.t);
+  const u = DM.clamp((tc - a.t) / span, 0, 1);
+  const zGuess = [DM.lerp(a.z[0], b.z[0], u), DM.lerp(a.z[1], b.z[1], u)];
+  const wGuess = [DM.lerp(a.w[0], b.w[0], u), DM.lerp(a.w[1], b.w[1], u)];
+  const polished = solveAt(zGuess, wGuess, entry.p, entry.q, tc);
+  if (!polished) {
+    return { z: zGuess, w: wGuess, vol: 0, res: 0, flat: entry.degenerate };
+  }
+  return {
+    z: polished.z,
+    w: polished.w,
+    vol: blochWigner(polished.z) + blochWigner(polished.w),
+    res: polished.res,
+    flat: false,
+  };
+}
+
+function isExceptional(p, q) {
+  return (q === 0 && Math.abs(p) === 1) || (q === 1 && Math.abs(p) <= 4);
+}
+
+/* ---------- precompute surgery lattice ---------- */
+
+const P_MIN = -6, P_MAX = 6;
+const Q_MIN = 0, Q_MAX = 5;
+const LATTICE = [];
+const SLOPE_MAP = new Map();
+
+function slopeKey(p, q) { return `${p},${q}`; }
+
+(function buildLattice() {
+  for (let q = Q_MIN; q <= Q_MAX; q++) {
+    for (let p = P_MIN; p <= P_MAX; p++) {
+      if (q === 0 && p < 0) continue; // (1,0) represents the meridian infinity slope
+      if (p === 0 && q === 0) {
+        const comp = solveSlope(0, 0);
+        LATTICE.push(comp);
+        SLOPE_MAP.set(slopeKey(0, 0), comp);
+        continue;
+      }
+      if (gcd(p, q) !== 1) continue;
+      const entry = solveSlope(p, q);
+      LATTICE.push(entry);
+      SLOPE_MAP.set(slopeKey(p, q), entry);
+    }
+  }
+})();
+
+function getSlope(p, q) {
+  const k = slopeKey(p, q);
+  if (SLOPE_MAP.has(k)) return SLOPE_MAP.get(k);
+  const entry = solveSlope(p, q);
+  SLOPE_MAP.set(k, entry);
+  return entry;
+}
+
+/* ---------- state ---------- */
+
+const PRESETS = {
+  '5,1': [5, 1],
+  '4,1': [4, 1],
+  '1,2': [1, 2],
+  '6,1': [6, 1],
+};
+
+let activeSlope = [5, 1];
+let labels = null;
+let latticeHitNodes = [];
+let shapeBoxGlobal = null;
+let draggingShapes = false;
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const ctx = app.ctx;
+  const P = app.palette;
+  const isDark = app.theme === 'dark';
+  DM.clear(app);
+
+  const latPane = app.pane('lattice');
+  const shpPane = app.pane('shapes');
+  if (!latPane || !shpPane) return;
+
+  const t = app.get('t');
+  const showTri = app.get('triangles');
+  const entry = getSlope(activeSlope[0], activeSlope[1]);
+  const cur = samplePath(entry, t);
+
+  /* ---- Left Pane: Dehn Surgery Lattice (p, q) ---- */
+  DM.polygon(
+    ctx,
+    [
+      [latPane.x + 2, latPane.y + 2],
+      [latPane.x + latPane.w - 2, latPane.y + 2],
+      [latPane.x + latPane.w - 2, latPane.y + latPane.h - 2],
+      [latPane.x + 2, latPane.y + latPane.h - 2],
+    ],
+    DM.rgba(P.surface, isDark ? 0.34 : 0.52),
+    P.hairline,
+    1
+  );
+
+  const latCam = DM.camera(
+    { x: latPane.x + 26, y: latPane.y + 28, w: Math.max(40, latPane.w - 44), h: Math.max(40, latPane.h - 52) },
+    { xmin: P_MIN - 1.25, xmax: P_MAX + 0.9, ymin: -0.8, ymax: Q_MAX + 0.7 }
+  );
+
+  latticeHitNodes = [];
+  const texItems = [];
+
+  app.clip(latPane, () => {
+    // Exceptional zone envelope (separating the 10 exceptional slopes from hyperbolic exterior)
+    const envPts = [
+      [-4.48, -0.36], [4.48, -0.36], [4.48, 1.38], [-4.48, 1.38],
+    ].map(([p, q]) => latCam.toScreen(p, q));
+    DM.polygon(
+      ctx,
+      envPts,
+      DM.rgba(P.vermilion, isDark ? 0.08 : 0.05),
+      DM.rgba(P.vermilion, isDark ? 0.42 : 0.34),
+      1.1,
+      { dash: [4, 4] }
+    );
+
+    // Subtle integer grid
+    for (let p = P_MIN; p <= P_MAX; p++) {
+      const [sx, y0] = latCam.toScreen(p, 0);
+      const [, y1] = latCam.toScreen(p, Q_MAX);
+      DM.line(ctx, sx, y0, sx, y1, DM.rgba(P.ink, p === 0 ? 0.22 : 0.07), p === 0 ? 1.1 : 0.8);
+    }
+    for (let q = 0; q <= Q_MAX; q++) {
+      const [x0, sy] = latCam.toScreen(P_MIN, q);
+      const [x1] = latCam.toScreen(P_MAX, q);
+      DM.line(ctx, x0, sy, x1, sy, DM.rgba(P.ink, q === 0 ? 0.22 : 0.07), q === 0 ? 1.1 : 0.8);
+    }
+
+    // Integer axis labels
+    ctx.save();
+    ctx.font = '500 10px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.fillStyle = P.muted;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (let p = -6; p <= 6; p += 2) {
+      const [sx, sy] = latCam.toScreen(p, -0.25);
+      ctx.fillText(String(p), sx, sy);
+    }
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let q = 0; q <= Q_MAX; q++) {
+      const [sx, sy] = latCam.toScreen(P_MIN - 0.5, q);
+      ctx.fillText(String(q), sx, sy);
+    }
+    ctx.restore();
+
+    // Non-coprime lattice dots
+    for (let q = 1; q <= Q_MAX; q++) {
+      for (let p = P_MIN; p <= P_MAX; p++) {
+        if (gcd(p, q) > 1) {
+          const [sx, sy] = latCam.toScreen(p, q);
+          DM.dot(ctx, sx, sy, 1.8, DM.rgba(P.ink, 0.16));
+        }
+      }
+    }
+
+    // Coprime slope markers
+    for (const node of LATTICE) {
+      const [sx, sy] = latCam.toScreen(node.p, node.q);
+      const isSel = node.p === activeSlope[0] && node.q === activeSlope[1];
+      if (node.p === 0 && node.q === 0) {
+        // Complete cusp origin
+        DM.ring(ctx, sx, sy, 5.5, P.ochre, 1.5, { fill: DM.rgba(P.ochre, 0.22) });
+        continue;
+      }
+
+      latticeHitNodes.push({ p: node.p, q: node.q, x: sx, y: sy });
+
+      if (node.degenerate) {
+        // Exceptional slope diamond
+        const d = isSel ? 6.5 : 4.8;
+        DM.polygon(
+          ctx,
+          [[sx, sy - d], [sx + d, sy], [sx, sy + d], [sx - d, sy]],
+          isSel ? DM.rgba(P.vermilion, 0.28) : P.surface,
+          P.vermilion,
+          isSel ? 1.8 : 1.25
+        );
+      } else {
+        const frac = DM.clamp(node.vol / V_COMPLETE, 0, 1);
+        const col = DM.mix(P.cobalt, P.verdigris, frac);
+        const rad = 3.2 + 3.4 * frac;
+        DM.dot(ctx, sx, sy, rad, DM.rgba(col, 0.92), {
+          stroke: isSel ? P.ink : P.surface,
+          strokeWidth: isSel ? 1.6 : 0.9,
+        });
+      }
+
+      if (isSel) {
+        DM.ring(ctx, sx, sy, 10.5, node.degenerate ? P.vermilion : P.cobalt, 1.6);
+        texItems.push({
+          key: 'sel-slope',
+          x: sx,
+          y: sy - 16,
+          tex: `(${node.p}, ${node.q})`,
+          color: node.degenerate ? P.vermilion : P.cobalt,
+          size: 11.5,
+        });
+      }
+    }
+
+    // Meridian (-1,0) mirror marker at left of origin
+    const [m1x, m1y] = latCam.toScreen(-1, 0);
+    DM.polygon(ctx, [[m1x, m1y - 4.2], [m1x + 4.2, m1y], [m1x, m1y + 4.2], [m1x - 4.2, m1y]], P.surface, DM.rgba(P.vermilion, 0.55), 1.1);
+  });
+
+  /* ---- Right Pane: Complex Shape Plane (z, w) ---- */
+  DM.polygon(
+    ctx,
+    [
+      [shpPane.x + 2, shpPane.y + 2],
+      [shpPane.x + shpPane.w - 2, shpPane.y + 2],
+      [shpPane.x + shpPane.w - 2, shpPane.y + shpPane.h - 2],
+      [shpPane.x + 2, shpPane.y + shpPane.h - 2],
+    ],
+    DM.rgba(P.surface, isDark ? 0.34 : 0.52),
+    P.hairline,
+    1
+  );
+
+  const shpCam = DM.camera(
+    { x: shpPane.x + 14, y: shpPane.y + 28, w: Math.max(40, shpPane.w - 28), h: Math.max(40, shpPane.h - 44) },
+    { xmin: -0.95, xmax: 1.95, ymin: -0.30, ymax: 2.78 }
+  );
+  shapeBoxGlobal = shpPane;
+
+  app.clip(shpPane, () => {
+    // Degenerate lower half-plane Im <= 0
+    const [rxL, ry0] = shpCam.toScreen(-1.5, 0);
+    const [rxR] = shpCam.toScreen(2.5, 0);
+    const [, ryBot] = shpCam.toScreen(0, -1.0);
+    DM.polygon(
+      ctx,
+      [[rxL, ry0], [rxR, ry0], [rxR, ryBot], [rxL, ryBot]],
+      DM.rgba(P.vermilion, isDark ? 0.08 : 0.055),
+      null,
+      0
+    );
+
+    // Real axis R and imaginary axis
+    const [ix0, iyBot] = shpCam.toScreen(0, -0.5);
+    const [, iyTop] = shpCam.toScreen(0, 3.0);
+    DM.line(ctx, ix0, iyBot, ix0, iyTop, DM.rgba(P.ink, 0.14), 0.9);
+    DM.line(ctx, rxL, ry0, rxR, ry0, DM.rgba(P.vermilion, 0.55), 1.3);
+
+    // Compass circles |z| = 1 and |z - 1| = 1 in the upper half-plane
+    const [p0x, p0y] = shpCam.toScreen(0, 0);
+    const [p1x, p1y] = shpCam.toScreen(1, 0);
+    const unitR = shpCam.scale;
+    DM.arc(ctx, p0x, p0y, unitR, -Math.PI, 0, DM.rgba(P.ink, 0.14), 0.9);
+    DM.arc(ctx, p1x, p1y, unitR, -Math.PI, 0, DM.rgba(P.ink, 0.14), 0.9);
+
+    // Base segment [0, 1] of ideal tetrahedron cusp triangles
+    DM.line(ctx, p0x, p0y, p1x, p1y, P.ink2, 1.7);
+    DM.dot(ctx, p0x, p0y, 3.0, P.ink);
+    DM.dot(ctx, p1x, p1y, 3.0, P.ink);
+
+    // Ideal tetrahedron cusp triangles (0, 1, z) and (0, 1, w)
+    const [zx, zy] = shpCam.toScreen(cur.z[0], cur.z[1]);
+    const [wx, wy] = shpCam.toScreen(cur.w[0], cur.w[1]);
+    if (showTri) {
+      DM.polygon(
+        ctx,
+        [[p0x, p0y], [p1x, p1y], [zx, zy]],
+        DM.rgba(P.cobalt, isDark ? 0.16 : 0.11),
+        DM.rgba(P.cobalt, 0.65),
+        1.25
+      );
+      DM.polygon(
+        ctx,
+        [[p0x, p0y], [p1x, p1y], [wx, wy]],
+        DM.rgba(P.verdigris, isDark ? 0.16 : 0.11),
+        DM.rgba(P.verdigris, 0.65),
+        1.25
+      );
+    }
+
+    // Homotopy deformation trajectories from omega = e^{i pi / 3}
+    const zCurve = entry.path.map(pt => shpCam.toScreen(pt.z[0], pt.z[1]));
+    const wCurve = entry.path.map(pt => shpCam.toScreen(pt.w[0], pt.w[1]));
+    if (zCurve.length >= 2) {
+      DM.polyline(ctx, zCurve, DM.rgba(P.cobalt, 0.48), 1.5, { dash: [3, 3] });
+      DM.polyline(ctx, wCurve, DM.rgba(P.verdigris, 0.48), 1.5, { dash: [3, 3] });
+    }
+
+    // Complete point omega = e^{i pi / 3}
+    const [ox, oy] = shpCam.toScreen(OMEGA[0], OMEGA[1]);
+    DM.ring(ctx, ox, oy, 5.2, P.ochre, 1.5, { fill: DM.rgba(P.ochre, 0.2) });
+
+    // Current z and w markers
+    const zCol = cur.z[1] < 1e-4 ? P.vermilion : P.cobalt;
+    const wCol = cur.w[1] < 1e-4 ? P.vermilion : P.verdigris;
+    DM.dot(ctx, zx, zy, 5.2, zCol, { stroke: P.surface, strokeWidth: 1.3 });
+    DM.dot(ctx, wx, wy, 5.2, wCol, { stroke: P.surface, strokeWidth: 1.3 });
+
+    // Pinned KaTeX labels on shape plane
+    texItems.push({ key: 'pt0', x: p0x - 8, y: p0y + 13, tex: '0', color: P.muted, size: 11 });
+    texItems.push({ key: 'pt1', x: p1x + 8, y: p1y + 13, tex: '1', color: P.muted, size: 11 });
+    texItems.push({ key: 'om', x: ox + 15, y: oy - 11, tex: '\\omega', color: P.ochre, size: 12 });
+    if (t > 0.03) {
+      if (cur.z[1] > 2.68) {
+        const clampedX = DM.clamp(zx, shpPane.x + 36, shpPane.x + shpPane.w - 36);
+        texItems.push({ key: 'zpt', x: clampedX, y: shpPane.y + 38, tex: 'z \\to \\infty', color: zCol, size: 12 });
+      } else {
+        texItems.push({ key: 'zpt', x: zx - 13, y: zy - 13, tex: 'z', color: zCol, size: 13 });
+      }
+      if (cur.w[1] > 2.68) {
+        const clampedX = DM.clamp(wx, shpPane.x + 36, shpPane.x + shpPane.w - 36);
+        texItems.push({ key: 'wpt', x: clampedX, y: shpPane.y + 38, tex: 'w \\to \\infty', color: wCol, size: 12 });
+      } else {
+        texItems.push({ key: 'wpt', x: wx + 13, y: wy - 13, tex: 'w', color: wCol, size: 13 });
+      }
+    }
+  });
+
+  if (labels) labels.set(texItems);
+
+  // Live readout & invariant check
+  const isDegNow = cur.flat || (entry.degenerate && t >= (entry.degT || 1) - 1e-4);
+  const okVol = cur.vol <= V_COMPLETE + 1e-9;
+  const okGlue = !isDegNow && cur.res < 1e-9;
+  const checkBadge = isDegNow
+    ? DM.check(cur.vol < 1e-6, 'flat on ℝ')
+    : DM.check(okGlue && okVol, 'glued & V ≤ 2V₃');
+
+  const slopeTex = `M_{${activeSlope[0]},${activeSlope[1]}}`;
+  app.readout(
+    `<span class="big">${DM.tex(slopeTex)}</span> &nbsp; ${checkBadge}<br>` +
+    `${DM.tex(`\\mathrm{Vol} = ${DM.fmt(cur.vol, 4)}`)} <span style="opacity:.45;margin:0 4px">/</span> ${DM.tex(`${DM.fmt(V_COMPLETE, 4)}`)}<br>` +
+    `<small>${DM.tex(`t = ${DM.fmt(t, 2)} \\;\\cdot\\; \\operatorname{Im}(z) = ${DM.fmt(cur.z[1], 3)}`)}</small>`
+  );
+
+  app.legend([
+    { color: P.cobalt, label: 'z shape', line: true },
+    { color: P.verdigris, label: 'w shape', line: true },
+    { color: P.ochre, label: 'complete' },
+    { color: P.vermilion, label: 'exceptional' },
+  ]);
+}
+
+/* ---------- page ---------- */
+
+function selectSlope(p, q, a, tTarget = 1) {
+  activeSlope = [p, q];
+  const matched = Object.keys(PRESETS).find(k => PRESETS[k][0] === p && PRESETS[k][1] === q);
+  if (matched) a.set('preset', matched, { silent: true });
+  a.set('t', tTarget, { silent: true });
+}
+
+const app = DM.page({
+  plate: '009',
+  title: 'Dehn Surgery on the Figure-Eight Knot',
+  hook: 'Almost every Dehn filling of the figure-eight knot is hyperbolic, climbing toward volume 2.0299.',
+  date: '2026-11-26',
+  defaultTheme: 'light',
+  posterStep: 1,
+  hint: 'tap a coprime slope on the lattice, or drag the shape plane to scrub t',
+  panes: [
+    { id: 'lattice', weight: 1, label: 'surgery lattice' },
+    { id: 'shapes', weight: 1, label: 'complex shape plane' },
+  ],
+  controls: [
+    { type: 'play' },
+    {
+      type: 'segmented',
+      id: 'preset',
+      label: 'Surgery slope',
+      value: '5,1',
+      options: [
+        { value: '5,1', label: '(5, 1)' },
+        { value: '4,1', label: '(4, 1)' },
+        { value: '1,2', label: '(1, 2)' },
+        { value: '6,1', label: '(6, 1)' },
+      ],
+      onChange: (v, a) => {
+        const pair = PRESETS[v];
+        if (!pair) return;
+        a.pause();
+        activeSlope = [pair[0], pair[1]];
+        const t0 = a.get('t') < 0.08 ? 0 : 0;
+        a.set('t', 0, { silent: true });
+        a.tween(620, u => a.set('t', u, { silent: true }), { key: 't' });
+      },
+    },
+    {
+      type: 'slider',
+      id: 't',
+      label: 't',
+      min: 0,
+      max: 1,
+      step: 0.01,
+      value: 0,
+      format: v => DM.fmt(v, 2),
+    },
+    {
+      type: 'toggle',
+      id: 'triangles',
+      label: 'Tetrahedra',
+      value: true,
+    },
+  ],
+  tour: [
+    {
+      text: DM.texify('At $t = 0$, the complete cusp sits at $z = w = \\omega = e^{i\\pi/3}$ with maximal volume $2V_3$.'),
+      enter: a => {
+        a.pause();
+        selectSlope(5, 1, a, 0);
+        a.set('triangles', true, { silent: true });
+      },
+    },
+    {
+      text: DM.texify('Deforming to $(5,1)$ slides $(z, w)$ along Thurston’s gluing curve, yielding a hyperbolic manifold of volume $0.9814$.'),
+      enter: a => {
+        a.pause();
+        selectSlope(5, 1, a, 0);
+        a.pulse('preset');
+        a.tween(700, u => a.set('t', u, { silent: true }), { key: 't' });
+      },
+    },
+    {
+      text: DM.texify('On the exceptional slope $(4,1)$, one tetrahedron flattens onto $\\mathbb{R}$ and the hyperbolic metric collapses.'),
+      enter: a => {
+        a.pause();
+        selectSlope(4, 1, a, 0);
+        a.pulse('t');
+        a.tween(700, u => a.set('t', u, { silent: true }), { key: 't' });
+      },
+    },
+    {
+      text: DM.texify('Tap any primitive $(p, q)$ slope: all but ten fillings are hyperbolic, rising monotonically toward $2V_3$.'),
+      enter: a => {
+        a.pause();
+        selectSlope(1, 2, a, 0);
+        a.tween(650, u => a.set('t', u, { silent: true }), { key: 't' });
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p><b>William Thurston (1978)</b> proved that all but finitely many Dehn fillings $M_{p,q}$ of a cusped hyperbolic $3$-manifold are hyperbolic, with $\\operatorname{Vol}(M_{p,q}) < \\operatorname{Vol}(M)$ approaching the complete cusp from below.</p>
+    <p>The figure-eight knot complement $S^3 \\setminus 4_1$ decomposes into two ideal tetrahedra $(z, w)$ satisfying $z(z-1)w(w-1)=1$. Solving $p\\log H(M)+q\\log H(L)=2\\pi i$ with $H(M)=w(1-z)$ and $H(L)=z^2(1-z)^2$ gives $\\operatorname{Vol}(M_{p,q}) = D(z)+D(w)$ via the Bloch–Wigner dilogarithm. Exactly ten slopes—$0, \\pm 1, \\pm 2, \\pm 3, \\pm 4, \\infty$—are exceptional.</p>
+    <p class="ref">Plate 009 · Daily Math Atelier · Hyperbolic 3-Manifolds.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+  },
+  step: (dt, a) => {
+    const next = (a.get('t') + dt * 0.35) % 1.0001;
+    a.set('t', next > 1 ? 0 : next, { silent: true });
+  },
+  draw,
+});
+
+app.pointer({
+  down(p) {
+    if (p.pane && p.pane.id === 'shapes') {
+      draggingShapes = true;
+      app.pause();
+      const u = DM.clamp((p.x - p.pane.x) / Math.max(1, p.pane.w), 0, 1);
+      app.set('t', u, { silent: true });
+      app.cursor('ew-resize');
+    }
+  },
+  drag(p) {
+    if (draggingShapes && shapeBoxGlobal) {
+      const u = DM.clamp((p.x - shapeBoxGlobal.x) / Math.max(1, shapeBoxGlobal.w), 0, 1);
+      app.set('t', u, { silent: true });
+    }
+  },
+  up() {
+    draggingShapes = false;
+    app.cursor('');
+  },
+  tap(p) {
+    if (p.pane && p.pane.id === 'lattice') {
+      let best = null, bestD = 26;
+      for (const nd of latticeHitNodes) {
+        const d = Math.hypot(nd.x - p.x, nd.y - p.y);
+        if (d < bestD) { bestD = d; best = nd; }
+      }
+      if (best) {
+        app.pause();
+        selectSlope(best.p, best.q, app, 0);
+        app.tween(540, u => app.set('t', u, { silent: true }), { key: 't' });
+      }
+    }
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('complete cusp at omega satisfies gluing and attains 2*V3', () => {
+  const res = gluingResidual(OMEGA, OMEGA, 5, 1, 0).norm;
+  const vol = blochWigner(OMEGA) + blochWigner(OMEGA);
+  if (res > 1e-13) return 'gluing residual ' + res;
+  if (Math.abs(vol - V_COMPLETE) > 1e-11) return 'volume mismatch ' + vol;
+  return true;
+});
+
+DM.test('hyperbolic (5,1) and (1,2) fillings satisfy Thurston gluing and V < 2*V3', () => {
+  const s51 = getSlope(5, 1);
+  const s12 = getSlope(1, 2);
+  if (s51.degenerate || s51.res > 1e-11) return '(5,1) residual ' + s51.res;
+  if (Math.abs(s51.vol - 0.9813688289) > 1e-6) return '(5,1) vol ' + s51.vol;
+  if (s12.degenerate || s12.res > 1e-11) return '(1,2) residual ' + s12.res;
+  if (s12.vol >= V_COMPLETE || s51.vol >= s12.vol) return 'volume ordering broken';
+  return true;
+});
+
+DM.test('all ten exceptional slopes degenerate while (-5,1) matches (5,1) by amphicheirality', () => {
+  const exc = [[1, 0], [0, 1], [1, 1], [-1, 1], [2, 1], [-2, 1], [3, 1], [-3, 1], [4, 1], [-4, 1]];
+  for (const [p, q] of exc) {
+    if (!getSlope(p, q).degenerate) return `expected (${p},${q}) to degenerate`;
+  }
+  const s51 = getSlope(5, 1);
+  const sm51 = getSlope(-5, 1);
+  if (Math.abs(s51.vol - sm51.vol) > 1e-10) return 'amphicheiral symmetry broken';
+  return true;
+});
+</script>
+</body>
+</html>

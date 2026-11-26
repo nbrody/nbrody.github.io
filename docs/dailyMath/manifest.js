@@ -16,6 +16,16 @@
 
   root.DM_PLATES = [
     {
+      plate: '009',
+      date: '2026-11-26',
+      file: '2026-11-26-dehn-surgery-figure-eight.html',
+      title: 'Dehn Surgery on the Figure-Eight Knot',
+      hook: 'Almost every Dehn filling of the figure-eight knot is hyperbolic, climbing toward volume 2.0299.',
+      topics: ['topology', 'hyperbolic'],
+      defaultTheme: 'light',
+      form: 'panes',
+    },
+    {
       plate: '008',
       date: '2026-11-25',
       file: '2026-11-25-klein-quartic.html',

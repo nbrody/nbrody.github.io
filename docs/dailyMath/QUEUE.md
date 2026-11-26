@@ -6,15 +6,6 @@ Maintained by each daily run: build the TOP entry, remove it from this list, and
 
 ---
 
-## Dehn Surgery on the Figure-Eight Knot
-- topics: topology, hyperbolic · form: panes (surgery grid | complex shape plane) · theme: light · modules: `draw`, `math-complex`, `plot`, `tex`
-- idea: almost every $(p, q)$ Dehn filling of the figure-eight knot complement admits a hyperbolic metric whose volume climbs monotonically toward the complete structure's $2.0298832\ldots$
-- gesture: tap any coprime slope $(p, q)$ on the surgery lattice to solve Thurston's gluing equations live.
-- aha: the two ideal tetrahedron shapes $(z, w)$ slide off $e^{i\pi/3}$ as Newton's method solves the completeness equation, degenerating precisely on the ten exceptional non-hyperbolic slopes.
-- live check: Thurston gluing residual $< 10^{-12}$ and $\mathrm{Vol}(M_{p,q}) \le 2 V_3$ (`DM.check`).
-- tour: complete structure at $z = w = e^{i\pi/3}$ -> tap $(5,1)$ hyperbolic filling -> tap an exceptional slope $(4,1)$ to watch tetrahedra flatten -> compare volumes across the lattice.
-- math: William Thurston (1978); all but finitely many Dehn fillings of a cusped hyperbolic 3-manifold are hyperbolic, with strictly smaller volume; for the figure-eight knot the ten exceptional slopes are $0, \pm 1, \pm 2, \pm 3, \pm 4, \infty$.
-
 ## The Farey Graph & Curve Complex
 - topics: topology, groups · form: 2D Poincaré disk tessellation · theme: dark · modules: `draw`, `math-exact`, `math-complex`, `tex`
 - idea: the curve complex of the once-punctured torus is the Farey graph — two slopes $p/q, r/s \in \mathbb{Q} \cup \{\infty\}$ share an edge iff $|ps - qr| = 1$.
@@ -86,3 +77,12 @@ Maintained by each daily run: build the TOP entry, remove it from this list, and
 - live check: $\pi P = \pi$ residual $< 10^{-12}$ and contraction ratio $|\lambda_2| < 1$ (`DM.check`).
 - tour: scatter 12 states across the probability triangle -> iterate $P^k$ step by step -> inspect spectral gap $|\lambda_2|$ -> tune transition edge toward near-reducible slowdown.
 - math: Oskar Perron (1907) and Georg Frobenius (1912); an irreducible aperiodic stochastic matrix has simple leading eigenvalue $\lambda_1 = 1$, strictly positive stationary distribution $\pi$, and $|\lambda_k| < 1$ for all $k \ge 2$.
+
+## The Picard Group in Hyperbolic 3-Space
+- topics: groups, hyperbolic · form: 3D fundamental polyhedron · theme: dark · modules: `space3d`, `draw`, `math-exact`, `tex`
+- idea: $\mathrm{PSL}_2(\mathbb{Z}[i])$ acts by isometries on upper half-space $\mathbb{H}^3$ with a single ideal-cusped chimney above the Gaussian-integer unit square bounded below by unit hemispheres.
+- gesture: drag to orbit the 3D fundamental domain or toggle the Ford hemisphere reflections.
+- aha: inversions in unit hemispheres centered at $\mathbb{Z}[i]$ tile the floor of $\mathbb{H}^3$, leaving a noncompact tetrahedral chimney of finite covolume $\approx 0.30532$ rising to $\infty$.
+- live check: unimodularity $|ad - bc| = 1$ over $\mathbb{Z}[i]$ and hemisphere tangency $x^2 + y^2 + t^2 = 1$ (`DM.check`).
+- tour: unit-square chimney above $\mathbb{Z}[i]$ -> inspect the unit Ford hemisphere floor -> apply $S$-inversion and Gaussian translations -> view the 2-cusp/1-cusp symmetry axes.
+- math: Émile Picard (1884) and Luigi Bianchi (1892); $\mathrm{PSL}_2(\mathbb{Z}[i])$ is the first Bianchi arithmetic Kleinian group, whose fundamental domain has volume $\zeta_{\mathbb{Q}(i)}(2) / (4\pi^2) \cdot \text{const} = K / 3$ (Catalan's constant $K \approx 0.9159656$, volume $K/3 \approx 0.3053218$).
