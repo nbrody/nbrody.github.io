@@ -16,6 +16,16 @@
 
   root.DM_PLATES = [
     {
+      plate: '010',
+      date: '2026-11-27',
+      file: '2026-11-27-farey-graph-curve-complex.html',
+      title: 'The Farey Graph & Curve Complex',
+      hook: 'Rational slopes tile the hyperbolic disk into ideal triangles whenever their determinant equals one.',
+      topics: ['topology', 'groups'],
+      defaultTheme: 'dark',
+      form: '2d',
+    },
+    {
       plate: '009',
       date: '2026-11-26',
       file: '2026-11-26-dehn-surgery-figure-eight.html',

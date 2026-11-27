@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('dailyMath.theme');if(t==='light'||t==='dark')document.querySelector('meta[name="color-scheme"]').content=t;}catch(e){}</script>
+<title>The Farey Graph &amp; Curve Complex · Daily Math</title>
+<link rel="stylesheet" href="../atelier/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../atelier/atelier.css">
+</head>
+<body>
+<script src="../atelier/vendor/katex/katex.min.js"></script>
+<script src="../atelier/palette.js"></script>
+<script src="../atelier/atelier.js"></script>
+<script src="../atelier/draw.js"></script>
+<script src="../atelier/math-exact.js"></script>
+<script src="../atelier/math-complex.js"></script>
+<script src="../atelier/tex.js"></script>
+<script>
+'use strict';
+
+/* ---------- pure mathematics: exact BigInt slopes, SL2(Z), Farey tessellation & curve-complex geodesics ---------- */
+
+const ex = DM.ex;
+const cx = DM.cx;
+const hyp = DM.hyp;
+
+function floorDiv(a, b) {
+  let q = a / b;
+  const r = a % b;
+  if (r !== 0n && (r < 0n) !== (b < 0n)) q -= 1n;
+  return q;
+}
+
+function normSlope(p, q) {
+  let bp = typeof p === 'bigint' ? p : BigInt(p);
+  let bq = typeof q === 'bigint' ? q : BigInt(q);
+  if (bq === 0n) return { p: 1n, q: 0n };
+  if (bq < 0n) { bp = -bp; bq = -bq; }
+  const g = ex.gcd(bp, bq);
+  return { p: bp / g, q: bq / g };
+}
+
+const INF_SLOPE = { p: 1n, q: 0n };
+const ZERO_SLOPE = { p: 0n, q: 1n };
+const ONE_SLOPE = { p: 1n, q: 1n };
+const NEG_ONE_SLOPE = { p: -1n, q: 1n };
+
+function slopeDet(u, v) {
+  return u.p * v.q - u.q * v.p;
+}
+
+function isFareyEdge(u, v) {
+  return ex.abs(slopeDet(u, v)) === 1n;
+}
+
+function slopeKey(s) {
+  return `${s.p}/${s.q}`;
+}
+
+function slopeEq(a, b) {
+  return a.p === b.p && a.q === b.q;
+}
+
+function slopeTex(s) {
+  if (s.q === 0n) return '\\frac{1}{0}';
+  if (s.p === 0n) return '\\frac{0}{1}';
+  if (s.p < 0n) return `-\\frac{${-s.p}}{${s.q}}`;
+  return `\\frac{${s.p}}{${s.q}}`;
+}
+
+function rawMediant(a, b) {
+  return { p: a.p + b.p, q: a.q + b.q };
+}
+
+// Rotated Cayley map H -> D: w(z) = i * (z - i) / (z + i)
+// Sends 1/0 -> (0, 1), 0/1 -> (0, -1), 1/1 -> (1, 0), -1/1 -> (-1, 0)
+function uhpToRotDisk(z) {
+  if (z === null) return [0, 1];
+  const w = hyp.toDisk(z);
+  return [-w[1], w[0]];
+}
+
+function rotDiskToUhp(w) {
+  if (w === null) return null;
+  // Unrotate by -90 deg: u = w / i = (wy, -wx)
+  const u = [w[1], -w[0]];
+  return hyp.toUHP(u);
+}
+
+function slopeToDisk(s) {
+  if (s.q === 0n) return [0, 1];
+  const p = Number(s.p);
+  const q = Number(s.q);
+  const den = p * p + q * q;
+  return [(2 * p * q) / den, (p * p - q * q) / den];
+}
+
+function applyMatSlope(M, s) {
+  return normSlope(M[0] * s.p + M[1] * s.q, M[2] * s.p + M[3] * s.q);
+}
+
+const MAT_T = ex.mat2.of(1, 1, 0, 1);
+const MAT_S = ex.mat2.of(0, -1, 1, 0);
+
+// Exact shortest path in the Farey graph / curve complex C(S_{1,1})
+// Plus the corridor of Farey triangles pierced by the hyperbolic geodesic.
+function fareyGeodesic(uIn, vIn) {
+  const u = normSlope(uIn.p, uIn.q);
+  const v = normSlope(vIn.p, vIn.q);
+  if (slopeEq(u, v)) {
+    return { path: [u], triangles: [] };
+  }
+  if (isFareyEdge(u, v)) {
+    return { path: [u, v], triangles: [] };
+  }
+
+  // Find M in SL2(Z) with M(u) = 1/0 (INF): M = [[x, y], [-u.q, u.p]]
+  const { x, y } = ex.egcd(u.p, u.q);
+  const tp = x * v.p + y * v.q;
+  const tq = -u.q * v.p + u.p * v.q;
+  const target = normSlope(tp, tq);
+
+  const mapBack = z => normSlope(u.p * z.p - y * z.q, u.q * z.p + x * z.q);
+
+  if (target.q === 1n) {
+    return { path: [u, v], triangles: [] };
+  }
+
+  const a0 = floorDiv(target.p, target.q);
+  let L = { p: a0, q: 1n };
+  let R = { p: a0 + 1n, q: 1n };
+
+  const vertsMap = new Map();
+  const addV = z => {
+    const n = normSlope(z.p, z.q);
+    vertsMap.set(slopeKey(n), n);
+    return n;
+  };
+  addV(INF_SLOPE);
+  addV(L);
+  addV(R);
+  addV(target);
+
+  const stripTris = [[INF_SLOPE, L, R]];
+  const MAX_TRIS = 48;
+
+  while (true) {
+    const alpha = R.p * target.q - R.q * target.p;
+    const beta = L.q * target.p - L.p * target.q;
+    if (alpha === 1n && beta === 1n) {
+      if (stripTris.length < MAX_TRIS) stripTris.push([L, R, target]);
+      break;
+    }
+    if (alpha > beta) {
+      const k = (alpha - 1n) / beta;
+      if (stripTris.length < MAX_TRIS) {
+        const steps = k < 24n ? Number(k) : 24;
+        let curR = R;
+        for (let j = 0; j < steps && stripTris.length < MAX_TRIS; j++) {
+          const nxtR = normSlope(L.p + curR.p, L.q + curR.q);
+          stripTris.push([L, curR, nxtR]);
+          curR = nxtR;
+        }
+      }
+      addV({ p: L.p + R.p, q: L.q + R.q });
+      addV({ p: (k - 1n) * L.p + R.p, q: (k - 1n) * L.q + R.q });
+      R = addV({ p: k * L.p + R.p, q: k * L.q + R.q });
+    } else {
+      const k = (beta - 1n) / alpha;
+      if (stripTris.length < MAX_TRIS) {
+        const steps = k < 24n ? Number(k) : 24;
+        let curL = L;
+        for (let j = 0; j < steps && stripTris.length < MAX_TRIS; j++) {
+          const nxtL = normSlope(curL.p + R.p, curL.q + R.q);
+          stripTris.push([curL, R, nxtL]);
+          curL = nxtL;
+        }
+      }
+      addV({ p: L.p + R.p, q: L.q + R.q });
+      addV({ p: L.p + (k - 1n) * R.p, q: L.q + (k - 1n) * R.q });
+      L = addV({ p: L.p + k * R.p, q: L.q + k * R.q });
+    }
+  }
+
+  const verts = [...vertsMap.values()];
+  const targetIdx = verts.findIndex(z => slopeEq(z, target));
+  const queue = [0];
+  const prev = new Map([[0, -1]]);
+  for (let qi = 0; qi < queue.length; qi++) {
+    const cur = queue[qi];
+    if (cur === targetIdx) break;
+    for (let j = 0; j < verts.length; j++) {
+      if (!prev.has(j) && isFareyEdge(verts[cur], verts[j])) {
+        prev.set(j, cur);
+        queue.push(j);
+      }
+    }
+  }
+
+  const path = [];
+  for (let c = targetIdx; c !== -1; c = prev.get(c)) {
+    path.push(mapBack(verts[c]));
+  }
+  path.reverse();
+
+  const triangles = stripTris.map(([a, b, c]) => [mapBack(a), mapBack(b), mapBack(c)]);
+  return { path, triangles };
+}
+
+// Hyperbolic 3-fold center of ideal triangle (a, b, c) in rotated disk:
+// Unique M in PGL2(R) mapping (0, 1, inf) -> (a, b, c) applied to omega = 1/2 + i*sqrt(3)/2.
+const OMEGA = [0.5, Math.sqrt(3) / 2];
+
+function idealTriangleCenter(a, b, c) {
+  const [wa, wb, wc] = [a, b, c].map(s => {
+    const d = slopeToDisk(s);
+    return rotDiskToUhp(d);
+  });
+  // Solve M(0)=wa, M(1)=wb, M(inf)=wc in UHP via cross-ratio inverse
+  // Easy closed form: if none is null, z_uhp -> (z1, z2, z3)
+  function uhpMob(z) {
+    // Map (0, 1, inf) -> (wa, wb, wc)
+    if (wc === null) {
+      // M(z) = (wb - wa) * z + wa (flip if Im < 0)
+      const s = cx.sub(wb, wa);
+      const val = cx.add(cx.mul(s, z), wa);
+      return val[1] >= 0 ? val : cx.add(cx.mul(s, [z[0], -z[1]]), wa);
+    }
+    if (wa === null) {
+      // M(0)=inf, M(1)=wb, M(inf)=wc => M(z) = (wc*z + (wb - wc)) / z
+      const val = cx.div(cx.add(cx.mul(wc, z), cx.sub(wb, wc)), z);
+      return val[1] >= 0 ? val : cx.div(cx.add(cx.mul(wc, [z[0], -z[1]]), cx.sub(wb, wc)), [z[0], -z[1]]);
+    }
+    if (wb === null) {
+      // M(0)=wa, M(1)=inf, M(inf)=wc => M(z) = (wc*z - wa) / (z - 1)
+      const val = cx.div(cx.sub(cx.mul(wc, z), wa), cx.sub(z, [1, 0]));
+      return val[1] >= 0 ? val : cx.div(cx.sub(cx.mul(wc, [z[0], -z[1]]), wa), cx.sub([z[0], -z[1]], [1, 0]));
+    }
+    // General finite (wa, wb, wc): M(z) = ((wb - wc)*wa*(1 - z) ... )
+    // Better: A = wa*(wb - wc), B = wc*(wa - wb), C = wb - wc, D = wa - wb?
+    // Wait: check z=0 => (0 + wa*(wb-wc)) / (0 + (wb-wc)) = wa!
+    // Check z=inf => wc*(wb-wa) / (wb-wa) = wc!
+    // Check z=1 => (wc*(wb-wa) + wa*(wb-wc)) / ((wb-wa)+(wb-wc)) = wb*(wa-wc)/(2wb - wa - wc)... no:
+    // Use cross ratio: (w - wa)(wb - wc) / ((w - wc)(wb - wa)) = z / 1 = z
+    // => w * [ (wb - wc) - z*(wb - wa) ] = wa*(wb - wc) - z*wc*(wb - wa)
+    const p1 = cx.sub(wb, wc);
+    const p2 = cx.sub(wb, wa);
+    const evalAt = zz => {
+      const num = cx.sub(cx.mul(wa, p1), cx.mul(zz, cx.mul(wc, p2)));
+      const den = cx.sub(p1, cx.mul(zz, p2));
+      return cx.div(num, den);
+    };
+    const v1 = evalAt(z);
+    return v1[1] >= 0 ? v1 : evalAt([z[0], -z[1]]);
+  }
+  return uhpToRotDisk(uhpMob(OMEGA));
+}
+
+// Build Farey tessellation vertices, edges, triangles & Bass-Serre dual edges up to depth d
+const CACHE = new Map();
+
+function buildFarey(depth) {
+  if (CACHE.has(depth)) return CACHE.get(depth);
+
+  const vertMap = new Map();
+  const edgeMap = new Map();
+  const triangles = [];
+  const dualNodes = [];
+  const dualEdges = [];
+
+  function regVert(s, gen) {
+    const ns = normSlope(s.p, s.q);
+    const k = slopeKey(ns);
+    if (!vertMap.has(k)) {
+      vertMap.set(k, { slope: ns, key: k, gen, w: slopeToDisk(ns) });
+    }
+    return vertMap.get(k);
+  }
+
+  function regEdge(a, b, gen) {
+    const na = normSlope(a.p, a.q);
+    const nb = normSlope(b.p, b.q);
+    const ka = slopeKey(na), kb = slopeKey(nb);
+    const k = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+    if (!edgeMap.has(k)) {
+      edgeMap.set(k, { a: na, b: nb, gen, wa: slopeToDisk(na), wb: slopeToDisk(nb) });
+    }
+  }
+
+  // Base 4 cardinal slopes and central edge (0/1, 1/0)
+  const POS_INF = { p: 1n, q: 0n };
+  const NEG_INF = { p: -1n, q: 0n };
+  regVert(POS_INF, 0);
+  regVert(ZERO_SLOPE, 0);
+  regVert(ONE_SLOPE, 0);
+  regVert(NEG_ONE_SLOPE, 0);
+  regEdge(ZERO_SLOPE, POS_INF, 0);
+
+  function subdivideTri(L, m, R, gen, parentDualIdx) {
+    const nL = normSlope(L.p, L.q);
+    const nm = normSlope(m.p, m.q);
+    const nR = normSlope(R.p, R.q);
+    const center = idealTriangleCenter(nL, nm, nR);
+    const dIdx = dualNodes.length;
+    dualNodes.push({ center, tri: [nL, nm, nR], gen });
+    if (parentDualIdx !== -1) {
+      dualEdges.push({ from: parentDualIdx, to: dIdx, gen });
+    }
+
+    regEdge(nL, nm, gen);
+    regEdge(nm, nR, gen);
+    regEdge(nL, nR, gen - 1);
+    triangles.push({ verts: [nL, nm, nR], gen });
+
+    if (gen < depth) {
+      // Keep signed infinity (L or R) unnormalized so mediants stay in the same quadrant
+      const mL = rawMediant(L, m);
+      const mR = rawMediant(m, R);
+      regVert(mL, gen + 1);
+      regVert(mR, gen + 1);
+      subdivideTri(L, mL, m, gen + 1, dIdx);
+      subdivideTri(m, mR, R, gen + 1, dIdx);
+    }
+  }
+
+  // Right half: {0/1, 1/0, 1/1}; Left half: {0/1, -1/0, -1/1}
+  const rightRoot = { center: idealTriangleCenter(ZERO_SLOPE, ONE_SLOPE, POS_INF), tri: [ZERO_SLOPE, ONE_SLOPE, POS_INF], gen: 0 };
+  const leftRoot = { center: idealTriangleCenter(ZERO_SLOPE, NEG_ONE_SLOPE, POS_INF), tri: [ZERO_SLOPE, NEG_ONE_SLOPE, POS_INF], gen: 0 };
+  dualNodes.push(rightRoot, leftRoot);
+  dualEdges.push({ from: 0, to: 1, gen: 0 });
+  triangles.push({ verts: [ZERO_SLOPE, ONE_SLOPE, POS_INF], gen: 0 });
+  triangles.push({ verts: [ZERO_SLOPE, NEG_ONE_SLOPE, POS_INF], gen: 0 });
+  regEdge(ZERO_SLOPE, ONE_SLOPE, 0);
+  regEdge(ONE_SLOPE, POS_INF, 0);
+  regEdge(ZERO_SLOPE, NEG_ONE_SLOPE, 0);
+  regEdge(NEG_ONE_SLOPE, POS_INF, 0);
+
+  if (depth >= 1) {
+    const m1 = rawMediant(ZERO_SLOPE, ONE_SLOPE);      // 1/2
+    const m2 = rawMediant(ONE_SLOPE, POS_INF);         // 2/1
+    const m3 = rawMediant(ZERO_SLOPE, NEG_ONE_SLOPE);  // -1/2
+    const m4 = rawMediant(NEG_ONE_SLOPE, NEG_INF);     // -2/1
+    regVert(m1, 1); regVert(m2, 1); regVert(m3, 1); regVert(m4, 1);
+    subdivideTri(ZERO_SLOPE, m1, ONE_SLOPE, 1, 0);
+    subdivideTri(ONE_SLOPE, m2, POS_INF, 1, 0);
+    subdivideTri(ZERO_SLOPE, m3, NEG_ONE_SLOPE, 1, 1);
+    subdivideTri(NEG_ONE_SLOPE, m4, NEG_INF, 1, 1);
+  }
+
+  const out = {
+    verts: [...vertMap.values()],
+    edges: [...edgeMap.values()],
+    triangles,
+    dualNodes,
+    dualEdges,
+  };
+  CACHE.set(depth, out);
+  return out;
+}
+
+/* ---------- state ---------- */
+
+let geom = { x: 0, y: 0, r: 100 };
+let slopeA = ZERO_SLOPE;
+let slopeB = normSlope(3, 5);
+let cumMat = ex.mat2.id();
+let animFlow = null; // { kind: 'T' | 'S', t: number }
+let highlightFundTri = false;
+let hoverVert = null;
+let dragTarget = null; // 'A' | 'B' | null
+let labels = null;
+
+function flowPoint(w) {
+  if (!animFlow) return w;
+  const t = animFlow.t;
+  if (animFlow.kind === 'S') {
+    const ang = -Math.PI * t;
+    const c = Math.cos(ang), s = Math.sin(ang);
+    return [c * w[0] - s * w[1], s * w[0] + c * w[1]];
+  }
+  if (animFlow.kind === 'T') {
+    // Parabolic translation z -> z + t in H2; north pole (0, 1) is fixed
+    if (Math.hypot(w[0], w[1] - 1) < 1e-7) return [0, 1];
+    const z = rotDiskToUhp(w);
+    if (!z) return [0, 1];
+    return uhpToRotDisk([z[0] + t, z[1]]);
+  }
+  return w;
+}
+
+function toScreen(w) {
+  return [geom.x + geom.r * w[0], geom.y - geom.r * w[1]];
+}
+
+function drawDiskGeodesic(ctx, w1, w2, color, width, opts = {}) {
+  const g = hyp.diskGeodesic(w1, w2);
+  if (g.kind === 'line' || g.r > 240) {
+    const s1 = toScreen(w1), s2 = toScreen(w2);
+    DM.line(ctx, s1[0], s1[1], s2[0], s2[1], color, width, opts);
+    return;
+  }
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(geom.x + geom.r * g.cx, geom.y - geom.r * g.cy, geom.r * g.r, -g.a1, -g.a2, !g.ccw);
+  if (opts.dash) ctx.setLineDash(opts.dash);
+  if (opts.glow) { ctx.shadowColor = color; ctx.shadowBlur = opts.glow; }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.restore();
+}
+
+function traceGeodesicSegment(ctx, wA, wB) {
+  const g = hyp.diskGeodesic(wA, wB);
+  if (g.kind === 'line' || g.r > 240) {
+    const sB = toScreen(wB);
+    ctx.lineTo(sB[0], sB[1]);
+  } else {
+    ctx.arc(geom.x + geom.r * g.cx, geom.y - geom.r * g.cy, geom.r * g.r, -g.a1, -g.a2, !g.ccw);
+  }
+}
+
+function fillIdealTriangle(ctx, w1, w2, w3, fill, stroke, width = 0) {
+  const s1 = toScreen(w1);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(s1[0], s1[1]);
+  traceGeodesicSegment(ctx, w1, w2);
+  traceGeodesicSegment(ctx, w2, w3);
+  traceGeodesicSegment(ctx, w3, w1);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke && width > 0) { ctx.strokeStyle = stroke; ctx.lineWidth = width; ctx.stroke(); }
+  ctx.restore();
+}
+
+function applyGen(kind, animate = true) {
+  const mat = kind === 'T' ? MAT_T : MAT_S;
+  if (!animate) {
+    slopeA = applyMatSlope(mat, slopeA);
+    slopeB = applyMatSlope(mat, slopeB);
+    cumMat = ex.mat2.mul(mat, cumMat);
+    animFlow = null;
+    app.redraw();
+    return;
+  }
+  animFlow = { kind, t: 0 };
+  app.tween(560, u => {
+    if (u < 1) {
+      animFlow = { kind, t: u };
+    } else {
+      animFlow = null;
+      slopeA = applyMatSlope(mat, slopeA);
+      slopeB = applyMatSlope(mat, slopeB);
+      cumMat = ex.mat2.mul(mat, cumMat);
+    }
+  }, { key: 'sl2z' });
+}
+
+/* ---------- draw ---------- */
+
+function draw(app) {
+  const ctx = app.ctx;
+  const P = app.palette;
+  const isDark = app.theme === 'dark';
+  DM.clear(app);
+
+  const depth = app.get('depth');
+  const showDual = app.get('dual');
+  const farey = buildFarey(depth);
+
+  // Subtle ambient disk ground & engraved border
+  DM.circle(ctx, geom.x, geom.y, geom.r, P.hairlineStrong, 1.4, {
+    fill: DM.rgba(P.surface, isDark ? 0.56 : 0.72),
+  });
+
+  // Clip interior tessellation cleanly to Poincare disk
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(geom.x, geom.y, geom.r - 0.5, 0, Math.PI * 2);
+  ctx.clip();
+
+  // Optional step-1 highlight of the fundamental triangle {0/1, 1/0, 1/1}
+  if (highlightFundTri) {
+    fillIdealTriangle(
+      ctx,
+      flowPoint(slopeToDisk(ZERO_SLOPE)),
+      flowPoint(slopeToDisk(INF_SLOPE)),
+      flowPoint(slopeToDisk(ONE_SLOPE)),
+      DM.rgba(P.cobalt, isDark ? 0.17 : 0.12),
+      null,
+      0
+    );
+  }
+
+  // Shortest path & pierced Farey fan corridor
+  const geo = fareyGeodesic(slopeA, slopeB);
+  if (geo.triangles.length > 0) {
+    const fanFill = DM.rgba(P.verdigris, isDark ? 0.16 : 0.12);
+    const fanStroke = DM.rgba(P.verdigris, isDark ? 0.34 : 0.28);
+    for (const [ta, tb, tc] of geo.triangles) {
+      fillIdealTriangle(
+        ctx,
+        flowPoint(slopeToDisk(ta)),
+        flowPoint(slopeToDisk(tb)),
+        flowPoint(slopeToDisk(tc)),
+        fanFill,
+        fanStroke,
+        0.8
+      );
+    }
+  }
+
+  // Farey tessellation edges grouped by generation
+  for (const e of farey.edges) {
+    const g = e.gen;
+    const width = g === 0 ? 1.35 : Math.max(0.5, 1.18 - g * 0.11);
+    const alpha = g === 0
+      ? (isDark ? 0.52 : 0.44)
+      : Math.max(isDark ? 0.14 : 0.12, (isDark ? 0.44 : 0.36) - g * 0.048);
+    const baseCol = g >= 4 ? P.slate : P.cobalt;
+    drawDiskGeodesic(ctx, flowPoint(e.wa), flowPoint(e.wb), DM.rgba(baseCol, alpha), width);
+  }
+
+  // Bass-Serre trivalent dual tree
+  if (showDual) {
+    const treeCol = DM.rgba(P.ochre, isDark ? 0.80 : 0.76);
+    for (const de of farey.dualEdges) {
+      const n1 = farey.dualNodes[de.from];
+      const n2 = farey.dualNodes[de.to];
+      const width = Math.max(0.7, 1.7 - de.gen * 0.16);
+      drawDiskGeodesic(ctx, flowPoint(n1.center), flowPoint(n2.center), treeCol, width);
+    }
+    for (const dn of farey.dualNodes) {
+      if (dn.gen > Math.min(depth, 4)) continue;
+      const [sx, sy] = toScreen(flowPoint(dn.center));
+      DM.dot(ctx, sx, sy, Math.max(1.6, 3.0 - dn.gen * 0.3), P.ochre);
+    }
+  }
+
+  // Direct hyperbolic geodesic between selected slopes (dashed guide)
+  if (!slopeEq(slopeA, slopeB)) {
+    drawDiskGeodesic(
+      ctx,
+      flowPoint(slopeToDisk(slopeA)),
+      flowPoint(slopeToDisk(slopeB)),
+      DM.rgba(P.ochre, isDark ? 0.72 : 0.68),
+      1.35,
+      { dash: [5, 4] }
+    );
+  }
+
+  // Shortest combinatorial path in C(S_{1,1})
+  const path = geo.path;
+  for (let i = 0; i < path.length - 1; i++) {
+    drawDiskGeodesic(
+      ctx,
+      flowPoint(slopeToDisk(path[i])),
+      flowPoint(slopeToDisk(path[i + 1])),
+      P.vermilion,
+      2.8,
+      { glow: isDark ? 8 : 0 }
+    );
+  }
+
+  ctx.restore();
+
+  // Crisp outer boundary ring on top of clipped geodesics
+  DM.ring(ctx, geom.x, geom.y, geom.r, P.hairlineStrong, 1.5);
+
+  // Boundary rational vertices
+  for (const v of farey.verts) {
+    if (v.gen > 4) continue;
+    const [sx, sy] = toScreen(flowPoint(v.w));
+    const rDot = v.gen === 0 ? 3.2 : Math.max(1.7, 2.7 - v.gen * 0.28);
+    DM.dot(ctx, sx, sy, rDot, DM.rgba(P.cobalt, isDark ? 0.78 : 0.70));
+  }
+
+  // Intermediate vertices along the curve-complex geodesic
+  for (let i = 1; i < path.length - 1; i++) {
+    const [sx, sy] = toScreen(flowPoint(slopeToDisk(path[i])));
+    DM.dot(ctx, sx, sy, 4.4, P.vermilion, { stroke: P.bg, strokeWidth: 1.5 });
+  }
+
+  // Hover preview vertex
+  if (hoverVert && !slopeEq(hoverVert.slope, slopeA) && !slopeEq(hoverVert.slope, slopeB)) {
+    const [hx, hy] = toScreen(flowPoint(hoverVert.w));
+    DM.ring(ctx, hx, hy, 7.5, DM.rgba(P.ink, 0.55), 1.2);
+    DM.dot(ctx, hx, hy, 3.6, P.ink);
+  }
+
+  // Endpoints A and B
+  const [ax, ay] = toScreen(flowPoint(slopeToDisk(slopeA)));
+  const [bx, by] = toScreen(flowPoint(slopeToDisk(slopeB)));
+  DM.dot(ctx, ax, ay, 5.8, P.verdigris, { stroke: P.bg, strokeWidth: 1.8, glow: isDark ? 8 : 0 });
+  if (!slopeEq(slopeA, slopeB)) {
+    DM.dot(ctx, bx, by, 5.8, P.vermilion, { stroke: P.bg, strokeWidth: 1.8, glow: isDark ? 8 : 0 });
+  }
+
+  // Pinned KaTeX boundary labels with angular collision suppression
+  if (labels) {
+    const labelItems = [];
+    const placedAngles = [];
+    const minAngGap = app.W <= 560 ? 0.24 : 0.16;
+    const radOut = geom.r + (app.W <= 560 ? 15 : 19);
+    const fSize = app.W <= 560 ? 11.5 : 13;
+
+    function tryAddLabel(key, slope, color, priority) {
+      const w = flowPoint(slopeToDisk(slope));
+      const ang = Math.atan2(w[1], w[0]);
+      for (const pa of placedAngles) {
+        let diff = Math.abs(ang - pa);
+        if (diff > Math.PI) diff = 2 * Math.PI - diff;
+        if (diff < minAngGap) return;
+      }
+      placedAngles.push(ang);
+      const lx = geom.x + radOut * w[0];
+      const ly = geom.y - radOut * w[1];
+      labelItems.push({
+        key,
+        tex: slopeTex(slope),
+        x: lx,
+        y: ly,
+        color,
+        size: fSize,
+      });
+    }
+
+    tryAddLabel('A', slopeA, P.verdigris, 1);
+    if (!slopeEq(slopeA, slopeB)) tryAddLabel('B', slopeB, P.vermilion, 1);
+    if (hoverVert) tryAddLabel('hover', hoverVert.slope, P.ink, 2);
+    for (let i = 1; i < path.length - 1; i++) {
+      tryAddLabel('p_' + slopeKey(path[i]), path[i], P.vermilion, 3);
+    }
+    for (const anchor of [INF_SLOPE, ZERO_SLOPE, ONE_SLOPE, NEG_ONE_SLOPE]) {
+      tryAddLabel('card_' + slopeKey(anchor), anchor, P.ink2, 4);
+    }
+    if (depth >= 1) {
+      for (const q1 of [normSlope(1, 2), normSlope(2, 1), normSlope(-1, 2), normSlope(-2, 1)]) {
+        tryAddLabel('q_' + slopeKey(q1), q1, P.muted, 5);
+      }
+    }
+    labels.set(labelItems);
+  }
+
+  // Legend & Readout with live unimodular check
+  const legendItems = [
+    { color: P.cobalt, label: 'Farey', line: true },
+    { color: P.vermilion, label: 'Geodesic', line: true },
+    { color: P.verdigris, label: 'CF fan' },
+  ];
+  if (showDual) legendItems.push({ color: P.ochre, label: 'Dual', line: true });
+  app.legend(legendItems);
+
+  const dist = Math.max(0, path.length - 1);
+  let allUni = true;
+  for (let i = 0; i < path.length - 1; i++) {
+    if (!isFareyEdge(path[i], path[i + 1])) allUni = false;
+  }
+  const matDetOk = ex.mat2.det(cumMat) === 1n;
+
+  const pathChain = path.length <= 5
+    ? path.map(slopeTex).join(' \\to ')
+    : `${slopeTex(path[0])} \\to \\cdots \\to ${slopeTex(path[path.length - 1])}`;
+
+  app.readout(
+    `<span class="big">${DM.tex(`d_{\\mathcal{C}} = ${dist}`)}</span>` +
+    ` &nbsp;${DM.check(allUni && matDetOk, `${DM.tex('|ps - qr| = 1')}`)}<br>` +
+    `<small>${DM.tex(pathChain)}</small>`
+  );
+}
+
+/* ---------- page ---------- */
+
+const app = DM.page({
+  plate: '010',
+  title: 'The Farey Graph & Curve Complex',
+  hook: 'Rational slopes tile the hyperbolic disk into ideal triangles whenever their determinant equals one.',
+  date: '2026-11-27',
+  defaultTheme: 'dark',
+  posterStep: 2,
+  hint: 'tap or drag slopes on the circle',
+  controls: [
+    { type: 'slider', id: 'depth', label: 'depth', min: 1, max: 7, step: 1, value: 5, format: v => String(v) },
+    { type: 'button', id: 'T', label: DM.tex('T'), title: 'Apply parabolic shear T: z -> z + 1', onClick: () => applyGen('T', true) },
+    { type: 'button', id: 'S', label: DM.tex('S'), title: 'Apply elliptic inversion S: z -> -1/z', onClick: () => applyGen('S', true) },
+    { type: 'toggle', id: 'dual', label: 'Dual tree', value: false },
+  ],
+  tour: [
+    {
+      text: DM.texify('The fundamental triangle $\\{0, \\infty, 1\\}$ links slopes with $|ps - qr| = 1$, curves intersecting once on $S_{1,1}$.'),
+      enter: a => {
+        highlightFundTri = true;
+        animFlow = null;
+        cumMat = ex.mat2.id();
+        slopeA = ZERO_SLOPE;
+        slopeB = ONE_SLOPE;
+        a.set('depth', 1, { silent: true });
+        a.set('dual', false, { silent: true });
+      },
+    },
+    {
+      text: DM.texify('Subdivide each boundary edge by its mediant $(p+r)/(q+s)$ to tile $\\mathbb{D}$ down to $\\partial\\mathbb{D} = \\mathbb{Q} \\cup \\{\\infty\\}$.'),
+      enter: a => {
+        highlightFundTri = false;
+        animFlow = null;
+        cumMat = ex.mat2.id();
+        slopeA = ZERO_SLOPE;
+        slopeB = normSlope(3, 5);
+        a.set('dual', false, { silent: true });
+        a.pulse('depth');
+        a.tween(600, u => {
+          a.set('depth', Math.round(DM.lerp(2, 5, u)), { silent: true });
+        }, { key: 'depth' });
+      },
+    },
+    {
+      text: DM.texify('Tap two slopes on $\\partial\\mathbb{D}$: the shortest path hops along the continued-fraction triangle fan pierced by their geodesic.'),
+      enter: a => {
+        highlightFundTri = false;
+        animFlow = null;
+        cumMat = ex.mat2.id();
+        slopeA = normSlope(-1, 2);
+        slopeB = normSlope(5, 8);
+        a.set('depth', 5, { silent: true });
+        a.set('dual', false, { silent: true });
+      },
+    },
+    {
+      text: DM.texify('Apply $T$ or $S$ in $\\mathrm{SL}_2(\\mathbb{Z})$ to move the Farey web and Bass–Serre dual tree isometrically.'),
+      enter: a => {
+        highlightFundTri = false;
+        animFlow = null;
+        cumMat = ex.mat2.id();
+        slopeA = normSlope(-1, 2);
+        slopeB = normSlope(5, 8);
+        a.set('depth', 5, { silent: true });
+        a.set('dual', true, { silent: true });
+        a.pulse('T');
+        applyGen('T', true);
+      },
+    },
+  ],
+  math: DM.texify(`
+    <p><b>William Harvey (1981)</b> and <b>Howard Masur–Yair Minsky (1999)</b> identified the curve complex $\\mathcal{C}(S_{1,1})$ of the once-punctured torus with the <b>Farey graph</b>. Each vertex is a rational slope $p/q \\in \\mathbb{Q} \\cup \\{\\infty\\}$, and two slopes share an edge iff their geometric intersection number $|ps - qr| = 1$.</p>
+    <p>Every ideal triangle is subdivided by its mediant $(p+r)/(q+s)$, and its dual graph is the trivalent Bass–Serre tree of $\\mathrm{PSL}_2(\\mathbb{Z}) \\cong \\mathbb{Z}_2 * \\mathbb{Z}_3$. Shortest paths in $\\mathcal{C}(S_{1,1})$ lie inside the finite fan of triangles pierced by the hyperbolic geodesic and are preserved by $\\mathrm{SL}_2(\\mathbb{Z})$.</p>
+    <p class="ref">Plate 010 · Daily Math Atelier · Geometric Group Theory &amp; Low-Dimensional Topology.</p>
+  `),
+  setup: a => {
+    labels = DM.texLabels(a);
+  },
+  draw,
+});
+
+app.onResize(a => {
+  geom = a.fitCircle(a.W <= 560 ? 28 : 38);
+});
+
+function nearestFareyVertex(p, maxDist = 42) {
+  const farey = buildFarey(app.get('depth'));
+  let best = null;
+  let bd = maxDist;
+  for (const v of farey.verts) {
+    const [sx, sy] = toScreen(flowPoint(v.w));
+    const d = Math.hypot(sx - p.x, sy - p.y);
+    if (d < bd) {
+      bd = d;
+      best = v;
+    }
+  }
+  return best;
+}
+
+app.pointer({
+  hover(p) {
+    const v = nearestFareyVertex(p, 28);
+    if ((v ? v.key : null) !== (hoverVert ? hoverVert.key : null)) {
+      hoverVert = v;
+      app.cursor(v ? 'pointer' : '');
+      app.redraw();
+    }
+  },
+  leave() {
+    if (hoverVert) {
+      hoverVert = null;
+      app.cursor('');
+      app.redraw();
+    }
+  },
+  down(p) {
+    const [ax, ay] = toScreen(flowPoint(slopeToDisk(slopeA)));
+    const [bx, by] = toScreen(flowPoint(slopeToDisk(slopeB)));
+    if (Math.hypot(p.x - ax, p.y - ay) < 22) {
+      dragTarget = 'A';
+      app.cursor('grabbing');
+    } else if (Math.hypot(p.x - bx, p.y - by) < 22) {
+      dragTarget = 'B';
+      app.cursor('grabbing');
+    } else {
+      dragTarget = null;
+    }
+  },
+  drag(p) {
+    if (!dragTarget) return;
+    const v = nearestFareyVertex(p, 160);
+    if (!v) return;
+    if (dragTarget === 'A') slopeA = v.slope;
+    else slopeB = v.slope;
+  },
+  tap(p) {
+    if (dragTarget) return;
+    const v = nearestFareyVertex(p, 48);
+    if (!v) return;
+    highlightFundTri = false;
+    if (!slopeEq(v.slope, slopeB)) {
+      slopeA = slopeB;
+      slopeB = v.slope;
+    }
+  },
+  up() {
+    dragTarget = null;
+    app.cursor(hoverVert ? 'pointer' : '');
+  },
+});
+
+/* ---------- self-tests ---------- */
+
+DM.test('every Farey tessellation edge at depth 5 satisfies unimodular determinant |ps - qr| = 1', () => {
+  const f = buildFarey(5);
+  if (f.edges.length < 200) return `expected >= 200 edges, got ${f.edges.length}`;
+  for (const e of f.edges) {
+    if (!isFareyEdge(e.a, e.b)) {
+      return `non-unimodular edge ${slopeKey(e.a)} -- ${slopeKey(e.b)}`;
+    }
+  }
+  return true;
+});
+
+DM.test('curve-complex shortest path matches brute-force BFS and uses valid Farey edges', () => {
+  const all = [INF_SLOPE];
+  for (let q = 1n; q <= 9n; q++) {
+    for (let p = -9n; p <= 9n; p++) {
+      if (ex.gcd(p, q) === 1n) all.push(normSlope(p, q));
+    }
+  }
+  function bfsDist(a, b) {
+    if (slopeEq(a, b)) return 0;
+    const dist = new Map([[slopeKey(a), 0]]);
+    const queue = [a];
+    for (let i = 0; i < queue.length; i++) {
+      const cur = queue[i];
+      const d = dist.get(slopeKey(cur));
+      for (const nxt of all) {
+        const kn = slopeKey(nxt);
+        if (!dist.has(kn) && isFareyEdge(cur, nxt)) {
+          if (slopeEq(nxt, b)) return d + 1;
+          dist.set(kn, d + 1);
+          queue.push(nxt);
+        }
+      }
+    }
+    return -1;
+  }
+  const pairs = [
+    [ZERO_SLOPE, normSlope(3, 5)],
+    [normSlope(-1, 2), normSlope(5, 8)],
+    [normSlope(-3, 7), normSlope(4, 9)],
+    [normSlope(2, 5), normSlope(7, 3)],
+  ];
+  for (const [u, v] of pairs) {
+    const { path } = fareyGeodesic(u, v);
+    if (!slopeEq(path[0], u) || !slopeEq(path[path.length - 1], v)) return 'wrong endpoints';
+    for (let i = 0; i < path.length - 1; i++) {
+      if (!isFareyEdge(path[i], path[i + 1])) return 'invalid step in path';
+    }
+    const dBfs = bfsDist(u, v);
+    if (path.length - 1 !== dBfs) return `distance mismatch ${path.length - 1} vs BFS ${dBfs}`;
+  }
+  return true;
+});
+
+DM.test('SL2(Z) generators T and S satisfy group relations and preserve curve-complex distance', () => {
+  const ST = ex.mat2.mul(MAT_S, MAT_T);
+  const S2 = ex.mat2.pow(MAT_S, 2);
+  const ST3 = ex.mat2.pow(ST, 3);
+  if (S2[0] !== -1n || S2[3] !== -1n || S2[1] !== 0n || S2[2] !== 0n) return 'S^2 != -I';
+  if (ST3[0] !== -1n || ST3[3] !== -1n || ST3[1] !== 0n || ST3[2] !== 0n) return '(ST)^3 != -I';
+
+  const u = normSlope(-1, 2);
+  const v = normSlope(5, 8);
+  const d0 = fareyGeodesic(u, v).path.length - 1;
+  const word = ex.mat2.mul(MAT_T, ex.mat2.mul(MAT_S, ex.mat2.pow(MAT_T, 2)));
+  if (ex.mat2.det(word) !== 1n) return 'word det != 1';
+  const d1 = fareyGeodesic(applyMatSlope(word, u), applyMatSlope(word, v)).path.length - 1;
+  if (d0 !== d1) return `distance changed under SL2(Z): ${d0} -> ${d1}`;
+  return true;
+});
+
+DM.test('rotated Cayley map places all rational slopes on unit circle and conjugates S to -w', () => {
+  const f = buildFarey(4);
+  for (const v of f.verts) {
+    const w = slopeToDisk(v.slope);
+    if (Math.abs(Math.hypot(w[0], w[1]) - 1) > 1e-12) return `off unit circle: ${v.key}`;
+    const sw = slopeToDisk(applyMatSlope(MAT_S, v.slope));
+    if (Math.hypot(sw[0] + w[0], sw[1] + w[1]) > 1e-12) return `S conjugation failed at ${v.key}`;
+  }
+  return true;
+});
+</script>
+</body>
+</html>

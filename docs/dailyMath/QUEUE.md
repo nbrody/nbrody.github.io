@@ -6,15 +6,6 @@ Maintained by each daily run: build the TOP entry, remove it from this list, and
 
 ---
 
-## The Farey Graph & Curve Complex
-- topics: topology, groups · form: 2D Poincaré disk tessellation · theme: dark · modules: `draw`, `math-exact`, `math-complex`, `tex`
-- idea: the curve complex of the once-punctured torus is the Farey graph — two slopes $p/q, r/s \in \mathbb{Q} \cup \{\infty\}$ share an edge iff $|ps - qr| = 1$.
-- gesture: tap two rational slopes on $\partial\mathbb{D}$ to highlight the shortest geodesic path in the curve complex.
-- aha: $\mathrm{SL}_2(\mathbb{Z})$ acts by hyperbolic isometries preserving every Farey triangle, and the combinatorial distance between two curves is read directly from their continued-fraction fan.
-- live check: unimodular determinant $|ps - qr| = 1$ along every edge of the geodesic (`DM.check`).
-- tour: standard triangle $\{0/1, 1/0, 1/1\}$ -> subdivide by mediants $(p+r)/(q+s)$ -> pick two slopes to trace a curve-complex geodesic -> apply $T$ and $S$ generators of $\mathrm{SL}_2(\mathbb{Z})$.
-- math: William Harvey (1981) and Howard Masur–Yair Minsky (1999); the curve complex $\mathcal{C}(S_{1,1})$ is $\delta$-hyperbolic and isomorphic to the Farey tessellation of $\mathbb{H}^2$.
-
 ## Laminations on the Punctured Torus
 - topics: topology, linear · form: panes ($\mathcal{ML}$ slope plane | punctured torus) · theme: light · modules: `draw`, `math-exact`, `math-linalg`, `tex`
 - idea: measured laminations on the once-punctured torus are rays in $(\mathbb{R}^2 \setminus 0)/\pm 1$, and $\mathrm{SL}_2(\mathbb{Z})$ acts on them linearly.
@@ -86,3 +77,12 @@ Maintained by each daily run: build the TOP entry, remove it from this list, and
 - live check: unimodularity $|ad - bc| = 1$ over $\mathbb{Z}[i]$ and hemisphere tangency $x^2 + y^2 + t^2 = 1$ (`DM.check`).
 - tour: unit-square chimney above $\mathbb{Z}[i]$ -> inspect the unit Ford hemisphere floor -> apply $S$-inversion and Gaussian translations -> view the 2-cusp/1-cusp symmetry axes.
 - math: Émile Picard (1884) and Luigi Bianchi (1892); $\mathrm{PSL}_2(\mathbb{Z}[i])$ is the first Bianchi arithmetic Kleinian group, whose fundamental domain has volume $\zeta_{\mathbb{Q}(i)}(2) / (4\pi^2) \cdot \text{const} = K / 3$ (Catalan's constant $K \approx 0.9159656$, volume $K/3 \approx 0.3053218$).
+
+## The Ping-Pong Lemma & Schottky Groups
+- topics: groups, hyperbolic · form: 2D Poincaré disk Schottky pairing · theme: light · modules: `draw`, `math-complex`, `tex`
+- idea: two hyperbolic isometries $A, B \in \mathrm{PSL}_2(\mathbb{R})$ pairing four disjoint boundary intervals on $\partial\mathbb{D}$ must generate a free group $F_2$ with no hidden relations.
+- gesture: drag the Schottky half-disk radii or tap generator words in $A^{\pm 1}, B^{\pm 1}$ to watch the Cantor limit set cascade.
+- aha: any nonempty reduced word bounces an exterior test point inside the target interval of its leftmost letter, proving it cannot act as the identity; shrinking radii until disks touch produces a parabolic cusp collision.
+- live check: disjointness of the four Schottky half-disks and exact word-reduction non-identity (`DM.check`).
+- tour: four disjoint Schottky half-disks -> watch $A$ and $B$ bounce a point across nested intervals -> shrink until two disks kiss at a parabolic cusp -> trace the surviving Cantor limit set.
+- math: Felix Klein (1883) and Jacques Tits (1972); Klein's ping-pong table certifies freeness of Fuchsian Schottky subgroups and anchors the Tits alternative for linear groups.
