@@ -13,6 +13,13 @@
     const SLAB_BACK = 8000;
     const MAX_LAYERS_CAP = 300;
 
+    // History keeps growing while the 3D view is inactive, so the last built
+    // cursor can sit far behind the sliding window. Append only from the
+    // window onward; otherwise one return to 3D extrudes every skipped layer.
+    function layerAppendStart(cursorEnd, windowStart) {
+        return Math.max(cursorEnd, windowStart);
+    }
+
     // ── Module state ─────────────────────────────────────────
     let renderer, scene, camera;
     let contentGroup, layerGroup, triGroup, edgeGroup, diagGroup;
@@ -407,7 +414,7 @@
         const colorCount = pal.colors.length;
 
         // 2. Ring slabs + triangulation between consecutive iterations (append-only)
-        for (let i = builtRingEnd; i < iters - 1; i++) {
+        for (let i = layerAppendStart(builtRingEnd, builtStart); i < iters - 1; i++) {
             const zPos = -i * LAYER_DEPTH;
             const cIdx = i % colorCount;
 
@@ -435,7 +442,7 @@
         builtRingEnd = Math.max(builtRingEnd, iters - 1);
 
         // 3. Edge lines for every polygon in window (append-only)
-        for (let i = builtEdgeEnd; i < iters; i++) {
+        for (let i = layerAppendStart(builtEdgeEnd, builtStart); i < iters; i++) {
             const z = -i * LAYER_DEPTH + 1;
             const cIdx = i % colorCount;
             const line = makeEdgeLine(hist[i], z, cIdx);
@@ -740,5 +747,6 @@
         setActive,
         resetView,
         captureDataURL,
+        layerAppendStart,
     };
 })();
