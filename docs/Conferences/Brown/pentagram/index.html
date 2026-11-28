@@ -7,200 +7,348 @@
     <title>Pentagram Map Explorer</title>
     <meta name="description"
         content="Interactive visualization of the Schwartz pentagram map with customizable palettes and animations.">
+    <link rel="stylesheet" href="../../../topology/assets/poincare-ui.css">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="../../../topology/assets/poincare-ui.js"></script>
 </head>
 
 <body>
-    <canvas id="canvas"></canvas>
-    <div id="canvas3d-container"></div>
+    <main class="stage">
+        <canvas id="canvas" role="img"
+            aria-label="Interactive 2D visualization of the Schwartz pentagram map"></canvas>
+        <div id="canvas3d-container" role="img"
+            aria-label="Interactive 3D pentagram map tunnel"></div>
 
-    <!-- Iteration HUD -->
-    <div id="iteration-hud">
-        <span id="iter-label">Iteration</span>
-        <span id="iter-count">0</span>
-        <button id="mode-toggle-btn" title="Switch between 2D and 3D view">3D</button>
-    </div>
-
-    <!-- Toggle Panel Button (mobile / minimized) -->
-    <button id="toggle-panel-btn" title="Toggle Controls">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path
-                d="M10 3.5a1 1 0 011 1v2a1 1 0 01-2 0v-2a1 1 0 011-1zm0 6a1 1 0 011 1v2a1 1 0 01-2 0v-2a1 1 0 011-1zm-3.5-3a1 1 0 011-1h2a1 1 0 010 2h-2a1 1 0 01-1-1zm6 0a1 1 0 011-1h2a1 1 0 010 2h-2a1 1 0 01-1-1z"
-                fill="currentColor" />
-            <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5" fill="none" />
-        </svg>
-    </button>
-
-    <!-- Control Panel -->
-    <div id="ui-panel" class="glass-panel">
-        <div class="panel-header">
-            <div>
-                <h1>Pentagram Map</h1>
-                <p class="subtitle">Schwartz diagonal intersection map</p>
-            </div>
-            <button id="close-panel-btn" class="icon-btn" title="Close Panel">&times;</button>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tab-bar">
-            <button class="tab active" data-tab="geometry">Geometry</button>
-            <button class="tab" data-tab="style">Style</button>
-            <button class="tab" data-tab="animate">Animate</button>
-            <button class="tab" data-tab="advanced">Advanced</button>
-        </div>
-
-        <!-- Geometry Tab -->
-        <div class="tab-content active" id="tab-geometry">
-            <div class="control-group">
-                <label>Vertices <span id="n-val" class="accent">5</span></label>
-                <input type="range" id="n-slider" min="5" max="30" value="5">
-            </div>
-
-            <div class="control-group">
-                <label>Diagonal Skip <span id="skip-val" class="accent">2</span></label>
-                <input type="range" id="skip-slider" min="2" max="10" value="2">
-                <p class="hint">Connect vertex i to vertex i+skip</p>
-            </div>
-
-            <div class="control-group">
-                <label>Initial Shape</label>
-                <select id="shape-select">
-                    <option value="regular">Regular Polygon</option>
-                    <option value="random-convex">Random Convex</option>
-                    <option value="star">Star</option>
-                    <option value="spiral">Spiral</option>
-                    <option value="irregular">Irregular</option>
-                </select>
+        <!-- Top-left iteration readout -->
+        <div id="iteration-hud" class="glass-chip">
+            <span class="fi-key">Iteration</span>
+            <span id="iter-count">0</span>
+            <span id="geom-meta" class="fi-line">5-gon · skip 2</span>
+            <div class="hud-actions">
+                <div class="seg-options" role="group" aria-label="View mode">
+                    <button type="button" id="mode-2d-btn" class="seg-opt active" aria-pressed="true">2D</button>
+                    <button type="button" id="mode-3d-btn" class="seg-opt" aria-pressed="false">3D</button>
+                </div>
+                <button type="button" id="reset-view-btn" class="icon-btn"
+                    aria-label="Reset camera view" title="Reset view (0)">
+                    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M2.5 8a5.5 5.5 0 1 1 1.4 3.67M2.5 12V8.5H6" />
+                    </svg>
+                </button>
             </div>
         </div>
 
-        <!-- Style Tab -->
-        <div class="tab-content" id="tab-style">
-            <div class="control-group">
-                <label>Color Palette</label>
-                <div id="palette-grid" class="palette-grid">
-                    <!-- Populated by JS -->
-                </div>
-            </div>
-
-            <div class="control-group">
-                <label>Line Width <span id="line-width-val" class="accent">2</span></label>
-                <input type="range" id="line-width-slider" min="1" max="8" value="2" step="0.5">
-            </div>
-
-            <div class="control-group">
-                <label>Vertex Radius <span id="vertex-radius-val" class="accent">5</span></label>
-                <input type="range" id="vertex-radius-slider" min="2" max="12" value="5">
-            </div>
-
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="diag-checkbox" checked>
-                <label for="diag-checkbox">Show Diagonals</label>
-            </div>
-
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="triangulation-checkbox" checked>
-                <label for="triangulation-checkbox">Show Triangulation</label>
-            </div>
-
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="glow-checkbox" checked>
-                <label for="glow-checkbox">Glow Effect</label>
-            </div>
-
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="gradient-trail-checkbox">
-                <label for="gradient-trail-checkbox">Rainbow Trail Gradient</label>
-            </div>
-        </div>
-
-        <!-- Animate Tab -->
-        <div class="tab-content" id="tab-animate">
-            <div class="control-group">
-                <label>Iteration Speed <span id="speed-val" class="accent">5</span>/s</label>
-                <input type="range" id="speed-slider" min="1" max="120" value="5">
-            </div>
-
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="spiral-checkbox">
-                <label for="spiral-checkbox">Spiral Animation</label>
-            </div>
-
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="auto-zoom-checkbox">
-                <label for="auto-zoom-checkbox">Auto-Zoom to Center</label>
-            </div>
-        </div>
-
-        <!-- Advanced Tab -->
-        <div class="tab-content" id="tab-advanced">
-            <div class="control-group">
-                <label>Star Inner Radius <span id="star-radius-val" class="accent">0.45</span></label>
-                <input type="range" id="star-radius-slider" min="10" max="90" value="45">
-            </div>
-
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="normalize-checkbox">
-                <label for="normalize-checkbox">Normalize Scale &amp; Position</label>
-            </div>
-
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="drag-checkbox" checked>
-                <label for="drag-checkbox">Enable Vertex Dragging</label>
-            </div>
-
-            <details class="control-fold">
-                <summary>Fine tuning</summary>
-
-                <div class="control-group">
-                    <label>Trail Opacity <span id="trail-opacity-val" class="accent">0.35</span></label>
-                    <input type="range" id="trail-opacity-slider" min="5" max="100" value="35">
-                </div>
-
-                <div class="control-group">
-                    <label>Fill Opacity <span id="fill-opacity-val" class="accent">0.06</span></label>
-                    <input type="range" id="fill-opacity-slider" min="0" max="50" value="6">
-                </div>
-
-                <div class="control-group">
-                    <label>Max Trail Length <span id="max-trail-val" class="accent">200</span></label>
-                    <input type="range" id="max-trail-slider" min="10" max="2000" value="200" step="10">
-                </div>
-
-                <div class="control-group checkbox-group">
-                    <input type="checkbox" id="morph-checkbox">
-                    <label for="morph-checkbox">Smooth Morphing</label>
-                </div>
-
-                <div class="control-group">
-                    <label>Morph Duration <span id="morph-val" class="accent">300</span>ms</label>
-                    <input type="range" id="morph-slider" min="50" max="1500" value="300" step="50">
-                </div>
-
-                <div class="control-group checkbox-group">
-                    <input type="checkbox" id="auto-rotate-checkbox">
-                    <label for="auto-rotate-checkbox">Auto-Rotate Base</label>
-                </div>
-
-                <div class="control-group">
-                    <label>Rotation Speed <span id="rotate-speed-val" class="accent">0.2</span>°/f</label>
-                    <input type="range" id="rotate-speed-slider" min="1" max="50" value="2">
-                </div>
-            </details>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="button-group">
-            <button id="play-btn" class="btn btn-primary">
-                <span class="btn-icon">▶</span> Play
+        <!-- Floating transport pills -->
+        <div id="transport" class="transport" role="toolbar" aria-label="Simulation controls">
+            <button type="button" id="step-back-btn" class="pill"
+                aria-label="Previous iteration" title="Previous step (&larr;)" disabled>
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M10 3.5L5.5 8 10 12.5" />
+                </svg>
             </button>
-            <button id="step-btn" class="btn btn-secondary">Step</button>
-            <button id="reset-btn" class="btn btn-outline">Reset</button>
+            <button type="button" id="play-btn" class="pill" title="Play or pause (Space)">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <polygon class="solid" points="4.5,3 13,8 4.5,13" />
+                </svg>
+                <span class="pill-label">Play</span>
+            </button>
+            <button type="button" id="step-btn" class="pill"
+                aria-label="Next iteration" title="Next step (&rarr;)">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M6 3.5L10.5 8 6 12.5" />
+                </svg>
+            </button>
+            <button type="button" id="reset-btn" class="pill" title="Reset polygon (R)">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M2.5 8a5.5 5.5 0 1 1 1.4 3.67M2.5 12V8.5H6" />
+                </svg>
+                <span class="pill-label">Reset</span>
+            </button>
         </div>
 
-        <div class="button-group">
-            <button id="export-btn" class="btn btn-outline btn-small">Export PNG</button>
+        <p id="interaction-hint" class="stage-hint" aria-hidden="true">
+            Drag vertices · Drag canvas to pan · Scroll to zoom · <kbd>Space</kbd> play
+        </p>
+    </main>
+
+    <!-- Poincaré floating control panel -->
+    <aside id="control-panel" aria-label="Visualization controls">
+        <div class="tab-navigation">
+            <div class="panel-tabs" role="tablist" aria-label="Control categories">
+                <button type="button" class="tab-btn active" role="tab" id="tab-btn-geometry"
+                    aria-selected="true" aria-controls="tab-geometry" tabindex="0" data-tab="geometry">Geometry</button>
+                <button type="button" class="tab-btn" role="tab" id="tab-btn-style"
+                    aria-selected="false" aria-controls="tab-style" tabindex="-1" data-tab="style">Style</button>
+                <button type="button" class="tab-btn" role="tab" id="tab-btn-animate"
+                    aria-selected="false" aria-controls="tab-animate" tabindex="-1" data-tab="animate">Animate</button>
+                <button type="button" class="tab-btn" role="tab" id="tab-btn-advanced"
+                    aria-selected="false" aria-controls="tab-advanced" tabindex="-1" data-tab="advanced">More</button>
+            </div>
+            <button type="button" id="help-btn" class="collapse-btn"
+                title="Controls &amp; shortcuts" aria-label="Controls and shortcuts">
+                <span class="collapse-icon">?</span>
+            </button>
+            <button type="button" id="collapse-btn" class="collapse-btn"
+                title="Collapse panel" aria-label="Collapse panel" aria-expanded="true">
+                <span class="collapse-icon">&times;</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- Geometry Tab -->
+            <div id="tab-geometry" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-geometry">
+                <div>
+                    <h1 class="panel-title">Pentagram Map</h1>
+                    <p class="panel-subtitle">Schwartz diagonal intersection map on projective polygons.</p>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Polygon</span>
+
+                    <div class="range-row">
+                        <div class="range-head">
+                            <label class="range-name" for="n-slider">Vertices</label>
+                            <span id="n-val" class="range-value">5</span>
+                        </div>
+                        <input type="range" id="n-slider" class="range" min="5" max="30" value="5">
+                    </div>
+
+                    <div class="range-row">
+                        <div class="range-head">
+                            <label class="range-name" for="skip-slider">Diagonal Skip</label>
+                            <span id="skip-val" class="range-value">2</span>
+                        </div>
+                        <input type="range" id="skip-slider" class="range" min="2" max="10" value="2"
+                            aria-describedby="skip-hint">
+                        <p id="skip-hint" class="label-hint">Connects vertex <b>i</b> to vertex <b>i + skip</b>.</p>
+                    </div>
+
+                    <div class="range-row">
+                        <label class="range-name" for="shape-select">Initial Shape</label>
+                        <div class="control-row">
+                            <select id="shape-select" class="select-input">
+                                <option value="regular">Regular Polygon</option>
+                                <option value="random-convex">Random Convex</option>
+                                <option value="star">Star</option>
+                                <option value="spiral">Spiral</option>
+                                <option value="irregular">Irregular</option>
+                            </select>
+                            <button type="button" id="reseed-btn" class="btn btn-add-alt" hidden
+                                title="Generate new random vertices">Reseed</button>
+                        </div>
+                    </div>
+
+                    <div class="range-row sub-control" id="star-radius-group" hidden>
+                        <div class="range-head">
+                            <label class="range-name" for="star-radius-slider">Star Inner Radius</label>
+                            <span id="star-radius-val" class="range-value">0.45</span>
+                        </div>
+                        <input type="range" id="star-radius-slider" class="range" min="10" max="90" value="45">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Behavior</span>
+                    <label class="check-row" for="normalize-checkbox">
+                        <input type="checkbox" id="normalize-checkbox" class="check">
+                        <span>Normalize scale &amp; position</span>
+                    </label>
+                    <label class="check-row" for="drag-checkbox">
+                        <input type="checkbox" id="drag-checkbox" class="check" checked>
+                        <span>Enable vertex dragging</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Style Tab -->
+            <div id="tab-style" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-style">
+                <div>
+                    <h2 class="panel-title">Appearance</h2>
+                    <p class="panel-subtitle">Palettes, stroke geometry, and visual layers.</p>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label" id="palette-label">Color Palette</span>
+                    <div id="palette-grid" class="palette-grid" role="group" aria-labelledby="palette-label">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Strokes &amp; Vertices</span>
+
+                    <div class="range-row">
+                        <div class="range-head">
+                            <label class="range-name" for="line-width-slider">Line Width</label>
+                            <span id="line-width-val" class="range-value">2</span>
+                        </div>
+                        <input type="range" id="line-width-slider" class="range" min="1" max="8" value="2" step="0.5">
+                    </div>
+
+                    <div class="range-row">
+                        <div class="range-head">
+                            <label class="range-name" for="vertex-radius-slider">Vertex Radius</label>
+                            <span id="vertex-radius-val" class="range-value">5</span>
+                        </div>
+                        <input type="range" id="vertex-radius-slider" class="range" min="2" max="12" value="5">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Layers</span>
+                    <label class="check-row" for="diag-checkbox">
+                        <input type="checkbox" id="diag-checkbox" class="check" checked>
+                        <span>Show diagonals</span>
+                    </label>
+                    <label class="check-row" for="triangulation-checkbox">
+                        <input type="checkbox" id="triangulation-checkbox" class="check" checked>
+                        <span>Show triangulation</span>
+                    </label>
+                    <label class="check-row" for="glow-checkbox">
+                        <input type="checkbox" id="glow-checkbox" class="check" checked>
+                        <span>Glow effect</span>
+                    </label>
+                    <label class="check-row" for="gradient-trail-checkbox">
+                        <input type="checkbox" id="gradient-trail-checkbox" class="check">
+                        <span>Rainbow trail gradient</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Animate Tab -->
+            <div id="tab-animate" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-animate">
+                <div>
+                    <h2 class="panel-title">Animation</h2>
+                    <p class="panel-subtitle">Playback cadence, morphing, and camera motion.</p>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Playback</span>
+
+                    <div class="range-row">
+                        <div class="range-head">
+                            <label class="range-name" for="speed-slider">Iteration Speed</label>
+                            <span class="range-value"><span id="speed-val">5</span>/s</span>
+                        </div>
+                        <input type="range" id="speed-slider" class="range" min="1" max="120" value="5">
+                    </div>
+
+                    <label class="check-row" for="spiral-checkbox">
+                        <input type="checkbox" id="spiral-checkbox" class="check">
+                        <span>Spiral animation</span>
+                    </label>
+                    <label class="check-row" for="auto-zoom-checkbox">
+                        <input type="checkbox" id="auto-zoom-checkbox" class="check">
+                        <span>Auto-zoom to center</span>
+                    </label>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Motion Effects</span>
+
+                    <label class="check-row" for="morph-checkbox">
+                        <input type="checkbox" id="morph-checkbox" class="check">
+                        <span>Smooth morphing</span>
+                    </label>
+
+                    <div class="range-row sub-control" id="morph-duration-group" hidden>
+                        <div class="range-head">
+                            <label class="range-name" for="morph-slider">Morph Duration</label>
+                            <span class="range-value"><span id="morph-val">300</span>ms</span>
+                        </div>
+                        <input type="range" id="morph-slider" class="range" min="50" max="1500" value="300" step="50">
+                    </div>
+
+                    <label class="check-row" for="auto-rotate-checkbox">
+                        <input type="checkbox" id="auto-rotate-checkbox" class="check">
+                        <span>Auto-rotate base</span>
+                    </label>
+
+                    <div class="range-row sub-control" id="rotate-speed-group" hidden>
+                        <div class="range-head">
+                            <label class="range-name" for="rotate-speed-slider">Rotation Speed</label>
+                            <span class="range-value"><span id="rotate-speed-val">0.2</span>°/f</span>
+                        </div>
+                        <input type="range" id="rotate-speed-slider" class="range" min="1" max="50" value="2">
+                    </div>
+                </div>
+            </div>
+
+            <!-- More / Advanced Tab -->
+            <div id="tab-advanced" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-advanced">
+                <div>
+                    <h2 class="panel-title">Trails &amp; Export</h2>
+                    <p class="panel-subtitle">Fine-tune opacity, history length, and snapshots.</p>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Trail Rendering</span>
+
+                    <div class="range-row">
+                        <div class="range-head">
+                            <label class="range-name" for="trail-opacity-slider">Trail Opacity</label>
+                            <span id="trail-opacity-val" class="range-value">0.35</span>
+                        </div>
+                        <input type="range" id="trail-opacity-slider" class="range" min="5" max="100" value="35">
+                    </div>
+
+                    <div class="range-row">
+                        <div class="range-head">
+                            <label class="range-name" for="fill-opacity-slider">Fill Opacity</label>
+                            <span id="fill-opacity-val" class="range-value">0.06</span>
+                        </div>
+                        <input type="range" id="fill-opacity-slider" class="range" min="0" max="50" value="6">
+                    </div>
+
+                    <div class="range-row">
+                        <div class="range-head">
+                            <label class="range-name" for="max-trail-slider">Max Trail Length</label>
+                            <span id="max-trail-val" class="range-value">200</span>
+                        </div>
+                        <input type="range" id="max-trail-slider" class="range" min="10" max="2000" value="200" step="10">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <span class="control-label">Snapshot</span>
+                    <div class="control-row">
+                        <button type="button" id="export-btn" class="btn btn-primary">Export PNG</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Help & Shortcuts Modal (wired by poincare-ui.js) -->
+    <div id="help-modal" class="example-modal" hidden>
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel narrow" role="dialog" aria-modal="true" aria-labelledby="help-title">
+            <div class="example-modal-head">
+                <h3 id="help-title">Controls &amp; Shortcuts</h3>
+                <button type="button" class="example-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="help-body">
+                <h4>2D Canvas</h4>
+                <ul>
+                    <li><strong>Drag vertices</strong> of the base polygon to deform the whole orbit live.</li>
+                    <li><strong>Drag empty canvas</strong> to pan; <strong>scroll</strong> or pinch to zoom toward the cursor.</li>
+                    <li><strong><kbd>Shift</kbd>-drag</strong> or right-drag to rotate the view; <strong>double-click</strong> to reset view.</li>
+                </ul>
+                <h4>3D Tunnel</h4>
+                <ul>
+                    <li><strong>Drag</strong> to orbit around the nested polygon tunnel; <strong>scroll</strong> or pinch to dolly along depth.</li>
+                    <li><strong>Double-click</strong> to return to the leading layer.</li>
+                </ul>
+                <h4>Keyboard Shortcuts</h4>
+                <ul>
+                    <li><kbd>Space</kbd> — Play / Pause</li>
+                    <li><kbd>&larr;</kbd> / <kbd>&rarr;</kbd> — Step backward / forward</li>
+                    <li><kbd>R</kbd> — Reset polygon</li>
+                    <li><kbd>0</kbd> — Reset camera view</li>
+                    <li><kbd>3</kbd> — Toggle 2D / 3D mode</li>
+                    <li><kbd>H</kbd> — Collapse / expand controls panel</li>
+                </ul>
+            </div>
         </div>
     </div>
 

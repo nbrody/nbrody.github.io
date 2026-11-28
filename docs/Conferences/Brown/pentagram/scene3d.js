@@ -7,72 +7,168 @@
     'use strict';
 
     // ── Constants ────────────────────────────────────────────
-    const LAYER_DEPTH = 120;  // z-gap between polygon layers
-    const CAM_LEAD = 200;    // camera leads the deepest layer by this much
-    const CAM_INITIAL = 500; // camera starting z (outside the tunnel entrance)
-    const SLAB_BACK = 8000;  // depth of the initial half-space slab
-    const CAM_LERP_PLAY = 0.04;  // camera smoothness when playing (lower = smoother)
-    const CAM_LERP_IDLE = 0.06;  // camera smoothness when idle
+    const LAYER_DEPTH = 120;
+    const CAM_LEAD = 200;
+    const CAM_INITIAL = 500;
+    const SLAB_BACK = 8000;
+    const MAX_LAYERS_CAP = 300;
 
     // ── Module state ─────────────────────────────────────────
     let renderer, scene, camera;
-    let layerGroup, edgeGroup, diagGroup;
+    let contentGroup, layerGroup, triGroup, edgeGroup, diagGroup;
     let initialized = false;
+    let isActive = false;
     let animFrameId = null;
+    let lastFrameTime = 0;
 
     let lastBuiltIter = -1;
     let lastBuiltSpiral = -1;
     let lastPaletteKey = null;
     let lastRevision = -1;
+    let lastMaxLayers = -1;
 
-    // Incremental-build cursors: how many ring/edge layers are already in
-    // the scene. A pure append only builds the new tail; a structural
-    // change (revision bump) or palette change forces a full rebuild.
-    let builtRings = 0;
-    let builtEdges = 0;
+    // Incremental sliding-window cursors
+    let builtStart = 0;
+    let builtRingEnd = 0;
+    let builtEdgeEnd = 0;
+    let ringEntries = []; // [{ ringMesh, triObj }]
+    let edgeEntries = []; // [line]
     let capMesh = null;
+    let slabMesh = null;
+
+    // Cached palette materials
+    let matCacheKey = null;
+    let matCache = null;
 
     // Smooth camera
     let camZ = CAM_INITIAL;
     let camZTarget = CAM_INITIAL;
-    let camX = 0, camY = 0;
-    let camXTarget = 0, camYTarget = 0;
-    let userScrolled = false;  // true when user manually scrolls, pauses auto-fly
+    let camX = 0;
+    let camY = 0;
+    let userScrolled = false;
 
-    // Per-layer centroids for camera centering (populated in rebuildScene)
-    let layerCentroids = [];  // [{x, y, z}, ...]
+    // Per-layer centroids for camera centering
+    let layerCentroids = [];
 
-    // Orbit drag
-    let orbitDragging = false;
-    let orbitLast = { x: 0, y: 0 };
-    let orbitYaw = 0;  // radian rotation around Y
-    let orbitPitch = 0; // radian rotation around X
+    // Orbit & auto-roll
+    let orbitYaw = 0;
+    let orbitPitch = 0;
+    let autoRoll = 0;
 
-    // ── Helpers ──────────────────────────────────────────────
-    function hexCol(hex) { return new THREE.Color(hex); }
+    // Pointer tracking (supports 1-pointer orbit & 2-pointer pinch dolly)
+    const activePointers = new Map();
+    let pinchLastDist = 0;
 
-    function palColor(pal, idx) {
-        return hexCol(pal.colors[idx % pal.colors.length]);
+    // ── Material Cache ───────────────────────────────────────
+    function disposeMaterialCache() {
+        if (!matCache) return;
+        const disposeList = list => {
+            if (!list) return;
+            for (const m of list) m.dispose();
+        };
+        disposeList(matCache.rings);
+        disposeList(matCache.tris);
+        disposeList(matCache.struts);
+        disposeList(matCache.edges);
+        if (matCache.slab) matCache.slab.dispose();
+        if (matCache.cap) matCache.cap.dispose();
+        if (matCache.diag) matCache.diag.dispose();
+        if (matCache.spiral) matCache.spiral.dispose();
+        matCache = null;
+        matCacheKey = null;
     }
 
-    // Compute centroid of a polygon (in scene coords: y flipped)
+    function ensureMaterialCache(palKey, pal) {
+        if (matCacheKey === palKey && matCache) return;
+        disposeMaterialCache();
+
+        matCacheKey = palKey;
+        matCache = {
+            rings: pal.colors.map(hex => new THREE.MeshPhongMaterial({
+                color: new THREE.Color(hex),
+                transparent: true,
+                opacity: 0.78,
+                side: THREE.DoubleSide,
+                shininess: 50,
+            })),
+            tris: pal.colors.map(hex => new THREE.MeshPhongMaterial({
+                color: new THREE.Color(hex),
+                transparent: true,
+                opacity: 0.35,
+                side: THREE.DoubleSide,
+                shininess: 40,
+                depthWrite: false,
+            })),
+            struts: pal.colors.map(hex => new THREE.LineBasicMaterial({
+                color: new THREE.Color(hex),
+                transparent: true,
+                opacity: 0.85,
+            })),
+            edges: pal.colors.map(hex => new THREE.LineBasicMaterial({
+                color: new THREE.Color(hex),
+            })),
+            slab: new THREE.MeshPhongMaterial({
+                color: new THREE.Color(pal.colors[0]),
+                transparent: true,
+                opacity: 0.14,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+            }),
+            cap: new THREE.MeshPhongMaterial({
+                color: new THREE.Color(pal.colors[0]),
+                transparent: true,
+                opacity: 0.9,
+                side: THREE.DoubleSide,
+                shininess: 80,
+            }),
+            diag: new THREE.LineBasicMaterial({
+                color: new THREE.Color(pal.colors[0]),
+                transparent: true,
+                opacity: 0.7,
+            }),
+            spiral: new THREE.LineBasicMaterial({
+                color: new THREE.Color(pal.colors[1] || pal.colors[0]),
+            }),
+        };
+    }
+
+    // ── Disposal Helpers ─────────────────────────────────────
+    function disposeObjectGeometries(obj) {
+        if (!obj) return;
+        obj.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+        });
+    }
+
+    function removeAndDispose(parent, obj) {
+        if (!obj) return;
+        parent.remove(obj);
+        disposeObjectGeometries(obj);
+    }
+
+    function clearGroup(grp) {
+        while (grp.children.length > 0) {
+            const c = grp.children[0];
+            grp.remove(c);
+            disposeObjectGeometries(c);
+        }
+    }
+
+    // ── Geometry Builders ────────────────────────────────────
     function polyCentroid(poly) {
-        let sx = 0, sy = 0;
-        for (const p of poly) { sx += p.x; sy += -p.y; }
+        let sx = 0;
+        let sy = 0;
+        for (let i = 0; i < poly.length; i++) {
+            sx += poly[i].x;
+            sy += -poly[i].y;
+        }
         return { x: sx / poly.length, y: sy / poly.length };
     }
 
-    // Build triangulated mesh + connecting lines between two polygon layers.
-    // Creates a triangle strip: for each edge segment i→i+1 of the n-gon,
-    // two triangles connect the outer ring to the inner ring:
-    //   Tri 1: outer[i], outer[i+1], inner[i]
-    //   Tri 2: outer[i+1], inner[i+1], inner[i]
-    // Also returns connecting line segments from outer[i] to inner[i].
-    function makeTriangulationGroup(outer, inner, zOuter, zInner, color, opacity) {
+    function makeTriangulationGroup(outer, inner, zOuter, zInner, cIdx) {
         const group = new THREE.Group();
         const n = outer.length;
 
-        // --- Triangle faces ---
         const positions = [];
         const normals = [];
 
@@ -90,30 +186,20 @@
 
         for (let i = 0; i < n; i++) {
             const i1 = (i + 1) % n;
-
             const ox = outer[i].x, oy = -outer[i].y;
             const ox1 = outer[i1].x, oy1 = -outer[i1].y;
             const ix = inner[i].x, iy = -inner[i].y;
             const ix1 = inner[i1].x, iy1 = -inner[i1].y;
 
-            // Tri 1: outer[i], outer[i+1], inner[i]
             pushTri(ox, oy, zOuter, ox1, oy1, zOuter, ix, iy, zInner);
-            // Tri 2: outer[i+1], inner[i+1], inner[i]
             pushTri(ox1, oy1, zOuter, ix1, iy1, zInner, ix, iy, zInner);
         }
 
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        group.add(new THREE.Mesh(geo, matCache.tris[cIdx]));
 
-        const mat = new THREE.MeshPhongMaterial({
-            color, transparent: true, opacity,
-            side: THREE.DoubleSide, shininess: 40,
-            depthWrite: false,
-        });
-        group.add(new THREE.Mesh(geo, mat));
-
-        // --- Connecting lines (struts) from outer[i] to inner[i] ---
         const linePts = [];
         for (let i = 0; i < n; i++) {
             linePts.push(outer[i].x, -outer[i].y, zOuter);
@@ -121,15 +207,11 @@
         }
         const lineGeo = new THREE.BufferGeometry();
         lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePts, 3));
-        const lineMat = new THREE.LineBasicMaterial({
-            color, transparent: true, opacity: Math.min(1, opacity * 2.5),
-        });
-        group.add(new THREE.LineSegments(lineGeo, lineMat));
+        group.add(new THREE.LineSegments(lineGeo, matCache.struts[cIdx]));
 
         return group;
     }
 
-    // Build THREE.Shape from {x,y}[] polygon. Y is flipped for Three.js.
     function polyToShape(poly) {
         const s = new THREE.Shape();
         s.moveTo(poly[0].x, -poly[0].y);
@@ -138,8 +220,6 @@
         return s;
     }
 
-    // Build a THREE.Path (not Shape) for use as a hole.
-    // Using Path avoids any .holes nesting issues with Shape.
     function polyToPath(poly) {
         const p = new THREE.Path();
         p.moveTo(poly[0].x, -poly[0].y);
@@ -148,45 +228,42 @@
         return p;
     }
 
-    // Extrude ring between outer and inner polygon
-    function makeRingMesh(outer, inner, zPos, depth, color, opacity) {
+    function makeRingMesh(outer, inner, zPos, depth, cIdx) {
         const outerShape = polyToShape(outer);
-        const holePath = polyToPath(inner);
-        outerShape.holes.push(holePath);
-
+        outerShape.holes.push(polyToPath(inner));
         const geo = new THREE.ExtrudeGeometry(outerShape, { depth, bevelEnabled: false });
-        const mat = new THREE.MeshPhongMaterial({
-            color, transparent: true, opacity,
-            side: THREE.DoubleSide, shininess: 50,
-        });
-        const mesh = new THREE.Mesh(geo, mat);
+        const mesh = new THREE.Mesh(geo, matCache.rings[cIdx]);
         mesh.position.z = zPos;
         return mesh;
     }
 
-    // Solid cap for innermost layer
-    function makeCapMesh(poly, zPos, depth, color) {
+    function makeCapMesh(poly, zPos, depth, pal, iterIdx) {
+        matCache.cap.color.set(pal.colors[iterIdx % pal.colors.length]);
         const shape = polyToShape(poly);
         const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
-        const mat = new THREE.MeshPhongMaterial({
-            color, transparent: true, opacity: 0.9,
-            side: THREE.DoubleSide, shininess: 80,
-        });
-        const mesh = new THREE.Mesh(geo, mat);
+        const mesh = new THREE.Mesh(geo, matCache.cap);
         mesh.position.z = zPos;
         return mesh;
     }
 
-    // Polygon edge loop line
-    function makeEdgeLine(poly, z, color) {
-        const pts = poly.map(p => new THREE.Vector3(p.x, -p.y, z));
-        pts.push(pts[0].clone());
-        const geo = new THREE.BufferGeometry().setFromPoints(pts);
-        return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, linewidth: 1 }));
+    function makeEdgeLine(poly, z, cIdx) {
+        const n = poly.length;
+        const positions = new Float32Array((n + 1) * 3);
+        for (let i = 0; i < n; i++) {
+            positions[i * 3] = poly[i].x;
+            positions[i * 3 + 1] = -poly[i].y;
+            positions[i * 3 + 2] = z;
+        }
+        positions[n * 3] = poly[0].x;
+        positions[n * 3 + 1] = -poly[0].y;
+        positions[n * 3 + 2] = z;
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        return new THREE.Line(geo, matCache.edges[cIdx]);
     }
 
-    // Diagonal line segments (as LineSegments — pairs of points)
-    function makeDiagLines(poly, skip, limit, z, color) {
+    function makeDiagLines(poly, skip, limit, z, pal, colorIdx) {
         const n = poly.length;
         const positions = [];
         for (let i = 0; i < limit; i++) {
@@ -195,21 +272,22 @@
             positions.push(a.x, -a.y, z, b.x, -b.y, z);
         }
         if (positions.length === 0) return null;
+        matCache.diag.color.set(pal.colors[colorIdx % pal.colors.length]);
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        return new THREE.LineSegments(geo,
-            new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.7 }));
+        return new THREE.LineSegments(geo, matCache.diag);
     }
 
-    // Partial inner polygon edge (spiral preview)
     function intersect2D(p1, p2, p3, p4) {
         const den = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
-        if (Math.abs(den) < 1e-10) return { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
+        if (Math.abs(den) < 1e-10) {
+            return { x: (p2.x + p3.x) * 0.5, y: (p2.y + p3.y) * 0.5 };
+        }
         const t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / den;
         return { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
     }
 
-    function makeSpiralEdge(poly, skip, limit, z, color) {
+    function makeSpiralEdge(poly, skip, limit, z, pal, colorIdx) {
         const n = poly.length;
         const pts = [];
         for (let i = 0; i < limit - 1; i++) {
@@ -217,175 +295,203 @@
             pts.push(new THREE.Vector3(ip.x, -ip.y, z));
         }
         if (pts.length < 2) return null;
+        matCache.spiral.color.set(pal.colors[colorIdx % pal.colors.length]);
         const geo = new THREE.BufferGeometry().setFromPoints(pts);
-        return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, linewidth: 2 }));
+        return new THREE.Line(geo, matCache.spiral);
     }
 
-    // Big outer slab (half-space) — large square with polygon hole
-    function makeHalfSpaceSlab(basePoly, pal) {
+    function makeHalfSpaceSlab(basePoly) {
         const BIG = 3000;
         const outer = new THREE.Shape();
-        outer.moveTo(-BIG, -BIG); outer.lineTo(BIG, -BIG);
-        outer.lineTo(BIG, BIG); outer.lineTo(-BIG, BIG);
+        outer.moveTo(-BIG, -BIG);
+        outer.lineTo(BIG, -BIG);
+        outer.lineTo(BIG, BIG);
+        outer.lineTo(-BIG, BIG);
         outer.closePath();
         outer.holes.push(polyToPath(basePoly));
 
         const geo = new THREE.ExtrudeGeometry(outer, { depth: SLAB_BACK, bevelEnabled: false });
-        const mat = new THREE.MeshPhongMaterial({
-            color: palColor(pal, 0),
-            transparent: true, opacity: 0.14,
-            side: THREE.DoubleSide, depthWrite: false,
-        });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.z = -SLAB_BACK; // extends from -SLAB_BACK to z=0
+        const mesh = new THREE.Mesh(geo, matCache.slab);
+        mesh.position.z = -SLAB_BACK;
         return mesh;
     }
 
-    // ── Rebuild scene geometry ────────────────────────────────
+    // ── Rebuild Scene Geometry (Sliding Window + Incremental) ─
     function rebuildScene() {
         if (!initialized) return;
 
         const state = window.PentagramState;
         if (!state || !state.polygonHistory || state.polygonHistory.length === 0) return;
 
-        const { polygonHistory: hist, spiralCounter, currentPaletteKey, PALETTES, skipValue, spiralMode, historyRevision } = state;
+        const {
+            polygonHistory: hist,
+            spiralCounter,
+            currentPaletteKey,
+            PALETTES,
+            skipValue,
+            spiralMode,
+            historyRevision,
+            maxTrails,
+        } = state;
+
         const pal = PALETTES[currentPaletteKey];
         if (!pal) return;
 
-        const iters = hist.length;
+        ensureMaterialCache(currentPaletteKey, pal);
 
-        // Full rebuild only when something other than the tail changed:
-        // palette switch, structural edit (revision bump), or the history
-        // got shorter. Otherwise append the new layers onto what's there.
+        const iters = hist.length;
+        const maxLayers = Math.min(Math.max(10, maxTrails || 200), MAX_LAYERS_CAP);
+        const windowStart = Math.max(0, iters - maxLayers);
+
         const fullRebuild =
-            builtRings === 0 ||
+            builtEdgeEnd === 0 ||
             currentPaletteKey !== lastPaletteKey ||
             historyRevision !== lastRevision ||
-            iters < builtEdges;
+            iters < builtEdgeEnd ||
+            windowStart < builtStart;
 
         if (fullRebuild) {
             clearGroup(layerGroup);
+            clearGroup(triGroup);
             clearGroup(edgeGroup);
-            builtRings = 0;
-            builtEdges = 0;
+            ringEntries = [];
+            edgeEntries = [];
+            builtStart = windowStart;
+            builtRingEnd = windowStart;
+            builtEdgeEnd = windowStart;
             capMesh = null;
+            slabMesh = null;
         }
-        clearGroup(diagGroup);  // diagonals are cheap — always rebuilt
+        clearGroup(diagGroup);
+
+        // Trim oldest layers when advancing past the sliding window
+        while (builtStart < windowStart) {
+            if (ringEntries.length > 0) {
+                const entry = ringEntries.shift();
+                removeAndDispose(layerGroup, entry.ringMesh);
+                removeAndDispose(triGroup, entry.triObj);
+            }
+            if (edgeEntries.length > 0) {
+                const edgeObj = edgeEntries.shift();
+                removeAndDispose(edgeGroup, edgeObj);
+            }
+            if (builtStart === 0 && slabMesh) {
+                removeAndDispose(layerGroup, slabMesh);
+                slabMesh = null;
+            }
+            builtStart++;
+        }
 
         const bgCol = new THREE.Color(pal.bg);
         renderer.setClearColor(bgCol);
         scene.background = bgCol;
         if (scene.fog) scene.fog.color.copy(bgCol);
 
-        // Per-layer centroids for camera centering (cheap, always refreshed)
-        layerCentroids = [];
+        // Per-layer centroids for camera centering
+        layerCentroids = new Array(iters);
         for (let i = 0; i < iters; i++) {
             const c = polyCentroid(hist[i]);
-            layerCentroids.push({ x: c.x, y: c.y, z: -i * LAYER_DEPTH });
+            layerCentroids[i] = { x: c.x, y: c.y, z: -i * LAYER_DEPTH };
         }
 
-        try {
-            // 1. Half-space slab — only on a full rebuild (hist[0] is fixed)
-            if (fullRebuild) {
-                layerGroup.add(makeHalfSpaceSlab(hist[0], pal));
+        // 1. Half-space slab (only when layer 0 is in window)
+        if (builtStart === 0 && !slabMesh) {
+            try {
+                slabMesh = makeHalfSpaceSlab(hist[0]);
+                layerGroup.add(slabMesh);
+            } catch (err) {
+                console.warn('[Scene3D] Half-space slab skipped:', err);
+            }
+        }
+
+        const colorCount = pal.colors.length;
+
+        // 2. Ring slabs + triangulation between consecutive iterations (append-only)
+        for (let i = builtRingEnd; i < iters - 1; i++) {
+            const zPos = -i * LAYER_DEPTH;
+            const cIdx = i % colorCount;
+
+            let ringMesh = null;
+            try {
+                ringMesh = makeRingMesh(hist[i], hist[i + 1], zPos, LAYER_DEPTH, cIdx);
+                layerGroup.add(ringMesh);
+            } catch (err) {
+                // Skip degenerate/self-intersecting ring extrusions without halting edges/cap
             }
 
-            // 2. Ring slabs between consecutive iterations (append-only)
-            for (let i = builtRings; i < iters - 1; i++) {
-                const zPos = -i * LAYER_DEPTH;
-                const color = palColor(pal, i);
-                const ring = makeRingMesh(hist[i], hist[i + 1], zPos, LAYER_DEPTH, color, 0.78);
-                layerGroup.add(ring);
-            }
-
-            // 3. Triangulated faces + connecting struts (append-only)
-            for (let i = builtRings; i < iters - 1; i++) {
-                if (hist[i].length !== hist[i + 1].length) continue;
-                const zOuter = -i * LAYER_DEPTH + 0.5;
-                const zInner = -(i + 1) * LAYER_DEPTH + 0.5;
-                const color = palColor(pal, i);
-                const triGroup = makeTriangulationGroup(
-                    hist[i], hist[i + 1], zOuter, zInner, color, 0.35
-                );
-                layerGroup.add(triGroup);
-            }
-            builtRings = Math.max(builtRings, iters - 1);
-
-            // 4. Edge lines for every polygon (append-only)
-            for (let i = builtEdges; i < iters; i++) {
-                const z = -i * LAYER_DEPTH + 1; // +1 to avoid z-fighting
-                edgeGroup.add(makeEdgeLine(hist[i], z, palColor(pal, i)));
-            }
-            builtEdges = iters;
-
-            // 5. Innermost solid cap — moves each append, so rebuild it
-            if (capMesh) {
-                layerGroup.remove(capMesh);
-                if (capMesh.geometry) capMesh.geometry.dispose();
-                if (capMesh.material) capMesh.material.dispose();
-            }
-            const capZ = -(iters - 1) * LAYER_DEPTH;
-            const capColor = palColor(pal, iters - 1);
-            capMesh = makeCapMesh(hist[iters - 1], capZ, LAYER_DEPTH, capColor);
-            layerGroup.add(capMesh);
-
-            // 6. Spiral diagonals on the front face of the current layer
-            if (spiralMode && iters > 0) {
-                const curPoly = hist[iters - 1];
-                const z = capZ + 1;
-                const sc = Math.max(0, spiralCounter);
-                if (sc > 0) {
-                    const dc = palColor(pal, iters);
-                    const dl = makeDiagLines(curPoly, skipValue, sc, z, dc);
-                    if (dl) diagGroup.add(dl);
-                    const se = makeSpiralEdge(curPoly, skipValue, sc, z + 0.5, palColor(pal, iters + 1));
-                    if (se) diagGroup.add(se);
+            let triObj = null;
+            if (hist[i].length === hist[i + 1].length && hist[i].length >= 3) {
+                try {
+                    const zOuter = -i * LAYER_DEPTH + 0.5;
+                    const zInner = -(i + 1) * LAYER_DEPTH + 0.5;
+                    triObj = makeTriangulationGroup(hist[i], hist[i + 1], zOuter, zInner, cIdx);
+                    triGroup.add(triObj);
+                } catch (err) {
+                    // Continue gracefully
                 }
             }
+            ringEntries.push({ ringMesh, triObj });
+        }
+        builtRingEnd = Math.max(builtRingEnd, iters - 1);
+
+        // 3. Edge lines for every polygon in window (append-only)
+        for (let i = builtEdgeEnd; i < iters; i++) {
+            const z = -i * LAYER_DEPTH + 1;
+            const cIdx = i % colorCount;
+            const line = makeEdgeLine(hist[i], z, cIdx);
+            edgeGroup.add(line);
+            edgeEntries.push(line);
+        }
+        builtEdgeEnd = iters;
+
+        // 4. Innermost solid cap
+        if (capMesh) {
+            removeAndDispose(layerGroup, capMesh);
+            capMesh = null;
+        }
+        const capZ = -(iters - 1) * LAYER_DEPTH;
+        try {
+            capMesh = makeCapMesh(hist[iters - 1], capZ, LAYER_DEPTH, pal, iters - 1);
+            layerGroup.add(capMesh);
         } catch (err) {
-            console.error('[Scene3D] Error building geometry:', err);
+            // Continue gracefully
         }
 
-        // Camera target: always fly toward the deepest layer in 3D mode
-        // The camera leads the cap by CAM_LEAD, creating a fly-through effect
+        // 5. Diagonals / spiral preview on current front layer
+        if (iters > 0) {
+            const curPoly = hist[iters - 1];
+            const z = capZ + 1;
+            if (spiralMode && spiralCounter > 0) {
+                const dl = makeDiagLines(curPoly, skipValue, spiralCounter, z, pal, iters);
+                if (dl) diagGroup.add(dl);
+                const se = makeSpiralEdge(curPoly, skipValue, spiralCounter, z + 0.5, pal, iters + 1);
+                if (se) diagGroup.add(se);
+            } else if (state.showDiagonals) {
+                const dl = makeDiagLines(curPoly, skipValue, curPoly.length, z, pal, iters - 1);
+                if (dl) diagGroup.add(dl);
+            }
+        }
+
+        // Camera target
         const deepestZ = -(iters - 1) * LAYER_DEPTH;
         camZTarget = deepestZ + CAM_LEAD;
-
-        // Set camera XY target to centroid of deepest layer
-        if (layerCentroids.length > 0) {
-            const deepest = layerCentroids[layerCentroids.length - 1];
-            camXTarget = deepest.x;
-            camYTarget = deepest.y;
-        }
 
         lastBuiltIter = iters;
         lastBuiltSpiral = spiralCounter;
         lastPaletteKey = currentPaletteKey;
         lastRevision = historyRevision;
+        lastMaxLayers = maxLayers;
     }
 
-    function clearGroup(grp) {
-        while (grp.children.length > 0) {
-            const c = grp.children[0];
-            if (c.geometry) c.geometry.dispose();
-            if (c.material && c.material.dispose) c.material.dispose();
-            grp.remove(c);
-        }
-    }
-
-    // Interpolate camera XY based on its current Z position among layer centroids
     function getCentroidAtZ(z) {
         if (layerCentroids.length === 0) return { x: 0, y: 0 };
         if (layerCentroids.length === 1) return { x: layerCentroids[0].x, y: layerCentroids[0].y };
 
-        // Find which two layers the camera is between
-        // layerCentroids[0].z = 0, layerCentroids[1].z = -LAYER_DEPTH, etc.
         for (let i = 0; i < layerCentroids.length - 1; i++) {
             const a = layerCentroids[i];
             const b = layerCentroids[i + 1];
             if (z >= b.z && z <= a.z) {
-                // Interpolate between layers a and b
-                const t = (a.z === b.z) ? 0 : (a.z - z) / (a.z - b.z);
+                const t = a.z === b.z ? 0 : (a.z - z) / (a.z - b.z);
                 return {
                     x: a.x + (b.x - a.x) * t,
                     y: a.y + (b.y - a.y) * t,
@@ -393,18 +499,24 @@
             }
         }
 
-        // Camera is beyond the deepest layer — use the deepest centroid
         if (z < layerCentroids[layerCentroids.length - 1].z) {
             const d = layerCentroids[layerCentroids.length - 1];
             return { x: d.x, y: d.y };
         }
-        // Camera is above the first layer — use the first centroid
         return { x: layerCentroids[0].x, y: layerCentroids[0].y };
     }
 
-    // ── Animation loop ────────────────────────────────────────
-    function animate() {
+    // ── Animation Loop ────────────────────────────────────────
+    function animate(now) {
+        if (!isActive || document.hidden) {
+            animFrameId = null;
+            lastFrameTime = 0;
+            return;
+        }
         animFrameId = requestAnimationFrame(animate);
+
+        const dt = lastFrameTime ? Math.min((now - lastFrameTime) / 1000, 0.1) : 1 / 60;
+        lastFrameTime = now;
 
         const state = window.PentagramState;
         if (state) {
@@ -412,53 +524,95 @@
             const sc = state.spiralCounter;
             const pal = state.currentPaletteKey;
             const rev = state.historyRevision;
+            const maxL = Math.min(Math.max(10, state.maxTrails || 200), MAX_LAYERS_CAP);
 
-            if (n !== lastBuiltIter || sc !== lastBuiltSpiral ||
-                pal !== lastPaletteKey || rev !== lastRevision) {
+            if (
+                n !== lastBuiltIter ||
+                sc !== lastBuiltSpiral ||
+                pal !== lastPaletteKey ||
+                rev !== lastRevision ||
+                maxL !== lastMaxLayers
+            ) {
                 rebuildScene();
             }
 
-            // When playing, reset userScrolled so camera auto-flies
+            // Toggle layer visibility instantaneously without rebuilding geometry
+            triGroup.visible = !!state.showTriangulation;
+            diagGroup.visible = !!state.showDiagonals || !!state.spiralMode;
+
             if (state.isPlaying) {
                 userScrolled = false;
             }
 
-            // Smooth camera z — the target was set in rebuildScene
-            const lerpSpeed = state.isPlaying ? CAM_LERP_PLAY : CAM_LERP_IDLE;
+            // Frame-rate independent exponential smoothing
+            const camRate = state.isPlaying ? 2.5 : 3.8;
+            const camAlpha = 1 - Math.exp(-dt * camRate);
             if (!userScrolled) {
-                camZ += (camZTarget - camZ) * lerpSpeed;
+                camZ += (camZTarget - camZ) * camAlpha;
             }
 
-            // Center camera XY on the interpolated centroid at current Z
             const centroid = getCentroidAtZ(camZ);
-            camX += (centroid.x - camX) * 0.06;
-            camY += (centroid.y - camY) * 0.06;
+            const xyAlpha = 1 - Math.exp(-dt * 3.8);
+            camX += (centroid.x - camX) * xyAlpha;
+            camY += (centroid.y - camY) * xyAlpha;
 
             camera.position.set(camX, camY, camZ);
-            // Keep looking straight ahead (-Z) from the camera's current XY
             camera.lookAt(camX, camY, camZ - 10000);
+
+            if (state.autoRotate) {
+                autoRoll += ((state.rotateSpeed * Math.PI) / 180) * (dt * 60);
+            }
         }
 
-        // Apply orbit rotation to content groups
-        layerGroup.rotation.y += (orbitYaw - layerGroup.rotation.y) * 0.1;
-        layerGroup.rotation.x += (orbitPitch - layerGroup.rotation.x) * 0.1;
-        edgeGroup.rotation.copy(layerGroup.rotation);
-        diagGroup.rotation.copy(layerGroup.rotation);
+        const orbitAlpha = 1 - Math.exp(-dt * 7);
+        contentGroup.rotation.y += (orbitYaw - contentGroup.rotation.y) * orbitAlpha;
+        contentGroup.rotation.x += (orbitPitch - contentGroup.rotation.x) * orbitAlpha;
+        contentGroup.rotation.z = autoRoll;
 
         renderer.render(scene, camera);
+    }
+
+    // ── Lifecycle & Controls ──────────────────────────────────
+    function setActive(active) {
+        isActive = !!active;
+        if (!initialized) return;
+        if (isActive && !document.hidden) {
+            rebuildScene();
+            if (!animFrameId) {
+                lastFrameTime = 0;
+                animFrameId = requestAnimationFrame(animate);
+            }
+        } else if (animFrameId) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+            lastFrameTime = 0;
+        }
+    }
+
+    function resetView() {
+        orbitYaw = 0;
+        orbitPitch = 0;
+        autoRoll = 0;
+        userScrolled = false;
+        const state = window.PentagramState;
+        const iters = state && state.polygonHistory ? state.polygonHistory.length : 1;
+        camZTarget = -(iters - 1) * LAYER_DEPTH + CAM_LEAD;
+    }
+
+    function captureDataURL() {
+        if (!initialized || !renderer || !scene || !camera) return null;
+        renderer.render(scene, camera);
+        return renderer.domElement.toDataURL('image/png');
     }
 
     // ── Initialize (called lazily on first 3D toggle) ─────────
     function init() {
         if (initialized) return;
 
-        // Guard: make sure Three.js is loaded
         if (typeof THREE === 'undefined') {
             console.error('[Scene3D] THREE is not defined. Three.js may not have loaded.');
             return;
         }
-
-        initialized = true;
 
         const container = document.getElementById('canvas3d-container');
         if (!container) {
@@ -466,85 +620,125 @@
             return;
         }
 
+        initialized = true;
         const W = window.innerWidth;
         const H = window.innerHeight;
 
         try {
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: false,
+                preserveDrawingBuffer: false,
+            });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
             renderer.setSize(W, H);
             renderer.setClearColor(0x0a0e1a);
             container.appendChild(renderer.domElement);
 
-            // Scene
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0e1a);
             scene.fog = new THREE.FogExp2(0x0a0e1a, 0.00035);
 
-            // Camera — at +Z, looking toward -Z (into the tunnel)
             camera = new THREE.PerspectiveCamera(55, W / H, 1, 30000);
             camera.position.set(0, 0, CAM_INITIAL);
             camera.lookAt(0, 0, -99999);
 
-            // Lights
-            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+            scene.add(new THREE.AmbientLight(0xffffff, 0.55));
             const dl = new THREE.DirectionalLight(0xffffff, 1.0);
             dl.position.set(0, 300, 500);
             scene.add(dl);
-            const bl = new THREE.DirectionalLight(0x6080ff, 0.4);
+            const bl = new THREE.DirectionalLight(0x6080ff, 0.45);
             bl.position.set(0, -200, -300);
             scene.add(bl);
 
-            // Groups
+            contentGroup = new THREE.Group();
             layerGroup = new THREE.Group();
+            triGroup = new THREE.Group();
             edgeGroup = new THREE.Group();
             diagGroup = new THREE.Group();
-            scene.add(layerGroup, edgeGroup, diagGroup);
+            contentGroup.add(layerGroup, triGroup, edgeGroup, diagGroup);
+            scene.add(contentGroup);
 
-            // Orbit drag on the container
-            container.addEventListener('mousedown', e => {
-                if (e.button !== 0) return;
-                orbitDragging = true;
-                orbitLast = { x: e.clientX, y: e.clientY };
+            // Pointer Events for orbit & touch pinch dolly
+            container.addEventListener('pointerdown', e => {
+                if (e.button !== 0 && e.pointerType === 'mouse') return;
+                activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                try { container.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+                if (activePointers.size === 2) {
+                    const pts = Array.from(activePointers.values());
+                    pinchLastDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1;
+                }
             });
-            window.addEventListener('mousemove', e => {
-                if (!orbitDragging) return;
-                orbitYaw += (e.clientX - orbitLast.x) * 0.005;
-                orbitPitch += (e.clientY - orbitLast.y) * 0.005;
-                orbitPitch = Math.max(-0.8, Math.min(0.8, orbitPitch));
-                orbitLast = { x: e.clientX, y: e.clientY };
-            });
-            window.addEventListener('mouseup', () => { orbitDragging = false; });
 
-            // Scroll to dolly camera
+            container.addEventListener('pointermove', e => {
+                const prev = activePointers.get(e.pointerId);
+                if (!prev) return;
+                const dx = e.clientX - prev.x;
+                const dy = e.clientY - prev.y;
+                activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+                if (activePointers.size === 1) {
+                    orbitYaw += dx * 0.005;
+                    orbitPitch = Math.max(-0.8, Math.min(0.8, orbitPitch + dy * 0.005));
+                } else if (activePointers.size === 2) {
+                    const pts = Array.from(activePointers.values());
+                    const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1;
+                    userScrolled = true;
+                    camZ += (pinchLastDist - dist) * 2.5;
+                    pinchLastDist = dist;
+                }
+            });
+
+            const releasePointer = e => {
+                activePointers.delete(e.pointerId);
+            };
+            container.addEventListener('pointerup', releasePointer);
+            container.addEventListener('pointercancel', releasePointer);
+
+            container.addEventListener('dblclick', () => resetView());
+
             container.addEventListener('wheel', e => {
                 e.preventDefault();
                 userScrolled = true;
-                camZ += e.deltaY * 0.8;  // immediate dolly on scroll
+                camZ += e.deltaY * 0.8;
             }, { passive: false });
 
-            // Resize
             window.addEventListener('resize', () => {
                 if (!renderer) return;
-                const nw = window.innerWidth, nh = window.innerHeight;
+                const nw = window.innerWidth;
+                const nh = window.innerHeight;
                 renderer.setSize(nw, nh);
                 camera.aspect = nw / nh;
                 camera.updateProjectionMatrix();
             });
 
-            // Do first build then start loop
+            document.addEventListener('visibilitychange', () => {
+                if (!isActive) return;
+                if (document.hidden) {
+                    if (animFrameId) {
+                        cancelAnimationFrame(animFrameId);
+                        animFrameId = null;
+                    }
+                    lastFrameTime = 0;
+                } else if (!animFrameId) {
+                    lastFrameTime = 0;
+                    animFrameId = requestAnimationFrame(animate);
+                }
+            });
+
             rebuildScene();
-            animate();
-            console.log('[Scene3D] Initialized successfully');
         } catch (err) {
             console.error('[Scene3D] Init error:', err);
-            // Restore 2D mode if 3D fails
             initialized = false;
         }
     }
 
     // ── Public API ───────────────────────────────────────────
-    window.Scene3D = { init, rebuildScene };
-
+    window.Scene3D = {
+        init,
+        rebuildScene,
+        setActive,
+        resetView,
+        captureDataURL,
+    };
 })();

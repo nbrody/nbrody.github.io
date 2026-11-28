@@ -7,8 +7,10 @@
 
     // ─── Canvas ──────────────────────────────────────────────
     const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    let W, H;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    let W = 0;
+    let H = 0;
+    let dpr = 1;
 
     // ─── DOM refs ────────────────────────────────────────────
     const $ = id => document.getElementById(id);
@@ -17,6 +19,8 @@
     const skipSlider = $('skip-slider');
     const skipVal = $('skip-val');
     const shapeSelect = $('shape-select');
+    const reseedBtn = $('reseed-btn');
+    const starRadGroup = $('star-radius-group');
     const starRadSlider = $('star-radius-slider');
     const starRadVal = $('star-radius-val');
 
@@ -43,23 +47,37 @@
     const spiralCB = $('spiral-checkbox');
     const autoZoomCB = $('auto-zoom-checkbox');
     const morphCB = $('morph-checkbox');
+    const morphDurationGroup = $('morph-duration-group');
     const morphSlider = $('morph-slider');
     const morphVal = $('morph-val');
     const autoRotCB = $('auto-rotate-checkbox');
+    const rotateSpeedGroup = $('rotate-speed-group');
     const rotSpeedSlider = $('rotate-speed-slider');
     const rotSpeedVal = $('rotate-speed-val');
 
     const playBtn = $('play-btn');
     const stepBtn = $('step-btn');
+    const stepBackBtn = $('step-back-btn');
     const resetBtn = $('reset-btn');
     const exportBtn = $('export-btn');
-    const modeToggleBtn = $('mode-toggle-btn');
+    const mode2dBtn = $('mode-2d-btn');
+    const mode3dBtn = $('mode-3d-btn');
+    const resetViewBtn = $('reset-view-btn');
 
     const iterCount = $('iter-count');
-
-    let is3D = false;
+    const geomMeta = $('geom-meta');
+    const interactionHint = $('interaction-hint');
+    const container3d = $('canvas3d-container');
 
     // ─── Palettes (12 curated palettes) ──────────────────────
+    function parseHexRGB(hex) {
+        return [
+            parseInt(hex.slice(1, 3), 16),
+            parseInt(hex.slice(3, 5), 16),
+            parseInt(hex.slice(5, 7), 16),
+        ];
+    }
+
     const PALETTES = {
         midnight: {
             name: 'Midnight',
@@ -147,21 +165,57 @@
         },
     };
 
+    for (const pal of Object.values(PALETTES)) {
+        pal.rgb = pal.colors.map(parseHexRGB);
+    }
+
     let currentPaletteKey = 'midnight';
 
+    // ─── Cached Config (zero DOM reads inside render/update) ─
+    const cfg = {
+        n: parseInt(nSlider.value, 10),
+        skip: parseInt(skipSlider.value, 10),
+        shape: shapeSelect.value,
+        starRadius: parseFloat(starRadSlider.value) / 100,
+        lineWidth: parseFloat(lineWSlider.value),
+        vertexRadius: parseFloat(vertexRSlider.value),
+        trailOpacity: parseFloat(trailOpSlider.value) / 100,
+        fillOpacity: parseFloat(fillOpSlider.value) / 100,
+        maxTrails: parseInt(maxTrailSlider.value, 10),
+        speed: parseFloat(speedSlider.value),
+        morphDuration: parseFloat(morphSlider.value),
+        rotateSpeed: parseFloat(rotSpeedSlider.value) / 10,
+        showDiag: diagCB.checked,
+        showTri: triCB.checked,
+        showGlow: glowCB.checked,
+        rainbowTrail: gradientTrailCB.checked,
+        normalize: normCB.checked,
+        enableDrag: dragCB.checked,
+        spiralMode: spiralCB.checked,
+        autoZoom: autoZoomCB.checked,
+        morphEnabled: morphCB.checked,
+        autoRotate: autoRotCB.checked,
+    };
+
     // ─── State ───────────────────────────────────────────────
+    let is3D = false;
     let basePolygon = [];
     let polygonHistory = [];
     let currentIteration = 0;
-    // Bumped whenever the whole history is recomputed (drag, n/skip change,
-    // rotate). Lets scene3d.js distinguish a pure append from a full rebuild.
     let historyRevision = 0;
     let isPlaying = false;
     let lastTime = 0;
     let timeAccumulator = 0;
     let dragNodeIndex = -1;
+    let hoveredNodeIndex = -1;
     let isDragging = false;
     let spiralCounter = 0;
+
+    // Loop scheduling
+    let dirty = true;
+    let rafId = null;
+    let isPageHidden = document.hidden;
+    let autoZoomSettling = false;
 
     // Morph state
     let morphFrom = null;
@@ -169,19 +223,19 @@
     let morphStartTime = 0;
     let morphing = false;
 
-    // Auto-rotate state
-    let rotAngle = 0;
-
-    // ─── View State (Orbit Controls) ─────────────────────────
+    // ─── View State (2D Pan / Zoom / Orbit) ─────────────────
     const view = {
         x: 0,
         y: 0,
         scale: 1,
-        rotation: 0
+        rotation: 0,
     };
     let isOrbiting = false;
     let isPanningView = false;
+    let rightMouseUsed = false;
     let lastPointerPos = { x: 0, y: 0 };
+    let pinchLastDist = 0;
+    let pinchLastMid = null;
 
     function worldToScreen(wx, wy) {
         const cos = Math.cos(view.rotation);
@@ -190,119 +244,165 @@
         const ry = wx * view.scale * sin + wy * view.scale * cos;
         return {
             x: rx + W / 2 + view.x,
-            y: ry + H / 2 + view.y
+            y: ry + H / 2 + view.y,
         };
     }
 
     function screenToWorld(sx, sy) {
-        let x = sx - W / 2 - view.x;
-        let y = sy - H / 2 - view.y;
+        const x = sx - W / 2 - view.x;
+        const y = sy - H / 2 - view.y;
         const cos = Math.cos(-view.rotation);
         const sin = Math.sin(-view.rotation);
-        const rx = x * cos - y * sin;
-        const ry = x * sin + y * cos;
         return {
-            x: rx / view.scale,
-            y: ry / view.scale
+            x: (x * cos - y * sin) / view.scale,
+            y: (x * sin + y * cos) / view.scale,
         };
     }
 
     function applyViewTransform() {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.translate(W / 2 + view.x, H / 2 + view.y);
         ctx.rotate(view.rotation);
         ctx.scale(view.scale, view.scale);
     }
 
-    function resetViewTransform() {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // ─── Loop Control ────────────────────────────────────────
+    function needsContinuousLoop() {
+        return (
+            isPlaying ||
+            morphing ||
+            (!is3D && cfg.autoRotate && !isDragging) ||
+            (!is3D && cfg.autoZoom && autoZoomSettling)
+        );
     }
 
-    // ─── Utilities ───────────────────────────────────────────
+    function ensureLoop() {
+        if (!rafId && !isPageHidden && (dirty || needsContinuousLoop())) {
+            rafId = requestAnimationFrame(tick);
+        }
+    }
+
+    function markDirty() {
+        dirty = true;
+        if (cfg.autoZoom) autoZoomSettling = true;
+        ensureLoop();
+    }
+
+    // ─── Math & Geometry ─────────────────────────────────────
     function getIntersection(p1, p2, p3, p4) {
         const x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
         const x3 = p3.x, y3 = p3.y, x4 = p4.x, y4 = p4.y;
         const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-        if (Math.abs(den) < 1e-10) return { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
+        if (Math.abs(den) < 1e-10) {
+            return { x: (p2.x + p3.x) * 0.5, y: (p2.y + p3.y) * 0.5 };
+        }
         const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
-        return { x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) };
+        const ix = x1 + t * (x2 - x1);
+        const iy = y1 + t * (y2 - y1);
+        if (!Number.isFinite(ix) || !Number.isFinite(iy) || Math.abs(ix) > 1e7 || Math.abs(iy) > 1e7) {
+            return { x: (p2.x + p3.x) * 0.5, y: (p2.y + p3.y) * 0.5 };
+        }
+        return { x: ix, y: iy };
     }
 
     function normalizePolygon(polygon) {
         const n = polygon.length;
-        let tx = 0, ty = 0;
-        for (const p of polygon) { tx += p.x; ty += p.y; }
-        tx /= n; ty /= n;
+        let tx = 0;
+        let ty = 0;
+        for (let i = 0; i < n; i++) {
+            tx += polygon[i].x;
+            ty += polygon[i].y;
+        }
+        tx /= n;
+        ty /= n;
 
         let maxR = 0;
-        for (const p of polygon) {
-            const r = Math.hypot(p.x - tx, p.y - ty);
+        for (let i = 0; i < n; i++) {
+            const r = Math.hypot(polygon[i].x - tx, polygon[i].y - ty);
             if (r > maxR) maxR = r;
         }
         if (maxR < 1e-6) maxR = 1;
 
         const targetR = Math.min(W, H) * 0.32;
-        // In world space, we just center at 0,0 and scale so R is about targetR
         const s = targetR / maxR;
-        return polygon.map(p => ({
-            x: (p.x - tx) * s,
-            y: (p.y - ty) * s,
-        }));
+        const out = new Array(n);
+        for (let i = 0; i < n; i++) {
+            out[i] = {
+                x: (polygon[i].x - tx) * s,
+                y: (polygon[i].y - ty) * s,
+            };
+        }
+        return out;
     }
 
     function lerpPolygon(a, b, t) {
         if (a.length !== b.length) return b;
-        return a.map((p, i) => ({
-            x: p.x + (b[i].x - p.x) * t,
-            y: p.y + (b[i].y - p.y) * t,
-        }));
+        const n = a.length;
+        const out = new Array(n);
+        for (let i = 0; i < n; i++) {
+            out[i] = {
+                x: a[i].x + (b[i].x - a[i].x) * t,
+                y: a[i].y + (b[i].y - a[i].y) * t,
+            };
+        }
+        return out;
     }
 
     function easeInOutCubic(t) {
         return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     }
 
-    // ─── Generalized Pentagram Map step ──────────────────────
-    // The "skip-k" pentagram map: for each vertex i, take the
-    // diagonal from vertex (i) to vertex (i+skip), and intersect
-    // it with the diagonal from vertex (i-1) to vertex (i-1+skip).
-    //
-    // Classic Schwartz pentagram = skip 2 on a convex polygon.
-    // Pure function — caller supplies skip and the normalize flag.
     function computeMapStep(polygon, skip, normalize) {
         const n = polygon.length;
-        const next = [];
+        const next = new Array(n);
         for (let i = 0; i < n; i++) {
-            // Diagonal through vertex i and vertex i+skip
             const a1 = polygon[i];
             const a2 = polygon[(i + skip) % n];
-            // Diagonal through vertex i+1 and vertex i+1+skip
             const b1 = polygon[(i + 1) % n];
             const b2 = polygon[(i + 1 + skip) % n];
-            next.push(getIntersection(a1, a2, b1, b2));
+            next[i] = getIntersection(a1, a2, b1, b2);
         }
         return normalize ? normalizePolygon(next) : next;
     }
 
+    function rotatePolygonListInPlace(polys, angleDeg) {
+        const rad = (angleDeg * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        for (let k = 0; k < polys.length; k++) {
+            const poly = polys[k];
+            if (!poly) continue;
+            for (let i = 0; i < poly.length; i++) {
+                const px = poly[i].x;
+                const py = poly[i].y;
+                poly[i].x = px * cos - py * sin;
+                poly[i].y = px * sin + py * cos;
+            }
+        }
+    }
+
+    function updateStepButtons() {
+        iterCount.textContent = currentIteration;
+        stepBackBtn.disabled = currentIteration === 0 && spiralCounter === 0;
+    }
+
     function rebuildHistory() {
-        const skip = parseInt(skipSlider.value);
-        const normalize = normCB.checked;
         polygonHistory = [basePolygon];
         let current = basePolygon;
         for (let i = 0; i < currentIteration; i++) {
-            current = computeMapStep(current, skip, normalize);
+            current = computeMapStep(current, cfg.skip, cfg.normalize);
             polygonHistory.push(current);
         }
-        iterCount.textContent = currentIteration;
+        updateStepButtons();
         historyRevision++;
+        markDirty();
     }
 
     // ─── Init polygon ────────────────────────────────────────
     function initBasePolygon() {
-        const n = parseInt(nSlider.value);
-        const type = shapeSelect.value;
+        const n = cfg.n;
+        const type = cfg.shape;
         const R = Math.min(W, H) * 0.32;
-        // Vertices are now in "world space" (centered at 0,0)
 
         basePolygon = [];
         if (type === 'regular') {
@@ -318,15 +418,15 @@
                 basePolygon.push({ x: Math.cos(angles[i]) * R, y: Math.sin(angles[i]) * R });
             }
         } else if (type === 'star') {
-            const inner = parseFloat(starRadSlider.value) / 100;
+            const inner = cfg.starRadius;
             for (let i = 0; i < n; i++) {
                 const a = (2 * Math.PI * i) / n - Math.PI / 2;
-                const r = (i % 2 === 0) ? R : R * inner;
+                const r = i % 2 === 0 ? R : R * inner;
                 basePolygon.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
             }
         } else if (type === 'spiral') {
             for (let i = 0; i < n; i++) {
-                const a = (2 * Math.PI * i) / n * 1.5 - Math.PI / 2;
+                const a = ((2 * Math.PI * i) / n) * 1.5 - Math.PI / 2;
                 const r = R * (0.3 + 0.7 * (i / n));
                 basePolygon.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
             }
@@ -337,119 +437,285 @@
                 basePolygon.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
             }
         }
-        currentIteration = 0;
+
+        currentIteration = is3D ? 5 : 0;
         morphing = false;
-        rotAngle = 0;
+        morphFrom = null;
+        morphTo = null;
         spiralCounter = 0;
+        hoveredNodeIndex = -1;
         rebuildHistory();
     }
 
-    // ─── Auto-rotate base polygon ────────────────────────────
-    function rotateBase(angleDeg) {
-        const rad = angleDeg * Math.PI / 180;
-        const cos = Math.cos(rad), sin = Math.sin(rad);
-        basePolygon = basePolygon.map(p => {
-            return { x: p.x * cos - p.y * sin, y: p.x * sin + p.y * cos };
-        });
-    }
+    // ─── Batched 2D Drawing ──────────────────────────────────
+    function drawTriangulationLayer(polygons, startIdx, endIdx, pal, totalIters) {
+        const skip = cfg.skip;
+        const fillOpacity = cfg.fillOpacity;
+        const trailOpacity = cfg.trailOpacity;
+        const rainbow = cfg.rainbowTrail;
+        const colorCount = pal.colors.length;
 
-    // ─── Drawing ─────────────────────────────────────────────
-    function hslColor(hue, s = 80, l = 60) {
-        return `hsl(${hue}, ${s}%, ${l}%)`;
-    }
+        if (!rainbow) {
+            for (let i = startIdx; i < endIdx; i++) {
+                const outer = polygons[i];
+                const inner = polygons[i + 1];
+                const n = outer.length;
+                if (n < 3 || inner.length !== n) continue;
 
-    function paletteEdgeColor(pal, iterIndex) {
-        const c = pal.colors;
-        return c[iterIndex % c.length];
-    }
+                for (let m = 0; m < skip; m++) {
+                    const alpha = Math.max(0, Math.min(1, fillOpacity * 2.5 + 0.04 - m * 0.015));
+                    if (alpha <= 0.002) continue;
 
-    function drawPolygon(polygon, pal, iterIndex, totalIters, isCurrent, isBase, spiralLimit) {
-        if (polygon.length < 3) return;
-        const n = polygon.length;
+                    const [r, g, b] = pal.rgb[(i + m) % colorCount];
+                    ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+                    ctx.beginPath();
 
-        const trailOpacity = parseFloat(trailOpSlider.value) / 100;
-        const fillOpacity = parseFloat(fillOpSlider.value) / 100;
-        const lineW = parseFloat(lineWSlider.value) / view.scale;
-        const vertexR = parseFloat(vertexRSlider.value) / view.scale;
-        const showGlow = glowCB.checked;
-        const rainbowTrail = gradientTrailCB.checked;
-
-        let edgeColor;
-        if (rainbowTrail && !isCurrent) {
-            const hue = (iterIndex / Math.max(totalIters, 1)) * 360;
-            edgeColor = hslColor(hue, 85, 55);
+                    if (m === 0) {
+                        for (let j = 0; j < n; j++) {
+                            const pj = outer[j];
+                            const pj1 = outer[(j + 1) % n];
+                            const qjm1 = inner[(j - 1 + n) % n];
+                            ctx.moveTo(pj.x, pj.y);
+                            ctx.lineTo(pj1.x, pj1.y);
+                            ctx.lineTo(qjm1.x, qjm1.y);
+                            ctx.closePath();
+                        }
+                    } else {
+                        for (let j = 0; j < n; j++) {
+                            const pj = outer[j];
+                            const qa = inner[((j - m) % n + n) % n];
+                            const qb = inner[((j - m - 1) % n + n) % n];
+                            ctx.moveTo(pj.x, pj.y);
+                            ctx.lineTo(qa.x, qa.y);
+                            ctx.lineTo(qb.x, qb.y);
+                            ctx.closePath();
+                        }
+                    }
+                    ctx.fill();
+                }
+            }
         } else {
-            edgeColor = paletteEdgeColor(pal, iterIndex);
+            for (let i = startIdx; i < endIdx; i++) {
+                const outer = polygons[i];
+                const inner = polygons[i + 1];
+                const n = outer.length;
+                if (n < 3 || inner.length !== n) continue;
+
+                for (let j = 0; j < n; j++) {
+                    const baseHue = ((i + j / n) / Math.max(totalIters, 1)) * 360;
+                    const pj = outer[j];
+                    const pj1 = outer[(j + 1) % n];
+                    const qjm1 = inner[(j - 1 + n) % n];
+
+                    const alpha0 = Math.max(0, Math.min(1, fillOpacity * 2.5 + 0.04));
+                    if (alpha0 > 0.002) {
+                        ctx.fillStyle = `hsla(${baseHue}, 70%, 50%, ${alpha0})`;
+                        ctx.beginPath();
+                        ctx.moveTo(pj.x, pj.y);
+                        ctx.lineTo(pj1.x, pj1.y);
+                        ctx.lineTo(qjm1.x, qjm1.y);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+
+                    for (let m = 1; m < skip; m++) {
+                        const alpha = Math.max(0, Math.min(1, fillOpacity * 2.5 + 0.04 - m * 0.015));
+                        if (alpha <= 0.002) continue;
+                        const qa = inner[((j - m) % n + n) % n];
+                        const qb = inner[((j - m - 1) % n + n) % n];
+                        ctx.fillStyle = `hsla(${baseHue + m * 12}, 70%, ${50 - m * 5}%, ${alpha})`;
+                        ctx.beginPath();
+                        ctx.moveTo(pj.x, pj.y);
+                        ctx.lineTo(qa.x, qa.y);
+                        ctx.lineTo(qb.x, qb.y);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+            }
         }
 
-        // Build path
+        const spokeAlpha = Math.min(1, trailOpacity * 0.6);
+        if (spokeAlpha <= 0.002) return;
+
+        ctx.lineWidth = 0.6 / view.scale;
+        ctx.globalAlpha = spokeAlpha;
+
+        for (let cIdx = 0; cIdx < colorCount; cIdx++) {
+            let hasSegments = false;
+            ctx.beginPath();
+            for (let i = startIdx; i < endIdx; i++) {
+                if (i % colorCount !== cIdx) continue;
+                const outer = polygons[i];
+                const inner = polygons[i + 1];
+                const n = outer.length;
+                if (n < 3 || inner.length !== n) continue;
+
+                hasSegments = true;
+                for (let j = 0; j < n; j++) {
+                    const jm1 = (j - 1 + n) % n;
+                    const jSkip = (j + skip) % n;
+                    ctx.moveTo(outer[j].x, outer[j].y);
+                    ctx.lineTo(inner[jm1].x, inner[jm1].y);
+                    ctx.moveTo(inner[j].x, inner[j].y);
+                    ctx.lineTo(outer[jSkip].x, outer[jSkip].y);
+                }
+            }
+            if (hasSegments) {
+                ctx.strokeStyle = pal.colors[cIdx];
+                ctx.stroke();
+            }
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawTrailPolygons(polygons, startIdx, endIdx, pal, totalIters) {
+        if (startIdx >= endIdx) return;
+
+        const lineW = cfg.lineWidth / view.scale;
+        const trailLineW = Math.max(0.5 / view.scale, lineW * 0.5);
+        const trailOpacity = cfg.trailOpacity;
+        const colorCount = pal.colors.length;
+
+        ctx.lineWidth = trailLineW;
+
+        let trailStart = startIdx;
+        if (startIdx === 0 && endIdx > 0) {
+            const base = polygons[0];
+            if (base.length >= 3) {
+                ctx.beginPath();
+                ctx.moveTo(base[0].x, base[0].y);
+                for (let k = 1; k < base.length; k++) ctx.lineTo(base[k].x, base[k].y);
+                ctx.closePath();
+
+                ctx.globalAlpha = Math.min(1, trailOpacity * 1.2);
+                ctx.strokeStyle = cfg.rainbowTrail ? 'hsl(0, 85%, 55%)' : pal.colors[0];
+                ctx.stroke();
+            }
+            trailStart = 1;
+        }
+
+        if (trailStart < endIdx) {
+            ctx.globalAlpha = Math.min(1, trailOpacity);
+            if (cfg.rainbowTrail) {
+                for (let i = trailStart; i < endIdx; i++) {
+                    const poly = polygons[i];
+                    if (poly.length < 3) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(poly[0].x, poly[0].y);
+                    for (let k = 1; k < poly.length; k++) ctx.lineTo(poly[k].x, poly[k].y);
+                    ctx.closePath();
+                    const hue = (i / Math.max(totalIters, 1)) * 360;
+                    ctx.strokeStyle = `hsl(${hue}, 85%, 55%)`;
+                    ctx.stroke();
+                }
+            } else {
+                for (let cIdx = 0; cIdx < colorCount; cIdx++) {
+                    let hasPath = false;
+                    ctx.beginPath();
+                    for (let i = trailStart; i < endIdx; i++) {
+                        if (i % colorCount !== cIdx) continue;
+                        const poly = polygons[i];
+                        if (poly.length < 3) continue;
+                        hasPath = true;
+                        ctx.moveTo(poly[0].x, poly[0].y);
+                        for (let k = 1; k < poly.length; k++) ctx.lineTo(poly[k].x, poly[k].y);
+                        ctx.closePath();
+                    }
+                    if (hasPath) {
+                        ctx.strokeStyle = pal.colors[cIdx];
+                        ctx.stroke();
+                    }
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        if (startIdx === 0 && polygons[0].length >= 3) {
+            const base = polygons[0];
+            const vr = (cfg.vertexRadius * 0.7) / view.scale;
+            ctx.globalAlpha = 0.35;
+            ctx.fillStyle = pal.vertex;
+            ctx.beginPath();
+            for (let i = 0; i < base.length; i++) {
+                const p = base[i];
+                ctx.moveTo(p.x + vr, p.y);
+                ctx.arc(p.x, p.y, vr, 0, Math.PI * 2);
+            }
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function drawCurrentPolygon(polygon, pal, iterIndex, spiralLimit) {
+        const n = polygon.length;
+        if (n < 3) return;
+
+        const lineW = cfg.lineWidth / view.scale;
+        const vertexR = cfg.vertexRadius / view.scale;
+        const edgeColor = pal.colors[iterIndex % pal.colors.length];
+
         ctx.beginPath();
         ctx.moveTo(polygon[0].x, polygon[0].y);
         for (let i = 1; i < n; i++) ctx.lineTo(polygon[i].x, polygon[i].y);
         ctx.closePath();
 
-        if (isCurrent) {
-            // Fill
-            const [fr, fg, fb] = pal.fill;
-            ctx.fillStyle = `rgba(${fr},${fg},${fb},${fillOpacity})`;
+        const [fr, fg, fb] = pal.fill;
+        if (cfg.fillOpacity > 0) {
+            ctx.fillStyle = `rgba(${fr},${fg},${fb},${cfg.fillOpacity})`;
             ctx.fill();
+        }
 
-            // Glow
-            if (showGlow) {
-                ctx.save();
-                ctx.shadowColor = edgeColor;
-                ctx.shadowBlur = 18 / view.scale;
-                ctx.lineWidth = lineW;
-                ctx.strokeStyle = edgeColor;
-                ctx.stroke();
-                ctx.restore();
-            }
-
+        if (cfg.showGlow) {
+            ctx.save();
+            ctx.shadowColor = edgeColor;
+            ctx.shadowBlur = 14 * dpr;
             ctx.lineWidth = lineW;
             ctx.strokeStyle = edgeColor;
             ctx.stroke();
-        } else {
-            const alpha = isBase ? trailOpacity * 1.2 : trailOpacity;
-            ctx.lineWidth = Math.max(0.5 / view.scale, lineW * 0.5);
-            ctx.globalAlpha = Math.min(1, alpha);
-            ctx.strokeStyle = edgeColor;
-            ctx.stroke();
-            ctx.globalAlpha = 1;
+            ctx.restore();
         }
 
-        // Diagonals
-        if (isCurrent && (diagCB.checked || spiralLimit !== undefined)) {
-            const skip = parseInt(skipSlider.value);
+        ctx.lineWidth = lineW;
+        ctx.strokeStyle = edgeColor;
+        ctx.stroke();
+
+        if (cfg.showDiag || spiralLimit !== undefined) {
+            const skip = cfg.skip;
             const limit = spiralLimit !== undefined ? spiralLimit : n;
 
-            ctx.beginPath();
-            for (let i = 0; i < limit; i++) {
-                ctx.moveTo(polygon[i].x, polygon[i].y);
-                ctx.lineTo(polygon[(i + skip) % n].x, polygon[(i + skip) % n].y);
+            if (limit > 0) {
+                ctx.beginPath();
+                for (let i = 0; i < limit; i++) {
+                    ctx.moveTo(polygon[i].x, polygon[i].y);
+                    ctx.lineTo(polygon[(i + skip) % n].x, polygon[(i + skip) % n].y);
+                }
+                ctx.lineWidth = 0.65 / view.scale;
+                ctx.globalAlpha = 0.28;
+                ctx.strokeStyle = edgeColor;
+                ctx.setLineDash([5 / view.scale, 5 / view.scale]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
             }
-            ctx.lineWidth = 0.6 / view.scale;
-            ctx.globalAlpha = 0.25;
-            ctx.strokeStyle = edgeColor;
-            ctx.setLineDash([5 / view.scale, 5 / view.scale]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.globalAlpha = 1;
 
             if (spiralLimit !== undefined && spiralLimit > 0) {
                 const innerPoints = [];
                 for (let i = 0; i < limit; i++) {
-                    const a1 = polygon[i];
-                    const a2 = polygon[(i + skip) % n];
-                    const b1 = polygon[(i + 1) % n];
-                    const b2 = polygon[(i + 1 + skip) % n];
                     if (i < limit - 1 || limit === n) {
-                        innerPoints.push(getIntersection(a1, a2, b1, b2));
+                        innerPoints.push(
+                            getIntersection(
+                                polygon[i],
+                                polygon[(i + skip) % n],
+                                polygon[(i + 1) % n],
+                                polygon[(i + 1 + skip) % n]
+                            )
+                        );
                     }
                 }
 
                 if (innerPoints.length > 0) {
-                    ctx.globalAlpha = 1;
-                    const nextColor = paletteEdgeColor(pal, iterIndex + 1);
+                    const nextColor = pal.colors[(iterIndex + 1) % pal.colors.length];
                     ctx.strokeStyle = nextColor;
                     ctx.lineWidth = lineW;
 
@@ -462,131 +728,113 @@
                     ctx.stroke();
 
                     ctx.fillStyle = nextColor;
+                    ctx.beginPath();
                     for (let i = 0; i < innerPoints.length; i++) {
-                        ctx.beginPath();
-                        ctx.arc(innerPoints[i].x, innerPoints[i].y, vertexR, 0, Math.PI * 2);
-                        ctx.fill();
+                        const pt = innerPoints[i];
+                        ctx.moveTo(pt.x + vertexR, pt.y);
+                        ctx.arc(pt.x, pt.y, vertexR, 0, Math.PI * 2);
                     }
+                    ctx.fill();
                 }
             }
         }
 
-        // Vertices
-        if (isCurrent || isBase) {
+        if (cfg.showGlow) {
+            ctx.save();
+            ctx.shadowColor = pal.vertex;
+            ctx.shadowBlur = 8 * dpr;
+            ctx.fillStyle = pal.vertex;
+            ctx.beginPath();
             for (let i = 0; i < n; i++) {
-                ctx.beginPath();
-                ctx.arc(polygon[i].x, polygon[i].y, isCurrent ? vertexR : vertexR * 0.7, 0, Math.PI * 2);
-                if (showGlow && isCurrent) {
-                    ctx.shadowColor = pal.vertex;
-                    ctx.shadowBlur = 10 / view.scale;
-                }
-                ctx.fillStyle = pal.vertex;
-                if (!isCurrent) ctx.globalAlpha = 0.35;
-                ctx.fill();
-                ctx.globalAlpha = 1;
-                ctx.shadowBlur = 0;
+                const p = polygon[i];
+                ctx.moveTo(p.x + vertexR, p.y);
+                ctx.arc(p.x, p.y, vertexR, 0, Math.PI * 2);
             }
+            ctx.fill();
+            ctx.restore();
+        } else {
+            ctx.fillStyle = pal.vertex;
+            ctx.beginPath();
+            for (let i = 0; i < n; i++) {
+                const p = polygon[i];
+                ctx.moveTo(p.x + vertexR, p.y);
+                ctx.arc(p.x, p.y, vertexR, 0, Math.PI * 2);
+            }
+            ctx.fill();
         }
     }
 
-    // ─── Triangulation drawing ────────────────────────────────
-    // Draw the natural triangulation arising from the pentagram map
-    // diagonals. Between polygon P (outer) and its image Q (inner):
-    //
-    //   Q_i = intersection of diagonal D_i and D_{i+1}
-    //   D_i = line from P_i to P_{i+skip}
-    //
-    // Each diagonal D_j has segments:
-    //   near:  P_j → Q_{j-1}
-    //   mid:   Q_{j-1} → Q_j  (= edge of Q, lies on D_j)
-    //   far:   Q_j → P_{j+skip}
-    //
-    // These segments carve the annular region P↔Q into triangles:
-    //   Side triangle at edge P_j–P_{j+1}:
-    //       (P_j,  P_{j+1},  Q_{j-1})
-    //   Spike fan at vertex P_j (k-1 triangles for skip k):
-    //       (P_j,  Q_{j-m},  Q_{j-m-1})  for m = 1 … k-1
-    //
-    function drawTriangulation(outer, inner, pal, iterIndex, totalIters) {
-        if (outer.length !== inner.length || outer.length < 3) return;
-        const n = outer.length;
-        const skip = parseInt(skipSlider.value);
-        const fillOpacity = parseFloat(fillOpSlider.value) / 100;
-        const trailOpacity = parseFloat(trailOpSlider.value) / 100;
-        const rainbowTrail = gradientTrailCB.checked;
-
-        const mod = i => ((i % n) + n) % n;
-
-        // Helper to get triangle fill color
-        function triColor(j, shade) {
-            const alpha = fillOpacity * 2.5 + 0.04 - shade * 0.015;
-            if (rainbowTrail) {
-                const hue = ((iterIndex + j / n) / Math.max(totalIters, 1)) * 360;
-                return `hsla(${hue + shade * 12}, 70%, ${50 - shade * 5}%, ${alpha})`;
-            }
-            const c = pal.colors[(iterIndex + shade) % pal.colors.length];
-            return hexToRGBA(c, alpha);
+    function drawHoveredBaseVertex(pal) {
+        if (!cfg.enableDrag || hoveredNodeIndex < 0 || hoveredNodeIndex >= basePolygon.length) {
+            return;
         }
-
-        function fillTri(a, b, c, color) {
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.lineTo(c.x, c.y);
-            ctx.closePath();
-            ctx.fillStyle = color;
-            ctx.fill();
-        }
-
-        for (let j = 0; j < n; j++) {
-            // Side triangle: P_j, P_{j+1}, Q_{j-1}
-            const Pj = outer[j];
-            const Pj1 = outer[mod(j + 1)];
-            const Qjm1 = inner[mod(j - 1)];
-
-            fillTri(Pj, Pj1, Qjm1, triColor(j, 0));
-
-            // Spike fan: (k-1) triangles from P_j through Q_{j-1}…Q_{j-k}
-            for (let m = 1; m <= skip - 1; m++) {
-                const Qa = inner[mod(j - m)];
-                const Qb = inner[mod(j - m - 1)];
-                fillTri(Pj, Qa, Qb, triColor(j, m));
-            }
-        }
-
-        // Draw the diagonal segments (spokes) P_j→Q_{j-1} and Q_j→P_{j+skip}
+        const p = basePolygon[hoveredNodeIndex];
+        const haloR = (cfg.vertexRadius + 5) / view.scale;
         ctx.beginPath();
-        for (let j = 0; j < n; j++) {
-            // Near segment: P_j to Q_{j-1}
-            ctx.moveTo(outer[j].x, outer[j].y);
-            ctx.lineTo(inner[mod(j - 1)].x, inner[mod(j - 1)].y);
-            // Far segment: Q_j to P_{j+skip}
-            ctx.moveTo(inner[j].x, inner[j].y);
-            ctx.lineTo(outer[mod(j + skip)].x, outer[mod(j + skip)].y);
-        }
-        ctx.lineWidth = 0.6 / view.scale;
-        ctx.globalAlpha = trailOpacity * 0.6;
-        ctx.strokeStyle = pal.colors[iterIndex % pal.colors.length];
+        ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
+        ctx.lineWidth = 1.5 / view.scale;
+        ctx.strokeStyle = pal.vertex;
+        ctx.globalAlpha = 0.85;
         ctx.stroke();
         ctx.globalAlpha = 1;
     }
 
-    function hexToRGBA(hex, alpha) {
-        // Support #rrggbb
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r},${g},${b},${alpha})`;
+    function render2D(pal, morphBlended) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = pal.bg;
+        ctx.fillRect(0, 0, W, H);
+
+        if (polygonHistory.length === 0) return;
+
+        let polygons = polygonHistory;
+        if (morphBlended) {
+            polygons = polygonHistory.slice(0, -1);
+            polygons.push(morphBlended);
+        }
+
+        const totalIters = polygons.length;
+        const maxTrails = cfg.maxTrails;
+
+        applyViewTransform();
+
+        if (cfg.showTri && totalIters >= 2) {
+            const limitIters = totalIters - 1;
+            const start = Math.max(0, limitIters - maxTrails);
+            drawTriangulationLayer(polygons, start, limitIters, pal, totalIters);
+        }
+
+        const trailStart = Math.max(0, totalIters - maxTrails);
+        drawTrailPolygons(polygons, trailStart, totalIters - 1, pal, totalIters);
+
+        drawCurrentPolygon(
+            polygons[totalIters - 1],
+            pal,
+            totalIters - 1,
+            cfg.spiralMode ? spiralCounter : undefined
+        );
+
+        drawHoveredBaseVertex(pal);
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-    // ─── Main loop ───────────────────────────────────────────
-    // ── Shared state for scene3d.js ──
-    // A single stable object, mutated in place each frame — avoids
-    // allocating a fresh object 60×/s and lets scene3d hold a reference.
+    // ─── Shared state for scene3d.js ─────────────────────────
     const pentagramState = {
-        polygonHistory, spiralCounter, currentPaletteKey, PALETTES,
-        skipValue: 2, spiralMode: false, autoZoom: false,
-        isPlaying: false, is3D: false, historyRevision: 0,
+        polygonHistory,
+        spiralCounter,
+        currentPaletteKey,
+        PALETTES,
+        skipValue: cfg.skip,
+        spiralMode: cfg.spiralMode,
+        autoZoom: cfg.autoZoom,
+        showTriangulation: cfg.showTri,
+        showDiagonals: cfg.showDiag,
+        maxTrails: cfg.maxTrails,
+        autoRotate: cfg.autoRotate,
+        rotateSpeed: cfg.rotateSpeed,
+        isPlaying: false,
+        is3D: false,
+        historyRevision: 0,
     };
     window.PentagramState = pentagramState;
 
@@ -594,71 +842,82 @@
         pentagramState.polygonHistory = polygonHistory;
         pentagramState.spiralCounter = spiralCounter;
         pentagramState.currentPaletteKey = currentPaletteKey;
-        pentagramState.skipValue = parseInt(skipSlider.value);
-        pentagramState.spiralMode = spiralCB.checked;
-        pentagramState.autoZoom = autoZoomCB.checked;
+        pentagramState.skipValue = cfg.skip;
+        pentagramState.spiralMode = cfg.spiralMode;
+        pentagramState.autoZoom = cfg.autoZoom;
+        pentagramState.showTriangulation = cfg.showTri;
+        pentagramState.showDiagonals = cfg.showDiag;
+        pentagramState.maxTrails = cfg.maxTrails;
+        pentagramState.autoRotate = cfg.autoRotate;
+        pentagramState.rotateSpeed = cfg.rotateSpeed;
         pentagramState.isPlaying = isPlaying;
         pentagramState.is3D = is3D;
         pentagramState.historyRevision = historyRevision;
     }
 
-    function update(timestamp) {
-        if (!lastTime) lastTime = timestamp;
-        const dt = timestamp - lastTime;
+    // ─── Main Loop ───────────────────────────────────────────
+    function tick(timestamp) {
+        rafId = null;
+        if (isPageHidden) return;
+
+        const dt = lastTime ? Math.min(timestamp - lastTime, 100) : 16.67;
         lastTime = timestamp;
 
-        publishState();
-
-        const pal = PALETTES[currentPaletteKey];
-        canvas.style.backgroundColor = pal.bg;
-
-        ctx.clearRect(0, 0, W, H);
-
-        // Auto-rotate
-        if (autoRotCB.checked && !isDragging) {
-            const rSpeed = parseFloat(rotSpeedSlider.value) / 10;
-            rotateBase(rSpeed);
-            rebuildHistory();
+        if (!is3D && cfg.autoRotate && !isDragging) {
+            const angleDeg = cfg.rotateSpeed * (dt / 16.67);
+            rotatePolygonListInPlace(polygonHistory, angleDeg);
+            if (morphing) {
+                rotatePolygonListInPlace([morphFrom, morphTo], angleDeg);
+            }
+            dirty = true;
         }
 
-        // Auto-play iterations
         if (isPlaying && !morphing) {
-            const speed = parseFloat(speedSlider.value);
-            const n = basePolygon.length;
-            const interval = spiralCB.checked ? 1000 / (speed * n) : 1000 / speed;
+            const n = basePolygon.length || 1;
+            const interval = cfg.spiralMode ? 1000 / (cfg.speed * n) : 1000 / cfg.speed;
             timeAccumulator += dt;
-            while (timeAccumulator > interval) {
-                if (spiralCB.checked) {
+            let stepsThisFrame = 0;
+            while (timeAccumulator >= interval && stepsThisFrame < 20) {
+                if (cfg.spiralMode) {
                     spiralCounter++;
                     if (spiralCounter >= n) {
                         advanceStep();
                         spiralCounter = 0;
+                    } else {
+                        updateStepButtons();
                     }
                 } else {
                     advanceStep();
                 }
                 timeAccumulator -= interval;
+                stepsThisFrame++;
+                dirty = true;
+            }
+            if (stepsThisFrame >= 20) {
+                timeAccumulator = 0;
             }
         }
 
-        // Morph interpolation
-        let displayPolygons = [...polygonHistory];
+        let morphBlended = null;
         if (morphing && morphFrom && morphTo) {
-            const duration = parseFloat(morphSlider.value);
             const elapsed = timestamp - morphStartTime;
-            const t = Math.min(elapsed / duration, 1);
+            const t = Math.min(elapsed / cfg.morphDuration, 1);
             const et = easeInOutCubic(t);
-            const blended = lerpPolygon(morphFrom, morphTo, et);
-            displayPolygons[displayPolygons.length - 1] = blended;
-            if (t >= 1) morphing = false;
+            morphBlended = lerpPolygon(morphFrom, morphTo, et);
+            if (t >= 1) {
+                morphing = false;
+                morphFrom = null;
+                morphTo = null;
+            }
+            dirty = true;
         }
 
-        // Auto-Zoom
-        if (autoZoomCB.checked && displayPolygons.length > 0 && !isDragging && !isOrbiting && !isPanningView) {
-            const currPoly = displayPolygons[displayPolygons.length - 1];
+        if (!is3D && cfg.autoZoom && polygonHistory.length > 0 && !isDragging && !isOrbiting && !isPanningView) {
+            const currPoly = morphBlended || polygonHistory[polygonHistory.length - 1];
             const nCoords = currPoly.length;
             if (nCoords > 0) {
-                let cx = 0, cy = 0;
+                let cx = 0;
+                let cy = 0;
                 for (let i = 0; i < nCoords; i++) {
                     cx += currPoly[i].x;
                     cy += currPoly[i].y;
@@ -675,7 +934,6 @@
 
                 const targetR = Math.min(W, H) * 0.32;
                 const targetScale = targetR / maxR;
-
                 const cos = Math.cos(view.rotation);
                 const sin = Math.sin(view.rotation);
                 const targetX = -(cx * cos - cy * sin) * targetScale;
@@ -685,184 +943,269 @@
                 view.scale += (targetScale - view.scale) * lerpT;
                 view.x += (targetX - view.x) * lerpT;
                 view.y += (targetY - view.y) * lerpT;
+
+                const settled =
+                    Math.abs(targetX - view.x) < 0.25 &&
+                    Math.abs(targetY - view.y) < 0.25 &&
+                    Math.abs(targetScale - view.scale) / Math.max(targetScale, 1e-6) < 0.001;
+
+                if (settled) {
+                    view.scale = targetScale;
+                    view.x = targetX;
+                    view.y = targetY;
+                    autoZoomSettling = false;
+                } else {
+                    autoZoomSettling = true;
+                }
+                dirty = true;
             }
+        } else {
+            autoZoomSettling = false;
         }
 
-        // Draw
-        const showTrails = true;
-        const showTri = triCB.checked;
-        const maxTrails = parseInt(maxTrailSlider.value);
-        const totalIters = displayPolygons.length;
+        publishState();
 
-        applyViewTransform();
-
-        // --- Triangulation layer (drawn first, behind edges) ---
-        if (showTri && displayPolygons.length >= 2) {
-            let limitIters = totalIters - 1;
-            const start = showTrails ? Math.max(0, limitIters - maxTrails) : Math.max(0, limitIters - 1);
-            for (let i = start; i < limitIters; i++) {
-                drawTriangulation(displayPolygons[i], displayPolygons[i + 1], pal, i, totalIters);
-            }
+        const pal = PALETTES[currentPaletteKey];
+        if (!is3D && dirty) {
+            render2D(pal, morphBlended);
+            dirty = false;
         }
 
-        // --- Polygon edges layer ---
-        if (showTrails) {
-            const start = Math.max(0, totalIters - maxTrails);
-            for (let i = start; i < totalIters - 1; i++) {
-                drawPolygon(displayPolygons[i], pal, i, totalIters, false, i === 0);
-            }
-        } else if (displayPolygons.length > 1) {
-            drawPolygon(displayPolygons[0], pal, 0, totalIters, false, true);
+        if (dirty || needsContinuousLoop()) {
+            rafId = requestAnimationFrame(tick);
+        } else {
+            lastTime = 0;
         }
-
-        if (displayPolygons.length > 0) {
-            drawPolygon(
-                displayPolygons[displayPolygons.length - 1],
-                pal, totalIters - 1, totalIters,
-                true,
-                totalIters === 1,
-                spiralCB.checked ? spiralCounter : undefined
-            );
-        }
-
-        resetViewTransform();
-
-        requestAnimationFrame(update);
     }
 
     function advanceStep() {
-        // Pure append — past layers are unchanged, so don't recompute the
-        // whole history. This keeps historyRevision stable, letting scene3d
-        // rebuild incrementally instead of from scratch.
         const prevPoly = polygonHistory[polygonHistory.length - 1];
-        const nextPoly = computeMapStep(
-            prevPoly, parseInt(skipSlider.value), normCB.checked);
+        const nextPoly = computeMapStep(prevPoly, cfg.skip, cfg.normalize);
         polygonHistory.push(nextPoly);
         currentIteration++;
-        iterCount.textContent = currentIteration;
+        updateStepButtons();
 
-        if (morphCB.checked) {
+        if (!is3D && cfg.morphEnabled) {
             morphFrom = prevPoly;
             morphTo = nextPoly;
             morphStartTime = performance.now();
             morphing = true;
         }
+        markDirty();
+    }
+
+    function stepForward() {
+        if (cfg.spiralMode) {
+            spiralCounter++;
+            if (spiralCounter >= basePolygon.length) {
+                advanceStep();
+                spiralCounter = 0;
+            } else {
+                updateStepButtons();
+                markDirty();
+            }
+        } else {
+            advanceStep();
+            spiralCounter = 0;
+        }
+        publishState();
+    }
+
+    function stepBackward() {
+        if (cfg.spiralMode && spiralCounter > 0) {
+            spiralCounter--;
+        } else if (polygonHistory.length > 1) {
+            polygonHistory.pop();
+            currentIteration--;
+            spiralCounter = 0;
+            morphing = false;
+            morphFrom = null;
+            morphTo = null;
+            historyRevision++;
+        } else {
+            return;
+        }
+        updateStepButtons();
+        markDirty();
+        publishState();
     }
 
     // ─── Resize ──────────────────────────────────────────────
     function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
         W = window.innerWidth;
         H = window.innerHeight;
-        canvas.width = W;
-        canvas.height = H;
-        if (basePolygon.length === 0) initBasePolygon();
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        if (basePolygon.length === 0) {
+            initBasePolygon();
+        } else {
+            markDirty();
+        }
     }
 
-    // ─── Palette grid ────────────────────────────────────────
+    // ─── Palette Grid (Poincaré chrome stays consistent) ─────
+    function applyPaletteTheme(key) {
+        const pal = PALETTES[key];
+        if (!pal) return;
+        currentPaletteKey = key;
+
+        const swatches = document.querySelectorAll('.palette-swatch');
+        swatches.forEach(s => {
+            const active = s.dataset.key === key;
+            s.classList.toggle('active', active);
+            s.setAttribute('aria-pressed', String(active));
+        });
+
+        publishState();
+        markDirty();
+    }
+
     function buildPaletteGrid() {
         const grid = $('palette-grid');
         grid.innerHTML = '';
         for (const key of Object.keys(PALETTES)) {
             const pal = PALETTES[key];
-            const swatch = document.createElement('div');
+            const swatch = document.createElement('button');
+            swatch.type = 'button';
             swatch.className = 'palette-swatch' + (key === currentPaletteKey ? ' active' : '');
             swatch.style.background =
                 `linear-gradient(135deg, ${pal.bg} 30%, ${pal.colors[0]}, ${pal.colors[1]})`;
             swatch.title = pal.name;
+            swatch.setAttribute('aria-label', `${pal.name} palette`);
+            swatch.setAttribute('aria-pressed', String(key === currentPaletteKey));
             swatch.dataset.key = key;
-            swatch.addEventListener('click', () => {
-                currentPaletteKey = key;
-                grid.querySelectorAll('.palette-swatch').forEach(s => s.classList.remove('active'));
-                swatch.classList.add('active');
-            });
+            swatch.addEventListener('click', () => applyPaletteTheme(key));
             grid.appendChild(swatch);
         }
+        applyPaletteTheme(currentPaletteKey);
     }
 
-    // ─── Tab switching ───────────────────────────────────────
-    function initTabs() {
-        const tabs = document.querySelectorAll('.tab');
-        const contents = document.querySelectorAll('.tab-content');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                contents.forEach(c => c.classList.remove('active'));
-                tab.classList.add('active');
-                $('tab-' + tab.dataset.tab).classList.add('active');
+    // ─── Tabs (roving tabindex + arrow keys via PoincareUI) ─
+    function initTabKeyboard() {
+        const tablist = document.querySelector('.panel-tabs');
+        const tabs = Array.from(document.querySelectorAll('.tab-btn[data-tab]'));
+        if (!tablist || tabs.length === 0) return;
+
+        document.addEventListener('panel:tab', e => {
+            const activeName = e.detail && e.detail.tab;
+            tabs.forEach(t => {
+                t.tabIndex = t.dataset.tab === activeName ? 0 : -1;
             });
         });
+
+        tablist.addEventListener('keydown', e => {
+            const currentIdx = tabs.indexOf(document.activeElement);
+            if (currentIdx === -1) return;
+            let nextIdx = -1;
+            if (e.key === 'ArrowRight') nextIdx = (currentIdx + 1) % tabs.length;
+            else if (e.key === 'ArrowLeft') nextIdx = (currentIdx - 1 + tabs.length) % tabs.length;
+            else if (e.key === 'Home') nextIdx = 0;
+            else if (e.key === 'End') nextIdx = tabs.length - 1;
+
+            if (nextIdx !== -1) {
+                e.preventDefault();
+                const target = tabs[nextIdx];
+                if (window.PoincareUI) {
+                    window.PoincareUI.selectTab(target.dataset.tab, target);
+                }
+                target.focus();
+            }
+        });
     }
 
-    // ─── Panel toggle ────────────────────────────────────────
-    function initPanelToggle() {
-        const panel = $('ui-panel');
-        const toggleBtn = $('toggle-panel-btn');
-        const closeBtn = $('close-panel-btn');
-
-        closeBtn.addEventListener('click', () => {
-            panel.classList.add('hidden');
-            toggleBtn.style.display = 'flex';
-        });
-        toggleBtn.addEventListener('click', () => {
-            panel.classList.remove('hidden');
-            toggleBtn.style.display = 'none';
-        });
-    }
-
-    function getPointerPos(e) {
+    // ─── Pointer, Wheel, Touch on 2D Canvas ──────────────────
+    function getPointerPos(e, touchIndex = 0) {
         const rect = canvas.getBoundingClientRect();
-        if (e.touches && e.touches.length > 0) {
-            return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+        if (e.touches && e.touches.length > touchIndex) {
+            return {
+                x: e.touches[touchIndex].clientX - rect.left,
+                y: e.touches[touchIndex].clientY - rect.top,
+            };
         }
         return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
 
     function findHitVertex(mx, my) {
-        // mx, my are screen coordinates. Convert to world before checking distance.
         const worldPos = screenToWorld(mx, my);
-        const threshold = 25 / view.scale; // threshold scales with view
-        let best = -1, bestD = threshold;
+        const threshold = 22 / view.scale;
+        let best = -1;
+        let bestD = threshold;
         for (let i = 0; i < basePolygon.length; i++) {
             const d = Math.hypot(basePolygon[i].x - worldPos.x, basePolygon[i].y - worldPos.y);
-            if (d < bestD) { bestD = d; best = i; }
+            if (d < bestD) {
+                bestD = d;
+                best = i;
+            }
         }
         return best;
     }
 
+    function updateCanvasCursor(pointer) {
+        if (isDragging) {
+            canvas.style.cursor = 'grabbing';
+        } else if (isPanningView || isOrbiting) {
+            canvas.style.cursor = 'move';
+        } else if (cfg.enableDrag && pointer) {
+            const hit = findHitVertex(pointer.x, pointer.y);
+            if (hit !== hoveredNodeIndex) {
+                hoveredNodeIndex = hit;
+                markDirty();
+            }
+            canvas.style.cursor = hit !== -1 ? 'grab' : 'crosshair';
+        } else {
+            if (hoveredNodeIndex !== -1) {
+                hoveredNodeIndex = -1;
+                markDirty();
+            }
+            canvas.style.cursor = 'crosshair';
+        }
+    }
+
+    canvas.addEventListener('contextmenu', e => {
+        if (rightMouseUsed) e.preventDefault();
+    });
+
     canvas.addEventListener('mousedown', e => {
         const pointer = getPointerPos(e);
         lastPointerPos = pointer;
+        rightMouseUsed = false;
 
-        if (e.metaKey || e.ctrlKey) {
-            // Orbit Controls
-            if (e.button === 0 && !e.shiftKey) {
-                isOrbiting = true;
-            } else {
-                isPanningView = true;
-            }
+        if (e.button === 2 || e.shiftKey || e.metaKey || e.ctrlKey) {
+            if (e.button === 2) rightMouseUsed = true;
+            isOrbiting = true;
+            updateCanvasCursor(pointer);
             return;
         }
 
-        if (!dragCB.checked) return;
-        const hit = findHitVertex(pointer.x, pointer.y);
-        if (hit !== -1) {
-            isDragging = true;
-            dragNodeIndex = hit;
-            isPlaying = false;
-            updatePlayBtn();
+        if (e.button !== 0) return;
+
+        if (cfg.enableDrag) {
+            const hit = findHitVertex(pointer.x, pointer.y);
+            if (hit !== -1) {
+                isDragging = true;
+                dragNodeIndex = hit;
+                hoveredNodeIndex = hit;
+                setPlaying(false);
+                updateCanvasCursor(pointer);
+                return;
+            }
         }
+
+        isPanningView = true;
+        updateCanvasCursor(pointer);
     });
 
     window.addEventListener('mousemove', e => {
+        if (is3D) return;
         const pointer = getPointerPos(e);
         const dx = pointer.x - lastPointerPos.x;
         const dy = pointer.y - lastPointerPos.y;
 
         if (isOrbiting) {
-            // Orbit around center (just rotation in 2D)
-            const rotationSensitivity = 0.01;
-            view.rotation += dx * rotationSensitivity;
+            view.rotation += dx * 0.008;
             lastPointerPos = pointer;
+            markDirty();
             return;
         }
 
@@ -870,190 +1213,378 @@
             view.x += dx;
             view.y += dy;
             lastPointerPos = pointer;
+            markDirty();
             return;
         }
 
         if (isDragging && dragNodeIndex !== -1) {
-            const worldPos = screenToWorld(pointer.x, pointer.y);
-            basePolygon[dragNodeIndex] = worldPos;
+            basePolygon[dragNodeIndex] = screenToWorld(pointer.x, pointer.y);
             rebuildHistory();
+            lastPointerPos = pointer;
+            return;
+        }
+
+        if (e.target === canvas) {
+            updateCanvasCursor(pointer);
+        } else if (hoveredNodeIndex !== -1) {
+            hoveredNodeIndex = -1;
+            markDirty();
         }
         lastPointerPos = pointer;
     });
 
     window.addEventListener('mouseup', () => {
+        const wasInteracting = isDragging || isOrbiting || isPanningView;
         isDragging = false;
         dragNodeIndex = -1;
         isOrbiting = false;
         isPanningView = false;
+        if (wasInteracting) updateCanvasCursor(lastPointerPos);
+    });
+
+    canvas.addEventListener('dblclick', () => {
+        resetView();
     });
 
     canvas.addEventListener('wheel', e => {
-        if (e.metaKey || e.ctrlKey) {
-            e.preventDefault();
-            const zoomSensitivity = 0.001;
-            const delta = -e.deltaY;
-            const factor = Math.pow(1.1, delta / 100);
-
-            // Zoom toward mouse
-            const pointer = getPointerPos(e);
-            const before = screenToWorld(pointer.x, pointer.y);
-            view.scale *= factor;
-            const after = screenToWorld(pointer.x, pointer.y);
-
-            view.x += (after.x - before.x) * view.scale;
-            view.y += (after.y - before.y) * view.scale; // Simple zoom-to-mouse
-
-            // Wait, proper zoom to mouse needs more careful accounting for rotation.
-            // Simplified for now: just scale
-        }
+        e.preventDefault();
+        const factor = Math.pow(1.0018, -e.deltaY);
+        const pointer = getPointerPos(e);
+        const before = screenToWorld(pointer.x, pointer.y);
+        view.scale = Math.max(1e-4, Math.min(1e7, view.scale * factor));
+        const afterScreen = worldToScreen(before.x, before.y);
+        view.x += pointer.x - afterScreen.x;
+        view.y += pointer.y - afterScreen.y;
+        markDirty();
     }, { passive: false });
 
-    // Touch support (basic)
     canvas.addEventListener('touchstart', e => {
-        if (e.touches.length > 1) {
-            // Could implement pinch zoom here
+        if (e.touches.length === 2) {
+            isDragging = false;
+            isPanningView = false;
+            dragNodeIndex = -1;
+            const p0 = getPointerPos(e, 0);
+            const p1 = getPointerPos(e, 1);
+            pinchLastDist = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1;
+            pinchLastMid = { x: (p0.x + p1.x) * 0.5, y: (p0.y + p1.y) * 0.5 };
             return;
         }
-        const pointer = getPointerPos(e);
-        lastPointerPos = pointer;
 
-        if (!dragCB.checked) return;
-        const hit = findHitVertex(pointer.x, pointer.y);
-        if (hit !== -1) {
-            isDragging = true;
-            dragNodeIndex = hit;
-            isPlaying = false;
-            updatePlayBtn();
+        if (e.touches.length === 1) {
+            const pointer = getPointerPos(e, 0);
+            lastPointerPos = pointer;
+            if (cfg.enableDrag) {
+                const hit = findHitVertex(pointer.x, pointer.y);
+                if (hit !== -1) {
+                    isDragging = true;
+                    dragNodeIndex = hit;
+                    hoveredNodeIndex = hit;
+                    setPlaying(false);
+                    return;
+                }
+            }
+            isPanningView = true;
         }
     }, { passive: true });
 
-    window.addEventListener('touchmove', e => {
-        if (isDragging && dragNodeIndex !== -1) {
+    canvas.addEventListener('touchmove', e => {
+        if (e.touches.length === 2 && pinchLastMid) {
             e.preventDefault();
-            const pointer = getPointerPos(e);
-            const worldPos = screenToWorld(pointer.x, pointer.y);
-            basePolygon[dragNodeIndex] = worldPos;
-            rebuildHistory();
+            const p0 = getPointerPos(e, 0);
+            const p1 = getPointerPos(e, 1);
+            const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1;
+            const mid = { x: (p0.x + p1.x) * 0.5, y: (p0.y + p1.y) * 0.5 };
+
+            const before = screenToWorld(pinchLastMid.x, pinchLastMid.y);
+            const factor = dist / pinchLastDist;
+            view.scale = Math.max(1e-4, Math.min(1e7, view.scale * factor));
+            const afterScreen = worldToScreen(before.x, before.y);
+            view.x += mid.x - afterScreen.x;
+            view.y += mid.y - afterScreen.y;
+
+            pinchLastDist = dist;
+            pinchLastMid = mid;
+            markDirty();
+            return;
+        }
+
+        if (e.touches.length === 1) {
+            const pointer = getPointerPos(e, 0);
+            if (isDragging && dragNodeIndex !== -1) {
+                e.preventDefault();
+                basePolygon[dragNodeIndex] = screenToWorld(pointer.x, pointer.y);
+                rebuildHistory();
+                lastPointerPos = pointer;
+            } else if (isPanningView) {
+                e.preventDefault();
+                view.x += pointer.x - lastPointerPos.x;
+                view.y += pointer.y - lastPointerPos.y;
+                lastPointerPos = pointer;
+                markDirty();
+            }
         }
     }, { passive: false });
 
-    window.addEventListener('touchend', () => { isDragging = false; dragNodeIndex = -1; });
-
-    // ─── Controls ────────────────────────────────────────────
-    function updatePlayBtn() {
-        playBtn.innerHTML = isPlaying
-            ? '<span class="btn-icon">⏸</span> Pause'
-            : '<span class="btn-icon">▶</span> Play';
-    }
-
-    playBtn.addEventListener('click', () => { isPlaying = !isPlaying; updatePlayBtn(); });
-    stepBtn.addEventListener('click', () => {
-        if (spiralCB.checked) {
-            spiralCounter++;
-            if (spiralCounter >= basePolygon.length) {
-                advanceStep();
-                spiralCounter = 0;
-            }
-        } else {
-            advanceStep();
-            spiralCounter = 0;
+    canvas.addEventListener('touchend', e => {
+        if (e.touches.length < 2) {
+            pinchLastMid = null;
+        }
+        if (e.touches.length === 0) {
+            isDragging = false;
+            isPanningView = false;
+            dragNodeIndex = -1;
+            hoveredNodeIndex = -1;
+            markDirty();
         }
     });
-    resetBtn.addEventListener('click', () => { initBasePolygon(); });
 
-    // Slider readouts
-    const sliderBindings = [
-        [nSlider, nVal, null, () => { syncSkipMax(); initBasePolygon(); }],
-        [skipSlider, skipVal, null, () => rebuildHistory()],
-        [starRadSlider, starRadVal, v => (v / 100).toFixed(2), () => initBasePolygon()],
-        [lineWSlider, lineWVal, null],
-        [vertexRSlider, vertexRVal, null],
-        [trailOpSlider, trailOpVal, v => (v / 100).toFixed(2)],
-        [fillOpSlider, fillOpVal, v => (v / 100).toFixed(2)],
-        [speedSlider, speedVal, null],
-        [maxTrailSlider, maxTrailVal, null],
-        [morphSlider, morphVal, null],
-        [rotSpeedSlider, rotSpeedVal, v => (v / 10).toFixed(1)],
-    ];
+    // ─── Controls & Contextual Sync ──────────────────────────
+    function setPlaying(nextPlaying) {
+        isPlaying = nextPlaying;
+        playBtn.classList.toggle('on', isPlaying);
+        playBtn.innerHTML = isPlaying
+            ? '<svg viewBox="0 0 16 16" aria-hidden="true"><rect class="solid" x="3.5" y="3" width="3" height="10" rx="0.8"/><rect class="solid" x="9.5" y="3" width="3" height="10" rx="0.8"/></svg><span class="pill-label">Pause</span>'
+            : '<svg viewBox="0 0 16 16" aria-hidden="true"><polygon class="solid" points="4.5,3 13,8 4.5,13"/></svg><span class="pill-label">Play</span>';
+        publishState();
+        ensureLoop();
+    }
 
-    sliderBindings.forEach(([slider, display, fmt, cb]) => {
-        slider.addEventListener('input', () => {
-            display.textContent = fmt ? fmt(slider.value) : slider.value;
-            if (cb) cb();
-        });
-    });
+    function syncContextualControls() {
+        const isStar = cfg.shape === 'star';
+        const isRandom = cfg.shape === 'random-convex' || cfg.shape === 'irregular';
+        starRadGroup.hidden = !isStar;
+        reseedBtn.hidden = !isRandom;
+        morphDurationGroup.hidden = !cfg.morphEnabled;
+        rotateSpeedGroup.hidden = !cfg.autoRotate;
+        geomMeta.textContent = `${cfg.n}-gon · skip ${cfg.skip}`;
+        interactionHint.innerHTML = is3D
+            ? 'Drag to orbit · Scroll to dolly · Double-click reset · <kbd>Space</kbd> play'
+            : 'Drag vertices · Drag canvas to pan · Scroll to zoom · <kbd>Space</kbd> play';
+    }
 
-    shapeSelect.addEventListener('change', () => initBasePolygon());
-    normCB.addEventListener('change', () => rebuildHistory());
-    spiralCB.addEventListener('change', () => {
-        if (!spiralCB.checked) spiralCounter = 0;
-    });
-
-    // Keep skip max coherent with n
     function syncSkipMax() {
-        const n = parseInt(nSlider.value);
-        const maxSkip = Math.floor(n / 2);
+        const maxSkip = Math.floor(cfg.n / 2);
         skipSlider.max = maxSkip;
-        if (parseInt(skipSlider.value) > maxSkip) {
+        skipSlider.disabled = maxSkip <= 2;
+        if (cfg.skip > maxSkip) {
+            cfg.skip = maxSkip;
             skipSlider.value = maxSkip;
             skipVal.textContent = maxSkip;
         }
     }
 
-    // Export
+    function resetView() {
+        if (is3D && window.Scene3D) {
+            window.Scene3D.resetView();
+        } else {
+            view.x = 0;
+            view.y = 0;
+            view.scale = 1;
+            view.rotation = 0;
+            markDirty();
+        }
+    }
+
+    function resetAll() {
+        view.x = 0;
+        view.y = 0;
+        view.scale = 1;
+        view.rotation = 0;
+        initBasePolygon();
+        if (is3D && window.Scene3D) {
+            window.Scene3D.resetView();
+        }
+    }
+
+    playBtn.addEventListener('click', () => setPlaying(!isPlaying));
+    stepBtn.addEventListener('click', stepForward);
+    stepBackBtn.addEventListener('click', stepBackward);
+    resetBtn.addEventListener('click', resetAll);
+    resetViewBtn.addEventListener('click', resetView);
+    reseedBtn.addEventListener('click', () => initBasePolygon());
+
+    const sliderBindings = [
+        [nSlider, nVal, null, v => {
+            cfg.n = parseInt(v, 10);
+            syncSkipMax();
+            syncContextualControls();
+            initBasePolygon();
+        }],
+        [skipSlider, skipVal, null, v => {
+            cfg.skip = parseInt(v, 10);
+            syncContextualControls();
+            rebuildHistory();
+        }],
+        [starRadSlider, starRadVal, v => (v / 100).toFixed(2), v => {
+            cfg.starRadius = parseFloat(v) / 100;
+            initBasePolygon();
+        }],
+        [lineWSlider, lineWVal, null, v => { cfg.lineWidth = parseFloat(v); markDirty(); }],
+        [vertexRSlider, vertexRVal, null, v => { cfg.vertexRadius = parseFloat(v); markDirty(); }],
+        [trailOpSlider, trailOpVal, v => (v / 100).toFixed(2), v => { cfg.trailOpacity = parseFloat(v) / 100; markDirty(); }],
+        [fillOpSlider, fillOpVal, v => (v / 100).toFixed(2), v => { cfg.fillOpacity = parseFloat(v) / 100; markDirty(); }],
+        [speedSlider, speedVal, null, v => { cfg.speed = parseFloat(v); }],
+        [maxTrailSlider, maxTrailVal, null, v => { cfg.maxTrails = parseInt(v, 10); publishState(); markDirty(); }],
+        [morphSlider, morphVal, null, v => { cfg.morphDuration = parseFloat(v); }],
+        [rotSpeedSlider, rotSpeedVal, v => (v / 10).toFixed(1), v => { cfg.rotateSpeed = parseFloat(v) / 10; publishState(); }],
+    ];
+
+    sliderBindings.forEach(([slider, display, fmt, cb]) => {
+        slider.addEventListener('input', () => {
+            display.textContent = fmt ? fmt(slider.value) : slider.value;
+            if (cb) cb(slider.value);
+        });
+    });
+
+    shapeSelect.addEventListener('change', () => {
+        cfg.shape = shapeSelect.value;
+        syncContextualControls();
+        initBasePolygon();
+    });
+
+    diagCB.addEventListener('change', () => { cfg.showDiag = diagCB.checked; publishState(); markDirty(); });
+    triCB.addEventListener('change', () => { cfg.showTri = triCB.checked; publishState(); markDirty(); });
+    glowCB.addEventListener('change', () => { cfg.showGlow = glowCB.checked; markDirty(); });
+    gradientTrailCB.addEventListener('change', () => { cfg.rainbowTrail = gradientTrailCB.checked; markDirty(); });
+    normCB.addEventListener('change', () => { cfg.normalize = normCB.checked; rebuildHistory(); });
+    dragCB.addEventListener('change', () => {
+        cfg.enableDrag = dragCB.checked;
+        if (!cfg.enableDrag) hoveredNodeIndex = -1;
+        markDirty();
+    });
+    spiralCB.addEventListener('change', () => {
+        cfg.spiralMode = spiralCB.checked;
+        if (!cfg.spiralMode) spiralCounter = 0;
+        updateStepButtons();
+        publishState();
+        markDirty();
+    });
+    autoZoomCB.addEventListener('change', () => {
+        cfg.autoZoom = autoZoomCB.checked;
+        publishState();
+        markDirty();
+    });
+    morphCB.addEventListener('change', () => {
+        cfg.morphEnabled = morphCB.checked;
+        syncContextualControls();
+    });
+    autoRotCB.addEventListener('change', () => {
+        cfg.autoRotate = autoRotCB.checked;
+        syncContextualControls();
+        publishState();
+        markDirty();
+    });
+
     exportBtn.addEventListener('click', () => {
-        const dataUrl = canvas.toDataURL('image/png');
+        let dataUrl = null;
+        if (is3D && window.Scene3D && window.Scene3D.captureDataURL) {
+            dataUrl = window.Scene3D.captureDataURL();
+        } else {
+            render2D(PALETTES[currentPaletteKey], null);
+            dataUrl = canvas.toDataURL('image/png');
+        }
+        if (!dataUrl) return;
         const a = document.createElement('a');
         a.href = dataUrl;
-        a.download = `pentagram_iter${currentIteration}.png`;
+        a.download = `pentagram_${is3D ? '3d_' : ''}iter${currentIteration}.png`;
         a.click();
     });
 
     // ─── Mode Toggle (2D ↔ 3D) ───────────────────────────────
-    function initModeToggle() {
-        const container3d = $('canvas3d-container');
-        modeToggleBtn.addEventListener('click', () => {
-            is3D = !is3D;
-            if (is3D) {
-                // Ensure there are enough iterations for a visible tunnel
-                if (currentIteration < 5) {
-                    while (currentIteration < 5) {
-                        currentIteration++;
-                    }
-                    rebuildHistory();
-                }
+    function setMode(nextIs3D) {
+        if (is3D === nextIs3D) return;
+        is3D = nextIs3D;
 
-                canvas.style.display = 'none';
-                container3d.style.display = 'block';
-                modeToggleBtn.textContent = '2D';
-                modeToggleBtn.classList.add('active');
+        mode2dBtn.classList.toggle('active', !is3D);
+        mode2dBtn.setAttribute('aria-pressed', String(!is3D));
+        mode3dBtn.classList.toggle('active', is3D);
+        mode3dBtn.setAttribute('aria-pressed', String(is3D));
 
-                // Publish state immediately so Scene3D has data
-                publishState();
-
-                // Lazy-init the Three.js scene on first activation
-                if (window.Scene3D) {
-                    window.Scene3D.init();
-                    // Force a rebuild after init in case state was stale
-                    window.Scene3D.rebuildScene();
-                }
-            } else {
-                canvas.style.display = '';
-                container3d.style.display = 'none';
-                modeToggleBtn.textContent = '3D';
-                modeToggleBtn.classList.remove('active');
+        if (is3D) {
+            if (currentIteration < 5) {
+                currentIteration = 5;
+                rebuildHistory();
             }
-        });
+            canvas.style.display = 'none';
+            container3d.style.display = 'block';
+            publishState();
+
+            if (window.Scene3D) {
+                window.Scene3D.init();
+                window.Scene3D.setActive(true);
+            }
+        } else {
+            if (window.Scene3D) {
+                window.Scene3D.setActive(false);
+            }
+            canvas.style.display = '';
+            container3d.style.display = 'none';
+            publishState();
+            markDirty();
+        }
+        syncContextualControls();
     }
+
+    function initModeToggle() {
+        mode2dBtn.addEventListener('click', () => setMode(false));
+        mode3dBtn.addEventListener('click', () => setMode(true));
+    }
+
+    // ─── Keyboard Shortcuts ──────────────────────────────────
+    window.addEventListener('keydown', e => {
+        const tag = e.target ? e.target.tagName : '';
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+            return;
+        }
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+        if (e.code === 'Space') {
+            if (tag === 'BUTTON') return;
+            e.preventDefault();
+            setPlaying(!isPlaying);
+        } else if (e.key === 'ArrowRight' || e.key === 's' || e.key === 'S') {
+            e.preventDefault();
+            stepForward();
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            stepBackward();
+        } else if (e.key === 'r' || e.key === 'R') {
+            resetAll();
+        } else if (e.key === '0') {
+            resetView();
+        } else if (e.key === '3') {
+            setMode(!is3D);
+        } else if (e.key === 'h' || e.key === 'H') {
+            const panel = $('control-panel');
+            if (panel && window.PoincareUI) {
+                window.PoincareUI.setCollapsed(!panel.classList.contains('collapsed'));
+            }
+        }
+    });
+
+    // ─── Page Visibility ─────────────────────────────────────
+    document.addEventListener('visibilitychange', () => {
+        isPageHidden = document.hidden;
+        if (isPageHidden) {
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+            lastTime = 0;
+        } else {
+            lastTime = 0;
+            if (!is3D) markDirty();
+            else ensureLoop();
+        }
+    });
 
     // ─── Boot ────────────────────────────────────────────────
     window.addEventListener('resize', resize);
     buildPaletteGrid();
-    initTabs();
-    initPanelToggle();
+    initTabKeyboard();
     initModeToggle();
     syncSkipMax();
+    syncContextualControls();
     resize();
-    requestAnimationFrame(update);
+    ensureLoop();
 })();
